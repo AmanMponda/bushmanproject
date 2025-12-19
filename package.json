@@ -56,6 +56,8 @@
     "highlight.js": "^11.11.1",
     "highlightjs": "^9.16.2",
     "jquery": "^3.7.1",
+    "jspdf": "^3.0.4",
+    "jspdf-autotable": "^5.0.2",
     "jsvectormap": "^1.6.0",
     "lity": "^2.4.1",
     "maska": "^3.1.1",
