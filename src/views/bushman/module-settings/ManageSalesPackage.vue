@@ -28,29 +28,24 @@
                   :action-buttons="pageActions"
                   :show-date-filters="false"
                 >
-                  <!-- @ts-ignore -->
                   <template #id="{ row }">
                     {{ (row as any).id }}
                   </template>
-                  <!-- @ts-ignore -->
                   <template #name="{ row }">
                     {{ (row as any).name }}
                   </template>
-                  <!-- @ts-ignore -->
                   <template #area_name="{ row }">
                     {{ (row as any).area_name }}
                   </template>
-                  <!-- @ts-ignore -->
                   <template #regulatory_package_name="{ row }">
                     {{ (row as any).regulatory_package_name }}
                   </template>
-                  <!-- @ts-ignore -->
                   <template #actions="{ row }">
                     <div class="d-flex gap-1">
-                      <button class="btn btn-info btn-sm" title="View" @click="showDetails(row as any)">
+                      <button class="btn btn-info btn-sm" title="View" @click="showDetails(row)">
                         <i class="fa fa-eye"></i>
                       </button>
-                      <button class="btn btn-danger btn-sm" title="Delete" @click="confirmDelete(row as any)">
+                      <button class="btn btn-danger btn-sm" title="Delete" @click="confirmDelete(row)">
                         <i class="fa fa-trash"></i>
                       </button>
                     </div>
@@ -93,43 +88,38 @@
 </template>
 
 <script lang="ts">
-// @ts-nocheck - Template slot type errors from StandardDataTable component
+// @ts-nocheck - StandardDataTable component doesn't provide TypeScript types for row parameter
 import { ref, reactive, computed, onMounted } from 'vue'
-import handleErrors from '../../../stores/bushman/errorHandler.ts'
+import handleErrors from '../../../stores/bushman/errorHandler'
 import { validators } from '../../../stores/bushman/utils.ts'
 import { useForm } from '@/composables/useForm'
 import { useToast } from '@/composables/useToast'
-import { useQuotaStore } from '../../../stores/bushman/quota-store.ts'
-import { useSettingsStore } from '../../../stores/bushman/settings-store.ts'
-import { usePriceListStore } from '../../../stores/bushman/price-list-store.ts'
-import { useRegulatoryPackageStore } from '../../../stores/bushman/regulatory-store.ts'
+import { useQuotaStore } from '../../../stores/bushman/quota-store'
+import { useSettingsStore } from '../../../stores/bushman/settings-store'
+import { usePriceListStore } from '../../../stores/bushman/price-list-store'
+import { useRegulatoryPackageStore } from '../../../stores/bushman/regulatory-store'
 import SalesPackageDetails from './moduleforms/SalesPackageDetails.vue'
 import SalesPackageForm from './SalesPackageForm.vue'
 import StandardDataTable from '@/components/bootstrap/StandardDataTable.vue'
 import Swal from 'sweetalert2'
 
-export interface Option {
-  value: any;
-  text: string;
+interface SelectOption {
+  value: any
+  text: string
 }
-export interface PackageItem {
-  id: any;
-  name: string;
-  area_name: string;
-  regulatory_package_name: string;
-  selfItem?: any;
-}
-export interface SpeciesObject {
-  id: any;
-  name: string;
-  quantity: number;
+
+interface SpeciesObject {
+  id: any
+  name: string
+  quantity: number
+  species_id?: any
 }
 
 export default {
   components: {
-    SalesPackageDetails,
-    SalesPackageForm,
-    StandardDataTable,
+    SalesPackageDetails: SalesPackageDetails as any,
+    SalesPackageForm: SalesPackageForm as any,
+    StandardDataTable: StandardDataTable as any,
   },
   setup() {
     // State
@@ -145,12 +135,12 @@ export default {
     const deleting = ref(false)
     const loading = ref(false)
     const saving = ref(false)
-    const packages = ref<PackageItem[]>([])
-    const regulatoryPackagesOptions = ref<Option[]>([])
+    const packages = ref<any[]>([])
+    const regulatoryPackagesOptions = ref<SelectOption[]>([])
     const loadingLicenceOptions = ref(false)
     const loadingSpeciesOptions = ref(false)
-    const speciesItemOptions = ref<Option[]>([])
-    const areasOptions = ref<Option[]>([])
+    const speciesItemOptions = ref<SelectOption[]>([])
+    const areasOptions = ref<SelectOption[]>([])
     const columns = [
       { key: 'id', label: 'ID', sortable: true, visible: true },
       { key: 'name', label: 'Name', sortable: true, visible: true },
@@ -162,11 +152,11 @@ export default {
     const isChanged = ref(false)
     const quntityChangedsaved = ref(false)
     const preferred_species = ref<any[]>([])
-    const speciesOptions = ref<Option[]>([])
+    const speciesOptions = ref<SelectOption[]>([])
     const speciesObjects = ref<SpeciesObject[]>([])
-    const huntingTypesOptions = ref<Option[]>([])
-    const salesQuotasOptions = ref<Option[]>([])
-    const currencyOptions = ref<Option[]>([])
+    const huntingTypesOptions = ref<SelectOption[]>([])
+    const salesQuotasOptions = ref<SelectOption[]>([])
+    const currencyOptions = ref<SelectOption[]>([])
 
     // Pinia stores
     const quotaStore = useQuotaStore()
@@ -184,7 +174,14 @@ export default {
     } = useForm()
 
     // Form state
-    const form = reactive({
+    const form = reactive<{
+      package_name: string
+      description: string
+      species: SelectOption | null
+      quantity: number
+      area: SelectOption | null
+      licence: SelectOption | null
+    }>({
       package_name: '',
       description: '',
       species: null,
@@ -198,7 +195,7 @@ export default {
     const laodinglicenceAreaSpecies = computed(() => settingsStore.laodinglicenceAreaSpecies)
     const itemChanged = (id: any) => {
       const originalValue = originalQuantities[id]
-      const currentValue = (licenceAreaSpecies.value as any[]).find((item: any) => item.id === id)?.quantity
+      const currentValue = licenceAreaSpecies.value.find((item: any) => item.id === id)?.quantity
       return (originalValue && originalValue !== currentValue) || isChanged.value
     }
     const pageActions = computed(() => {
@@ -249,7 +246,7 @@ export default {
     async function handleDeleteFromDetails() {
       if (!selectItem.value) return
       itemToDelete.value = selectItem.value
-      const packageName = (itemToDelete.value as any)?.name || 'this item'
+      const packageName = itemToDelete.value?.name || 'this item'
       
       const result = await Swal.fire({
         title: 'Are you sure?',
@@ -282,7 +279,7 @@ export default {
     }
     async function confirmDelete(rowData: any) {
       itemToDelete.value = rowData.selfItem || rowData
-      const packageName = (itemToDelete.value as any)?.name || 'this item'
+      const packageName = itemToDelete.value?.name || 'this item'
       
       const result = await Swal.fire({
         title: 'Are you sure?',
@@ -310,7 +307,7 @@ export default {
       if (!itemToDelete.value) return
       deleting.value = true
       try {
-        const response = await priceListStore.deleteSalesPackage((itemToDelete.value as any).id, true)
+        const response = await priceListStore.deleteSalesPackage(itemToDelete.value.id, true)
         if (response.status === 200 || response.status === 204) {
           init({
             message: 'Package deleted successfully.',
@@ -350,11 +347,9 @@ export default {
         saving.value = false
         return
       }
-      const areaOption = form.area as Option | null;
-      const licenceOption = form.licence as Option | null;
-      if (!areaOption || !licenceOption) {
+      if (!form.area || !form.licence) {
         init({
-          message: 'Please select area and licence.',
+          message: 'Please select both area and licence.',
           color: 'warning',
         })
         saving.value = false
@@ -363,8 +358,8 @@ export default {
       const requestdata = {
         name: form.package_name,
         description: form.description,
-        areaId: areaOption.value,
-        licenceId: licenceOption.value,
+        areaId: form.area.value,
+        licenceId: form.licence.value,
         speciesObjectList: speciesWithQuantity,
       }
       try {
@@ -389,7 +384,7 @@ export default {
         const response = await quotaStore.getSpeciesList()
         if (response.status === 200) {
           loadingSpeciesOptions.value = false
-          speciesItemOptions.value = response.data.map((item: any) => ({
+          speciesItemOptions.value = response.data.map((item: { id: any; name: any }) => ({
             value: item.id,
             text: item.name,
           }))
@@ -461,15 +456,12 @@ export default {
       }
     }
     async function getLicenceAreaSpeciesList() {
-        const areaOption = form.area as Option | null;
-        const licenceOption = form.licence as Option | null;
-        if (!areaOption || !licenceOption) {
-          speciesOptions.value = [];
-          return;
-        }
-        const payload = {
-        areaId: areaOption.value,
-        licenceId: licenceOption.value,
+      if (!form.area || !form.licence) {
+        return
+      }
+      const payload = {
+        areaId: form.area.value,
+        licenceId: form.licence.value,
       }
       try {
         const response = await settingsStore.getHuntingLicenseAreaSpecies(payload)
@@ -493,7 +485,7 @@ export default {
         const item = licenceAreaSpecies.value.find((item: any) => item.id === id)
         originalQuantities[id] = item.quantity
       }
-      const updatedItem = (licenceAreaSpecies.value as any[]).find((item: any) => item.id === id)
+      const updatedItem = licenceAreaSpecies.value.find((item: any) => item.id === id)
       if (updatedItem) {
         updatedItem.quantity = newValue
         settingsStore.licenceAreaSpecies = [...licenceAreaSpecies.value]
@@ -519,18 +511,17 @@ export default {
         })
         return
       }
-      const speciesOption = form.species as Option | null;
-      if (!speciesOption) {
-        return;
-      }
+      const speciesId = form.species.value
+      const speciesName = form.species.text
       const exists = speciesObjects.value.some(
-        (species: SpeciesObject) => species.id === speciesOption.value,
+        (species: { species_id: any }) => species.species_id === speciesId,
       )
       if (!exists) {
         speciesObjects.value.push({
-          id: speciesOption.value,
-          name: speciesOption.text,
+          id: speciesId,
+          name: speciesName,
           quantity: form.quantity,
+          species_id: speciesId,
         })
       }
     }

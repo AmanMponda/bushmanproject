@@ -25,32 +25,27 @@
                 :action-buttons="pageActions"
                 :show-date-filters="false"
               >
-                <!-- @ts-ignore -->
                 <template #id="{ row }">
-                  {{ (row as any).id }}
+                  {{ row.id }}
                 </template>
-                <!-- @ts-ignore -->
                 <template #name="{ row }">
-                  {{ (row as any).name }}
+                  {{ row.name }}
                 </template>
-                <!-- @ts-ignore -->
                 <template #start_date="{ row }">
-                  {{ (row as any).start_date }}
+                  {{ row.start_date }}
                 </template>
-                <!-- @ts-ignore -->
                 <template #end_date="{ row }">
-                  {{ (row as any).end_date }}
+                  {{ row.end_date }}
                 </template>
-                <!-- @ts-ignore -->
                 <template #actions="{ row }">
                   <div class="d-flex gap-1">
-                    <button class="btn btn-info btn-sm" title="View" @click="viewQuotaDetails(row as any)">
+                    <button class="btn btn-info btn-sm" title="View" @click="viewQuotaDetails(row)">
                       <i class="fa fa-eye"></i>
                     </button>
-                    <button class="btn btn-primary btn-sm" title="Edit" @click="editQuota(row as any)">
+                    <button class="btn btn-primary btn-sm" title="Edit" @click="editQuota(row)">
                       <i class="fa fa-edit"></i>
                     </button>
-                    <button class="btn btn-danger btn-sm" title="Delete" @click="confirmDeleteQuota(row as any)">
+                    <button class="btn btn-danger btn-sm" title="Delete" @click="confirmDeleteQuota(row)">
                       <i class="fa fa-trash"></i>
                     </button>
                   </div>
@@ -69,13 +64,13 @@
             <div class="col-md-4">
               <label class="form-label">Sales Quota</label>
               <select v-model="sform.salesQuota" class="form-select" disabled>
-                <option v-for="q in quotasOptions" :key="(q as any).value" :value="q">{{ (q as any).text }}</option>
+                <option v-for="q in quotasOptions" :key="q.value" :value="q">{{ q.text }}</option>
               </select>
             </div>
             <div class="col-md-4">
               <label class="form-label">Hunting Area</label>
               <select v-model="sform.area" class="form-select" required>
-                <option v-for="a in areasOptions" :key="(a as any).value" :value="a">{{ (a as any).text }}</option>
+                <option v-for="a in areasOptions" :key="a.value" :value="a">{{ a.text }}</option>
               </select>
             </div>
           </div>
@@ -83,7 +78,7 @@
             <div class="col-md-6">
               <label class="form-label">Species</label>
               <select v-model="sform.id" class="form-select" @change="updateQuantitySelectedSpecies(sform.id)" required>
-                <option v-for="s in speciesOptions" :key="(s as any).value" :value="s">{{ (s as any).text }}</option>
+                <option v-for="s in speciesOptions" :key="s.value" :value="s">{{ s.text }}</option>
               </select>
             </div>
             <div class="col-md-3">
@@ -100,7 +95,7 @@
             <div v-if="speciesObjects.length > 0" class="mb-2 fw-bold">Selected Species</div>
             <ul class="list-group">
               <li v-for="(s, index) in speciesObjects" :key="index" class="list-group-item d-flex justify-content-between align-items-center">
-                <span>Name: {{ (s as any).name }} | Quantity: {{ (s as any).quantity }}</span>
+                <span>Name: {{ s.name }} | Quantity: {{ s.quantity }}</span>
                 <button type="button" class="btn btn-sm btn-danger" @click="deleteFromStorage(index)"><i class="fa fa-trash"></i></button>
               </li>
             </ul>
@@ -118,13 +113,38 @@
 </template>
 
 <script setup lang="ts">
-// @ts-nocheck - Template slot type errors from StandardDataTable component
+// @ts-nocheck - StandardDataTable component doesn't provide TypeScript types for row parameter
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useQuotaStore } from '../../../stores/bushman/quota-store'
-import { useSettingsStore } from '@/stores/bushman/settings-store'
 import handleErrors from '../../../stores/bushman/errorHandler'
 import { useToast } from '@/composables/useToast'
 import StandardDataTable from '@/components/bootstrap/StandardDataTable.vue'
+
+interface SelectOption {
+  value: any
+  text: string
+}
+
+interface SpeciesObject {
+  id: any
+  name: string
+  quantity: number
+}
+
+interface FormData {
+  id: any
+  name: string
+  start_date: Date | null
+  end_date: Date | null
+  description: string
+}
+
+interface SpeciesFormData {
+  id: SelectOption | null
+  quantity: number
+  salesQuota: SelectOption | null
+  area: SelectOption | null
+}
 
 const quotaStore = useQuotaStore()
 const toast = useToast()
@@ -137,37 +157,15 @@ const deletingQuota = ref(false)
 const isEditing = ref(false)
 const showModal = ref(false)
 const showDeleteModal = ref(false)
-interface Option {
-  value: any;
-  text: string;
-}
-interface SpeciesObject {
-  id: any;
-  name: string;
-  quantity: number;
-}
-interface QuotaItem {
-  id: any;
-  name: string;
-  start_date: string;
-  end_date: string;
-}
-
-const items = ref<QuotaItem[]>([])
-const quotasOptions = ref<Option[]>([])
-const speciesOptions = ref<Option[]>([])
-const areasOptions = ref<Option[]>([])
+const items = ref<any[]>([])
+const quotasOptions = ref<SelectOption[]>([])
+const speciesOptions = ref<SelectOption[]>([])
+const areasOptions = ref<SelectOption[]>([])
 const speciesObjects = ref<SpeciesObject[]>([])
-const quotaToDelete = ref<QuotaItem | null>(null)
-const currentViewQuota = ref<QuotaItem | null>(null)
+const quotaToDelete = ref<any>(null)
+const currentViewQuota = ref<any>(null)
 
-const form = reactive<{
-  id: any;
-  name: string;
-  start_date: Date | null;
-  end_date: Date | null;
-  description: string;
-}>({
+const form = reactive<FormData>({
   id: null,
   name: '',
   start_date: null,
@@ -175,12 +173,7 @@ const form = reactive<{
   description: '',
 })
 
-const sform = reactive<{
-  id: Option | null;
-  quantity: number;
-  salesQuota: Option | null;
-  area: Option | null;
-}>({
+const sform = reactive<SpeciesFormData>({
   id: null,
   quantity: 1,
   salesQuota: null,
@@ -220,11 +213,11 @@ function showAddQuotaModal() {
 
 function viewQuotaDetails(row: any) {
   showQuotaList.value = false
-  currentViewQuota.value = row as QuotaItem
+  currentViewQuota.value = row
   sform.salesQuota = {
     value: row.id,
     text: generateQuotaYear(row.start_date, row.end_date) + ` - ${row.name}`,
-  }
+  } as SelectOption
   getSpeciesItems()
 }
 
@@ -252,15 +245,13 @@ async function deleteQuotaItem() {
   if (!quotaToDelete.value) return
   deletingQuota.value = true
   try {
-    if (!quotaToDelete.value) return
-    const response = await quotaStore.deleteQuota(quotaToDelete.value.id)
+    const quotaId = quotaToDelete.value.id
+    const response = await quotaStore.deleteQuota(quotaId)
     const success = response.status === 200 || response.status === 204 || response.data?.success
     if (success) {
       toast.init({ message: response.data?.message || 'Quota deleted successfully', color: 'success' })
-      if (!quotaToDelete.value) return
-      const deleteId = quotaToDelete.value.id
-      items.value = items.value.filter((item: any) => item.id !== deleteId)
-      quotasOptions.value = quotasOptions.value.filter((option: any) => option.value !== deleteId)
+      items.value = items.value.filter((item: any) => item.id !== quotaId)
+      quotasOptions.value = quotasOptions.value.filter((option: any) => option.value !== quotaId)
       cancelDelete()
     } else {
       toast.init({ message: response.data?.message || 'Delete operation failed', color: 'warning' })
@@ -289,14 +280,16 @@ function updateQuantitySelectedSpecies(species: any) {
 }
 
 function addNewSpeciesItemToStorage() {
-  const speciesOption = sform.id as Option | null
-  if (!speciesOption || !speciesOption.value || !speciesOption.text || !sform.quantity) return
+  if (!sform.id || !sform.quantity) return
   if (Number(sform.quantity) <= 0) return
-  const exists = speciesObjects.value.some((species: SpeciesObject) => species.id === speciesOption.value)
+  const speciesId = sform.id.value
+  const speciesName = sform.id.text
+  if (!speciesId || !speciesName) return
+  const exists = speciesObjects.value.some((species: any) => species.id === speciesId)
   if (!exists) {
     speciesObjects.value.push({
-      id: speciesOption.value,
-      name: speciesOption.text,
+      id: speciesId,
+      name: speciesName,
       quantity: sform.quantity,
     })
   }
@@ -313,16 +306,14 @@ async function onSpeciesSubmit() {
     savingQuotaSpecies.value = false
     return
   }
-  const areaOption = sform.area as Option | null
-  const quotaOption = sform.salesQuota as Option | null
-  if (!areaOption || !quotaOption) {
+  if (!sform.area || !sform.salesQuota) {
     toast.init({ message: 'Please select both area and sales quota.', color: 'warning' })
     savingQuotaSpecies.value = false
     return
   }
   const rdata = {
-    area_id: areaOption.value,
-    quota_id: quotaOption.value,
+    area_id: sform.area?.value,
+    quota_id: sform.salesQuota?.value,
     speciesObjects: speciesObjects.value,
   }
   try {
@@ -361,13 +352,13 @@ async function getQs(id: number | null = null) {
       const apiResponse = response.data
       if (apiResponse.success === true && Array.isArray(apiResponse.data)) {
         const quotaItems = apiResponse.data
-        items.value = quotaItems.map((item: any): QuotaItem => ({
+        items.value = quotaItems.map((item: any) => ({
           id: item.id,
           name: item.name,
           start_date: item.start_date,
           end_date: item.end_date,
         }))
-        quotasOptions.value = quotaItems.map((item: any): Option => {
+        quotasOptions.value = quotaItems.map((item: any) => {
           const result = generateQuotaYear(item.start_date, item.end_date)
           return {
             value: item.id,
@@ -392,7 +383,7 @@ async function getQs(id: number | null = null) {
 async function getSpeciesItems() {
   try {
     const response = await quotaStore.getSpeciesList()
-    speciesOptions.value = response.data.map((item: any): Option => ({ value: item.id, text: item.name }))
+    speciesOptions.value = response.data.map((item: any) => ({ value: item.id, text: item.name }))
   } catch (error: any) {
     //
   }
@@ -401,7 +392,7 @@ async function getSpeciesItems() {
 async function getAreas() {
   try {
     const response = await quotaStore.getAreaList()
-    areasOptions.value = response.data.map((item: any): Option => ({ value: item.id, text: item.name }))
+    areasOptions.value = response.data.map((item: any) => ({ value: item.id, text: item.name }))
   } catch (error: any) {
     //
   }
@@ -414,60 +405,14 @@ onMounted(() => {
 })
 </script>
 
-<style lang="scss" scoped>
+<style scoped>
 .quota-page {
-  padding: 0;
-  min-height: 600px;
-  width: 100%;
+  padding: 16px;
 }
-
-.layout-top-spacing {
-  margin-top: 20px;
+.custom-table {
+  background: #fff;
+  border-radius: 8px;
 }
-
-.layout-spacing {
-  padding: 10px 0;
-}
-
-.breadcrumb {
-  text-transform: uppercase !important;
-  font-weight: 600;
-  font-size: 0.875rem;
-  margin-bottom: 0 !important;
-
-  .breadcrumb-item {
-    text-transform: uppercase !important;
-
-    &::before {
-      content: ' / ' !important;
-      color: #9ca3af !important;
-      padding: 0 0.5rem;
-    }
-
-    &:first-child::before {
-      display: none !important;
-    }
-
-    a {
-      text-transform: uppercase !important;
-      color: #374151 !important;
-      font-weight: 600;
-      text-decoration: none !important;
-
-      &:hover {
-        color: #1f2937 !important;
-        text-decoration: none !important;
-      }
-    }
-
-    &.active {
-      color: #9ca3af !important;
-      font-weight: 400;
-      text-transform: uppercase !important;
-}
-  }
-}
-
 .card {
   background: #fff;
   border-radius: 8px;

@@ -14,7 +14,7 @@
       <div class="form-group">
         <label for="area">Area</label>
         <select class="form-control" id="area" v-model="form.area">
-          <option v-for="option in areasOptions" :key="(option as any).value" :value="option">{{ (option as any).text }}</option>
+          <option v-for="option in areasOptions" :key="option.value" :value="option">{{ option.text }}</option>
         </select>
       </div>
 
@@ -22,7 +22,7 @@
       <div class="form-group">
         <label for="licence">Licence</label>
         <select class="form-control" id="licence" v-model="form.licence">
-          <option v-for="option in regulatoryPackagesOptions" :key="(option as any).value" :value="option">{{ (option as any).text }}</option>
+          <option v-for="option in regulatoryPackagesOptions" :key="option.value" :value="option">{{ option.text }}</option>
         </select>
       </div>
 
@@ -37,7 +37,7 @@
                     <div class="form-group">
                         <label>Species</label>
                         <select class="form-control" v-model="form.species">
-                            <option v-for="option in speciesOptions" :key="(option as any).value" :value="option">{{ (option as any).text }}</option>
+                            <option v-for="option in speciesOptions" :key="option.value" :value="option">{{ option.text }}</option>
                         </select>
                     </div>
                 </div>
@@ -55,7 +55,7 @@
                 <h6>Selected Species</h6>
                 <ul class="list-group">
                     <li v-for="(item, index) in speciesObjects" :key="index" class="list-group-item d-flex justify-content-between align-items-center">
-                        {{ (item as any).name }} ({{ (item as any).quantity }})
+                        {{ item.name }} ({{ item.quantity }})
                         <button type="button" class="btn btn-danger btn-sm" @click="deleteFromStorage(index)">Remove</button>
                     </li>
                 </ul>
@@ -81,14 +81,18 @@ import { useSettingsStore } from '../../../../stores/bushman/settings-store';
 import { usePriceListStore } from '../../../../stores/bushman/price-list-store';
 import { useRegulatoryPackageStore } from '../../../../stores/bushman/regulatory-store';
 
-export interface Option {
+interface SelectOption {
   value: any;
   text: string;
 }
-export interface SpeciesObject {
-  id: any;
-  name: string;
+
+interface FormData {
+  package_name: string;
+  description: string;
+  species: SelectOption | null;
   quantity: number;
+  area: SelectOption | null;
+  licence: SelectOption | null;
 }
 
 export default defineComponent({
@@ -111,14 +115,7 @@ export default defineComponent({
     const regulatoryPackageStore = useRegulatoryPackageStore();
 
     const saving = ref(false);
-    const form = reactive<{
-      package_name: string;
-      description: string;
-      species: Option | null;
-      quantity: number;
-      area: Option | null;
-      licence: Option | null;
-    }>({
+    const form = reactive<FormData>({
       package_name: '',
       description: '',
       species: null,
@@ -127,20 +124,20 @@ export default defineComponent({
       licence: null,
     });
 
-    const areasOptions = ref<Option[]>([]);
-    const regulatoryPackagesOptions = ref<Option[]>([]);
-    const speciesOptions = ref<Option[]>([]);
-    const speciesObjects = ref<SpeciesObject[]>([]);
+    const areasOptions = ref<SelectOption[]>([]);
+    const regulatoryPackagesOptions = ref<SelectOption[]>([]);
+    const speciesOptions = ref<SelectOption[]>([]);
+    const speciesObjects = ref<Array<{ id: any; name: string; quantity: number }>>([]);
 
     watch(() => props.editItem, (newItem) => {
         if (newItem && props.editMode) {
             form.package_name = newItem.name;
             form.description = newItem.description;
-            form.area = newItem.area ? { value: newItem.area.id, text: newItem.area.name } : null;
-            form.licence = newItem.regulatory_package ? { value: newItem.regulatory_package.id, text: newItem.regulatory_package.name } : null;
-            speciesObjects.value = (newItem.species || []).map((s: any) => ({
-                id: s.species?.id || s.species_id,
-                name: s.species?.name || s.name,
+            form.area = { value: newItem.area.id, text: newItem.area.name };
+            form.licence = { value: newItem.regulatory_package.id, text: newItem.regulatory_package.name };
+            speciesObjects.value = newItem.species.map((s: any) => ({
+                id: s.species.id,
+                name: s.species.name,
                 quantity: s.quantity
             }));
         }
@@ -175,15 +172,9 @@ export default defineComponent({
             speciesOptions.value = [];
             return;
         }
-        const areaOption = form.area as Option | null;
-        const licenceOption = form.licence as Option | null;
-        if (!areaOption || !licenceOption) {
-          speciesOptions.value = [];
-          return;
-        }
         const payload = {
-            areaId: areaOption.value,
-            licenceId: licenceOption.value,
+            areaId: form.area?.value,
+            licenceId: form.licence?.value,
         };
         try {
             const response = await settingsStore.getHuntingLicenseAreaSpecies(payload);
@@ -206,9 +197,10 @@ export default defineComponent({
         return;
       }
 
-      const speciesOption = form.species as Option;
+      if (!form.species) return;
+      
       const exists = speciesObjects.value.some(
-        (s) => s.id === speciesOption.value
+        (s) => s.id === form.species!.value
       );
       if (exists) {
           init({ message: 'Species already added.', color: 'warning' });
@@ -216,8 +208,8 @@ export default defineComponent({
       }
 
       speciesObjects.value.push({
-        id: speciesOption.value,
-        name: speciesOption.text,
+        id: form.species.value,
+        name: form.species.text,
         quantity: form.quantity,
       });
       form.species = null;
@@ -236,19 +228,17 @@ export default defineComponent({
         return;
       }
 
-      const areaOption = form.area as Option | null;
-      const licenceOption = form.licence as Option | null;
-      if (!areaOption || !licenceOption) {
-        init({ message: 'Please select area and licence.', color: 'warning' });
-        saving.value = false;
+      if (!form.area || !form.licence) {
+        init({ message: 'Please select both area and licence.', color: 'warning' });
         return;
       }
+
       const requestdata = {
         name: form.package_name,
         description: form.description,
-        areaId: areaOption.value,
-        licenceId: licenceOption.value,
-        speciesObjectList: speciesObjects.value.map(s => ({ species_id: s.id, quantity: s.quantity })),
+        areaId: form.area.value,
+        licenceId: form.licence.value,
+        speciesObjectList: speciesObjects.value.map((s: any) => ({ species_id: s.id, quantity: s.quantity })),
       };
 
       try {

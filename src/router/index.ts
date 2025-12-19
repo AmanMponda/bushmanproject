@@ -30,6 +30,7 @@ const ManageAreaSettings = () => import('@/views/bushman/module-settings/ManageA
 const ManageHuntingTypes = () => import('@/views/bushman/module-settings/ManageHuntingTypes.vue');
 const ManageSpeciesSettings = () => import('@/views/bushman/module-settings/ManageSpecies.vue');
 
+const Managesalesinquiry = () => import('@/views/bushman/sales/SalesInquiries.vue');
 // const LoginPage = () => import('@/views/auth/PageLogin.vue');
 // const CompanyDashboard = () => import('@/views/auth/CompanyDashboard.vue');
 // const ComingSoon = () => import('@/views/auth/ComingSoon.vue');
@@ -108,6 +109,8 @@ const router = createRouter({
       meta: { requiresAuth: true }
     },
     
+    
+
     {
       path: "/sales/price-list",
       name: "sales-price-list",
@@ -122,6 +125,13 @@ const router = createRouter({
       component: ManageQuotasSettings,
       meta: { requiresAuth: true }
     },
+    {
+      path: "/sales/sales-inquiry",
+      name: "sales-inquiry",
+      component: Managesalesinquiry,
+      meta: { requiresAuth: true }
+    },
+
     {
       path: "/module-settings/regulatory-package",
       name: "regulatory-package",
@@ -184,7 +194,7 @@ const router = createRouter({
       meta: { requiresAuth: true }
     },
     {
-      path: "/module-settings/species-settings",
+      path: "/module-settings/species-settings/species",
       name: "species-settings",
       component: ManageSpeciesSettings,
       meta: { requiresAuth: true }

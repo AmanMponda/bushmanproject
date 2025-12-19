@@ -25,26 +25,21 @@
                 :action-buttons="pageActions"
                 :show-date-filters="false"
               >
-                <!-- @ts-ignore -->
                 <template #id="{ row }">
-                  {{ (row as any).id }}
+                  {{ row.id }}
                 </template>
-                <!-- @ts-ignore -->
                 <template #name="{ row }">
-                  {{ (row as any).name }}
+                  {{ row.name }}
                 </template>
-                <!-- @ts-ignore -->
                 <template #scientific_name="{ row }">
-                  {{ (row as any).scientific_name }}
+                  {{ row.scientific_name }}
                 </template>
-                <!-- @ts-ignore -->
                 <template #type="{ row }">
-                  {{ (row as any).type }}
+                  {{ row.type }}
                 </template>
-                <!-- @ts-ignore -->
                 <template #actions="{ row }">
                   <div class="d-flex gap-1">
-                    <button class="btn btn-info btn-sm" title="View" @click="showSpecies(row as any)">
+                    <button class="btn btn-info btn-sm" title="View" @click="showSpecies(row)">
                       <i class="fa fa-eye"></i>
                     </button>
                   </div>
@@ -94,7 +89,7 @@
 </template>
 
 <script setup lang="ts">
-// @ts-nocheck - Template slot type errors from StandardDataTable component
+// @ts-nocheck - StandardDataTable component doesn't provide TypeScript types for row parameter
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useQuotaStore } from '../../../stores/bushman/quota-store'
 import { useSpeciesStore } from '../../../stores/bushman/species-store'
@@ -106,17 +101,10 @@ const quotaStore = useQuotaStore()
 const speciesStore = useSpeciesStore()
 const toast = useToast()
 
-interface SpeciesItem {
-  id: any;
-  name: string;
-  type: string;
-  scientific_name: string;
-}
-
 const showSpeciesList = ref(true)
 const loading = ref(false)
 const saving = ref(false)
-const items = ref<SpeciesItem[]>([])
+const items = ref([])
 
 const sform = reactive({
   id: null as any,
@@ -189,7 +177,7 @@ async function getSpeciesItems() {
   try {
     const response = await quotaStore.getSpeciesList()
     if (response.status === 200) {
-      items.value = response?.data?.map((item: any): SpeciesItem => ({
+      items.value = response?.data?.map((item: any) => ({
         id: item.id,
         name: item.name,
         type: item.type,
@@ -209,60 +197,14 @@ onMounted(() => {
 </script>
 
 
-<style lang="scss" scoped>
+<style scoped>
 .species-page {
-  padding: 0;
-  min-height: 600px;
-  width: 100%;
+  padding: 16px;
 }
-
-.layout-top-spacing {
-  margin-top: 20px;
+.custom-table {
+  background: #fff;
+  border-radius: 8px;
 }
-
-.layout-spacing {
-  padding: 10px 0;
-}
-
-.breadcrumb {
-  text-transform: uppercase !important;
-  font-weight: 600;
-  font-size: 0.875rem;
-  margin-bottom: 0 !important;
-
-  .breadcrumb-item {
-    text-transform: uppercase !important;
-
-    &::before {
-      content: ' / ' !important;
-      color: #9ca3af !important;
-      padding: 0 0.5rem;
-    }
-
-    &:first-child::before {
-      display: none !important;
-    }
-
-    a {
-      text-transform: uppercase !important;
-      color: #374151 !important;
-      font-weight: 600;
-      text-decoration: none !important;
-
-      &:hover {
-        color: #1f2937 !important;
-        text-decoration: none !important;
-      }
-    }
-
-    &.active {
-      color: #9ca3af !important;
-      font-weight: 400;
-      text-transform: uppercase !important;
-}
-  }
-}
-
 .card {
   background: #fff;
   border-radius: 8px;

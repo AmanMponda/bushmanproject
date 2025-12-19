@@ -63,7 +63,7 @@
                         type="button"
                         class="btn btn-danger btn-sm" 
                         title="Delete" 
-                        @click.stop="confirmDelete(row as any)"
+                        @click.stop="confirmDelete(row)"
                       >
                         <i class="fa fa-trash"></i>
                       </button>
@@ -408,10 +408,6 @@ const handleDeleteFromDetails = async () => {
 }
 
 const confirmDelete = async (itemData: any) => {
-  // Debug: Check if function is called
-  alert('Delete button clicked! Data: ' + JSON.stringify(itemData))
-  console.log('confirmDelete called with:', itemData)
-  
   if (!itemData) {
     console.error('No itemData provided')
     return

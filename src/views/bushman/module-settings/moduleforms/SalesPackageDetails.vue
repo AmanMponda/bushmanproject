@@ -142,12 +142,13 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { format } from 'date-fns'
+import Swal from 'sweetalert2'
 
-export interface SalesPackageDetailsProps {
+interface Props {
   item: any
 }
 
-defineProps<SalesPackageDetailsProps>()
+defineProps<Props>()
 
 const emit = defineEmits<{
   'go-back': []
@@ -166,18 +167,11 @@ const handleEdit = () => {
 }
 
 const handleDelete = () => {
-  // Use SweetAlert2 with Bootstrap styling
-  const Swal = (window as any).Swal;
-  if (!Swal) {
-    // fallback if SweetAlert2 is not loaded
-    if (confirm('Are you sure you want to delete this sales package? This action cannot be undone.')) {
-      emit('delete')
-    }
-    return
-  }
   const swalWithBootstrapButtons = Swal.mixin({
-    confirmButtonClass: 'btn btn-secondary',
-    cancelButtonClass: 'btn btn-dark me-3',
+    customClass: {
+      confirmButton: 'btn btn-secondary',
+      cancelButton: 'btn btn-dark me-3',
+    },
     buttonsStyling: false
   });
   swalWithBootstrapButtons

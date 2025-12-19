@@ -4,8 +4,7 @@
     <div class="d-flex align-items-center mb-3">
       <div>
         <ul class="breadcrumb">
-          <li class="breadcrumb-item"><a href="#">Module Settings</a></li>
-          <li class="breadcrumb-item"><a href="#">Price Stuctures</a></li>
+          <li class="breadcrumb-item"><a href="#">Sales</a></li>
           <li class="breadcrumb-item active">Safari Extra Services</li>
         </ul>
       </div>
@@ -110,27 +109,27 @@
                   :show-date-filters="false"
                   :disable-search="false"
                 >
-                  <!-- @ts-ignore -->
+                  <!-- @ts-ignore - StandardDataTable doesn't provide row type -->
                   <template #name="{ row }">
                     {{ (row as any).name || 'N/A' }}
                   </template>
-                  <!-- @ts-ignore -->
+                  <!-- @ts-ignore - StandardDataTable doesn't provide row type -->
                   <template #hunting_area="{ row }">
                     {{ (row as any).hunting_area?.name || 'N/A' }}
                   </template>
-                  <!-- @ts-ignore -->
+                  <!-- @ts-ignore - StandardDataTable doesn't provide row type -->
                   <template #amount="{ row }">
                     {{ (row as any).currency?.symbol || '' }} {{ (row as any).amount || '0.00' }}
                   </template>
-                  <!-- @ts-ignore -->
+                  <!-- @ts-ignore - StandardDataTable doesn't provide row type -->
                   <template #charges_per="{ row }">
-                    <span class="badge bg-secondary">{{ formatChargesPer((row as any).charges_per) }}</span>
+                    <span class="badge bg-secondary">{{ formatChargesPer((row as any).charges_per || '') }}</span>
                   </template>
-                  <!-- @ts-ignore -->
+                  <!-- @ts-ignore - StandardDataTable doesn't provide row type -->
                   <template #description="{ row }">
                     {{ (row as any).description || 'N/A' }}
                   </template>
-                  <!-- @ts-ignore -->
+                  <!-- @ts-ignore - StandardDataTable doesn't provide row type -->
                   <template #actions="{ row }">
                     <div class="d-flex gap-1">
                       <button class="btn btn-warning btn-sm" title="Edit" @click="openEditModal(row as any)">
@@ -315,7 +314,7 @@
 </template>
 
 <script setup lang="ts">
-// @ts-nocheck - Template slot type errors from StandardDataTable component
+// @ts-nocheck - StandardDataTable component doesn't provide TypeScript types for row parameter
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useSettingsStore } from '../../../stores/bushman/settings-store'
 import { useQuotaStore } from '../../../stores/bushman/quota-store'
@@ -323,6 +322,20 @@ import { useToast } from '@/composables/useToast'
 import handleErrors from '../../../stores/bushman/errorHandler'
 import axios from 'axios'
 import StandardDataTable from '@/components/bootstrap/StandardDataTable.vue'
+
+// Types
+interface ExtraItem {
+  id?: any
+  name?: string
+  hunting_area?: { name?: string }
+  currency?: { symbol?: string }
+  amount?: number | string
+  charges_per?: string
+  description?: string
+  season_id?: any
+  season?: { id?: any }
+  [key: string]: any
+}
 
 // Stores
 const settingsStore = useSettingsStore()

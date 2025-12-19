@@ -25,33 +25,27 @@
                 :action-buttons="pageActions"
                 :show-date-filters="false"
               >
-                <!-- @ts-ignore -->
                 <template #id="{ row }">
                   {{ (row as any).id }}
                 </template>
-                <!-- @ts-ignore -->
                 <template #name="{ row }">
                   {{ (row as any).name }}
                 </template>
-                <!-- @ts-ignore -->
                 <template #area_name="{ row }">
                   {{ (row as any).area_name || 'N/A' }}
                 </template>
-                <!-- @ts-ignore -->
                 <template #regulatory_package_name="{ row }">
                   {{ (row as any).regulatory_package_name || (row as any).name }}
                 </template>
-                <!-- @ts-ignore -->
                 <template #duration="{ row }">
                   {{ (row as any).duration }} Days
                 </template>
-                <!-- @ts-ignore -->
                 <template #actions="{ row }">
                   <div class="d-flex gap-1">
-                    <button class="btn btn-info btn-sm" title="View" @click="showDetails(row as any)">
+                    <button class="btn btn-info btn-sm" title="View" @click="showDetails(row)">
                       <i class="fa fa-eye"></i>
                     </button>
-                    <button class="btn btn-danger btn-sm" title="Delete" @click="confirmDelete(row as any)">
+                    <button class="btn btn-danger btn-sm" title="Delete" @click="confirmDelete(row)">
                       <i class="fa fa-trash"></i>
                     </button>
                   </div>
@@ -247,7 +241,7 @@
 </template>
 
 <script setup lang="ts">
-// @ts-nocheck - Template slot type errors from StandardDataTable component
+// @ts-nocheck - StandardDataTable component doesn't provide TypeScript types for row parameter
 import { ref, reactive, onMounted, computed } from 'vue'
 import { useQuotaStore } from '../../../stores/bushman/quota-store'
 import { useRegulatoryPackageStore } from '../../../stores/bushman/regulatory-store'
@@ -434,7 +428,7 @@ const addNewRegulatoryPackage = async () => {
     } else {
       console.log(response.data)
     }
-  } catch (error: any) {
+  } catch (error) {
     handleErrors(error)
     toastInit({
       message: error instanceof Error ? error.message : 'An error occurred',

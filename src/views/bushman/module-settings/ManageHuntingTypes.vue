@@ -4,7 +4,11 @@
     <div class="d-flex align-items-center mb-3">
       <div>
         <ul class="breadcrumb">
+<<<<<<< HEAD
           <li class="breadcrumb-item"><a href="#">Module Settings</a></li>
+=======
+          <li class="breadcrumb-item"><a href="#">Settings</a></li>
+>>>>>>> 286011c4eb6798891cfc75399d6cb3c9d493a7b1
           <li class="breadcrumb-item active">Hunting Types</li>
         </ul>
       </div>

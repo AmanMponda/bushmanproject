@@ -104,6 +104,7 @@
 </template>
 
 <script setup lang="ts">
+// @ts-nocheck - StandardDataTable component doesn't provide TypeScript types for row parameter
 import { ref, onMounted, computed } from 'vue'
 import { useToast } from '../../../composables/useToast.ts'
 import PricesListDetails from './PriceListDetails.vue'

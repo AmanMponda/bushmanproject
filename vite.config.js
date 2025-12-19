@@ -13,7 +13,7 @@ export default defineConfig({
   // server: {
   //   proxy: {
   //     '/api': {
-  //       target: 'https://abs.iosuite.org/api/v1',
+  //       target: 'https://bushman-api.iosuite.org/api/v1',
   //       changeOrigin: true,
   //       rewrite: path => path.replace(/^\/api/, '')
   //     }

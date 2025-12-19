@@ -5,7 +5,7 @@ import { useAuthStore } from "@/stores/auth";
 interface MenuItem {
   url?: string;
   icon?: string;
-  text: string;
+  text?: string;
   is_header?: boolean;
   is_divider?: boolean;
   label?: string;
@@ -73,7 +73,8 @@ export const useAppSidebarMenuStore = defineStore("appSidebarMenu", () => {
       text: "Home",
     },
     {
-      is_divider: true
+      is_divider: true,
+      text: ''
     },
   ]);
 
@@ -439,30 +440,33 @@ export const useAppSidebarMenuStore = defineStore("appSidebarMenu", () => {
       text: 'Module Settings',
       permission: 'CAN_VIEW_MODULE_SETTINGS',
       children: [
-        { url: '/module-settings/species-settings', text: 'Species', permission: 'CAN_VIEW_SPECIES_SETTINGS',
+        { url: '/module-settings/species-settings',
+          text: 'Species',
+          permission: 'CAN_VIEW_SPECIES_SETTINGS',
           children: [
-            { url: '/module-settings/species-settings', text: 'Species', permission: 'CAN_VIEW_SPECIES_SETTINGS' },
-            { url: '/module-settings/species-settings', text: 'Trophies', permission: 'CAN_VIEW_SPECIES_SETTINGS' },
+            { url: '/module-settings/species-settings/species', text: 'Species', permission: 'CAN_VIEW_SPECIES_SETTINGS' },
+            { url: '/module-settings/trophy-fees', text: 'Trophies', permission: 'CAN_VIEW_TROPHY_FEES' },
           ],
-         },
-        { url: '/module-settings/area-settings', text: 'Hunting Areas', permission: 'CAN_VIEW_AREA_SETTINGS' },
+        },
+        { url: '/module-settings/area-settings',text: 'Hunting Areas',permission: 'CAN_VIEW_AREA_SETTINGS'},
         { url: '/module-settings/hunting-types', text: 'Hunting Types', permission: 'CAN_VIEW_HUNTING_TYPES' },
         { url: '/module-settings/qoutas-settings', text: 'Quotas', permission: 'CAN_VIEW_QUOTAS_SETTINGS' },
         { url: '/module-settings/regulatory-package', text: 'Hunting Licences', permission: 'CAN_VIEW_REGULATORY_PACKAGE' },
-        { url: '/module-settings/regulatory-package', text: 'Price Stuctures', permission: 'CAN_VIEW_REGULATORY_PACKAGE',
-          children: [
-         
+
+        { url: '/module-settings/clients-settings', text: 'Price structures', permission: 'CAN_VIEW_SALES_PACKAGE' ,
+        children: [
         { url: '/module-settings/sales-package', text: 'Sales Package', permission: 'CAN_VIEW_SALES_PACKAGE' },
+        { url: '/module-settings/trophy-fees', text: 'Trophy fees', permission: 'CAN_VIEW_TROPHY_FEES' },
+        { url: '/module-settings/safari-fee-deposits', text: 'Deposits planning', permission: 'CAN_VIEW_SAFARI_FEE_DEPOSITS' },
         { url: '/module-settings/sales-extra-services', text: 'Extra Services', permission: 'CAN_VIEW_SALES_EXTRA_SERVICES' },
-        { url: '/module-settings/trophy-fees', text: 'Trophy Fees', permission: 'CAN_VIEW_TROPHY_FEES' },
-       
-        { url: '/module-settings/safari-fee-deposits', text: 'Deposits Planning', permission: 'CAN_VIEW_SAFARI_FEE_DEPOSITS' },
-      ],
-    },
-    { url: '/module-settings/companion-hunter-costs', text: 'Companion Hunter Costs', permission: 'CAN_VIEW_APPROVAL_CHAIN' },
-    { url: '/module-settings/terms', text: 'Terms', permission: 'CAN_VIEW_APPROVAL_CHAIN' },
-     { url: '/module-settings/approval-chain', text: 'Approval Chain', permission: 'CAN_VIEW_APPROVAL_CHAIN' },
-    
+
+          ],
+        },
+        { url: '/module-settings/companion-hunter-costs', text: 'Companion Hunter Costs', permission: 'CAN_VIEW_APPROVAL_CHAIN' },
+        { url: '/module-settings/terms', text: 'Terms', permission: 'CAN_VIEW_APPROVAL_CHAIN' },
+         { url: '/module-settings/approval-chain', text: 'Approval Chain', permission: 'CAN_VIEW_APPROVAL_CHAIN' },
+        
+
       ],
     },
     {

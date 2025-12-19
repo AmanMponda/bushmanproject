@@ -2,19 +2,21 @@
   <div class="price-list-form-page">
     <!-- Form Container -->
     <div class="form-price-list-container">
-      <div v-if="!savingPriceList" class="card">
-        <div class="card-header bg-white border-bottom">
+      <div v-if="!savingPriceList" class="card bg-transparent border-0 shadow-none">
+        <div class="card-header bg-transparent border-bottom">
           <div class="d-flex justify-content-between align-items-center">
             <div class="d-flex align-items-center gap-2">
               <button type="button" class="btn btn-secondary btn-sm" @click="handleGoBack">
                 <i class="fa fa-arrow-left me-1"></i> Back
               </button>
+
               <i class="fa fa-edit text-primary fs-5"></i>
-              <h2 class="h5 mb-0">{{ editMode ? 'Edit Price List' : 'Create New Price List' }}</h2>
+              <h2 class="h5 mb-0">
+                {{ editMode ? 'Edit Price List' : 'Create New Price List' }}
+              </h2>
             </div>
           </div>
         </div>
-
         <div class="card-body">
           <form ref="formRef" @submit.prevent="submit">
             <div class="row mb-5">
@@ -28,12 +30,7 @@
                         {{ option.text }}
                       </option>
                     </select>
-                    <button
-                      type="button"
-                      class="btn btn-outline-secondary"
-                      title="Add New Package"
-                      @click="_showModal()"
-                    >
+                    <button type="button" class="btn btn-outline-secondary" title="Add New Package" @click="_showModal()">
                       <i class="fa fa-plus"></i>
                     </button>
                   </div>
@@ -55,11 +52,8 @@
                   <label class="form-label">Season <span class="text-danger">*</span></label>
                   <select v-model="selectedSeasonId" class="form-select" required @change="onSeasonChange">
                     <option :value="null">Select season</option>
-                    <option
-                      v-for="option in seasonsOptions"
-                      :key="option.value?.id || option.value"
-                      :value="option.value?.id || option.value"
-                    >
+                    <option v-for="option in seasonsOptions" :key="option.value?.id || option.value"
+                      :value="option.value?.id || option.value">
                       {{ option.text }}
                     </option>
                   </select>
@@ -102,12 +96,7 @@
               <div class="col-md-3">
                 <div class="form-group">
                   <label class="form-label">Companion Cost</label>
-                  <input
-                    v-model="form.companion_amount"
-                    type="number"
-                    class="form-control"
-                    placeholder="Enter Amount"
-                  />
+                  <input v-model="form.companion_amount" type="number" class="form-control" placeholder="Enter Amount" />
                 </div>
               </div>
               <div class="col-md-3">
@@ -154,12 +143,8 @@
                 </p>
 
                 <div v-if="upgradeFees.length > 0">
-                  <div
-                    v-for="(fee, index) in upgradeFees"
-                    :key="index"
-                    class="card mb-2 border-warning"
-                    style="border-left: 3px solid #ffc107"
-                  >
+                  <div v-for="(fee, index) in upgradeFees" :key="index" class="card mb-2 border-warning"
+                    style="border-left: 3px solid #ffc107">
                     <div class="card-body py-2">
                       <div class="row g-2 mb-2">
                         <div class="col-md-3">
@@ -173,13 +158,7 @@
                         </div>
                         <div class="col-md-2">
                           <label class="form-label small mb-1">Amount <span class="text-danger">*</span></label>
-                          <input
-                            v-model="fee.amount"
-                            type="number"
-                            class="form-control"
-                            placeholder="Amount"
-                            required
-                          />
+                          <input v-model="fee.amount" type="number" class="form-control" placeholder="Amount" required />
                         </div>
                         <div class="col-md-2">
                           <label class="form-label small mb-1">Currency <span class="text-danger">*</span></label>
@@ -192,21 +171,13 @@
                         </div>
                         <div class="col-md-4">
                           <label class="form-label small mb-1">Description (Optional)</label>
-                          <input
-                            v-model="fee.description"
-                            type="text"
-                            class="form-control"
-                            placeholder="Enter description"
-                          />
+                          <input v-model="fee.description" type="text" class="form-control"
+                            placeholder="Enter description" />
                         </div>
                         <div class="col-md-1 d-flex align-items-end">
-                          <button
-                            type="button"
-                            class="btn btn-danger btn-sm w-100"
-                            style="background-color: #b30000; border-color: #b30000; color: white"
-                            title="Remove"
-                            @click="removeUpgradeFee(index)"
-                          >
+                          <button type="button" class="btn btn-danger btn-sm w-100"
+                            style="background-color: #b30000; border-color: #b30000; color: white" title="Remove"
+                            @click="removeUpgradeFee(index)">
                             <i class="fa fa-trash" style="color: white"></i>
                           </button>
                         </div>
@@ -234,40 +205,33 @@
         </button>
       </div>
     </div>
-  </div>
 
-  <!-- Loading Overlay -->
-  <div
-    v-if="savingPriceList"
-    class="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
-    style="background: rgba(0, 0, 0, 0.5); z-index: 9999"
-  >
-    <div class="spinner-border text-primary" role="status">
-      <span class="visually-hidden">Loading...</span>
+    <!-- Loading Overlay -->
+    <div v-if="savingPriceList"
+      class="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
+      style="background: rgba(0, 0, 0, 0.5); z-index: 9999">
+      <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Loading...</span>
+      </div>
     </div>
-  </div>
-  <!-- Create New Package Modal -->
-  <div
-    v-if="_shM"
-    class="modal fade show d-block"
-    style="z-index: 1050; display: block !important;"
-    tabindex="-1"
-    role="dialog"
-    @click.self="_shM = false"
-  >
-    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title">Create New Package</h5>
-          <button type="button" class="btn-close" @click="_shM = false"></button>
-        </div>
-        <div class="modal-body" style="max-height: 80vh; overflow-y: auto;">
-          <SalesPackageForm @go-back="_shM = false" @saved="handlePackageSaved"> </SalesPackageForm>
+
+    <!-- Create New Package Modal -->
+    <div v-if="_shM" class="modal fade show d-block" style="z-index: 1050; display: block !important;" tabindex="-1"
+      role="dialog" @click.self="_shM = false">
+      <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Create New Package</h5>
+            <button type="button" class="btn-close" @click="_shM = false"></button>
+          </div>
+          <div class="modal-body" style="max-height: 80vh; overflow-y: auto;">
+            <SalesPackageForm @go-back="_shM = false" @saved="handlePackageSaved"> </SalesPackageForm>
+          </div>
         </div>
       </div>
     </div>
+    <div v-if="_shM" class="modal-backdrop fade show" style="z-index: 1040;" @click="_shM = false"></div>
   </div>
-  <div v-if="_shM" class="modal-backdrop fade show" style="z-index: 1040;" @click="_shM = false"></div>
 </template>
 
 <script lang="ts">
@@ -526,7 +490,6 @@ export default defineComponent({
   async mounted() {
     // Ensure modal is closed when component mounts
     this._shM = false
-    
     // this.getAllSpeciesPerQuotaPerArea()
     await Promise.all([
       this.getAreas(),
@@ -994,6 +957,7 @@ export default defineComponent({
 
 <style scoped>
 .price-list-form-page {
+  background-color: transparent;
   position: relative;
 }
 
@@ -1038,7 +1002,7 @@ form .row {
   margin-right: calc(-1 * var(--bs-gutter-x) * 0.5) !important;
 }
 
-form .row > [class*='col-'] {
+form .row>[class*='col-'] {
   padding-left: calc(var(--bs-gutter-x) * 0.5) !important;
   padding-right: calc(var(--bs-gutter-x) * 0.5) !important;
 }
