@@ -1,824 +1,802 @@
 <template>
-    <div class="calendar-page">
-      <!-- Page Header -->
-      <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-          <h4 class="mb-1">
-            <i class="material-icons" style="font-size: 24px; vertical-align: middle; margin-right: 8px"
-              >calendar_month</i
-            >
-            Hunting Schedule
-          </h4>
-          <p class="text-muted small mb-0">View and manage your hunting bookings</p>
-        </div>
+  <div class="calendar-page">
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <div>
+        <h4 class="mb-1">
+          <i class="bi bi-calendar-month" style="font-size: 24px; vertical-align: middle; margin-right: 8px"></i>
+          Hunting Schedule
+        </h4>
+        <p class="text-muted small mb-0">View and manage your hunting bookings</p>
       </div>
-  
-      <!-- Stats Cards -->
-      <div class="row g-3 mb-4">
-        <div class="col-md-3 col-sm-6">
-          <div class="card border-0 shadow-sm h-100 stat-card stat-total">
-            <div class="card-body">
-              <div class="d-flex align-items-center">
-                <div class="stat-icon">
-                  <i class="material-icons">event</i>
-                </div>
-                <div class="ms-3 flex-grow-1">
-                  <div class="text-muted small">Total Events</div>
-                  <div class="h4 mb-0 fw-bold">{{ totalEvents }}</div>
-                </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="row g-3 mb-4">
+      <div class="col-md-3 col-sm-6">
+        <div class="card border-0 shadow-sm h-100 stat-card stat-total">
+          <div class="card-body">
+            <div class="d-flex align-items-center">
+              <div class="stat-icon">
+                <i class="bi bi-calendar-event"></i>
               </div>
-            </div>
-          </div>
-        </div>
-        <div class="col-md-3 col-sm-6">
-          <div class="card border-0 shadow-sm h-100 stat-card stat-confirmed">
-            <div class="card-body">
-              <div class="d-flex align-items-center">
-                <div class="stat-icon">
-                  <i class="material-icons">check_circle</i>
-                </div>
-                <div class="ms-3 flex-grow-1">
-                  <div class="text-muted small">Confirmed</div>
-                  <div class="h4 mb-0 fw-bold">{{ confirmedEvents }}</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="col-md-3 col-sm-6">
-          <div class="card border-0 shadow-sm h-100 stat-card stat-provision">
-            <div class="card-body">
-              <div class="d-flex align-items-center">
-                <div class="stat-icon">
-                  <i class="material-icons">schedule</i>
-                </div>
-                <div class="ms-3 flex-grow-1">
-                  <div class="text-muted small">Provision</div>
-                  <div class="h4 mb-0 fw-bold">{{ provisionEvents }}</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="col-md-3 col-sm-6">
-          <div class="card border-0 shadow-sm h-100 stat-card stat-completed">
-            <div class="card-body">
-              <div class="d-flex align-items-center">
-                <div class="stat-icon">
-                  <i class="material-icons">task_alt</i>
-                </div>
-                <div class="ms-3 flex-grow-1">
-                  <div class="text-muted small">Completed</div>
-                  <div class="h4 mb-0 fw-bold">{{ completedEvents }}</div>
-                </div>
+              <div class="ms-3 flex-grow-1">
+                <div class="text-muted small">Total Events</div>
+                <div class="h4 mb-0 fw-bold">{{ totalEvents }}</div>
               </div>
             </div>
           </div>
         </div>
       </div>
-  
-      <!-- Calendar Section -->
-      <div class="card border-0 shadow-sm">
-        <div class="card-header bg-white border-bottom">
-          <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
-            <!-- Jump to Date -->
-            <div class="d-flex align-items-center gap-2">
-              <label class="form-label mb-0 small text-muted">Jump to date:</label>
-              <input
-                v-model="jumpDateString"
-                type="date"
-                class="form-control form-control-sm"
-                style="width: 180px"
-                @change="handleJumpToDate"
-              />
-            </div>
-            <!-- Legend -->
-            <div class="d-flex align-items-center gap-3">
-              <div class="d-flex align-items-center gap-1">
-                <span class="legend-dot legend-confirmed"></span>
-                <span class="small text-muted">Confirmed</span>
+      <div class="col-md-3 col-sm-6">
+        <div class="card border-0 shadow-sm h-100 stat-card stat-confirmed">
+          <div class="card-body">
+            <div class="d-flex align-items-center">
+              <div class="stat-icon">
+                <i class="bi bi-check-circle-fill"></i>
               </div>
-              <div class="d-flex align-items-center gap-1">
-                <span class="legend-dot legend-provision"></span>
-                <span class="small text-muted">Provision</span>
-              </div>
-              <div class="d-flex align-items-center gap-1">
-                <span class="legend-dot legend-completed"></span>
-                <span class="small text-muted">Completed</span>
+              <div class="ms-3 flex-grow-1">
+                <div class="text-muted small">Confirmed</div>
+                <div class="h4 mb-0 fw-bold">{{ confirmedEvents }}</div>
               </div>
             </div>
-          </div>
-        </div>
-        <div class="card-body p-3">
-          <div v-if="loadingData" class="text-center py-5">
-            <div class="spinner-border text-primary" role="status">
-              <span class="visually-hidden">Loading...</span>
-            </div>
-            <p class="text-muted mt-2 mb-0">Loading calendar events...</p>
-          </div>
-          <div v-else class="calendar-wrapper">
-            <FullCalendar ref="calendarRef" :key="calendarKey" :options="calendarOptions" />
           </div>
         </div>
       </div>
-  
-      <!-- Event Details Modal -->
-      <div v-if="showModal" class="modal fade show" style="display: block" tabindex="-1" @click.self="showModal = false">
-        <div class="modal-dialog modal-lg modal-dialog-scrollable">
-          <div class="modal-content" @click.stop>
-            <div class="modal-header">
-              <h5 class="modal-title">
-                {{ selectedEvent?.title || 'Event Details' }}
-              </h5>
-              <span class="badge ms-2" :class="getStatusBadgeClass(selectedEvent?.extendedProps?.status || '')">
-                {{ selectedEventStatus }}
-              </span>
-              <button type="button" class="btn-close" @click="showModal = false"></button>
+      <div class="col-md-3 col-sm-6">
+        <div class="card border-0 shadow-sm h-100 stat-card stat-provision">
+          <div class="card-body">
+            <div class="d-flex align-items-center">
+              <div class="stat-icon">
+                <i class="bi bi-clock-history"></i>
+              </div>
+              <div class="ms-3 flex-grow-1">
+                <div class="text-muted small">Provision</div>
+                <div class="h4 mb-0 fw-bold">{{ provisionEvents }}</div>
+              </div>
             </div>
-            <div v-if="selectedEvent" class="modal-body">
-              <!-- Client & Date Info -->
-              <div class="card border-primary mb-3">
-                <div class="card-header bg-primary text-white">
-                  <h6 class="mb-0">
-                    <i class="material-icons" style="font-size: 18px; vertical-align: middle; margin-right: 6px">info</i>
-                    Booking Information
-                  </h6>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3 col-sm-6">
+        <div class="card border-0 shadow-sm h-100 stat-card stat-completed">
+          <div class="card-body">
+            <div class="d-flex align-items-center">
+              <div class="stat-icon">
+                <i class="bi bi-check-all"></i>
+              </div>
+              <div class="ms-3 flex-grow-1">
+                <div class="text-muted small">Completed</div>
+                <div class="h4 mb-0 fw-bold">{{ completedEvents }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Calendar Section -->
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white border-bottom">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+          <!-- Jump to Date -->
+          <div class="d-flex align-items-center gap-2">
+            <label class="form-label mb-0 small text-muted">Jump to date:</label>
+            <input
+              v-model="jumpDateString"
+              type="date"
+              class="form-control form-control-sm"
+              style="width: 180px"
+              @change="handleJumpToDate"
+            />
+          </div>
+          <!-- Legend -->
+          <div class="d-flex align-items-center gap-3">
+            <div class="d-flex align-items-center gap-1">
+              <span class="legend-dot legend-confirmed"></span>
+              <span class="small text-muted">Confirmed</span>
+            </div>
+            <div class="d-flex align-items-center gap-1">
+              <span class="legend-dot legend-provision"></span>
+              <span class="small text-muted">Provision</span>
+            </div>
+            <div class="d-flex align-items-center gap-1">
+              <span class="legend-dot legend-completed"></span>
+              <span class="small text-muted">Completed</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="card-body p-3">
+        <div v-if="loadingData" class="text-center py-5">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+          <p class="text-muted mt-2 mb-0">Loading calendar events...</p>
+        </div>
+        <div v-else class="calendar-wrapper">
+          <FullCalendar ref="calendarRef" :key="calendarKey" :options="calendarOptions" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Event Details Modal -->
+    <div
+      v-if="showModal"
+      class="modal fade show"
+      style="display: block"
+      tabindex="-1"
+      @click.self="closeModal"
+    >
+      <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content" @click.stop>
+          <div class="modal-header">
+            <h5 class="modal-title">
+              {{ selectedEvent?.title || 'Event Details' }}
+            </h5>
+            <span class="badge ms-2" :class="getStatusBadgeClass(selectedEvent?.extendedProps?.status || '')">
+              {{ selectedEventStatus }}
+            </span>
+            <button type="button" class="btn-close" @click="closeModal"></button>
+          </div>
+          <div v-if="selectedEvent" class="modal-body">
+            <!-- Client & Date Info -->
+            <div class="card border-primary mb-3">
+              <div class="card-header bg-primary text-white">
+                <h6 class="mb-0">
+                  <i class="bi bi-info-circle me-2"></i>
+                  Booking Information
+                </h6>
+              </div>
+              <div class="card-body">
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <div class="mb-2">
+                      <small class="text-muted d-block">Client</small>
+                      <strong>{{ selectedEvent.title || 'N/A' }}</strong>
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <div class="mb-2">
+                      <small class="text-muted d-block">Duration</small>
+                      <strong>{{ calculateDuration(selectedEvent.start, selectedEvent.end) }} days</strong>
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <div class="mb-2">
+                      <small class="text-muted d-block">Start Date</small>
+                      <strong>{{ formatEventDate(selectedEvent.start) }}</strong>
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <div class="mb-2">
+                      <small class="text-muted d-block">End Date</small>
+                      <strong>{{ formatEventDate(selectedEvent.end) }}</strong>
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <div class="mb-2">
+                      <small class="text-muted d-block">Package</small>
+                      <strong>{{ selectedEvent.extendedProps?.proposed_package?.sales_package?.name || 'N/A' }}</strong>
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <div class="mb-2">
+                      <small class="text-muted d-block">Hunting Type</small>
+                      <strong>{{
+                        selectedEvent.extendedProps?.proposed_package?.price_list_type?.hunting_type?.name || 'N/A'
+                      }}</strong>
+                    </div>
+                  </div>
                 </div>
-                <div class="card-body">
-                  <div class="row g-3">
-                    <div class="col-md-6">
-                      <div class="mb-2">
-                        <small class="text-muted d-block">Client</small>
-                        <strong>{{ selectedEvent.title || 'N/A' }}</strong>
-                      </div>
-                    </div>
-                    <div class="col-md-6">
-                      <div class="mb-2">
-                        <small class="text-muted d-block">Duration</small>
-                        <strong>{{ calculateDuration(selectedEvent.start, selectedEvent.end) }} days</strong>
-                      </div>
-                    </div>
-                    <div class="col-md-6">
-                      <div class="mb-2">
-                        <small class="text-muted d-block">Start Date</small>
-                        <strong>{{ formatEventDate(selectedEvent.start) }}</strong>
-                      </div>
-                    </div>
-                    <div class="col-md-6">
-                      <div class="mb-2">
-                        <small class="text-muted d-block">End Date</small>
-                        <strong>{{ formatEventDate(selectedEvent.end) }}</strong>
-                      </div>
-                    </div>
-                    <div class="col-md-6">
-                      <div class="mb-2">
-                        <small class="text-muted d-block">Package</small>
-                        <strong>{{ selectedEvent.extendedProps?.proposed_package?.sales_package?.name || 'N/A' }}</strong>
-                      </div>
-                    </div>
-                    <div class="col-md-6">
-                      <div class="mb-2">
-                        <small class="text-muted d-block">Hunting Type</small>
-                        <strong>{{
-                          selectedEvent.extendedProps?.proposed_package?.price_list_type?.hunting_type?.name || 'N/A'
+              </div>
+            </div>
+
+            <!-- Preferences -->
+            <div class="card mb-3">
+              <div class="card-header bg-light">
+                <h6 class="mb-0">
+                  <i class="bi bi-gear me-2"></i>
+                  Preferences
+                </h6>
+              </div>
+              <div class="card-body">
+                <div class="row g-3">
+                  <div class="col-md-4">
+                    <div class="d-flex align-items-center gap-2 p-3 bg-light rounded">
+                      <i class="bi bi-people text-primary fs-4"></i>
+                      <div>
+                        <small class="text-muted d-block">Observers</small>
+                        <strong class="h5 mb-0">{{
+                          selectedEvent.extendedProps?.preference?.no_of_observers || 0
                         }}</strong>
                       </div>
                     </div>
                   </div>
-                </div>
-              </div>
-  
-              <!-- Preferences -->
-              <div class="card mb-3">
-                <div class="card-header bg-light">
-                  <h6 class="mb-0">
-                    <i class="material-icons" style="font-size: 18px; vertical-align: middle; margin-right: 6px"
-                      >settings</i
-                    >
-                    Preferences
-                  </h6>
-                </div>
-                <div class="card-body">
-                  <div class="row g-3">
-                    <div class="col-md-4">
-                      <div class="d-flex align-items-center gap-2 p-3 bg-light rounded">
-                        <i class="material-icons text-primary">people</i>
-                        <div>
-                          <small class="text-muted d-block">Observers</small>
-                          <strong class="h5 mb-0">{{
-                            selectedEvent.extendedProps?.preference?.no_of_observers || 0
-                          }}</strong>
-                        </div>
+                  <div class="col-md-4">
+                    <div class="d-flex align-items-center gap-2 p-3 bg-light rounded">
+                      <i class="bi bi-person text-primary fs-4"></i>
+                      <div>
+                        <small class="text-muted d-block">Companions</small>
+                        <strong class="h5 mb-0">{{
+                          selectedEvent.extendedProps?.preference?.no_of_companions || 0
+                        }}</strong>
                       </div>
                     </div>
-                    <div class="col-md-4">
-                      <div class="d-flex align-items-center gap-2 p-3 bg-light rounded">
-                        <i class="material-icons text-primary">person</i>
-                        <div>
-                          <small class="text-muted d-block">Companions</small>
-                          <strong class="h5 mb-0">{{
-                            selectedEvent.extendedProps?.preference?.no_of_companions || 0
-                          }}</strong>
-                        </div>
-                      </div>
-                    </div>
-                    <div class="col-md-4">
-                      <div class="d-flex align-items-center gap-2 p-3 bg-light rounded">
-                        <i class="material-icons text-primary">today</i>
-                        <div>
-                          <small class="text-muted d-block">Days</small>
-                          <strong class="h5 mb-0">{{ selectedEvent.extendedProps?.preference?.no_of_days || 0 }}</strong>
-                        </div>
+                  </div>
+                  <div class="col-md-4">
+                    <div class="d-flex align-items-center gap-2 p-3 bg-light rounded">
+                      <i class="bi bi-calendar-day text-primary fs-4"></i>
+                      <div>
+                        <small class="text-muted d-block">Days</small>
+                        <strong class="h5 mb-0">{{ selectedEvent.extendedProps?.preference?.no_of_days || 0 }}</strong>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
-  
-              <!-- Species -->
-              <div v-if="selectedEvent.extendedProps?.species?.length" class="card mb-3">
-                <div class="card-header bg-light">
-                  <h6 class="mb-0">
-                    <i class="material-icons" style="font-size: 18px; vertical-align: middle; margin-right: 6px">pets</i>
-                    Target Species
-                  </h6>
-                </div>
-                <div class="card-body">
-                  <div class="row g-3">
-                    <div v-for="specie in selectedEvent.extendedProps.species" :key="specie.id" class="col-md-6">
-                      <div class="card border-start border-success border-3">
-                        <div class="card-body">
-                          <div class="d-flex justify-content-between align-items-start mb-2">
-                            <h6 class="mb-0">{{ specie.species?.name || 'Unknown' }}</h6>
-                            <span class="badge bg-primary">Qty: {{ specie.quantity || 0 }}</span>
-                          </div>
-                          <p class="text-muted small mb-1 fst-italic">
-                            {{ specie.species?.scientific_name || '' }}
-                          </p>
-                          <p class="small mb-0">{{ specie.species?.description || '' }}</p>
+            </div>
+
+            <!-- Species -->
+            <div v-if="selectedEvent.extendedProps?.species?.length" class="card mb-3">
+              <div class="card-header bg-light">
+                <h6 class="mb-0">
+                  <i class="bi bi-bug me-2"></i>
+                  Target Species
+                </h6>
+              </div>
+              <div class="card-body">
+                <div class="row g-3">
+                  <div v-for="specie in selectedEvent.extendedProps.species" :key="specie.id" class="col-md-6">
+                    <div class="card border-start border-success border-3">
+                      <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                          <h6 class="mb-0">{{ specie.species?.name || 'Unknown' }}</h6>
+                          <span class="badge bg-primary">Qty: {{ specie.quantity || 0 }}</span>
                         </div>
+                        <p class="text-muted small mb-1 fst-italic">
+                          {{ specie.species?.scientific_name || '' }}
+                        </p>
+                        <p class="small mb-0">{{ specie.species?.description || '' }}</p>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
-  
-              <!-- Area -->
-              <div v-if="selectedEvent.extendedProps?.areas?.length" class="card mb-3">
-                <div class="card-header bg-light">
-                  <h6 class="mb-0">
-                    <i class="material-icons" style="font-size: 18px; vertical-align: middle; margin-right: 6px">place</i>
-                    Hunting Area
-                  </h6>
+            </div>
+
+            <!-- Area -->
+            <div v-if="selectedEvent.extendedProps?.areas?.length" class="card mb-3">
+              <div class="card-header bg-light">
+                <h6 class="mb-0">
+                  <i class="bi bi-geo-alt me-2"></i>
+                  Hunting Area
+                </h6>
+              </div>
+              <div class="card-body">
+                <div
+                  v-for="area in selectedEvent.extendedProps.areas"
+                  :key="area.id"
+                  class="card border-start border-info border-3 mb-2"
+                >
+                  <div class="card-body">
+                    <h6 class="mb-2">{{ area.area?.name || 'Unknown Area' }}</h6>
+                    <p class="small mb-2">{{ area.area?.description || '' }}</p>
+                    <div class="d-flex align-items-center gap-1 text-muted small">
+                      <i class="bi bi-pin-map"></i>
+                      <span>{{ area.area?.location?.name || 'Tanzania' }}</span>
+                      <span class="ms-2">
+                        ({{ area.area?.location?.geo_coordinates?.coordinates?.[0]?.lat || '0' }},
+                        {{ area.area?.location?.geo_coordinates?.coordinates?.[0]?.lng || '0' }})
+                      </span>
+                    </div>
+                  </div>
                 </div>
-                <div class="card-body">
+              </div>
+            </div>
+
+            <!-- Contacts -->
+            <div v-if="selectedEvent.extendedProps?.contacts?.length" class="card mb-3">
+              <div class="card-header bg-light">
+                <h6 class="mb-0">
+                  <i class="bi bi-envelope me-2"></i>
+                  Contacts
+                </h6>
+              </div>
+              <div class="card-body">
+                <div class="list-group list-group-flush">
                   <div
-                    v-for="area in selectedEvent.extendedProps.areas"
-                    :key="area.id"
-                    class="card border-start border-info border-3 mb-2"
+                    v-for="contact in selectedEvent.extendedProps.contacts"
+                    :key="contact.id"
+                    class="list-group-item d-flex align-items-center gap-2"
                   >
-                    <div class="card-body">
-                      <h6 class="mb-2">{{ area.area?.name || 'Unknown Area' }}</h6>
-                      <p class="small mb-2">{{ area.area?.description || '' }}</p>
-                      <div class="d-flex align-items-center gap-1 text-muted small">
-                        <i class="material-icons" style="font-size: 16px">location_on</i>
-                        <span>{{ area.area?.location?.name || 'Tanzania' }}</span>
-                        <span class="ms-2">
-                          ({{ area.area?.location?.geo_coordinates?.coordinates?.[0]?.lat || '0' }},
-                          {{ area.area?.location?.geo_coordinates?.coordinates?.[0]?.lng || '0' }})
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-  
-              <!-- Contacts -->
-              <div v-if="selectedEvent.extendedProps?.contacts?.length" class="card mb-3">
-                <div class="card-header bg-light">
-                  <h6 class="mb-0">
-                    <i class="material-icons" style="font-size: 18px; vertical-align: middle; margin-right: 6px"
-                      >contact_mail</i
-                    >
-                    Contacts
-                  </h6>
-                </div>
-                <div class="card-body">
-                  <div class="list-group list-group-flush">
-                    <div
-                      v-for="contact in selectedEvent.extendedProps.contacts"
-                      :key="contact.id"
-                      class="list-group-item d-flex align-items-center gap-2"
-                    >
-                      <i class="material-icons text-muted" style="font-size: 18px">email</i>
-                      <span>{{ contact.contact || 'N/A' }}</span>
-                    </div>
+                    <i class="bi bi-envelope-fill text-muted"></i>
+                    <span>{{ contact.contact || 'N/A' }}</span>
                   </div>
                 </div>
               </div>
             </div>
-            <div class="modal-footer">
-              <button type="button" class="btn btn-secondary" @click="showModal = false">Close</button>
-            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" @click="closeModal">Close</button>
           </div>
         </div>
       </div>
-      <div v-if="showModal" class="modal-backdrop fade show" @click="showModal = false"></div>
     </div>
-  </template>
-  
-  <script lang="ts">
-  import { defineComponent } from 'vue'
-  import FullCalendar from '@fullcalendar/vue3'
-  import dayGridPlugin from '@fullcalendar/daygrid'
-  import interactionPlugin from '@fullcalendar/interaction'
-  import multiMonthPlugin from '@fullcalendar/multimonth'
-  import type { CalendarOptions, EventInput } from '@fullcalendar/core'
-  import { mapActions } from 'pinia'
-  import { useCalendarStore } from 'src/stores/bushman/calenda-store.ts'
-  
-  interface CalendarEvent extends EventInput {
-    id: string
-    title: string
-    start: string | Date
-    end?: string | Date
-    allDay?: boolean
-    backgroundColor?: string
-    textColor?: string
-    borderColor?: string
-    extendedProps?: {
-      species?: any[]
-      preference?: any
-      contacts?: any[]
-      proposed_package?: any
-      areas?: any[]
-      status?: string
-      package_name?: string
-      hunting_type?: string
+    <div v-if="showModal" class="modal-backdrop fade show" @click="closeModal"></div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, computed, onMounted } from 'vue'
+import FullCalendar from '@fullcalendar/vue3'
+import dayGridPlugin from '@fullcalendar/daygrid'
+import interactionPlugin from '@fullcalendar/interaction'
+import multiMonthPlugin from '@fullcalendar/multimonth'
+import type { CalendarOptions, EventInput, EventClickArg } from '@fullcalendar/core'
+import { useCalendarStore } from '@/stores/bushman/calenda-store'
+
+// Types
+interface CalendarEvent extends EventInput {
+  id: string
+  title: string
+  start: string | Date
+  end?: string | Date
+  allDay?: boolean
+  backgroundColor?: string
+  textColor?: string
+  borderColor?: string
+  extendedProps?: {
+    species?: any[]
+    preference?: any
+    contacts?: any[]
+    proposed_package?: any
+    areas?: any[]
+    status?: string
+    package_name?: string
+    hunting_type?: string
+  }
+}
+
+// Store
+const calendarStore = useCalendarStore()
+
+// Refs
+const calendarRef = ref<InstanceType<typeof FullCalendar> | null>(null)
+const showModal = ref(false)
+const selectedEvent = ref<CalendarEvent | null>(null)
+const loadingData = ref(false)
+const calendarKey = ref(0)
+const calendarEvents = ref<CalendarEvent[]>([])
+const jumpDateString = ref(new Date().toISOString().split('T')[0])
+
+// Calendar Options
+const calendarOptions = ref<CalendarOptions>({
+  plugins: [dayGridPlugin, interactionPlugin, multiMonthPlugin],
+  initialView: 'dayGridMonth',
+  eventClick: handleEventClick,
+  events: [],
+  selectable: false,
+  editable: false,
+  weekends: true,
+  eventDisplay: 'block',
+  headerToolbar: {
+    left: 'prev,next today',
+    center: 'title',
+    right: 'dayGridMonth,multiMonthYear downloadCalendar',
+  },
+  customButtons: {
+    downloadCalendar: {
+      text: 'Download Calendar',
+      click: downloadCalendar,
+    },
+  },
+  initialDate: new Date().toISOString().split('T')[0],
+  views: {
+    multiMonthYear: {
+      type: 'multiMonth',
+      duration: { months: 12 },
+      multiMonthMaxColumns: 3,
+      multiMonthMinWidth: 280,
+      fixedWeekCount: false,
+      buttonText: 'Multi-Month Year',
+    },
+    dayGridMonth: {
+      fixedWeekCount: false,
+      buttonText: 'Month',
+    },
+  },
+  height: 'auto',
+  contentHeight: 'auto',
+  aspectRatio: 1.35,
+  dayMaxEventRows: 3,
+  moreLinkClick: 'popover',
+})
+
+// Computed Properties
+const totalEvents = computed(() => calendarEvents.value.length)
+
+const confirmedEvents = computed(() => 
+  calendarEvents.value.filter((event) => event.extendedProps?.status === 'confirmed').length
+)
+
+const provisionEvents = computed(() => 
+  calendarEvents.value.filter((event) => event.extendedProps?.status === 'provision_sales').length
+)
+
+const completedEvents = computed(() => 
+  calendarEvents.value.filter((event) => event.extendedProps?.status === 'completed').length
+)
+
+const selectedEventStatus = computed(() => {
+  const status = selectedEvent.value?.extendedProps?.status
+  if (!status) return 'Unknown'
+
+  const statusMap: Record<string, string> = {
+    confirmed: 'Confirmed',
+    pending: 'Pending',
+    provision_sales: 'Provision Sales',
+    declined: 'Declined',
+    cancelled: 'Cancelled',
+    completed: 'Completed',
+  }
+
+  return statusMap[status] || status
+})
+
+// Methods
+function downloadCalendar() {
+  const calendarData = generateICalendarData()
+  const blob = new Blob([calendarData], { type: 'text/calendar;charset=utf-8' })
+  const link = document.createElement('a')
+  const url = URL.createObjectURL(blob)
+  link.setAttribute('href', url)
+  link.setAttribute('download', `hunting-calendar-${new Date().toISOString().split('T')[0]}.ics`)
+  link.style.visibility = 'hidden'
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+}
+
+function generateICalendarData(): string {
+  const events = calendarOptions.value.events as EventInput[]
+  let icalData = `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Bushman//Hunting Calendar//EN
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+X-WR-CALNAME:Hunting Calendar
+X-WR-TIMEZONE:UTC
+X-WR-CALDESC:Hunting Schedule and Bookings
+`
+
+  for (const event of events) {
+    const eventData = event as any
+    const startDate = new Date(eventData.start)
+    const endDate = new Date(eventData.end || startDate)
+
+    icalData += `BEGIN:VEVENT
+UID:${eventData.id}@bushman.local
+DTSTAMP:${new Date().toISOString().replace(/[-:]/g, '').split('.')[0]}Z
+DTSTART:${startDate.toISOString().replace(/[-:]/g, '').split('.')[0]}Z
+DTEND:${endDate.toISOString().replace(/[-:]/g, '').split('.')[0]}Z
+SUMMARY:${eventData.title || 'Hunting Event'}
+DESCRIPTION:Status: ${eventData.extendedProps?.status || 'N/A'}
+END:VEVENT
+`
+  }
+
+  icalData += 'END:VCALENDAR'
+  return icalData
+}
+
+function formatEventDate(date: string | Date | undefined): string {
+  if (!date) return 'N/A'
+  try {
+    const dateObj = typeof date === 'string' ? new Date(date) : date
+    return dateObj.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    })
+  } catch {
+    return 'Invalid Date'
+  }
+}
+
+function calculateDuration(start: string | Date | undefined, end: string | Date | undefined): number {
+  if (!start || !end) return 0
+  try {
+    const startDate = new Date(start as string)
+    const endDate = new Date(end as string)
+    const diffTime = Math.abs(endDate.getTime() - startDate.getTime())
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1
+  } catch {
+    return 0
+  }
+}
+
+function getEarliestEventDate(events: CalendarEvent[]): string | null {
+  if (!events || events.length === 0) return null
+
+  let earliestDate: Date | null = null
+
+  for (const event of events) {
+    if (event.start) {
+      const eventDate = new Date(event.start as string)
+      if (!isNaN(eventDate.getTime())) {
+        if (!earliestDate || eventDate < earliestDate) {
+          earliestDate = eventDate
+        }
+      }
     }
   }
-  
-  export default defineComponent({
-    name: 'CalendarPage',
-  
-    components: {
-      FullCalendar,
-    },
-  
-    data() {
-      return {
-        calendarOptions: {
-          plugins: [dayGridPlugin, interactionPlugin, multiMonthPlugin],
-          initialView: 'dayGridMonth',
-          eventClick: (info: any) => this.handleEventClick(info),
-          events: [] as EventInput[],
-          selectable: false,
-          editable: false,
-          weekends: true,
-          eventDisplay: 'block',
-          headerToolbar: {
-            left: 'prev,next today',
-            center: 'title',
-            right: 'dayGridMonth,multiMonthYear downloadCalendar',
-          },
-          customButtons: {
-            downloadCalendar: {
-              text: 'Download Calendar',
-              click: () => this.downloadCalendar(),
-            },
-          },
-          // Start at earliest booked date (set dynamically)
-          initialDate: new Date().toISOString().split('T')[0],
-          views: {
-            multiMonthYear: {
-              type: 'multiMonth',
-              duration: { months: 12 },
-              multiMonthMaxColumns: 3,
-              multiMonthMinWidth: 280,
-              fixedWeekCount: false,
-              buttonText: 'Multi-Month Year',
-            },
-            dayGridMonth: {
-              fixedWeekCount: false,
-              buttonText: 'Month',
-            },
-          },
-          height: 'auto',
-          contentHeight: 'auto',
-          aspectRatio: 1.35,
-          dayMaxEventRows: 3,
-          moreLinkClick: 'popover',
-        } as CalendarOptions,
-        showModal: false,
-        selectedEvent: null as CalendarEvent | null,
-        loadingData: false,
-        calendarKey: 0,
-        calendarEvents: [] as CalendarEvent[],
-        jumpDate: new Date() as Date,
-        jumpDateString: new Date().toISOString().split('T')[0],
-        calendarApi: null as any,
+
+  if (earliestDate) {
+    return earliestDate.toISOString().split('T')[0]
+  }
+
+  return null
+}
+
+function handleEventClick(clickInfo: EventClickArg) {
+  console.log('Event clicked:', clickInfo.event)
+  selectedEvent.value = {
+    id: clickInfo.event.id,
+    title: clickInfo.event.title,
+    start: clickInfo.event.start,
+    end: clickInfo.event.end || clickInfo.event.start,
+    extendedProps: clickInfo.event.extendedProps,
+  }
+  showModal.value = true
+}
+
+function closeModal() {
+  showModal.value = false
+}
+
+function getStatusColor(status: string): string {
+  const colorMap: Record<string, string> = {
+    pending: '#FFC107',
+    provision_sales: '#FF9800',
+    confirmed: '#4CAF50',
+    declined: '#F44336',
+    cancelled: '#9E9E9E',
+    completed: '#2196F3',
+  }
+  return colorMap[status?.toLowerCase()] || '#757575'
+}
+
+function getStatusBadgeClass(status: string): string {
+  const colorMap: Record<string, string> = {
+    pending: 'bg-warning',
+    provision_sales: 'bg-warning',
+    confirmed: 'bg-success',
+    declined: 'bg-danger',
+    cancelled: 'bg-danger',
+    completed: 'bg-primary',
+  }
+  return colorMap[status?.toLowerCase()] || 'bg-secondary'
+}
+
+function handleJumpToDate() {
+  if (!jumpDateString.value) return
+
+  const date = new Date(jumpDateString.value)
+  if (isNaN(date.getTime())) return
+
+  if (calendarRef.value) {
+    const calendarApi = calendarRef.value.getApi()
+    if (calendarApi) {
+      calendarApi.gotoDate(date)
+      console.log('Jumped to date:', date)
+    }
+  }
+}
+
+async function loadCalendarEvents() {
+  console.log('Loading calendar events from API...')
+  loadingData.value = true
+
+  try {
+    const response = await calendarStore.getCalendarStats()
+    console.log('API response:', response)
+
+    if (response && response.status === 200 && Array.isArray(response.data)) {
+      console.log('API data received:', response.data)
+
+      if (response.data.length > 0) {
+        const apiEvents = transformApiEvents(response.data)
+        console.log('Transformed API events:', apiEvents)
+
+        calendarOptions.value.events = apiEvents
+        calendarEvents.value = apiEvents
+
+        // Set calendar to start at the earliest booked date
+        if (apiEvents.length > 0) {
+          const earliestDate = getEarliestEventDate(apiEvents)
+          if (earliestDate) {
+            calendarOptions.value.initialDate = earliestDate
+            console.log('Setting calendar initial date to earliest booking:', earliestDate)
+          }
+        }
+
+        calendarKey.value++
+
+        console.log(`Loaded ${apiEvents.length} events successfully`)
+      } else {
+        console.warn('No events found in API response')
       }
-    },
-  
-    computed: {
-      totalEvents(): number {
-        return this.calendarEvents.length
-      },
-  
-      confirmedEvents(): number {
-        return this.calendarEvents.filter((event: CalendarEvent) => event.extendedProps?.status === 'confirmed').length
-      },
-  
-      provisionEvents(): number {
-        return this.calendarEvents.filter((event: CalendarEvent) => event.extendedProps?.status === 'provision_sales').length
-      },
-  
-      completedEvents(): number {
-        return this.calendarEvents.filter((event: CalendarEvent) => event.extendedProps?.status === 'completed').length
-      },
-  
-      selectedEventStatus(): string {
-        const status = this.selectedEvent?.extendedProps?.status
-        if (!status) return 'Unknown'
-  
-        const statusMap: Record<string, string> = {
-          confirmed: 'Confirmed',
-          pending: 'Pending',
-          provision_sales: 'Provision Sales',
-          declined: 'Declined',
-          cancelled: 'Cancelled',
-          completed: 'Completed',
-        }
-  
-        return statusMap[status] || status
-      },
-    },
-  
-    mounted() {
-      console.log('Calendar component mounted')
-      this.loadCalendarEvents()
-    },
-  
-    methods: {
-      ...mapActions(useCalendarStore, ['getCalendarStats']),
-  
-      downloadCalendar() {
-        // Generate iCal format calendar file
-        const calendarData = this.generateICalendarData()
-        const blob = new Blob([calendarData], { type: 'text/calendar;charset=utf-8' })
-        const link = document.createElement('a')
-        const url = URL.createObjectURL(blob)
-        link.setAttribute('href', url)
-        link.setAttribute('download', `hunting-calendar-${new Date().toISOString().split('T')[0]}.ics`)
-        link.style.visibility = 'hidden'
-        document.body.appendChild(link)
-        link.click()
-        document.body.removeChild(link)
-      },
-  
-      generateICalendarData(): string {
-        const events = this.calendarOptions.events as EventInput[]
-        let icalData = `BEGIN:VCALENDAR
-  VERSION:2.0
-  PRODID:-//Bushman//Hunting Calendar//EN
-  CALSCALE:GREGORIAN
-  METHOD:PUBLISH
-  X-WR-CALNAME:Hunting Calendar
-  X-WR-TIMEZONE:UTC
-  X-WR-CALDESC:Hunting Schedule and Bookings
-  `
-  
-        for (const event of events) {
-          const eventData = event as any
-          const startDate = new Date(eventData.start)
-          const endDate = new Date(eventData.end || startDate)
-  
-          icalData += `BEGIN:VEVENT
-  UID:${eventData.id}@bushman.local
-  DTSTAMP:${new Date().toISOString().replace(/[-:]/g, '').split('.')[0]}Z
-  DTSTART:${startDate.toISOString().replace(/[-:]/g, '').split('.')[0]}Z
-  DTEND:${endDate.toISOString().replace(/[-:]/g, '').split('.')[0]}Z
-  SUMMARY:${eventData.title || 'Hunting Event'}
-  DESCRIPTION:Status: ${eventData.extendedProps?.status || 'N/A'}
-  END:VEVENT
-  `
-        }
-  
-        icalData += 'END:VCALENDAR'
-        return icalData
-      },
-  
-      formatEventDate(date: string | Date | undefined): string {
-        if (!date) return 'N/A'
-        try {
-          const dateObj = typeof date === 'string' ? new Date(date) : date
-          return dateObj.toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-          })
-        } catch {
-          return 'Invalid Date'
-        }
-      },
-  
-      calculateDuration(start: string | Date | undefined, end: string | Date | undefined): number {
-        if (!start || !end) return 0
-        try {
-          const startDate = new Date(start as string)
-          const endDate = new Date(end as string)
-          const diffTime = Math.abs(endDate.getTime() - startDate.getTime())
-          return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1
-        } catch {
-          return 0
-        }
-      },
-  
-      getEarliestEventDate(events: CalendarEvent[]): string | null {
-        if (!events || events.length === 0) return null
-  
-        let earliestDate: Date | null = null
-  
-        for (const event of events) {
-          if (event.start) {
-            const eventDate = new Date(event.start as string)
-            if (!isNaN(eventDate.getTime())) {
-              if (!earliestDate || eventDate < earliestDate) {
-                earliestDate = eventDate
-              }
-            }
-          }
-        }
-  
-        if (earliestDate) {
-          return earliestDate.toISOString().split('T')[0]
-        }
-  
-        return null
-      },
-  
-      handleEventClick(clickInfo: any) {
-        console.log('Event clicked:', clickInfo.event)
-        this.selectedEvent = {
-          id: clickInfo.event.id,
-          title: clickInfo.event.title,
-          start: clickInfo.event.start,
-          end: clickInfo.event.end || clickInfo.event.start,
-          extendedProps: clickInfo.event.extendedProps,
-        }
-        this.showModal = true
-      },
-  
-      getStatusColor(status: string): string {
-        const colorMap: Record<string, string> = {
-          pending: '#FFC107',
-          provision_sales: '#FF9800',
-          confirmed: '#4CAF50',
-          declined: '#F44336',
-          cancelled: '#9E9E9E',
-          completed: '#2196F3',
-        }
-        return colorMap[status?.toLowerCase()] || '#757575'
-      },
-  
-      getStatusBadgeClass(status: string): string {
-        const colorMap: Record<string, string> = {
-          pending: 'bg-warning',
-          provision_sales: 'bg-warning',
-          confirmed: 'bg-success',
-          declined: 'bg-danger',
-          cancelled: 'bg-danger',
-          completed: 'bg-primary',
-        }
-        return colorMap[status?.toLowerCase()] || 'bg-secondary'
-      },
-  
-      handleJumpToDate() {
-        if (!this.jumpDateString) return
-  
-        const date = new Date(this.jumpDateString)
-        if (isNaN(date.getTime())) return
-  
-        // Get the calendar API from the ref
-        const calendarRef = this.$refs.calendarRef as any
-        if (calendarRef) {
-          const calendarApi = calendarRef.getApi()
-          if (calendarApi) {
-            calendarApi.gotoDate(date)
-            console.log('Jumped to date:', date)
-          }
-        }
-      },
-  
-     
-      async loadCalendarEvents() {
-        console.log('Loading calendar events from API...')
-        console.log('Endpoint: sales-confirmation/calendar-stats-vset?status_list=confirmed,provision_sales,completed')
-        this.loadingData = true
-  
-        try {
-          const response = await this.getCalendarStats()
-          console.log('API response:', response)
-  
-          if (response && response.status === 200 && Array.isArray(response.data)) {
-            console.log('API data received:', response.data)
-  
-            if (response.data.length > 0) {
-              const apiEvents = this.transformApiEvents(response.data)
-              console.log('Transformed API events:', apiEvents)
-  
-              this.calendarOptions.events = apiEvents
-              this.calendarEvents = apiEvents
-  
-              // Set calendar to start at the earliest booked date
-              if (apiEvents.length > 0) {
-                const earliestDate = this.getEarliestEventDate(apiEvents)
-                if (earliestDate) {
-                  this.calendarOptions.initialDate = earliestDate
-                  console.log('Setting calendar initial date to earliest booking:', earliestDate)
-                }
-              }
-  
-              this.calendarKey++
-  
-              console.log(`Loaded ${apiEvents.length} events successfully`)
-            } else {
-              console.warn('No events found in API response')
-              // Use test data if API returns empty
-              // this.loadTestEvents()
-            }
-          } else {
-            console.error('Invalid API response:', response)
-            // Use test data if API fails
-            // this.loadTestEvents()
-          }
-        } catch (error) {
-          console.error('Error loading calendar events:', error)
-          // Use test data if API fails
-          // this.loadTestEvents()
-        } finally {
-          this.loadingData = false
-        }
-      },
-  
-      
-  
-      transformApiEvents(apiData: any[]): CalendarEvent[] {
-        const events: CalendarEvent[] = []
-  
-        apiData.forEach((item: any, index: number) => {
-          try {
-            const salesInquiry = item.sales_inquiry || {}
-            const entity = salesInquiry.entity || {}
-            const preference = salesInquiry.preference || {}
-  
-            // Parse dates
-            const startDate = this.parseApiDate(preference.start_date)
-            const endDate = this.parseApiDate(preference.end_date)
-  
-            if (!startDate) {
-              console.warn(`Skipping event ${item.id} - invalid start date:`, preference.start_date)
-              return
-            }
-  
-            // Format dates for FullCalendar
-            const eventStart = startDate.toISOString().split('T')[0]
-            const eventEnd = endDate ? endDate.toISOString().split('T')[0] : eventStart
-  
-            // Calculate duration
-            const duration = this.calculateDuration(eventStart, eventEnd)
-  
-            // Extract package and hunting type information
-            const proposedPackage = item.proposed_package || {}
-            const packageName = proposedPackage?.sales_package?.name || 'N/A'
-            const huntingType = proposedPackage?.price_list_type?.hunting_type?.name || 'N/A'
-  
-            // Create event title with client name, package, hunting type, and duration
-            const clientName = entity.full_name || 'Unknown Client'
-            const eventTitle = `${clientName} - ${packageName} (${huntingType}) - ${duration}d`
-  
-            // Create event
-            const event: CalendarEvent = {
-              id: item.id?.toString() || `event-${Date.now()}-${index}`,
-              title: eventTitle,
-              start: eventStart,
-              end: eventEnd,
-              allDay: true,
-              backgroundColor: this.getStatusColor(item.status?.status || ''),
-              textColor: '#FFFFFF',
-              borderColor: this.getStatusColor(item.status?.status || ''),
-              extendedProps: {
-                species: salesInquiry.preferred_species || [],
-                preference: preference,
-                contacts: entity.contacts || [],
-                proposed_package: proposedPackage,
-                areas: salesInquiry.area || [],
-                status: item.status?.status || 'unknown',
-                package_name: packageName,
-                hunting_type: huntingType,
-              },
-            }
-  
-            events.push(event)
-            console.log(`Added event: ${event.title} from ${eventStart} to ${eventEnd}`)
-          } catch (error) {
-            console.error('Error transforming event:', item.id, error)
-          }
-        })
-  
-        // Sort by start date
-        return events.sort((a, b) => {
-          return new Date(a.start as string).getTime() - new Date(b.start as string).getTime()
-        })
-      },
-  
-      parseApiDate(dateString: string | undefined): Date | null {
-        if (!dateString) return null
-  
-        try {
-          // Clean the date string
-          let cleanDate = dateString.trim()
-  
-          // Handle MySQL datetime format
-          if (cleanDate.includes(' ')) {
-            cleanDate = cleanDate.split(' ')[0]
-          }
-  
-          // Parse date
-          const date = new Date(cleanDate + 'T00:00:00')
-  
-          if (isNaN(date.getTime())) {
-            console.warn('Invalid date:', dateString)
-            return null
-          }
-  
-          return date
-        } catch (error) {
-          console.error('Error parsing date:', dateString, error)
-          return null
-        }
-      },
-    },
+    } else {
+      console.error('Invalid API response:', response)
+    }
+  } catch (error) {
+    console.error('Error loading calendar events:', error)
+  } finally {
+    loadingData.value = false
+  }
+}
+
+function transformApiEvents(apiData: any[]): CalendarEvent[] {
+  const events: CalendarEvent[] = []
+
+  apiData.forEach((item: any, index: number) => {
+    try {
+      const salesInquiry = item.sales_inquiry || {}
+      const entity = salesInquiry.entity || {}
+      const preference = salesInquiry.preference || {}
+
+      // Parse dates
+      const startDate = parseApiDate(preference.start_date)
+      const endDate = parseApiDate(preference.end_date)
+
+      if (!startDate) {
+        console.warn(`Skipping event ${item.id} - invalid start date:`, preference.start_date)
+        return
+      }
+
+      // Format dates for FullCalendar
+      const eventStart = startDate.toISOString().split('T')[0]
+      const eventEnd = endDate ? endDate.toISOString().split('T')[0] : eventStart
+
+      // Calculate duration
+      const duration = calculateDuration(eventStart, eventEnd)
+
+      // Extract package and hunting type information
+      const proposedPackage = item.proposed_package || {}
+      const packageName = proposedPackage?.sales_package?.name || 'N/A'
+      const huntingType = proposedPackage?.price_list_type?.hunting_type?.name || 'N/A'
+
+      // Create event title with client name, package, hunting type, and duration
+      const clientName = entity.full_name || 'Unknown Client'
+      const eventTitle = `${clientName} - ${packageName} (${huntingType}) - ${duration}d`
+
+      // Create event
+      const event: CalendarEvent = {
+        id: item.id?.toString() || `event-${Date.now()}-${index}`,
+        title: eventTitle,
+        start: eventStart,
+        end: eventEnd,
+        allDay: true,
+        backgroundColor: getStatusColor(item.status?.status || ''),
+        textColor: '#FFFFFF',
+        borderColor: getStatusColor(item.status?.status || ''),
+        extendedProps: {
+          species: salesInquiry.preferred_species || [],
+          preference: preference,
+          contacts: entity.contacts || [],
+          proposed_package: proposedPackage,
+          areas: salesInquiry.area || [],
+          status: item.status?.status || 'unknown',
+          package_name: packageName,
+          hunting_type: huntingType,
+        },
+      }
+
+      events.push(event)
+      console.log(`Added event: ${event.title} from ${eventStart} to ${eventEnd}`)
+    } catch (error) {
+      console.error('Error transforming event:', item.id, error)
+    }
   })
-  </script>
-  
-  <style scoped>
-  .calendar-page {
-    padding: 20px;
-    background-color: #f8f9fa;
-    min-height: 100vh;
-    width: 100%;
-    overflow-x: auto;
+
+  // Sort by start date
+  return events.sort((a, b) => {
+    return new Date(a.start as string).getTime() - new Date(b.start as string).getTime()
+  })
+}
+
+function parseApiDate(dateString: string | undefined): Date | null {
+  if (!dateString) return null
+
+  try {
+    // Clean the date string
+    let cleanDate = dateString.trim()
+
+    // Handle MySQL datetime format
+    if (cleanDate.includes(' ')) {
+      cleanDate = cleanDate.split(' ')[0]
+    }
+
+    // Parse date
+    const date = new Date(cleanDate + 'T00:00:00')
+
+    if (isNaN(date.getTime())) {
+      console.warn('Invalid date:', dateString)
+      return null
+    }
+
+    return date
+  } catch (error) {
+    console.error('Error parsing date:', dateString, error)
+    return null
   }
-  
-  /* Stats Cards */
-  .stat-card {
-    transition:
-      transform 0.2s ease,
-      box-shadow 0.2s ease;
-    cursor: default;
-  }
-  
-  .stat-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
-  }
-  
-  .stat-icon {
-    width: 48px;
-    height: 48px;
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 24px;
-  }
-  
-  .stat-total .stat-icon {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-  }
-  
-  .stat-confirmed .stat-icon {
-    background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
-    color: white;
-  }
-  
-  .stat-provision .stat-icon {
-    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-    color: white;
-  }
-  
-  .stat-completed .stat-icon {
-    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-    color: white;
-  }
-  
-  /* Legend */
-  .legend-dot {
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
+}
+
+// Lifecycle
+onMounted(() => {
+  console.log('Calendar component mounted')
+  loadCalendarEvents()
+})
+</script>
+
+<style scoped>
+.calendar-page {
+  padding: 20px;
+  background-color: #f8f9fa;
+  min-height: 100vh;
+  width: 100%;
+  overflow-x: auto;
+}
+
+/* Stats Cards */
+.stat-card {
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+  cursor: default;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+}
+
+.stat-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+}
+
+.stat-total .stat-icon {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.stat-confirmed .stat-icon {
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+  color: white;
+}
+
+.stat-provision .stat-icon {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: white;
+}
+
+.stat-completed .stat-icon {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: white;
+}
+
+/* Legend */
+.legend-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
     display: inline-block;
   }
   

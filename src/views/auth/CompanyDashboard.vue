@@ -139,7 +139,7 @@ const getServicePermissions = async (id) => {
 const findAccessibleRoute = (serviceId) => {
 	const service = serviceConfig[serviceId];
 	if (!service || !service.routes) {
-		return "/performance-dashboard"; // Fallback
+		return "/bushman/dashboard"; // Fallback
 	}
 
 	// Try to find a route that user has permission for

@@ -25,31 +25,37 @@
           ></div>
         </div>
 
-        <!-- Bootstrap Stepper -->
-        <ul class="nav nav-pills nav-justified mb-4">
-          <li v-for="(step, index) in wizardSteps" :key="index" class="nav-item">
-            <a
-              class="nav-link"
-              :class="{ active: currentStep === index, 'text-success': currentStep > index }"
-              href="#"
-              @click.prevent="goToStep(index)"
-            >
-              <i
-                class="fa"
+        <!-- Circle Wizard Stepper -->
+        <div class="nav-wizards-container">
+          <nav class="nav nav-wizards-3 mb-4">
+            <div v-for="(step, index) in wizardSteps" :key="index" class="nav-item col">
+              <a
+                class="nav-link"
                 :class="{
-                  'fa-user': index === 0,
-                  'fa-calendar': index === 1,
-                  'fa-hiking': index === 2,
-                  'fa-check-circle': index === 3,
+                  completed: currentStep > index || (index === 0 && isStep1Complete) || (index === 1 && isStep2Complete) || (index === 2 && isStep3Complete),
+                  active: currentStep === index,
+                  disabled: currentStep < index
                 }"
-              ></i>
-              <span class="d-none d-md-inline ms-1">{{ step.label }}</span>
-              <i v-if="index === 0 && isStep1Complete" class="fa fa-check-circle text-success ms-1"></i>
-              <i v-if="index === 1 && isStep2Complete" class="fa fa-check-circle text-success ms-1"></i>
-              <i v-if="index === 2 && isStep3Complete" class="fa fa-check-circle text-success ms-1"></i>
-            </a>
-          </li>
-        </ul>
+                href="#"
+                @click.prevent="goToStep(index)"
+              >
+                <div class="nav-dot">
+                  <i
+                    class="fa"
+                    :class="{
+                      'fa-user': index === 0,
+                      'fa-calendar': index === 1,
+                      'fa-hiking': index === 2,
+                      'fa-check-circle': index === 3,
+                    }"
+                  ></i>
+                </div>
+                <div class="nav-title">{{ step.label }}</div>
+                <i v-if="(index === 0 && isStep1Complete) || (index === 1 && isStep2Complete) || (index === 2 && isStep3Complete)" class="fa fa-check-circle text-success position-absolute" style="top: 5px; right: 10px;"></i>
+              </a>
+            </div>
+          </nav>
+        </div>
 
         <form ref="formRef">
           <!-- Step 1: Customer Information -->
@@ -879,13 +885,13 @@
       <div class="floating-footer bg-white border-top shadow-lg">
         <div class="d-flex justify-content-between align-items-center py-3 px-4">
           <div>
-            <button v-if="currentStep > 0" type="button" class="btn btn-secondary" @click="previousStep">
-              <i class="fa fa-arrow-left me-1"></i> Previous
+            <button v-if="currentStep > 0" type="button" class="btn btn-primary" @click="previousStep">
+              Back
             </button>
           </div>
           <div class="text-muted d-none d-sm-inline">Step {{ currentStep + 1 }} of {{ wizardSteps.length }}</div>
           <div class="d-flex gap-2">
-            <button type="button" class="btn btn-secondary" @click="cancelWizard">Cancel</button>
+            <button type="button" class="btn btn-outline-secondary" @click="cancelWizard">Cancel</button>
             <button
               v-if="currentStep < wizardSteps.length - 1"
               type="button"
@@ -893,18 +899,17 @@
               :disabled="!canProceedToNextStep"
               @click="nextStep"
             >
-              Next <i class="fa fa-arrow-right ms-1"></i>
+              Next
             </button>
             <button
               v-else
               type="button"
-              class="btn btn-success"
+              class="btn btn-primary"
               :disabled="!isValidForm || saving"
               @click="submit()"
             >
               <span v-if="saving" class="spinner-border spinner-border-sm me-2" role="status"></span>
-              <i v-else class="fa fa-save me-1"></i>
-              {{ isEditMode ? 'Update Enquiry' : 'Submit Enquiry' }}
+              Finish
             </button>
           </div>
         </div>
@@ -1845,6 +1850,7 @@ onMounted(() => {
 /* Floating Footer Wrapper - matches card width and adds margins */
 .floating-footer-wrapper {
   position: sticky;
+  background-color: transparent;
   bottom: 1rem;
   z-index: 1050;
   padding: 0 1rem;
@@ -1856,13 +1862,13 @@ onMounted(() => {
   width: 100%;
   max-width: 100%;
   border-radius: 0.375rem;
-  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.15);
   position: relative;
   margin: 0 auto;
 }
 
 /* Add padding to card body to prevent content from being hidden behind sticky footer */
 .sales-inquiry-wizard .card-body {
+  background-color: transparent;
   padding-bottom: 10px;
 }
 </style>

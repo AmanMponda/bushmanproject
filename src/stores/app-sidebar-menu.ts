@@ -354,7 +354,7 @@ export const useAppSidebarMenuStore = defineStore("appSidebarMenu", () => {
     },
 
     {
-      url: '/auth/service-selection',
+      url: '/bushman/dashboard',
       icon: 'fa fa-home',
       text: 'Bushman',
       permission: 'CAN_VIEW_BUSHMAN_DASHBOARD'
@@ -396,9 +396,9 @@ export const useAppSidebarMenuStore = defineStore("appSidebarMenu", () => {
       text: 'Operations',
       permission: 'CAN_VIEW_OPERATIONS',
       children: [
-        { url: '/operations/hunting-license', text: 'Price Lists', permission: 'CAN_VIEW_HUNTING_LICENSE' },
-        { url: '/operations/game', text: 'Sales Quotations', permission: 'CAN_VIEW_GAME' },       
-        { url: '/operations/game-requitions', text: 'Sales Contracts', permission: 'CAN_VIEW_GAME_REQUISITIONS' },
+        { url: '/operations/hunting-license', text: 'Hunting permits', permission: 'CAN_VIEW_HUNTING_LICENSE' },
+        { url: '/operations/game', text: 'Hunting Games', permission: 'CAN_VIEW_GAME' },       
+        { url: '/operations/game-requitions', text: 'Game requisitions', permission: 'CAN_VIEW_GAME_REQUISITIONS' },
         // { url: '/operations/hunting-license', text: 'Hunting License', permission: 'CAN_VIEW_HUNTING_LICENSE' },
         // { url: '/operations/game', text: 'Game', permission: 'CAN_VIEW_GAME' },
         // { url: '/operations/game-requitions', text: 'Game Requisitions', permission: 'CAN_VIEW_GAME_REQUISITIONS' },
@@ -440,14 +440,7 @@ export const useAppSidebarMenuStore = defineStore("appSidebarMenu", () => {
       text: 'Module Settings',
       permission: 'CAN_VIEW_MODULE_SETTINGS',
       children: [
-        { url: '/module-settings/species-settings',
-          text: 'Species',
-          permission: 'CAN_VIEW_SPECIES_SETTINGS',
-          children: [
-            { url: '/module-settings/species-settings/species', text: 'Species', permission: 'CAN_VIEW_SPECIES_SETTINGS' },
-            { url: '/module-settings/trophy-fees', text: 'Trophies', permission: 'CAN_VIEW_TROPHY_FEES' },
-          ],
-        },
+        {url: '/module-settings/species-settings/species',text: 'Species',permission: 'CAN_VIEW_SPECIES_SETTINGS'},
         { url: '/module-settings/area-settings',text: 'Hunting Areas',permission: 'CAN_VIEW_AREA_SETTINGS'},
         { url: '/module-settings/hunting-types', text: 'Hunting Types', permission: 'CAN_VIEW_HUNTING_TYPES' },
         { url: '/module-settings/qoutas-settings', text: 'Quotas', permission: 'CAN_VIEW_QUOTAS_SETTINGS' },
@@ -462,9 +455,9 @@ export const useAppSidebarMenuStore = defineStore("appSidebarMenu", () => {
 
           ],
         },
-        { url: '/module-settings/companion-hunter-costs', text: 'Companion Hunter Costs', permission: 'CAN_VIEW_APPROVAL_CHAIN' },
-        { url: '/module-settings/terms', text: 'Terms', permission: 'CAN_VIEW_APPROVAL_CHAIN' },
-         { url: '/module-settings/approval-chain', text: 'Approval Chain', permission: 'CAN_VIEW_APPROVAL_CHAIN' },
+
+        // { url: '/module-settings/terms', text: 'Terms', permission: 'CAN_VIEW_APPROVAL_CHAIN' },
+
         
 
       ],

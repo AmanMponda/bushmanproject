@@ -150,7 +150,7 @@
               </div>
 
               <div class="col-md-4">
-                <label class="form-label">Duration</label>
+                <label class="form-label"> Duration in days</label>
                 <input
                   v-model="packageForm.duration"
                   type="number"
@@ -195,7 +195,7 @@
               </div>
             </div>
 
-            <div class="mb-4">
+            <div class="mb-4 d-flex gap-2">
               <button
                 class="btn btn-primary"
                 type="button"
@@ -203,8 +203,104 @@
               >
                 <i class="fa fa-plus me-2"></i>Add Species
               </button>
+              <button
+                class="btn btn-success"
+                type="button"
+                @click="triggerCsvInput"
+              >
+                <i class="fa fa-file-csv me-2"></i>Import from CSV
+              </button>
+              <input ref="csvInput" type="file" accept=".csv,text/csv" style="display:none" @change="onCsvSelected" />
             </div>
           </form>
+
+          <!-- CSV Import Section -->
+          <div v-if="showCsvPreview" class="mb-4">
+            <div class="card border-primary">
+              <div class="card-header bg-light d-flex align-items-center justify-content-between py-2">
+                <div class="d-flex align-items-center gap-2">
+                  <i class="fa fa-table text-primary"></i>
+                  <span class="fw-semibold">CSV Preview</span>
+                  <span class="badge bg-primary">{{ csvPreviewData.length }} rows</span>
+                  <span v-if="csvDuplicates > 0" class="badge bg-warning text-dark">{{ csvDuplicates }} duplicates skipped</span>
+                  <span v-if="csvNewCount > 0" class="badge bg-success">{{ csvNewCount }} new</span>
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-secondary" @click="closeCsvPreview">
+                  <i class="fa fa-times"></i>
+                </button>
+              </div>
+              <div class="card-body p-0">
+                <!-- Column Mapping -->
+                <div class="p-3 border-bottom bg-light">
+                  <div class="row g-2 align-items-end">
+                    <div class="col-md-6">
+                      <label class="form-label small fw-semibold">Species Name Column</label>
+                      <select v-model="csvColumnMap.name" class="form-select form-select-sm" @change="recalculateCsvPreview">
+                        <option v-for="col in csvHeaders" :key="col" :value="col">{{ col }}</option>
+                      </select>
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label small fw-semibold">Quantity Column</label>
+                      <select v-model="csvColumnMap.quantity" class="form-select form-select-sm" @change="recalculateCsvPreview">
+                        <option value="">(Default: 1)</option>
+                        <option v-for="col in csvHeaders" :key="col" :value="col">{{ col }}</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Preview Table -->
+                <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                  <table class="table table-sm table-hover mb-0">
+                    <thead class="table-light sticky-top">
+                      <tr>
+                        <th style="width: 40px;">
+                          <input type="checkbox" class="form-check-input" :checked="allCsvRowsSelected" @change="toggleAllCsvRows" />
+                        </th>
+                        <th>Species Name</th>
+                        <th>Quantity</th>
+                        <th style="width: 100px;">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="(row, idx) in csvPreviewData" :key="idx" :class="{ 'table-secondary': row._duplicate || row._notFound }">
+                        <td>
+                          <input type="checkbox" class="form-check-input" v-model="row._selected" :disabled="row._duplicate || row._notFound" />
+                        </td>
+                        <td>{{ row.name }}</td>
+                        <td>{{ row.quantity }}</td>
+                        <td>
+                          <span v-if="row._duplicate" class="badge bg-warning text-dark"><i class="fa fa-copy me-1"></i>Already Added</span>
+                          <span v-else-if="row._notFound" class="badge bg-danger"><i class="fa fa-exclamation-circle me-1"></i>Not Found</span>
+                          <span v-else class="badge bg-success"><i class="fa fa-plus me-1"></i>Ready</span>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <div class="card-footer bg-light d-flex align-items-center justify-content-between py-2">
+                <div class="text-muted small">
+                  <i class="fa fa-check-circle text-success me-1"></i>
+                  {{ csvSelectedCount }} of {{ csvNewCount }} species selected for import
+                </div>
+                <div class="d-flex gap-2">
+                  <button type="button" class="btn btn-sm btn-outline-secondary" @click="closeCsvPreview">
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-success"
+                    :disabled="csvSelectedCount === 0"
+                    @click="importCsvSpecies"
+                  >
+                    <i class="fa fa-upload me-1"></i>
+                    Add {{ csvSelectedCount }} Species
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
 
           <div class="mb-4">
             <div v-if="speciesObjects.length > 0" class="fw-bold mb-2">Selected Species</div>
@@ -275,6 +371,192 @@ const speciesObjects = ref<any[]>([])
 const speciesOptions = ref<any[]>([])
 const quotasOptions = ref<any[]>([])
 
+// CSV Import state
+const csvInput = ref(null)
+const showCsvPreview = ref(false)
+const csvHeaders = ref<string[]>([])
+const csvRawRows = ref<any[]>([])
+const csvPreviewData = ref<any[]>([])
+const csvColumnMap = reactive({
+  name: '',
+  quantity: '',
+})
+
+const csvDuplicates = computed(() => csvPreviewData.value.filter((r: any) => r._duplicate).length)
+const csvNotFound = computed(() => csvPreviewData.value.filter((r: any) => r._notFound).length)
+const csvNewCount = computed(() => csvPreviewData.value.filter((r: any) => !r._duplicate && !r._notFound).length)
+const csvSelectedCount = computed(() => csvPreviewData.value.filter((r: any) => r._selected && !r._duplicate && !r._notFound).length)
+const allCsvRowsSelected = computed(() => {
+  const selectable = csvPreviewData.value.filter((r: any) => !r._duplicate && !r._notFound)
+  return selectable.length > 0 && selectable.every((r: any) => r._selected)
+})
+
+function toggleAllCsvRows() {
+  const allSelected = allCsvRowsSelected.value
+  csvPreviewData.value.forEach((r: any) => {
+    if (!r._duplicate && !r._notFound) r._selected = !allSelected
+  })
+}
+
+function triggerCsvInput() {
+  const el: any = csvInput.value
+  if (el) el.click()
+}
+
+async function parseCsvText(text: string) {
+  const trimmed = String(text || '').trim()
+  if (!trimmed) return { headerFields: [], rows: [] }
+  try {
+    const PapaModule = await import('papaparse')
+    const Papa = PapaModule && (PapaModule.default || PapaModule)
+    const parsed = Papa.parse(trimmed, { header: true, skipEmptyLines: true })
+    const headerFields = parsed?.meta?.fields || (parsed.data && parsed.data.length ? Object.keys(parsed.data[0]) : [])
+    return { headerFields, rows: parsed.data || [] }
+  } catch (e) {
+    const lines = trimmed.split(/\r?\n/).filter((l) => l.trim() !== '')
+    if (lines.length === 0) return { headerFields: [], rows: [] }
+
+    function splitLine(line: string) {
+      const result: string[] = []
+      let cur = ''
+      let inQuotes = false
+      for (let i = 0; i < line.length; i++) {
+        const ch = line[i]
+        if (ch === '"') {
+          if (inQuotes && line[i + 1] === '"') {
+            cur += '"'
+            i++
+          } else {
+            inQuotes = !inQuotes
+          }
+        } else if (ch === ',' && !inQuotes) {
+          result.push(cur)
+          cur = ''
+        } else {
+          cur += ch
+        }
+      }
+      result.push(cur)
+      return result.map((s) => s.trim())
+    }
+
+    const headerFields = splitLine(lines[0])
+    const rows = lines.slice(1).map((ln) => {
+      const fields = splitLine(ln)
+      const obj: any = {}
+      for (let i = 0; i < headerFields.length; i++) {
+        obj[headerFields[i]] = fields[i] ?? ''
+      }
+      return obj
+    })
+    return { headerFields, rows }
+  }
+}
+
+async function onCsvSelected(e: Event) {
+  const input = e.target as HTMLInputElement
+  const file = input.files && input.files[0]
+  if (!file) return
+  await processCsvFile(file)
+  input.value = ''
+}
+
+async function processCsvFile(file: File) {
+  const text = await file.text()
+  const parsed = await parseCsvText(text)
+  if (!parsed || !parsed.rows || parsed.rows.length === 0) {
+    toastInit({ message: 'CSV contains no rows', color: 'info' })
+    return
+  }
+
+  csvHeaders.value = parsed.headerFields
+  csvRawRows.value = parsed.rows
+
+  // Auto-detect columns
+  const headersLower = parsed.headerFields.map((h: string) => h.toLowerCase())
+  
+  // Name column
+  const tryNames = ['name', 'species', 'species_name', 'speciesname']
+  for (const t of tryNames) {
+    const idx = headersLower.findIndex((h) => h.includes(t))
+    if (idx >= 0) {
+      csvColumnMap.name = parsed.headerFields[idx]
+      break
+    }
+  }
+  if (!csvColumnMap.name && parsed.headerFields.length > 0) {
+    csvColumnMap.name = parsed.headerFields[0]
+  }
+
+  // Quantity column
+  const tryQty = ['quantity', 'qty', 'count', 'amount']
+  for (const t of tryQty) {
+    const idx = headersLower.findIndex((h) => h.includes(t))
+    if (idx >= 0) {
+      csvColumnMap.quantity = parsed.headerFields[idx]
+      break
+    }
+  }
+
+  recalculateCsvPreview()
+  showCsvPreview.value = true
+}
+
+function recalculateCsvPreview() {
+  const existingNames = new Set(speciesObjects.value.map((it: any) => (it.name || '').toLowerCase().trim()))
+  const availableSpeciesMap = new Map(speciesOptions.value.map((opt: any) => [(opt.text || '').toLowerCase().trim(), opt]))
+  const seenNames = new Set<string>()
+  
+  csvPreviewData.value = csvRawRows.value.map((row: any) => {
+    const name = String(row[csvColumnMap.name] || '').trim()
+    const quantity = csvColumnMap.quantity ? parseInt(row[csvColumnMap.quantity]) || 1 : 1
+    
+    const key = name.toLowerCase()
+    const isDuplicate = existingNames.has(key) || seenNames.has(key)
+    const matchedSpecies = availableSpeciesMap.get(key)
+    const isNotFound = !matchedSpecies
+    
+    if (name && !isDuplicate) seenNames.add(key)
+    
+    return {
+      name,
+      quantity: Math.max(1, quantity),
+      _duplicate: isDuplicate,
+      _notFound: isNotFound,
+      _selected: !isDuplicate && !isNotFound,
+      _speciesId: matchedSpecies?.value,
+    }
+  }).filter((r: any) => r.name)
+}
+
+function closeCsvPreview() {
+  showCsvPreview.value = false
+  csvHeaders.value = []
+  csvRawRows.value = []
+  csvPreviewData.value = []
+  csvColumnMap.name = ''
+  csvColumnMap.quantity = ''
+}
+
+function importCsvSpecies() {
+  const toImport = csvPreviewData.value.filter((r: any) => r._selected && !r._duplicate && !r._notFound)
+  if (toImport.length === 0) {
+    toastInit({ message: 'No species selected for import', color: 'info' })
+    return
+  }
+
+  for (const sp of toImport) {
+    speciesObjects.value.push({
+      id: sp._speciesId,
+      name: sp.name,
+      quantity: sp.quantity,
+    })
+  }
+
+  toastInit({ message: `Added ${toImport.length} species from CSV`, color: 'success' })
+  closeCsvPreview()
+}
+
 const packageForm = reactive({
   id: null as any,
   duration: null as any,
@@ -313,14 +595,35 @@ const showNewPackageForm = () => {
   }
 }
 
-const showDetails = (row: any) => {
-  // Use the full item data if available, otherwise use row data
-  const itemData = row.selfItem || row
-  selectItem.value = itemData
-  console.log('Selected item for details:', itemData)
-  console.log('Species data:', itemData.species)
-  showDetailsPage.value = true
-  showpackForm.value = false
+const showDetails = async (row: any) => {
+  // Fetch the full package details with species from the API
+  try {
+    loading.value = true
+    const response = await regulatoryPackageStore.getRegulatoryPackageById(row.id)
+    if (response.status === 200) {
+      // API returns { data: {...package...}, species: [...] }
+      const apiData = response.data
+      console.log('Package details response:', apiData)
+      
+      const packageData = apiData.data || apiData
+      const speciesData = apiData.species || []
+      
+      selectItem.value = {
+        ...packageData,
+        species: speciesData,
+      }
+      
+      console.log('Selected item for details:', selectItem.value)
+      console.log('Species data:', speciesData)
+      showDetailsPage.value = true
+      showpackForm.value = false
+    }
+  } catch (error) {
+    console.error('Error fetching package details:', error)
+    toastInit({ message: 'Failed to load package details', color: 'danger' })
+  } finally {
+    loading.value = false
+  }
 }
 
 const goBack = () => {
@@ -332,12 +635,16 @@ const goBack = () => {
 
 const getSpeciesList = () => {
   if (!selectItem.value) return []
+  console.log('Getting species list from selectItem:', selectItem.value)
   // Try different possible field names
-  return selectItem.value.species || 
+  const speciesData = selectItem.value.species || 
          selectItem.value.species_list || 
          selectItem.value.regulatory_package_species || 
-         selectItem.value.species_object_list || 
+         selectItem.value.species_object_list ||
+         selectItem.value.regulatoryPackageSpecies ||
          []
+  console.log('Species data found:', speciesData)
+  return speciesData
 }
 
 const hasSpecies = () => {
@@ -462,21 +769,19 @@ const getPackages = async () => {
   try {
     const response = await regulatoryPackageStore.getRegulatoryPackages()
     if (response.status === 200) {
-      loading.value = false
       const data = response.data
       items.value = data.map((item: any) => ({
         id: item.id,
         name: item.name,
         area_name: item.area_name,
-        regulatory_package_name: item.regulatory_package_name,
+        regulatory_package_name: item.regulatory_package_name || item.name,
         duration: item.duration,
-        species: item.species || [],
-        selfItem: item, // Store full item for details view
       }))
     }
   } catch (error) {
-    loading.value = false
     console.log(error)
+  } finally {
+    loading.value = false
   }
 }
 

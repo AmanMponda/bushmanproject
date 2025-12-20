@@ -79,7 +79,7 @@
 
             <!-- Species Section -->
             <div class="card mb-3">
-              <div class="card-header bg-light py-1">
+              <div class="card-header bg-light py-1 d-flex justify-content-between align-items-center">
                 <h6 class="mb-0">
                   <i class="fa fa-paw text-primary me-2"></i>
                   Species
@@ -89,8 +89,86 @@
                     role="status"
                   ></span>
                 </h6>
+                <button
+                  v-if="licenceAreaSpecies && licenceAreaSpecies.length > 0"
+                  type="button"
+                  class="btn btn-sm btn-success"
+                  @click="triggerCsvInput"
+                >
+                  <i class="fa fa-file-csv me-1"></i>Import CSV
+                </button>
+                <input ref="csvInputRef" type="file" accept=".csv,text/csv" style="display:none" @change="onCsvSelected" />
               </div>
               <div class="card-body">
+                <!-- CSV Preview Panel -->
+                <div v-if="showCsvPreview" class="mb-3">
+                  <div class="card border-primary">
+                    <div class="card-header bg-light d-flex align-items-center justify-content-between py-2">
+                      <div class="d-flex align-items-center gap-2">
+                        <i class="fa fa-table text-primary"></i>
+                        <span class="fw-semibold">CSV Preview</span>
+                        <span class="badge bg-primary">{{ csvPreviewData.length }} rows</span>
+                        <span v-if="csvNewCount > 0" class="badge bg-success">{{ csvNewCount }} matched</span>
+                      </div>
+                      <button type="button" class="btn btn-sm btn-outline-secondary" @click="closeCsvPreview">
+                        <i class="fa fa-times"></i>
+                      </button>
+                    </div>
+                    <div class="card-body p-0">
+                      <div class="p-3 border-bottom bg-light">
+                        <div class="row g-2 align-items-end">
+                          <div class="col-md-6">
+                            <label class="form-label small fw-semibold">Species Name Column</label>
+                            <select v-model="csvColumnMap.name" class="form-select form-select-sm" @change="recalculateCsvPreview">
+                              <option v-for="col in csvHeaders" :key="col" :value="col">{{ col }}</option>
+                            </select>
+                          </div>
+                          <div class="col-md-6">
+                            <label class="form-label small fw-semibold">Quantity Column</label>
+                            <select v-model="csvColumnMap.quantity" class="form-select form-select-sm" @change="recalculateCsvPreview">
+                              <option value="">(Keep existing)</option>
+                              <option v-for="col in csvHeaders" :key="col" :value="col">{{ col }}</option>
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="table-responsive" style="max-height: 200px; overflow-y: auto;">
+                        <table class="table table-sm table-hover mb-0">
+                          <thead class="table-light sticky-top">
+                            <tr>
+                              <th>Species Name</th>
+                              <th>New Quantity</th>
+                              <th style="width: 100px;">Status</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr v-for="(row, idx) in csvPreviewData" :key="idx" :class="{ 'table-secondary': row._notFound }">
+                              <td>{{ row.name }}</td>
+                              <td>{{ row.quantity }}</td>
+                              <td>
+                                <span v-if="row._notFound" class="badge bg-warning text-dark"><i class="fa fa-exclamation-circle me-1"></i>Not in list</span>
+                                <span v-else class="badge bg-success"><i class="fa fa-check me-1"></i>Matched</span>
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                    <div class="card-footer bg-light d-flex align-items-center justify-content-between py-2">
+                      <div class="text-muted small">
+                        <i class="fa fa-info-circle text-primary me-1"></i>
+                        {{ csvNewCount }} species will be updated with quantities from CSV
+                      </div>
+                      <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" @click="closeCsvPreview">Cancel</button>
+                        <button type="button" class="btn btn-sm btn-success" :disabled="csvNewCount === 0" @click="applyCsvQuantities">
+                          <i class="fa fa-check me-1"></i>Apply Quantities
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 <div v-if="laodinglicenceAreaSpecies" class="text-center py-2">
                   <div class="spinner-border text-primary" role="status">
                     <span class="visually-hidden">Loading...</span>
@@ -230,12 +308,24 @@ export default defineComponent({
       loading: false,
       originalQuantities: reactive({} as any),
       quntityChangedsaved: false,
+      // CSV Import state
+      showCsvPreview: false,
+      csvHeaders: [] as string[],
+      csvRawRows: [] as any[],
+      csvPreviewData: [] as any[],
+      csvColumnMap: {
+        name: '',
+        quantity: '',
+      },
     }
   },
 
   computed: {
     ...mapWritableState(useSettingsStore, ['licenceAreaSpecies']),
     ...mapState(useSettingsStore, ['laodinglicenceAreaSpecies']),
+    csvNewCount() {
+      return this.csvPreviewData.filter((r: any) => !r._notFound).length
+    },
     canSubmit() {
       return (
         this.form.package_name &&
@@ -471,6 +561,162 @@ export default defineComponent({
         // then update list
         this.licenceAreaSpecies = [...this.licenceAreaSpecies]
       }
+    },
+
+    // CSV Import Methods
+    triggerCsvInput() {
+      const el: any = this.$refs.csvInputRef
+      if (el) el.click()
+    },
+
+    async parseCsvText(text: string) {
+      const trimmed = String(text || '').trim()
+      if (!trimmed) return { headerFields: [], rows: [] }
+      try {
+        const PapaModule = await import('papaparse')
+        const Papa = PapaModule && (PapaModule.default || PapaModule)
+        const parsed = Papa.parse(trimmed, { header: true, skipEmptyLines: true })
+        const headerFields = parsed?.meta?.fields || (parsed.data && parsed.data.length ? Object.keys(parsed.data[0]) : [])
+        return { headerFields, rows: parsed.data || [] }
+      } catch (e) {
+        const lines = trimmed.split(/\r?\n/).filter((l: string) => l.trim() !== '')
+        if (lines.length === 0) return { headerFields: [], rows: [] }
+
+        const splitLine = (line: string) => {
+          const result: string[] = []
+          let cur = ''
+          let inQuotes = false
+          for (let i = 0; i < line.length; i++) {
+            const ch = line[i]
+            if (ch === '"') {
+              if (inQuotes && line[i + 1] === '"') {
+                cur += '"'
+                i++
+              } else {
+                inQuotes = !inQuotes
+              }
+            } else if (ch === ',' && !inQuotes) {
+              result.push(cur)
+              cur = ''
+            } else {
+              cur += ch
+            }
+          }
+          result.push(cur)
+          return result.map((s) => s.trim())
+        }
+
+        const headerFields = splitLine(lines[0])
+        const rows = lines.slice(1).map((ln: string) => {
+          const fields = splitLine(ln)
+          const obj: any = {}
+          for (let i = 0; i < headerFields.length; i++) {
+            obj[headerFields[i]] = fields[i] ?? ''
+          }
+          return obj
+        })
+        return { headerFields, rows }
+      }
+    },
+
+    async onCsvSelected(e: Event) {
+      const input = e.target as HTMLInputElement
+      const file = input.files && input.files[0]
+      if (!file) return
+      await this.processCsvFile(file)
+      input.value = ''
+    },
+
+    async processCsvFile(file: File) {
+      const text = await file.text()
+      const parsed = await this.parseCsvText(text)
+      if (!parsed || !parsed.rows || parsed.rows.length === 0) {
+        this.init({ message: 'CSV contains no rows', color: 'info' })
+        return
+      }
+
+      this.csvHeaders = parsed.headerFields
+      this.csvRawRows = parsed.rows
+
+      const headersLower = parsed.headerFields.map((h: string) => h.toLowerCase())
+      
+      const tryNames = ['name', 'species', 'species_name', 'speciesname']
+      for (const t of tryNames) {
+        const idx = headersLower.findIndex((h: string) => h.includes(t))
+        if (idx >= 0) {
+          this.csvColumnMap.name = parsed.headerFields[idx]
+          break
+        }
+      }
+      if (!this.csvColumnMap.name && parsed.headerFields.length > 0) {
+        this.csvColumnMap.name = parsed.headerFields[0]
+      }
+
+      const tryQty = ['quantity', 'qty', 'count', 'amount']
+      for (const t of tryQty) {
+        const idx = headersLower.findIndex((h: string) => h.includes(t))
+        if (idx >= 0) {
+          this.csvColumnMap.quantity = parsed.headerFields[idx]
+          break
+        }
+      }
+
+      this.recalculateCsvPreview()
+      this.showCsvPreview = true
+    },
+
+    recalculateCsvPreview() {
+      const availableSpeciesMap = new Map(
+        this.licenceAreaSpecies.map((sp: any) => [(sp.name || '').toLowerCase().trim(), sp])
+      )
+      
+      this.csvPreviewData = this.csvRawRows.map((row: any) => {
+        const name = String(row[this.csvColumnMap.name] || '').trim()
+        const quantity = this.csvColumnMap.quantity ? parseInt(row[this.csvColumnMap.quantity]) || 1 : 1
+        
+        const key = name.toLowerCase()
+        const matchedSpecies = availableSpeciesMap.get(key)
+        const isNotFound = !matchedSpecies
+        
+        return {
+          name,
+          quantity: Math.max(0, quantity),
+          _notFound: isNotFound,
+          _speciesId: matchedSpecies?.id,
+        }
+      }).filter((r: any) => r.name)
+    },
+
+    closeCsvPreview() {
+      this.showCsvPreview = false
+      this.csvHeaders = []
+      this.csvRawRows = []
+      this.csvPreviewData = []
+      this.csvColumnMap.name = ''
+      this.csvColumnMap.quantity = ''
+    },
+
+    applyCsvQuantities() {
+      const toApply = this.csvPreviewData.filter((r: any) => !r._notFound)
+      if (toApply.length === 0) {
+        this.init({ message: 'No matching species found', color: 'info' })
+        return
+      }
+
+      let updatedCount = 0
+      for (const sp of toApply) {
+        const item = this.licenceAreaSpecies.find((s: any) => s.id === sp._speciesId)
+        if (item) {
+          item.quantity = sp.quantity
+          updatedCount++
+        }
+      }
+
+      // Trigger reactivity update
+      this.licenceAreaSpecies = [...this.licenceAreaSpecies]
+
+      this.init({ message: `Updated quantities for ${updatedCount} species from CSV`, color: 'success' })
+      this.closeCsvPreview()
     },
   },
 })

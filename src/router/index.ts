@@ -12,9 +12,9 @@ import CompanyDashboard from "@/views/auth/CompanyDashboard.vue";
 import ComingSoon from "@/views/auth/ComingSoon.vue"; 
 
 // bushman routes
-const Dashboard = () => import ('@/views/bushman/details/Dashboard.vue')
+const Dashboard = () => import ('@/views/bushman/dashboard/Dashboard.vue')
 const SalesQuotas = () => import ('@/views/bushman/details/QoutaPage.vue')
-const Salespipeline = () => import ('@/views/bushman/details/PipelineItemView.vue')
+const Salespipeline = () => import('@/views/bushman/sales/SalesPipeline.vue');
 const SalesCalendar = () => import ('@/views/bushman/details/Calendar.vue')
 const ManagePriceList = () => import('@/views/bushman/sales/ManagePriceList.vue');
 const ManageQuotasSettings = () => import('@/views/bushman/module-settings/ManageQuota.vue');
@@ -31,6 +31,8 @@ const ManageHuntingTypes = () => import('@/views/bushman/module-settings/ManageH
 const ManageSpeciesSettings = () => import('@/views/bushman/module-settings/ManageSpecies.vue');
 
 const Managesalesinquiry = () => import('@/views/bushman/sales/SalesInquiries.vue');
+const Managesalesconfirmation = () => import('@/views/bushman/sales/SalesConfirmationProposals.vue');
+const PipelineItemView = () => import('@/views/bushman/sales/sales-pipeline/PipelineItemView.vue');
 // const LoginPage = () => import('@/views/auth/PageLogin.vue');
 // const CompanyDashboard = () => import('@/views/auth/CompanyDashboard.vue');
 // const ComingSoon = () => import('@/views/auth/ComingSoon.vue');
@@ -129,6 +131,20 @@ const router = createRouter({
       path: "/sales/sales-inquiry",
       name: "sales-inquiry",
       component: Managesalesinquiry,
+      meta: { requiresAuth: true }
+    },
+
+    {
+      path: "/sales/sales-confirmation",
+      name: "sales-confirmation",
+      component: Managesalesconfirmation,
+      meta: { requiresAuth: true }
+    },
+
+    {
+      path: "/sales/pipeline-item/:id",
+      name: "pipeline-item-view",
+      component: PipelineItemView,
       meta: { requiresAuth: true }
     },
 

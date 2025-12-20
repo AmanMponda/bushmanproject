@@ -4,11 +4,7 @@
     <div class="d-flex align-items-center mb-3">
       <div>
         <ul class="breadcrumb">
-<<<<<<< HEAD
           <li class="breadcrumb-item"><a href="#">Module Settings</a></li>
-=======
-          <li class="breadcrumb-item"><a href="#">Settings</a></li>
->>>>>>> 286011c4eb6798891cfc75399d6cb3c9d493a7b1
           <li class="breadcrumb-item active">Hunting Types</li>
         </ul>
       </div>
@@ -54,36 +50,40 @@
       </div>
     </template>
 
-    <!-- Create/Edit Form -->
+    <!-- Create/Edit Form (Bootstrap) -->
     <template v-else>
       <div class="p-2">
-        <VaForm ref="formRef" class="mb-6">
-          <h3 class="font-bold text-lg mb-4">{{ editMode ? 'Edit Hunting Type' : 'New Hunting Type' }}</h3>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-            <VaInput
-              v-model="form.name"
-              label="Name"
-              placeholder="Enter Hunting Type Name (e.g., 1x1, 2x1)"
-              :rules="[(v: any) => !!v || 'Name is required']"
-              required
-            />
-
-            <VaInput v-model="form.description" type="textarea" label="Description" placeholder="Enter Description" />
+        <form class="mb-3" @submit.prevent="onSubmit" novalidate>
+          <h3 class="fw-bold mb-3">{{ editMode ? 'Edit Hunting Type' : 'New Hunting Type' }}</h3>
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Name</label>
+              <input
+                v-model="form.name"
+                type="text"
+                class="form-control"
+                placeholder="Enter Hunting Type Name (e.g., 1x1, 2x1)"
+                required
+                minlength="2"
+              />
+              <div class="form-text">Examples: 1x1, 2x1</div>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Description</label>
+              <textarea
+                v-model="form.description"
+                class="form-control"
+                rows="3"
+                placeholder="Enter Description"
+              ></textarea>
+            </div>
           </div>
-        </VaForm>
 
-        <div class="mb-6 flex gap-2">
-          <VaButton
-            :disabled="!isValidForm"
-            color="primary"
-            :icon="editMode ? 'save' : 'add'"
-            :loading="saving"
-            @click="validateForm() && (editMode ? updateItem() : createItem())"
-          >
-            {{ editMode ? 'Update' : 'Save' }}
-          </VaButton>
-          <VaButton preset="secondary" @click="goBack()"> Cancel </VaButton>
-        </div>
+          <div class="d-flex gap-2 mt-2">
+            <button type="submit" class="btn btn-primary" :disabled="saving || !isFormValid">{{ editMode ? 'Update' : 'Save' }}</button>
+            <button type="button" class="btn btn-secondary" @click="goBack">Cancel</button>
+          </div>
+        </form>
       </div>
     </template>
 
@@ -91,11 +91,10 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, reactive } from 'vue'
+import { defineComponent, reactive } from 'vue'
 import { useSettingsStore } from '../../../stores/bushman/settings-store.ts'
 import { mapActions } from 'pinia'
 import { useToast } from '@/composables/useToast'
-import { useForm } from '@/composables/useForm'
 import handleErrors from '../../../stores/bushman/errorHandler.ts'
 import StandardDataTable from '@/components/bootstrap/StandardDataTable.vue'
 import Swal from 'sweetalert2'
@@ -107,15 +106,7 @@ export default defineComponent({
   },
 
   setup() {
-    const formRef = ref(null) as any
-    const { isValid: isValidForm, validate: validateForm, resetValidation: resetValidationForm } = useForm()
-
-    return {
-      isValidForm,
-      validateForm,
-      resetValidationForm,
-      formRef,
-    }
+    return {}
   },
 
   data() {
@@ -155,6 +146,9 @@ export default defineComponent({
         })
       }
       return actions
+    },
+    isFormValid(): boolean {
+      return (this.form.name || '').trim().length >= 2
     },
   },
 
@@ -213,15 +207,25 @@ export default defineComponent({
       this.form.name = ''
       this.form.description = ''
       this.editMode = false
-      this.resetValidationForm()
+    },
+    onSubmit() {
+      if (!this.isFormValid) {
+        this.toast.init({ message: 'Please enter a valid name (min 2 characters).', color: 'warning' })
+        return
+      }
+      if (this.editMode) {
+        this.updateItem()
+      } else {
+        this.createItem()
+      }
     },
 
     async createItem() {
       this.saving = true
       try {
         const response = await this.createHuntingType({
-          name: this.form.name,
-          description: this.form.description,
+          name: (this.form.name || '').trim(),
+          description: (this.form.description || '').trim(),
         })
         if (response.status === 201 || response.status === 200) {
           this.toast.init({
@@ -246,8 +250,8 @@ export default defineComponent({
       this.saving = true
       try {
         const response = await this.updateHuntingType(this.form.id, {
-          name: this.form.name,
-          description: this.form.description,
+          name: (this.form.name || '').trim(),
+          description: (this.form.description || '').trim(),
         })
         if (response.status === 200) {
           this.toast.init({

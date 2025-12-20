@@ -4,13 +4,8 @@
     <div class="d-flex align-items-center mb-3">
       <div>
         <ul class="breadcrumb">
-<<<<<<< HEAD
           <li class="breadcrumb-item"><a href="#">Module Settings</a></li>
           <li class="breadcrumb-item active">Hunting Areas</li>
-=======
-          <li class="breadcrumb-item"><a href="#">Settings</a></li>
-          <li class="breadcrumb-item active">Area Settings</li>
->>>>>>> 286011c4eb6798891cfc75399d6cb3c9d493a7b1
         </ul>
       </div>
     </div>
@@ -58,65 +53,72 @@
       </div>
     </template>
 
-    <!-- Create/Edit Form -->
+    <!-- Create/Edit Form (Bootstrap) -->
     <template v-else>
       <div class="p-2">
-        <VaForm ref="areaFormRef" class="mb-6">
-          <h3 class="font-bold text-lg mb-2">{{ editMode ? 'Edit Hunting Area' : 'New Hunting Area' }}</h3>
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-            <VaInput
-              v-model="areaForm.name"
-              label="Name"
-              placeholder="Enter Hunting Area Name"
-              :rules="[(v: any) => !!v || 'Hunting Area Name is required']"
-              required
-            />
-
-            <VaInput
-              v-model="areaForm.description"
-              type="textarea"
-              label="Description"
-              placeholder="Enter Hunting Area Description"
-              :rules="[(v: any) => !!v || 'Hunting Area Description is required']"
-              required
-            />
+        <form class="mb-3" @submit.prevent="onAreaSubmit" novalidate>
+          <h3 class="fw-bold mb-3">{{ editMode ? 'Edit Hunting Area' : 'New Hunting Area' }}</h3>
+          <div class="row">
+            <div class="col-md-4 mb-3">
+              <label class="form-label">Name</label>
+              <input
+                v-model="areaForm.name"
+                type="text"
+                class="form-control"
+                placeholder="Enter Hunting Area Name"
+                required
+                minlength="2"
+              />
+            </div>
+            <div class="col-md-4 mb-3">
+              <label class="form-label">Description</label>
+              <textarea
+                v-model="areaForm.description"
+                class="form-control"
+                rows="3"
+                placeholder="Enter Hunting Area Description"
+                required
+              ></textarea>
+            </div>
           </div>
 
-          <h3 class="font-bold text-lg mb-2">Area Location</h3>
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-            <VaInput
-              v-model="areaForm.lat"
-              label="Latitude"
-              type="text"
-              placeholder="Enter Hunting Area Latitude eg. 12.3456789"
-              :rules="[(v: any) => !!v || 'Latitude is required']"
-              required
-            />
-
-            <VaInput
-              v-model="areaForm.lng"
-              label="Longitude"
-              placeholder="Enter Hunting Area Longitude eg. 12.3456789"
-              type="text"
-              :rules="[(v: any) => !!v || 'Longitude is required']"
-              required
-            />
+          <h5 class="fw-bold mb-2">Area Location</h5>
+          <div class="row">
+            <div class="col-md-3 mb-3">
+              <label class="form-label">Latitude</label>
+              <input
+                v-model="areaForm.lat"
+                type="number"
+                step="any"
+                min="-90"
+                max="90"
+                class="form-control"
+                placeholder="e.g. -6.123456"
+                required
+              />
+              <div class="form-text">Range: -90 to 90</div>
+            </div>
+            <div class="col-md-3 mb-3">
+              <label class="form-label">Longitude</label>
+              <input
+                v-model="areaForm.lng"
+                type="number"
+                step="any"
+                min="-180"
+                max="180"
+                class="form-control"
+                placeholder="e.g. 34.123456"
+                required
+              />
+              <div class="form-text">Range: -180 to 180</div>
+            </div>
           </div>
-        </VaForm>
 
-        <div class="mb-6 flex gap-2">
-          <VaButton
-            :disabled="!isValidareaForm"
-            color="primary"
-            :icon="editMode ? 'save' : 'add'"
-            :loading="saving"
-            icon-color="#fff"
-            @click="validateareaForm() && (editMode ? updateExistingHuntingArea() : createNewHuntingArea())"
-          >
-            {{ editMode ? 'Update' : 'Save' }}
-          </VaButton>
-          <VaButton v-if="editMode" preset="secondary" @click="cancelEdit()"> Cancel </VaButton>
-        </div>
+          <div class="d-flex gap-2 mt-2">
+            <button type="submit" class="btn btn-primary" :disabled="saving || !isAreaFormValid">{{ editMode ? 'Update' : 'Save' }}</button>
+            <button type="button" class="btn btn-secondary" @click="cancelEdit">Cancel</button>
+          </div>
+        </form>
       </div>
     </template>
 
@@ -124,12 +126,11 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref } from 'vue'
+import { defineComponent } from 'vue'
 import { useQuotaStore } from '../../../stores/bushman/quota-store.ts'
 import { mapActions } from 'pinia'
 import { reactive } from 'vue'
 import { useToast } from '@/composables/useToast'
-import { useForm } from '@/composables/useForm'
 import handleErrors from '../../../stores/bushman/errorHandler.ts'
 import { useHuntingAreaStore } from '../../../stores/bushman/hunting-story.ts'
 import StandardDataTable from '@/components/bootstrap/StandardDataTable.vue'
@@ -149,34 +150,7 @@ export default defineComponent({
   },
 
   setup() {
-    const formRef = ref(null) as any
-    const areaFormRef = ref(null) as any
-
-    const {
-      isValid: isValidForm,
-      validate: validateForm,
-      resetValidation: resetValidationForm,
-      // reset: resetForm, // Using method-based resetForm instead
-    } = useForm()
-
-    const {
-      isValid: isValidareaForm,
-      validate: validateareaForm,
-      resetValidation: resetValidationareaForm,
-      reset: resetareaForm,
-    } = useForm()
-
-    return {
-      isValidForm, // Ensure this is utilized somewhere
-      validateForm, // Ensure this is utilized somewhere
-      resetValidationForm, // Ensure this is utilized somewhere
-      isValidareaForm,
-      validateareaForm,
-      resetValidationareaForm,
-      resetareaForm,
-      formRef,
-      areaFormRef,
-    }
+    return {}
   },
   data() {
     const items: [] = []
@@ -235,6 +209,14 @@ export default defineComponent({
       }
       return actions
     },
+    isAreaFormValid(): boolean {
+      const nameOk = (this.areaForm.name || '').trim().length >= 2
+      const latNum = parseFloat(this.areaForm.lat as any)
+      const lngNum = parseFloat(this.areaForm.lng as any)
+      const latOk = !isNaN(latNum) && latNum >= -90 && latNum <= 90
+      const lngOk = !isNaN(lngNum) && lngNum >= -180 && lngNum <= 180
+      return nameOk && latOk && lngOk
+    },
   },
 
   mounted() {
@@ -287,7 +269,17 @@ export default defineComponent({
       this.areaForm.description = ''
       this.areaForm.lat = null
       this.areaForm.lng = null
-      this.resetValidationareaForm()
+    },
+    onAreaSubmit() {
+      if (!this.isAreaFormValid) {
+        this.toast.init({ message: 'Please fill out a valid name and coordinates.', color: 'warning' })
+        return
+      }
+      if (this.editMode) {
+        this.updateExistingHuntingArea()
+      } else {
+        this.createNewHuntingArea()
+      }
     },
 
     async confirmDelete(rowData: any) {
@@ -335,13 +327,13 @@ export default defineComponent({
       this.saving = true
       const coordinates = [
         {
-          lat: this.areaForm.lat,
-          lng: this.areaForm.lng,
+          lat: parseFloat(this.areaForm.lat),
+          lng: parseFloat(this.areaForm.lng),
         },
       ]
       const requestData = {
-        name: this.areaForm.name,
-        description: this.areaForm.description,
+        name: (this.areaForm.name || '').trim(),
+        description: (this.areaForm.description || '').trim(),
         coordinates: coordinates,
       }
       try {
@@ -369,13 +361,13 @@ export default defineComponent({
       this.saving = true
       const coordinates = [
         {
-          lat: this.areaForm.lat,
-          lng: this.areaForm.lng,
+          lat: parseFloat(this.areaForm.lat),
+          lng: parseFloat(this.areaForm.lng),
         },
       ]
       const requestData = {
-        name: this.areaForm.name,
-        description: this.areaForm.description,
+        name: (this.areaForm.name || '').trim(),
+        description: (this.areaForm.description || '').trim(),
         coordinates: coordinates,
       }
       try {
@@ -386,7 +378,9 @@ export default defineComponent({
             message: 'Hunting Area created successfully',
             color: 'success',
           })
-          this.resetareaForm()
+          this.resetForm()
+          this.toggleFormAndList()
+          this.getAreas()
         } else {
           // console.log(requestData);
           console.log(response)
@@ -452,6 +446,10 @@ export default defineComponent({
         }
       } catch (error: any) {
         this.loading = false
+        this.toast.init({
+          message: 'Failed to load hunting areas',
+          color: 'danger',
+        })
       }
     },
   },

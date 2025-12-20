@@ -60,6 +60,24 @@ export const useRegulatoryPackageStore = defineStore('regulatory-package-store',
       return response
     },
 
+    async getRegulatoryPackageById(id: number | string) {
+      const baseUrl = (import.meta.env.VITE_APP_BASE_URL || '').replace(/\/+$/, '')
+      const endpoint = (import.meta.env.VITE_APP_REGULATORY_HUNTING_PACKAGES_URL || '').replace(/\/+$/, '')
+      const url = `${baseUrl}/${endpoint}/${id}`
+
+      const config = {
+        method: 'get',
+        maxBodyLength: Infinity,
+        url: url,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+
+      const response = await axios.request(config)
+      return response
+    },
+
   async deleteRegulatoryPackage(id: number | string) {
   // Use pattern: /v1.0/settings/regulatory-hunting-packages/{id}
   // Normalize URLs to avoid double slashes - remove trailing slashes from both
