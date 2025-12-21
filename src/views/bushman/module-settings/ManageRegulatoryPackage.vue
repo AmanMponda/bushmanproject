@@ -16,15 +16,8 @@
         <div class="col-xl-12 col-lg-12 col-sm-12 layout-spacing">
           <div class="panel br-6 p-0">
             <div class="custom-table p-3">
-              <StandardDataTable
-                :columns="columns"
-                :data="items"
-                :loading="loading"
-                :disable-search="false"
-                :disable-pagination="false"
-                :action-buttons="pageActions"
-                :show-date-filters="false"
-              >
+              <StandardDataTable :columns="columns" :data="items" :loading="loading" :disable-search="false"
+                :disable-pagination="false" :action-buttons="pageActions" :show-date-filters="false">
                 <template #id="{ row }">
                   {{ (row as any).id }}
                 </template>
@@ -71,7 +64,10 @@
                 <small class="text-muted">Regulatory Package</small>
               </div>
             </div>
-            <div class="ms-auto">
+            <div class="ms-auto d-flex gap-2">
+              <button class="btn btn-outline-primary btn-sm" @click="exportPackageCsv">
+                <i class="fa fa-file-csv me-1"></i> Export CSV
+              </button>
               <button class="btn btn-secondary btn-sm" @click="goBack">
                 <i class="fa fa-arrow-left me-1"></i> Back
               </button>
@@ -140,196 +136,55 @@
             <div class="row g-3 mb-4">
               <div class="col-md-4">
                 <label class="form-label">Name</label>
-                <input
-                  v-model="packageForm.name"
-                  type="text"
-                  class="form-control"
-                  placeholder="Enter package Name"
-                  required
-                />
+                <input v-model="packageForm.name" type="text" class="form-control" placeholder="Enter package Name"
+                  required />
               </div>
 
               <div class="col-md-4">
-                <label class="form-label"> Duration in days</label>
-                <input
-                  v-model="packageForm.duration"
-                  type="number"
-                  class="form-control"
-                  placeholder="Enter package Duration"
-                  required
-                />
+                <label class="form-label">Duration in days</label>
+                <input v-model="packageForm.duration" type="number" class="form-control"
+                  placeholder="Enter package Duration" required />
               </div>
             </div>
 
             <hr class="my-4" />
 
             <div class="mb-4">
-              <span class="fw-bold">Add a List of Species</span>
-            </div>
-
-            <div class="d-flex justify-content-between align-items-center mb-3">
-              <div class="w-100 me-2">
-                <label class="form-label">Species <span class="text-danger">*</span></label>
-                <select
-                  v-model="packageForm.id"
-                  class="form-select"
-                  required
-                >
-                  <option :value="null" disabled>Select Species</option>
-                  <option v-for="option in speciesOptions" :key="option.value" :value="option.value">
-                    {{ option.text }}
-                  </option>
-                </select>
+              <div class="d-flex justify-content-between align-items-center mb-3">
+                <span class="fw-bold">Species List</span>
               </div>
 
-              <div class="w-100">
-                <label class="form-label">Quantity <span class="text-danger">*</span></label>
-                <input
-                  v-model.number="packageForm.quantity"
-                  type="number"
-                  class="form-control"
-                  min="1"
-                  placeholder="Enter quantity"
-                  required
-                />
-              </div>
+              <!-- MultiRowTableInput Component -->
+              <MultiRowTableInput v-model="speciesRows" :fields="speciesFields" add-button-label="Add Species" />
             </div>
 
-            <div class="mb-4 d-flex gap-2">
-              <button
-                class="btn btn-primary"
-                type="button"
-                @click="addNewSpeciesItemToStorage()"
-              >
-                <i class="fa fa-plus me-2"></i>Add Species
+            <!-- CSV Input Component -->
+            <div v-if="!csvUploaded" class="mb-4">
+
+              <h6 class="fw-bold mb-3 d-flex align-items-center">
+                <div class="d-flex align-items-center gap-2">
+                  <i class="fa fa-file-csv text-success"></i>
+                  <span>Bulk Import from CSV</span>
+                </div>
+
+                <a href="/assets/uploadsguide/other-uploads.csv" download
+                  class="btn btn-sm btn-outline-success ms-auto">
+                  <i class="fa fa-download me-1"></i>
+                  Download Template
+                </a>
+              </h6>
+
+
+              <CSVInput :column-fields="csvColumnFields" duplicate-key-field="name" :model-value="existingCsvModel"
+                :allowed-values="allowedSpeciesNames" @import="handleCsvImport" />
+            </div>
+
+            <div class="mb-4">
+              <button class="btn btn-success" :disabled="!isValidpackageForm || speciesRows.length === 0" type="submit">
+                <i class="fa fa-check me-2"></i>Submit New
               </button>
-              <button
-                class="btn btn-success"
-                type="button"
-                @click="triggerCsvInput"
-              >
-                <i class="fa fa-file-csv me-2"></i>Import from CSV
-              </button>
-              <input ref="csvInput" type="file" accept=".csv,text/csv" style="display:none" @change="onCsvSelected" />
             </div>
           </form>
-
-          <!-- CSV Import Section -->
-          <div v-if="showCsvPreview" class="mb-4">
-            <div class="card border-primary">
-              <div class="card-header bg-light d-flex align-items-center justify-content-between py-2">
-                <div class="d-flex align-items-center gap-2">
-                  <i class="fa fa-table text-primary"></i>
-                  <span class="fw-semibold">CSV Preview</span>
-                  <span class="badge bg-primary">{{ csvPreviewData.length }} rows</span>
-                  <span v-if="csvDuplicates > 0" class="badge bg-warning text-dark">{{ csvDuplicates }} duplicates skipped</span>
-                  <span v-if="csvNewCount > 0" class="badge bg-success">{{ csvNewCount }} new</span>
-                </div>
-                <button type="button" class="btn btn-sm btn-outline-secondary" @click="closeCsvPreview">
-                  <i class="fa fa-times"></i>
-                </button>
-              </div>
-              <div class="card-body p-0">
-                <!-- Column Mapping -->
-                <div class="p-3 border-bottom bg-light">
-                  <div class="row g-2 align-items-end">
-                    <div class="col-md-6">
-                      <label class="form-label small fw-semibold">Species Name Column</label>
-                      <select v-model="csvColumnMap.name" class="form-select form-select-sm" @change="recalculateCsvPreview">
-                        <option v-for="col in csvHeaders" :key="col" :value="col">{{ col }}</option>
-                      </select>
-                    </div>
-                    <div class="col-md-6">
-                      <label class="form-label small fw-semibold">Quantity Column</label>
-                      <select v-model="csvColumnMap.quantity" class="form-select form-select-sm" @change="recalculateCsvPreview">
-                        <option value="">(Default: 1)</option>
-                        <option v-for="col in csvHeaders" :key="col" :value="col">{{ col }}</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Preview Table -->
-                <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
-                  <table class="table table-sm table-hover mb-0">
-                    <thead class="table-light sticky-top">
-                      <tr>
-                        <th style="width: 40px;">
-                          <input type="checkbox" class="form-check-input" :checked="allCsvRowsSelected" @change="toggleAllCsvRows" />
-                        </th>
-                        <th>Species Name</th>
-                        <th>Quantity</th>
-                        <th style="width: 100px;">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr v-for="(row, idx) in csvPreviewData" :key="idx" :class="{ 'table-secondary': row._duplicate || row._notFound }">
-                        <td>
-                          <input type="checkbox" class="form-check-input" v-model="row._selected" :disabled="row._duplicate || row._notFound" />
-                        </td>
-                        <td>{{ row.name }}</td>
-                        <td>{{ row.quantity }}</td>
-                        <td>
-                          <span v-if="row._duplicate" class="badge bg-warning text-dark"><i class="fa fa-copy me-1"></i>Already Added</span>
-                          <span v-else-if="row._notFound" class="badge bg-danger"><i class="fa fa-exclamation-circle me-1"></i>Not Found</span>
-                          <span v-else class="badge bg-success"><i class="fa fa-plus me-1"></i>Ready</span>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-              <div class="card-footer bg-light d-flex align-items-center justify-content-between py-2">
-                <div class="text-muted small">
-                  <i class="fa fa-check-circle text-success me-1"></i>
-                  {{ csvSelectedCount }} of {{ csvNewCount }} species selected for import
-                </div>
-                <div class="d-flex gap-2">
-                  <button type="button" class="btn btn-sm btn-outline-secondary" @click="closeCsvPreview">
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    class="btn btn-sm btn-success"
-                    :disabled="csvSelectedCount === 0"
-                    @click="importCsvSpecies"
-                  >
-                    <i class="fa fa-upload me-1"></i>
-                    Add {{ csvSelectedCount }} Species
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="mb-4">
-            <div v-if="speciesObjects.length > 0" class="fw-bold mb-2">Selected Species</div>
-            <div v-for="(s, index) in speciesObjects" :key="index" class="border p-3 rounded mb-2">
-              <div class="d-flex justify-content-between align-items-center">
-                <div>
-                  <div>Name: {{ s.name }}</div>
-                  <div class="text-muted">Quantity: {{ s.quantity }}</div>
-                </div>
-                <button
-                  class="btn btn-danger btn-sm"
-                  @click="deleteFromStorage(index)"
-                  title="Remove"
-                >
-                  <i class="fa fa-trash"></i>
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div class="mb-4">
-            <button
-              class="btn btn-success"
-              :disabled="!isValidpackageForm"
-              @click="validatepackageForm() && addNewRegulatoryPackage()"
-            >
-              <i class="fa fa-check me-2"></i>Submit New
-            </button>
-          </div>
         </div>
       </div>
     </template>
@@ -337,7 +192,7 @@
 </template>
 
 <script setup lang="ts">
-// @ts-nocheck - StandardDataTable component doesn't provide TypeScript types for row parameter
+// @ts-nocheck
 import { ref, reactive, onMounted, computed } from 'vue'
 import { useQuotaStore } from '../../../stores/bushman/quota-store'
 import { useRegulatoryPackageStore } from '../../../stores/bushman/regulatory-store'
@@ -345,6 +200,8 @@ import { useToast } from '@/composables/useToast'
 import { useForm } from '@/composables/useForm'
 import handleErrors from '../../../stores/bushman/errorHandler'
 import StandardDataTable from '@/components/bootstrap/StandardDataTable.vue'
+import MultiRowTableInput from '../reusables/MultiRowTableInput.vue'
+import CSVInput from '../reusables/CSVInput.vue'
 import Swal from 'sweetalert2'
 
 // Stores
@@ -367,212 +224,85 @@ const selectItem = ref<any>(null)
 const showDeleteModal = ref(false)
 const itemToDelete = ref<any>(null)
 const deleting = ref(false)
-const speciesObjects = ref<any[]>([])
 const speciesOptions = ref<any[]>([])
 const quotasOptions = ref<any[]>([])
+const csvUploaded = ref(false)
 
-// CSV Import state
-const csvInput = ref(null)
-const showCsvPreview = ref(false)
-const csvHeaders = ref<string[]>([])
-const csvRawRows = ref<any[]>([])
-const csvPreviewData = ref<any[]>([])
-const csvColumnMap = reactive({
-  name: '',
-  quantity: '',
+// Species rows for MultiRowTableInput
+const speciesRows = ref<any[]>([{ _id: 1, species: '', quantity: 1 }])
+
+// Define fields for MultiRowTableInput
+const speciesFields = computed(() => [
+  {
+    key: 'species',
+    label: 'Species',
+    type: 'select' as const,
+    required: true,
+    options: speciesOptions.value,
+    headerStyle: 'width: 60%;',
+    cellStyle: 'width: 60%;'
+  },
+  {
+    key: 'quantity',
+    label: 'Quantity',
+    type: 'number' as const,
+    required: true,
+    placeholder: 'Enter quantity',
+    headerStyle: 'width: 40%;',
+    cellStyle: 'width: 40%;'
+  }
+])
+
+// CSVInput configuration and handlers
+const csvColumnFields = [
+  { key: 'name', label: 'Species Name' },
+  { key: 'quantity', label: 'Quantity' },
+]
+
+const allowedSpeciesNames = computed(() => speciesOptions.value.map((opt: any) => String(opt.text)))
+
+const existingCsvModel = computed(() => {
+  const idToName = new Map(speciesOptions.value.map((opt: any) => [String(opt.value), String(opt.text)]))
+  return speciesRows.value
+    .filter((r: any) => r.species)
+    .map((r: any) => ({ name: idToName.get(String(r.species)) || '', quantity: r.quantity }))
 })
 
-const csvDuplicates = computed(() => csvPreviewData.value.filter((r: any) => r._duplicate).length)
-const csvNotFound = computed(() => csvPreviewData.value.filter((r: any) => r._notFound).length)
-const csvNewCount = computed(() => csvPreviewData.value.filter((r: any) => !r._duplicate && !r._notFound).length)
-const csvSelectedCount = computed(() => csvPreviewData.value.filter((r: any) => r._selected && !r._duplicate && !r._notFound).length)
-const allCsvRowsSelected = computed(() => {
-  const selectable = csvPreviewData.value.filter((r: any) => !r._duplicate && !r._notFound)
-  return selectable.length > 0 && selectable.every((r: any) => r._selected)
-})
+function handleCsvImport(rows: Array<{ name: string; quantity: any }>) {
+  const nameToOption = new Map(
+    speciesOptions.value.map((opt: any) => [String(opt.text).toLowerCase(), opt])
+  )
 
-function toggleAllCsvRows() {
-  const allSelected = allCsvRowsSelected.value
-  csvPreviewData.value.forEach((r: any) => {
-    if (!r._duplicate && !r._notFound) r._selected = !allSelected
-  })
-}
+  // Clear existing data and start fresh with CSV data
+  const newSpeciesRows: any[] = []
+  let newId = 0
 
-function triggerCsvInput() {
-  const el: any = csvInput.value
-  if (el) el.click()
-}
-
-async function parseCsvText(text: string) {
-  const trimmed = String(text || '').trim()
-  if (!trimmed) return { headerFields: [], rows: [] }
-  try {
-    const PapaModule = await import('papaparse')
-    const Papa = PapaModule && (PapaModule.default || PapaModule)
-    const parsed = Papa.parse(trimmed, { header: true, skipEmptyLines: true })
-    const headerFields = parsed?.meta?.fields || (parsed.data && parsed.data.length ? Object.keys(parsed.data[0]) : [])
-    return { headerFields, rows: parsed.data || [] }
-  } catch (e) {
-    const lines = trimmed.split(/\r?\n/).filter((l) => l.trim() !== '')
-    if (lines.length === 0) return { headerFields: [], rows: [] }
-
-    function splitLine(line: string) {
-      const result: string[] = []
-      let cur = ''
-      let inQuotes = false
-      for (let i = 0; i < line.length; i++) {
-        const ch = line[i]
-        if (ch === '"') {
-          if (inQuotes && line[i + 1] === '"') {
-            cur += '"'
-            i++
-          } else {
-            inQuotes = !inQuotes
-          }
-        } else if (ch === ',' && !inQuotes) {
-          result.push(cur)
-          cur = ''
-        } else {
-          cur += ch
-        }
-      }
-      result.push(cur)
-      return result.map((s) => s.trim())
-    }
-
-    const headerFields = splitLine(lines[0])
-    const rows = lines.slice(1).map((ln) => {
-      const fields = splitLine(ln)
-      const obj: any = {}
-      for (let i = 0; i < headerFields.length; i++) {
-        obj[headerFields[i]] = fields[i] ?? ''
-      }
-      return obj
-    })
-    return { headerFields, rows }
+  let added = 0
+  for (const row of rows) {
+    const key = String(row.name || '').toLowerCase()
+    const opt = nameToOption.get(key)
+    if (!opt) continue
+    newId++
+    newSpeciesRows.push({ _id: newId, species: opt.value, quantity: Number(row.quantity) || 1 })
+    added++
   }
-}
-
-async function onCsvSelected(e: Event) {
-  const input = e.target as HTMLInputElement
-  const file = input.files && input.files[0]
-  if (!file) return
-  await processCsvFile(file)
-  input.value = ''
-}
-
-async function processCsvFile(file: File) {
-  const text = await file.text()
-  const parsed = await parseCsvText(text)
-  if (!parsed || !parsed.rows || parsed.rows.length === 0) {
-    toastInit({ message: 'CSV contains no rows', color: 'info' })
-    return
+  if (added > 0) {
+    speciesRows.value = newSpeciesRows
+    csvUploaded.value = true
+    toastInit({ message: `Imported ${added} species from CSV`, color: 'success' })
   }
-
-  csvHeaders.value = parsed.headerFields
-  csvRawRows.value = parsed.rows
-
-  // Auto-detect columns
-  const headersLower = parsed.headerFields.map((h: string) => h.toLowerCase())
-  
-  // Name column
-  const tryNames = ['name', 'species', 'species_name', 'speciesname']
-  for (const t of tryNames) {
-    const idx = headersLower.findIndex((h) => h.includes(t))
-    if (idx >= 0) {
-      csvColumnMap.name = parsed.headerFields[idx]
-      break
-    }
-  }
-  if (!csvColumnMap.name && parsed.headerFields.length > 0) {
-    csvColumnMap.name = parsed.headerFields[0]
-  }
-
-  // Quantity column
-  const tryQty = ['quantity', 'qty', 'count', 'amount']
-  for (const t of tryQty) {
-    const idx = headersLower.findIndex((h) => h.includes(t))
-    if (idx >= 0) {
-      csvColumnMap.quantity = parsed.headerFields[idx]
-      break
-    }
-  }
-
-  recalculateCsvPreview()
-  showCsvPreview.value = true
-}
-
-function recalculateCsvPreview() {
-  const existingNames = new Set(speciesObjects.value.map((it: any) => (it.name || '').toLowerCase().trim()))
-  const availableSpeciesMap = new Map(speciesOptions.value.map((opt: any) => [(opt.text || '').toLowerCase().trim(), opt]))
-  const seenNames = new Set<string>()
-  
-  csvPreviewData.value = csvRawRows.value.map((row: any) => {
-    const name = String(row[csvColumnMap.name] || '').trim()
-    const quantity = csvColumnMap.quantity ? parseInt(row[csvColumnMap.quantity]) || 1 : 1
-    
-    const key = name.toLowerCase()
-    const isDuplicate = existingNames.has(key) || seenNames.has(key)
-    const matchedSpecies = availableSpeciesMap.get(key)
-    const isNotFound = !matchedSpecies
-    
-    if (name && !isDuplicate) seenNames.add(key)
-    
-    return {
-      name,
-      quantity: Math.max(1, quantity),
-      _duplicate: isDuplicate,
-      _notFound: isNotFound,
-      _selected: !isDuplicate && !isNotFound,
-      _speciesId: matchedSpecies?.value,
-    }
-  }).filter((r: any) => r.name)
-}
-
-function closeCsvPreview() {
-  showCsvPreview.value = false
-  csvHeaders.value = []
-  csvRawRows.value = []
-  csvPreviewData.value = []
-  csvColumnMap.name = ''
-  csvColumnMap.quantity = ''
-}
-
-function importCsvSpecies() {
-  const toImport = csvPreviewData.value.filter((r: any) => r._selected && !r._duplicate && !r._notFound)
-  if (toImport.length === 0) {
-    toastInit({ message: 'No species selected for import', color: 'info' })
-    return
-  }
-
-  for (const sp of toImport) {
-    speciesObjects.value.push({
-      id: sp._speciesId,
-      name: sp.name,
-      quantity: sp.quantity,
-    })
-  }
-
-  toastInit({ message: `Added ${toImport.length} species from CSV`, color: 'success' })
-  closeCsvPreview()
 }
 
 const packageForm = reactive({
-  id: null as any,
   duration: null as any,
   name: null as any,
-  quantity: null as any,
-  salesQuota: null as any,
-  area: null as any,
 })
 
 const columns = [
   { key: 'regulatory_package_name', label: 'Licence', sortable: true, visible: true },
-  // { key: 'area_name', label: 'Area', sortable: true, visible: true },
   { key: 'duration', label: 'Duration', sortable: true, visible: true },
   { key: 'actions', label: 'Actions', sortable: false, visible: true },
 ]
-
 
 const pageActions = computed(() => [
   {
@@ -592,29 +322,29 @@ const showNewPackageForm = () => {
   selectItem.value = null
   if (showpackForm.value) {
     getPackages()
+  } else {
+    // Reset form when showing new package form
+    packageForm.name = null
+    packageForm.duration = null
+    speciesRows.value = [{ _id: 1, species: '', quantity: 1 }]
+    csvUploaded.value = false
   }
 }
 
 const showDetails = async (row: any) => {
-  // Fetch the full package details with species from the API
   try {
     loading.value = true
     const response = await regulatoryPackageStore.getRegulatoryPackageById(row.id)
     if (response.status === 200) {
-      // API returns { data: {...package...}, species: [...] }
       const apiData = response.data
-      console.log('Package details response:', apiData)
-      
       const packageData = apiData.data || apiData
       const speciesData = apiData.species || []
-      
+
       selectItem.value = {
         ...packageData,
         species: speciesData,
       }
-      
-      console.log('Selected item for details:', selectItem.value)
-      console.log('Species data:', speciesData)
+
       showDetailsPage.value = true
       showpackForm.value = false
     }
@@ -635,15 +365,12 @@ const goBack = () => {
 
 const getSpeciesList = () => {
   if (!selectItem.value) return []
-  console.log('Getting species list from selectItem:', selectItem.value)
-  // Try different possible field names
-  const speciesData = selectItem.value.species || 
-         selectItem.value.species_list || 
-         selectItem.value.regulatory_package_species || 
-         selectItem.value.species_object_list ||
-         selectItem.value.regulatoryPackageSpecies ||
-         []
-  console.log('Species data found:', speciesData)
+  const speciesData = selectItem.value.species ||
+    selectItem.value.species_list ||
+    selectItem.value.regulatory_package_species ||
+    selectItem.value.species_object_list ||
+    selectItem.value.regulatoryPackageSpecies ||
+    []
   return speciesData
 }
 
@@ -657,7 +384,6 @@ const getSpeciesCount = () => {
 }
 
 const getSpeciesName = (species: any) => {
-  // Handle different possible structures
   if (species.species?.name) return species.species.name
   if (species.name) return species.name
   if (species.species_name) return species.species_name
@@ -665,59 +391,62 @@ const getSpeciesName = (species: any) => {
   return 'N/A'
 }
 
-const addNewSpeciesItemToStorage = () => {
-  // Validate inputs
-  if (!packageForm.id || !packageForm.quantity) {
-    toastInit({ message: 'Please select a species and enter a quantity.', color: 'warning' })
+const exportPackageCsv = () => {
+  if (!selectItem.value) return
+  const speciesList = getSpeciesList()
+  if (!speciesList || speciesList.length === 0) {
+    toastInit({ message: 'No species to export', color: 'warning' })
     return
   }
 
-  if (Number(packageForm.quantity) <= 0) {
-    toastInit({ message: 'Quantity must be greater than 0.', color: 'warning' })
-    return
+  const escapeCsv = (value: any) => {
+    if (value === null || value === undefined) return ''
+    const str = String(value)
+    return '"' + str.replace(/"/g, '""') + '"'
   }
 
-  // Find the selected species option to get the name
-  const selectedSpecies = speciesOptions.value.find((option: any) => option.value === packageForm.id)
-  
-  if (!selectedSpecies) {
-    toastInit({ message: 'Selected species not found.', color: 'danger' })
-    return
-  }
+  const rows = speciesList.map((s: any) => {
+    const name = getSpeciesName(s)
+    const qty = (s && (s.quantity ?? s.qty)) ?? ''
+    return `${escapeCsv(name)},${escapeCsv(qty)}`
+  })
 
-  // Check if this species is already added
-  const exists = speciesObjects.value.some((species: { id: any }) => species.id === packageForm.id)
+  const header = 'Species Name,Quantity'
+  const csvContent = [header].concat(rows).join('\n')
 
-  if (!exists) {
-    speciesObjects.value.push({
-      id: packageForm.id,
-      name: selectedSpecies.text,
-      quantity: Number(packageForm.quantity),
-    })
-    toastInit({ message: `${selectedSpecies.text} added successfully.`, color: 'success' })
-    
-    // Reset the form fields for next addition
-    packageForm.id = null
-    packageForm.quantity = null
-  } else {
-    toastInit({ message: `${selectedSpecies.text} is already added. Please remove it first or select a different species.`, color: 'warning' })
-  }
-}
+  const filenameBase = (selectItem.value.name || 'package').toString().replace(/\s+/g, '_')
+  const filename = `${filenameBase}_species.csv`
 
-const deleteFromStorage = (index: number) => {
-  speciesObjects.value.splice(index, 1)
-  console.log('Species item deleted:', index)
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.setAttribute('download', filename)
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
 }
 
 const addNewRegulatoryPackage = async () => {
-  if (speciesObjects.value.length === 0) {
+  // Filter out empty rows
+  const validSpecies = speciesRows.value.filter(row => row.species && row.quantity > 0)
+
+  if (validSpecies.length === 0) {
     toastInit({ message: 'Please add at least one species item.', color: 'warning' })
     return
   }
+
+  // Transform the data to match API format
+  const speciesObjectList = validSpecies.map(row => ({
+    id: row.species,
+    quantity: Number(row.quantity),
+  }))
+
   const rdata = {
     name: packageForm.name,
     duration: packageForm.duration,
-    speciesObjectList: speciesObjects.value,
+    speciesObjectList: speciesObjectList,
   }
 
   try {
@@ -725,15 +454,12 @@ const addNewRegulatoryPackage = async () => {
     if (response.status === 201) {
       toastInit({ message: response.data.message, color: 'success' })
       resetpackageForm()
-      speciesObjects.value = []
       packageForm.name = null
       packageForm.duration = null
-      packageForm.id = null
-      packageForm.quantity = null
+      speciesRows.value = [{ _id: 1, species: '', quantity: 1 }]
+      csvUploaded.value = false
       showpackForm.value = true
       getPackages()
-    } else {
-      console.log(response.data)
     }
   } catch (error) {
     handleErrors(error)
@@ -789,14 +515,12 @@ const getSpeciesItems = async () => {
   try {
     const response = await quotaStore.getSpeciesList()
 
-    const speciesItems = response.data.map((item: { id: any; name: any }) => {
+    speciesOptions.value = response.data.map((item: { id: any; name: any }) => {
       return {
         value: item.id,
         text: item.name,
       }
     })
-
-    speciesOptions.value = speciesOptions.value.concat(speciesItems)
   } catch (error) {
     console.log(error)
   }
@@ -804,7 +528,6 @@ const getSpeciesItems = async () => {
 
 const confirmDelete = (row: any) => {
   itemToDelete.value = row
-  // SweetAlert2 confirmation
   Swal.fire({
     title: 'Are you sure?',
     html: `Are you sure you want to delete <strong>${row?.name || 'this item'}</strong>?`,
@@ -963,11 +686,11 @@ onMounted(() => {
   align-items: center;
 }
 
-.input-container > VaDateInput {
+.input-container>VaDateInput {
   margin-right: 8px;
 }
 
-.input-container > VaInput {
+.input-container>VaInput {
   flex: 1;
 }
 </style>

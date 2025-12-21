@@ -15,10 +15,10 @@
       <div class="col-xl-12 col-lg-12 col-sm-12 layout-spacing">
         <div class="panel br-6 p-0">
           <div class="custom-table p-3">
-            <!-- Header with Add Button -->
+            <!-- Header -->
             <div class="d-flex justify-content-between align-items-center mb-3">
               <h2 class="mb-0">Safari Extra Services by Season</h2>
-              <button class="btn btn-primary" @click="openAddModal(null)">
+              <button v-if="!selectedSeason" class="btn btn-primary" @click="openAddModal(null)">
                 <i class="fa fa-plus me-2"></i>Add Extra Service
               </button>
             </div>
@@ -110,8 +110,9 @@
                   :disable-search="false"
                 >
                   <!-- @ts-ignore - StandardDataTable doesn't provide row type -->
-                  <template #name="{ row }">
-                    {{ (row as any).name || 'N/A' }}
+                  <template #account="{ row }">
+                    {{ (row as any).account?.name || (row as any).account_name || 'N/A' }}
+                    <span v-if="(row as any).account?.code" class="text-muted ms-1">({{ (row as any).account.code }})</span>
                   </template>
                   <!-- @ts-ignore - StandardDataTable doesn't provide row type -->
                   <template #hunting_area="{ row }">
@@ -177,14 +178,13 @@
               <div class="row mb-3 trophy-fees-form-row">
                 <div class="col-md-6">
                   <div class="form-group">
-                    <label class="form-label">Service Name <span class="text-danger">*</span></label>
-                    <input
-                      v-model="form.name"
-                      type="text"
-                      class="form-control"
-                      placeholder="e.g., Ammunition, Trophy Handling"
-                      required
-                    />
+                    <label class="form-label">Account <span class="text-danger">*</span></label>
+                    <select v-model="form.account_id" class="form-select" required>
+                      <option :value="null">Select Account</option>
+                      <option v-for="option in accountsOptions" :key="option.value" :value="option.value">
+                        {{ option.text }}
+                      </option>
+                    </select>
                   </div>
                 </div>
                 <div class="col-md-6">
@@ -295,10 +295,14 @@
           </div>
           <div class="modal-body">
             <p>
-              Are you sure you want to delete "<strong>{{ itemToDelete?.name }}</strong
-              >"?
+              Are you sure you want to delete
+              "<strong>{{ itemToDelete?.account?.name || itemToDelete?.account_name || itemToDelete?.description }}</strong>"?
             </p>
           </div>
+              <p>
+                Are you sure you want to delete
+                "<strong>{{ itemToDelete?.account?.name || itemToDelete?.account_name || itemToDelete?.description }}</strong>"?
+              </p>
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary" @click="showDeleteModal = false">Cancel</button>
             <button type="button" class="btn btn-danger" :disabled="deleting" @click="deleteExtra">
@@ -326,7 +330,8 @@ import StandardDataTable from '@/components/bootstrap/StandardDataTable.vue'
 // Types
 interface ExtraItem {
   id?: any
-  name?: string
+  account?: { id?: any; name?: string; code?: string }
+  account_id?: any
   hunting_area?: { name?: string }
   currency?: { symbol?: string }
   amount?: number | string
@@ -344,11 +349,11 @@ const { init } = useToast()
 
 // Constants
 const columns = [
-  { key: 'name', label: 'Service Name', visible: true },
+  { key: 'account', label: 'Account', visible: true },
+  { key: 'description', label: 'Description', visible: true },
   { key: 'hunting_area', label: 'Hunting Area', visible: true },
   { key: 'amount', label: 'Amount', visible: true },
   { key: 'charges_per', label: 'Charges Per', visible: true },
-  { key: 'description', label: 'Description', visible: true },
   { key: 'actions', label: 'Actions', visible: true },
 ]
 
@@ -362,7 +367,7 @@ const chargesPerOptions = [
 const formRef = ref<HTMLFormElement | null>(null)
 const form = reactive({
   id: null as any,
-  name: '',
+  account_id: null as any,
   amount: null as any,
   currency_id: null as any,
   season_id: null as any,
@@ -374,6 +379,7 @@ const form = reactive({
 const seasonsOptions = ref<any[]>([])
 const currenciesOptions = ref<any[]>([])
 const areasOptions = ref<any[]>([])
+const accountsOptions = ref<any[]>([])
 const allSeasons = ref<any[]>([])
 const allExtras = ref<any[]>([])
 const loadingSeasons = ref(false)
@@ -438,7 +444,7 @@ const selectedSeasonExtras = computed((): any[] => {
 
 // Methods
 const loadData = async () => {
-  await Promise.all([loadSeasons(), loadExtras(), loadCurrencies(), loadAreas()])
+  await Promise.all([loadSeasons(), loadExtras(), loadCurrencies(), loadAreas(), loadAccounts()])
 }
 
 const loadSeasons = async () => {
@@ -502,6 +508,20 @@ const loadAreas = async () => {
   }
 }
 
+const loadAccounts = async () => {
+  try {
+    // Call the accounts endpoint directly to avoid depending on store action availability
+    const url = import.meta.env.VITE_APP_BASE_URL + 'settings/accounts'
+    const response = await axios.get(url)
+    accountsOptions.value = response.data?.data
+      ? response.data.data.map((item: any) => ({ value: item.id, text: item.name }))
+      : (settingsStore.accounts || []).map((a: any) => ({ value: a.value, text: a.text }))
+  } catch (error) {
+    console.error('Error loading accounts:', error)
+    accountsOptions.value = []
+  }
+}
+
 const selectSeason = (season: any) => {
   selectedSeason.value = season
 }
@@ -537,13 +557,13 @@ const openEditModal = (item: any) => {
   preselectedSeason.value = null
 
   form.id = item.id
-  form.name = item.name
   form.amount = item.amount
   form.description = item.description || ''
   form.currency_id = item.currency ? item.currency.id : null
   form.season_id = item.season ? item.season.id : null
   form.hunting_area_id = item.hunting_area ? item.hunting_area.id : null
   form.charges_per = item.charges_per || null
+  form.account_id = item.account?.id || item.account_id || null
 
   showFormModal.value = true
 }
@@ -555,7 +575,7 @@ const closeFormModal = () => {
 
 const resetForm = () => {
   form.id = null
-  form.name = ''
+  form.account_id = null
   form.amount = null
   form.currency_id = null
   form.season_id = null
@@ -571,8 +591,13 @@ const submitForm = async () => {
     return
   }
 
+  if (!form.account_id) {
+    init({ message: 'Please select an account.', color: 'warning' })
+    return
+  }
+
   const payload = {
-    name: form.name,
+    account_id: form.account_id,
     amount: form.amount,
     currency_id: form.currency_id,
     season_id: form.season_id,

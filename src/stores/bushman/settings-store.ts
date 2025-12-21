@@ -48,6 +48,8 @@ export const useSettingsStore = defineStore('settings-store', {
       // safari fee deposits
       safariFeeDeposits: [] as any,
       loadingSafariFeeDeposits: false,
+
+      accounts: [] as any,
     }
   },
 
@@ -141,6 +143,30 @@ export const useSettingsStore = defineStore('settings-store', {
             price: item.price,
           }
         })
+      }
+      return response
+    },
+
+    async getAccounts(search: string = '') {
+      const url = import.meta.env.VITE_APP_BASE_URL + 'settings/accounts'
+
+      const config = {
+        method: 'get',
+        maxBodyLength: Infinity,
+        url: url,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        params: search ? { search } : {},
+      }
+
+      const response = await axios.request(config)
+      if (response?.data?.data) {
+        this.accounts = response.data.data.map((item: any) => ({
+          value: item.id,
+          text: `${item.name} (${item.code || 'N/A'})`,
+          raw: item,
+        }))
       }
       return response
     },

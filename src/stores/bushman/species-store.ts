@@ -10,6 +10,22 @@ export const useSpeciesStore = defineStore('species-store', {
   },
 
   actions: {
+    // Get all species
+    async getSpecies() {
+      const url = import.meta.env.VITE_APP_BASE_URL + import.meta.env.VITE_APP_SPECIES_URL
+      const config = {
+        method: 'get',
+        maxBodyLength: Infinity,
+        url: url,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + import.meta.env.VITE_APP_TOKEN,
+        },
+      }
+      const response = await axios.request(config)
+      return response
+    },
+
     // VITE_APP_CURRENCIES_URL
     async createSpecies(species: any) {
       const url = import.meta.env.VITE_APP_BASE_URL + import.meta.env.VITE_APP_SPECIES_URL

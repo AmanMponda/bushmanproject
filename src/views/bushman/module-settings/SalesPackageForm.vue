@@ -89,92 +89,108 @@
                     role="status"
                   ></span>
                 </h6>
+                <!-- Change entry mode button -->
                 <button
-                  v-if="licenceAreaSpecies && licenceAreaSpecies.length > 0"
+                  v-if="entryMode !== null && licenceAreaSpecies && licenceAreaSpecies.length > 0"
                   type="button"
-                  class="btn btn-sm btn-success"
-                  @click="triggerCsvInput"
+                  class="btn btn-outline-secondary btn-sm"
+                  @click="resetEntryMode"
                 >
-                  <i class="fa fa-file-csv me-1"></i>Import CSV
+                  <i class="fa fa-exchange-alt me-1"></i> Change Entry Mode
                 </button>
-                <input ref="csvInputRef" type="file" accept=".csv,text/csv" style="display:none" @change="onCsvSelected" />
               </div>
               <div class="card-body">
-                <!-- CSV Preview Panel -->
-                <div v-if="showCsvPreview" class="mb-3">
-                  <div class="card border-primary">
-                    <div class="card-header bg-light d-flex align-items-center justify-content-between py-2">
-                      <div class="d-flex align-items-center gap-2">
-                        <i class="fa fa-table text-primary"></i>
-                        <span class="fw-semibold">CSV Preview</span>
-                        <span class="badge bg-primary">{{ csvPreviewData.length }} rows</span>
-                        <span v-if="csvNewCount > 0" class="badge bg-success">{{ csvNewCount }} matched</span>
-                      </div>
-                      <button type="button" class="btn btn-sm btn-outline-secondary" @click="closeCsvPreview">
-                        <i class="fa fa-times"></i>
-                      </button>
-                    </div>
-                    <div class="card-body p-0">
-                      <div class="p-3 border-bottom bg-light">
-                        <div class="row g-2 align-items-end">
-                          <div class="col-md-6">
-                            <label class="form-label small fw-semibold">Species Name Column</label>
-                            <select v-model="csvColumnMap.name" class="form-select form-select-sm" @change="recalculateCsvPreview">
-                              <option v-for="col in csvHeaders" :key="col" :value="col">{{ col }}</option>
-                            </select>
-                          </div>
-                          <div class="col-md-6">
-                            <label class="form-label small fw-semibold">Quantity Column</label>
-                            <select v-model="csvColumnMap.quantity" class="form-select form-select-sm" @change="recalculateCsvPreview">
-                              <option value="">(Keep existing)</option>
-                              <option v-for="col in csvHeaders" :key="col" :value="col">{{ col }}</option>
-                            </select>
-                          </div>
-                        </div>
-                      </div>
-                      <div class="table-responsive" style="max-height: 200px; overflow-y: auto;">
-                        <table class="table table-sm table-hover mb-0">
-                          <thead class="table-light sticky-top">
-                            <tr>
-                              <th>Species Name</th>
-                              <th>New Quantity</th>
-                              <th style="width: 100px;">Status</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            <tr v-for="(row, idx) in csvPreviewData" :key="idx" :class="{ 'table-secondary': row._notFound }">
-                              <td>{{ row.name }}</td>
-                              <td>{{ row.quantity }}</td>
-                              <td>
-                                <span v-if="row._notFound" class="badge bg-warning text-dark"><i class="fa fa-exclamation-circle me-1"></i>Not in list</span>
-                                <span v-else class="badge bg-success"><i class="fa fa-check me-1"></i>Matched</span>
-                              </td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                    <div class="card-footer bg-light d-flex align-items-center justify-content-between py-2">
-                      <div class="text-muted small">
-                        <i class="fa fa-info-circle text-primary me-1"></i>
-                        {{ csvNewCount }} species will be updated with quantities from CSV
-                      </div>
-                      <div class="d-flex gap-2">
-                        <button type="button" class="btn btn-sm btn-outline-secondary" @click="closeCsvPreview">Cancel</button>
-                        <button type="button" class="btn btn-sm btn-success" :disabled="csvNewCount === 0" @click="applyCsvQuantities">
-                          <i class="fa fa-check me-1"></i>Apply Quantities
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
                 <div v-if="laodinglicenceAreaSpecies" class="text-center py-2">
                   <div class="spinner-border text-primary" role="status">
                     <span class="visually-hidden">Loading...</span>
                   </div>
                 </div>
-                <div v-else-if="licenceAreaSpecies && licenceAreaSpecies.length > 0">
+
+                <!-- Entry Mode Selection -->
+                <div v-else-if="licenceAreaSpecies && licenceAreaSpecies.length > 0 && entryMode === null" class="entry-mode-selection">
+                  <div class="text-center mb-3">
+                    <h6 class="text-muted mb-3">How would you like to enter species quantities?</h6>
+                  </div>
+                  <div class="row g-3 justify-content-center">
+                    <div class="col-md-5">
+                      <div 
+                        class="card h-100 border-2 cursor-pointer entry-mode-card" 
+                        @click="entryMode = 'manual'"
+                      >
+                        <div class="card-body text-center py-4">
+                          <i class="fa fa-hand-pointer fa-3x text-primary mb-3"></i>
+                          <h5 class="card-title">Manual Entry</h5>
+                          <p class="card-text text-muted small">
+                            Use +/- buttons to adjust quantities for each species from the licence
+                          </p>
+                          <span class="badge bg-light text-dark">
+                            <i class="fa fa-list me-1"></i>{{ licenceAreaSpecies.length }} species available
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-md-5">
+                      <div 
+                        class="card h-100 border-2 cursor-pointer entry-mode-card" 
+                        @click="entryMode = 'csv'"
+                      >
+                        <div class="card-body text-center py-4">
+                          <i class="fa fa-file-csv fa-3x text-success mb-3"></i>
+                          <h5 class="card-title">CSV Upload</h5>
+                          <p class="card-text text-muted small">
+                            Upload a CSV file with species names and quantities. Only species in the licence will be accepted.
+                          </p>
+                          <span class="badge bg-light text-dark">
+                            <i class="fa fa-upload me-1"></i>Bulk import
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- CSV Mode -->
+                <div v-else-if="entryMode === 'csv' && licenceAreaSpecies && licenceAreaSpecies.length > 0">
+                  <div v-if="csvImportUsed" class="alert alert-success py-2 mb-3">
+                    <i class="fa fa-check-circle me-2"></i>
+                    <strong>CSV Imported:</strong> {{ csvImportedSpeciesNames.length }} species will be saved to this package.
+                  </div>
+                  
+                  <CSVInput
+                    :column-fields="[
+                      { key: 'name', label: 'Species Name' },
+                      { key: 'quantity', label: 'Quantity' },
+                    ]"
+                    :model-value="[]"
+                    :allowed-values="licenceSpeciesNames"
+                    duplicate-key-field="name"
+                    @import="handleCsvImport"
+                  />
+
+                  <!-- Show imported species summary -->
+                  <div v-if="csvImportUsed" class="mt-3">
+                    <h6 class="text-muted mb-2">Species to be saved:</h6>
+                    <div class="table-responsive">
+                      <table class="table table-sm table-bordered">
+                        <thead class="table-light">
+                          <tr>
+                            <th>Species Name</th>
+                            <th class="text-center" style="width: 100px;">Quantity</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr v-for="item in csvImportedSpeciesList" :key="item.name">
+                            <td>{{ item.name }}</td>
+                            <td class="text-center">{{ item.quantity }}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Manual Entry Mode -->
+                <div v-else-if="entryMode === 'manual' && licenceAreaSpecies && licenceAreaSpecies.length > 0">
                   <div class="table-responsive">
                     <table class="table table-hover">
                       <thead class="table-light">
@@ -220,7 +236,8 @@
                     </table>
                   </div>
                 </div>
-                <div v-else class="text-center py-2 text-muted">
+
+                <div v-else-if="!licenceAreaSpecies || licenceAreaSpecies.length === 0" class="text-center py-2 text-muted">
                   <i class="fa fa-info-circle fa-2x mb-2"></i>
                   <p class="mb-0">Please select a licence and area to view available species.</p>
                 </div>
@@ -261,9 +278,15 @@ import { mapActions, mapState, mapWritableState } from 'pinia'
 import { useQuotaStore } from '../../../stores/bushman/quota-store.ts'
 import { useSettingsStore } from '../../../stores/bushman/settings-store.ts'
 import { usePriceListStore } from '../../../stores/bushman/price-list-store.ts'
-import { useRegulatoryPackageStore } from '../../../stores/bushman/regulatory-store.ts' // bushman
+import { useRegulatoryPackageStore } from '../../../stores/bushman/regulatory-store.ts'
+import CSVInput from '../reusables/CSVInput.vue'
+import MultiRowTableInput from '../reusables/MultiRowTableInput.vue'
 
 export default defineComponent({
+  components: {
+    CSVInput,
+    MultiRowTableInput,
+  },
   props: {
     editMode: {
       type: Boolean,
@@ -308,34 +331,33 @@ export default defineComponent({
       loading: false,
       originalQuantities: reactive({} as any),
       quntityChangedsaved: false,
+      // Entry mode: null = not selected, 'manual' = +/- buttons, 'csv' = CSV upload
+      entryMode: null as 'manual' | 'csv' | null,
       // CSV Import state
-      showCsvPreview: false,
-      csvHeaders: [] as string[],
-      csvRawRows: [] as any[],
-      csvPreviewData: [] as any[],
-      csvColumnMap: {
-        name: '',
-        quantity: '',
-      },
+      csvImportUsed: false,
+      csvImportedSpeciesNames: [] as string[],
+      csvImportedSpeciesList: [] as { name: string; quantity: number }[],
     }
   },
 
   computed: {
     ...mapWritableState(useSettingsStore, ['licenceAreaSpecies']),
     ...mapState(useSettingsStore, ['laodinglicenceAreaSpecies']),
-    csvNewCount() {
-      return this.csvPreviewData.filter((r: any) => !r._notFound).length
+    // List of species names from licence for CSV validation
+    licenceSpeciesNames(): string[] {
+      return (this.licenceAreaSpecies || []).map((s: any) => s.name || '')
     },
-    canSubmit() {
-      return (
-        this.form.package_name &&
-        this.form.description &&
-        this.form.licence &&
-        this.form.area &&
-        this.licenceAreaSpecies &&
-        this.licenceAreaSpecies.length > 0 &&
-        this.licenceAreaSpecies.some((s: any) => s.quantity > 0)
-      )
+    canSubmit(): boolean {
+      const hasBasicInfo = this.form.package_name && this.form.description && this.form.licence && this.form.area
+      
+      if (this.entryMode === 'csv') {
+        // CSV mode: must have imported species
+        return hasBasicInfo && this.csvImportUsed && this.csvImportedSpeciesList.length > 0
+      } else if (this.entryMode === 'manual') {
+        // Manual mode: must have species with quantity > 0
+        return hasBasicInfo && this.licenceAreaSpecies && this.licenceAreaSpecies.some((s: any) => s.quantity > 0)
+      }
+      return false
     },
   },
 
@@ -400,6 +422,16 @@ export default defineComponent({
       // Reset area and species when licence changes
       this.form.area = null
       this.settingsStore.licenceAreaSpecies = []
+      // Reset entry mode when licence changes
+      this.resetEntryMode()
+    },
+
+    // Reset entry mode selection
+    resetEntryMode() {
+      this.entryMode = null
+      this.csvImportUsed = false
+      this.csvImportedSpeciesNames = []
+      this.csvImportedSpeciesList = []
     },
 
     increaseQuantity(id: any) {
@@ -426,8 +458,25 @@ export default defineComponent({
 
       this.saving = true
 
-      // Filter out species with quantity 0 or less
-      const speciesWithQuantity = this.licenceAreaSpecies.filter((species: any) => species.quantity > 0)
+      let speciesWithQuantity: any[] = []
+
+      if (this.entryMode === 'csv') {
+        // CSV mode: use the imported species list
+        speciesWithQuantity = this.csvImportedSpeciesList.map((item) => {
+          // Find the species in licenceAreaSpecies to get the ID
+          const licenceSpecies = this.licenceAreaSpecies.find((s: any) => 
+            (s.name || '').toLowerCase().trim() === item.name.toLowerCase().trim()
+          )
+          return {
+            id: licenceSpecies?.id,
+            name: item.name,
+            quantity: item.quantity
+          }
+        }).filter((s) => s.id) // Only include if we found a matching licence species
+      } else {
+        // Manual mode: filter species with quantity > 0
+        speciesWithQuantity = this.licenceAreaSpecies.filter((species: any) => species.quantity > 0)
+      }
 
       if (speciesWithQuantity.length === 0) {
         this.init({
@@ -440,7 +489,7 @@ export default defineComponent({
 
       const requestdata = {
         name: this.form.package_name,
-        description: this.form.description,
+        description: this.form.description?.trim() || '-',
         areaId: this.form.area,
         licenceId: this.form.licence,
         speciesObjectList: speciesWithQuantity,
@@ -563,160 +612,35 @@ export default defineComponent({
       }
     },
 
-    // CSV Import Methods
-    triggerCsvInput() {
-      const el: any = this.$refs.csvInputRef
-      if (el) el.click()
-    },
-
-    async parseCsvText(text: string) {
-      const trimmed = String(text || '').trim()
-      if (!trimmed) return { headerFields: [], rows: [] }
-      try {
-        const PapaModule = await import('papaparse')
-        const Papa = PapaModule && (PapaModule.default || PapaModule)
-        const parsed = Papa.parse(trimmed, { header: true, skipEmptyLines: true })
-        const headerFields = parsed?.meta?.fields || (parsed.data && parsed.data.length ? Object.keys(parsed.data[0]) : [])
-        return { headerFields, rows: parsed.data || [] }
-      } catch (e) {
-        const lines = trimmed.split(/\r?\n/).filter((l: string) => l.trim() !== '')
-        if (lines.length === 0) return { headerFields: [], rows: [] }
-
-        const splitLine = (line: string) => {
-          const result: string[] = []
-          let cur = ''
-          let inQuotes = false
-          for (let i = 0; i < line.length; i++) {
-            const ch = line[i]
-            if (ch === '"') {
-              if (inQuotes && line[i + 1] === '"') {
-                cur += '"'
-                i++
-              } else {
-                inQuotes = !inQuotes
-              }
-            } else if (ch === ',' && !inQuotes) {
-              result.push(cur)
-              cur = ''
-            } else {
-              cur += ch
-            }
-          }
-          result.push(cur)
-          return result.map((s) => s.trim())
-        }
-
-        const headerFields = splitLine(lines[0])
-        const rows = lines.slice(1).map((ln: string) => {
-          const fields = splitLine(ln)
-          const obj: any = {}
-          for (let i = 0; i < headerFields.length; i++) {
-            obj[headerFields[i]] = fields[i] ?? ''
-          }
-          return obj
+    // CSV Import Handler - only accepts species from the licence
+    handleCsvImport(data: any[]) {
+      // The CSVInput component already validates against allowedValues (licenceSpeciesNames)
+      // So data here should only contain valid species from the licence
+      
+      if (data.length === 0) {
+        this.init({ 
+          message: 'No valid species found in CSV. Only species from the licence can be imported.', 
+          color: 'warning' 
         })
-        return { headerFields, rows }
-      }
-    },
-
-    async onCsvSelected(e: Event) {
-      const input = e.target as HTMLInputElement
-      const file = input.files && input.files[0]
-      if (!file) return
-      await this.processCsvFile(file)
-      input.value = ''
-    },
-
-    async processCsvFile(file: File) {
-      const text = await file.text()
-      const parsed = await this.parseCsvText(text)
-      if (!parsed || !parsed.rows || parsed.rows.length === 0) {
-        this.init({ message: 'CSV contains no rows', color: 'info' })
         return
       }
 
-      this.csvHeaders = parsed.headerFields
-      this.csvRawRows = parsed.rows
-
-      const headersLower = parsed.headerFields.map((h: string) => h.toLowerCase())
-      
-      const tryNames = ['name', 'species', 'species_name', 'speciesname']
-      for (const t of tryNames) {
-        const idx = headersLower.findIndex((h: string) => h.includes(t))
-        if (idx >= 0) {
-          this.csvColumnMap.name = parsed.headerFields[idx]
-          break
-        }
-      }
-      if (!this.csvColumnMap.name && parsed.headerFields.length > 0) {
-        this.csvColumnMap.name = parsed.headerFields[0]
-      }
-
-      const tryQty = ['quantity', 'qty', 'count', 'amount']
-      for (const t of tryQty) {
-        const idx = headersLower.findIndex((h: string) => h.includes(t))
-        if (idx >= 0) {
-          this.csvColumnMap.quantity = parsed.headerFields[idx]
-          break
-        }
-      }
-
-      this.recalculateCsvPreview()
-      this.showCsvPreview = true
-    },
-
-    recalculateCsvPreview() {
-      const availableSpeciesMap = new Map(
-        this.licenceAreaSpecies.map((sp: any) => [(sp.name || '').toLowerCase().trim(), sp])
+      // Store imported species data
+      this.csvImportUsed = true
+      this.csvImportedSpeciesNames = data.map((row: any) => 
+        (row.name || '').toLowerCase().trim()
       )
       
-      this.csvPreviewData = this.csvRawRows.map((row: any) => {
-        const name = String(row[this.csvColumnMap.name] || '').trim()
-        const quantity = this.csvColumnMap.quantity ? parseInt(row[this.csvColumnMap.quantity]) || 1 : 1
-        
-        const key = name.toLowerCase()
-        const matchedSpecies = availableSpeciesMap.get(key)
-        const isNotFound = !matchedSpecies
-        
-        return {
-          name,
-          quantity: Math.max(0, quantity),
-          _notFound: isNotFound,
-          _speciesId: matchedSpecies?.id,
-        }
-      }).filter((r: any) => r.name)
-    },
+      // Build the species list with quantities
+      this.csvImportedSpeciesList = data.map((row: any) => ({
+        name: String(row.name || '').trim(),
+        quantity: Math.max(1, parseInt(row.quantity) || 1)
+      }))
 
-    closeCsvPreview() {
-      this.showCsvPreview = false
-      this.csvHeaders = []
-      this.csvRawRows = []
-      this.csvPreviewData = []
-      this.csvColumnMap.name = ''
-      this.csvColumnMap.quantity = ''
-    },
-
-    applyCsvQuantities() {
-      const toApply = this.csvPreviewData.filter((r: any) => !r._notFound)
-      if (toApply.length === 0) {
-        this.init({ message: 'No matching species found', color: 'info' })
-        return
-      }
-
-      let updatedCount = 0
-      for (const sp of toApply) {
-        const item = this.licenceAreaSpecies.find((s: any) => s.id === sp._speciesId)
-        if (item) {
-          item.quantity = sp.quantity
-          updatedCount++
-        }
-      }
-
-      // Trigger reactivity update
-      this.licenceAreaSpecies = [...this.licenceAreaSpecies]
-
-      this.init({ message: `Updated quantities for ${updatedCount} species from CSV`, color: 'success' })
-      this.closeCsvPreview()
+      this.init({ 
+        message: `CSV imported successfully! ${this.csvImportedSpeciesList.length} species will be saved to this package.`, 
+        color: 'success' 
+      })
     },
   },
 })
@@ -767,5 +691,25 @@ export default defineComponent({
 .input-group .form-control {
   border-left: 0;
   border-right: 0;
+}
+
+/* Entry Mode Selection Cards */
+.entry-mode-card {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.entry-mode-card:hover {
+  border-color: #0d6efd !important;
+  box-shadow: 0 0.25rem 0.5rem rgba(13, 110, 253, 0.15);
+  transform: translateY(-2px);
+}
+
+.entry-mode-card .card-body {
+  background: linear-gradient(to bottom, #fff, #f8f9fa);
+}
+
+.cursor-pointer {
+  cursor: pointer;
 }
 </style>

@@ -38,6 +38,9 @@
                 </template>
                 <template #actions="{ row }">
                   <div class="d-flex gap-1">
+                    <button class="btn btn-primary btn-sm" title="View" @click="viewAreaSpecies(row)">
+                      <i class="fa fa-eye"></i>
+                    </button>
                     <button class="btn btn-info btn-sm" title="Edit" @click="editHuntingArea(row)">
                       <i class="fa fa-edit"></i>
                     </button>
@@ -47,6 +50,100 @@
                   </div>
                 </template>
               </StandardDataTable>
+            </div>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <!-- Area Species View -->
+    <template v-else-if="showAreaSpecies && selectedArea">
+      <div class="p-2">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <div>
+            <h3 class="fw-bold mb-1">{{ selectedArea.name }}</h3>
+            <div class="text-muted">Manage species for this hunting area</div>
+          </div>
+          <div class="d-flex gap-2">
+            <button class="btn btn-secondary" @click="goBackToList">Back</button>
+          </div>
+        </div>
+
+        <div class="card mb-4">
+          <div class="card-body">
+            <h6 class="fw-bold mb-3">Add Species to Area</h6>
+            <form class="row g-3" @submit.prevent="addSpeciesToArea">
+              <div class="col-md-6">
+                <label class="form-label">Species</label>
+                <select v-model="speciesForm.specie" class="form-select" required>
+                  <option :value="null" disabled>Select species</option>
+                  <option v-for="s in speciesOptions" :key="s.value" :value="s.value">{{ s.text }}</option>
+                </select>
+              </div>
+              <div class="col-md-12">
+                <button type="submit" class="btn btn-primary" :disabled="savingSpecies || !speciesForm.specie">
+                  <span v-if="savingSpecies" class="spinner-border spinner-border-sm me-1"></span>
+                  Add Species
+                </button>
+              </div>
+            </form>
+
+            <hr class="my-4" />
+
+            <div class="mb-3">
+              <div class="d-flex align-items-center mb-2">
+                <h6 class="fw-bold mb-0">Bulk Import from CSV</h6>
+                <a href="/assets/uploadsguide/other-uploads.csv" download class="btn btn-sm btn-outline-success ms-auto">
+                  <i class="fa fa-download me-1"></i>
+                  Download Template
+                </a>
+              </div>
+              <CSVInput
+                :column-fields="[{ key: 'name', label: 'Species Name' }]"
+                duplicate-key-field="name"
+                :model-value="existingCsvModel"
+                :allowed-values="allowedSpeciesNames"
+                @import="handleAreaCsvImport"
+              />
+              <div v-if="csvImporting" class="text-muted small mt-2">
+                <span class="spinner-border spinner-border-sm me-1"></span>Importing species from CSV...
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h6 class="fw-bold mb-0">Species in this area ({{ areaSpecies.length }})</h6>
+            </div>
+            <div v-if="loadingSpecies" class="text-center py-3">
+              <span class="spinner-border spinner-border-sm me-2"></span>Loading species...
+            </div>
+            <div v-else-if="areaSpecies.length > 0" class="table-responsive">
+              <table class="table table-hover">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Species</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(specie, idx) in areaSpecies" :key="specie.id || idx">
+                    <td>{{ idx + 1 }}</td>
+                    <td>{{ specie.specie_name || specie.name || 'Unknown' }}</td>
+                    <td>
+                      <button class="btn btn-sm btn-danger" :disabled="deleting" @click="deleteAreaSpecies(specie)">
+                        <i class="fa fa-trash"></i>
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div v-else class="text-muted text-center py-3">
+              <i class="fa fa-info-circle me-2"></i>No species added to this area yet.
             </div>
           </div>
         </div>
@@ -134,6 +231,7 @@ import { useToast } from '@/composables/useToast'
 import handleErrors from '../../../stores/bushman/errorHandler.ts'
 import { useHuntingAreaStore } from '../../../stores/bushman/hunting-story.ts'
 import StandardDataTable from '@/components/bootstrap/StandardDataTable.vue'
+import CSVInput from '../reusables/CSVInput.vue'
 import Swal from 'sweetalert2'
 
 const defaultItem = {
@@ -147,6 +245,7 @@ export default defineComponent({
   name: 'ManageArea',
   components: {
     StandardDataTable,
+    CSVInput,
   },
 
   setup() {
@@ -185,12 +284,20 @@ export default defineComponent({
       speciesOptions: [] as any,
       areasOptions: [] as any,
       speciesObjects: [] as any,
+      speciesForm: reactive({ specie: null as any }),
+      areaSpecies: [] as any,
+      selectedArea: null as any,
+      csvUploaded: false,
+      csvImporting: false,
       showCreatenewForm: false,
       quotasOptions,
       showHuntingAreaList: true,
+      showAreaSpecies: false,
       quotaItems: [] as any,
       saving: false,
       loading: false,
+      loadingSpecies: false,
+      savingSpecies: false,
       editMode: false,
       deleting: false,
     }
@@ -217,24 +324,51 @@ export default defineComponent({
       const lngOk = !isNaN(lngNum) && lngNum >= -180 && lngNum <= 180
       return nameOk && latOk && lngOk
     },
+
+    allowedSpeciesNames(): string[] {
+      return this.speciesOptions.map((opt: any) => String(opt.text))
+    },
+
+    existingCsvModel(): Array<{ name: string }> {
+      return this.areaSpecies.map((item: any) => ({ name: item.specie_name || item.name || '' }))
+    },
   },
 
   mounted() {
     // this.getQs()
     // this.getSpeciesItems()
     this.getAreas()
+    this.getSpeciesItems()
   },
 
   methods: {
-    ...mapActions(useQuotaStore, ['getAreaList']),
-    ...mapActions(useHuntingAreaStore, ['createHuntingArea', 'updateHuntingArea', 'deleteHuntingArea']),
+    ...mapActions(useQuotaStore, ['getAreaList', 'getSpeciesList']),
+    ...mapActions(useHuntingAreaStore, [
+      'createHuntingArea',
+      'updateHuntingArea',
+      'deleteHuntingArea',
+      'listHuntingAreaSpecies',
+      'addHuntingAreaSpecies',
+      'deleteHuntingAreaSpecies',
+    ]),
 
     toggleFormAndList() {
       this.showHuntingAreaList = !this.showHuntingAreaList
+      this.showAreaSpecies = false
       if (this.showHuntingAreaList) {
         this.resetForm()
         this.getAreas()
       }
+    },
+
+    goBackToList() {
+      this.showAreaSpecies = false
+      this.showHuntingAreaList = true
+      this.selectedArea = null
+      this.areaSpecies = []
+      this.speciesForm.specie = null
+      this.csvUploaded = false
+      this.getAreas()
     },
 
     showCreateForm() {
@@ -247,6 +381,15 @@ export default defineComponent({
       this.showHuntingAreaList = !this.showHuntingAreaList
     },
 
+    viewAreaSpecies(rowData: any) {
+      this.selectedArea = rowData
+      this.showHuntingAreaList = false
+      this.showAreaSpecies = true
+      this.speciesForm.specie = null
+      this.csvUploaded = false
+      this.loadAreaSpecies(rowData.id)
+    },
+
     editHuntingArea(rowData: any) {
       this.editMode = true
       this.areaForm.id = rowData.id
@@ -255,6 +398,7 @@ export default defineComponent({
       this.areaForm.lat = rowData.lat
       this.areaForm.lng = rowData.lng
       this.showHuntingAreaList = false
+      this.showAreaSpecies = false
     },
 
     cancelEdit() {
@@ -269,6 +413,7 @@ export default defineComponent({
       this.areaForm.description = ''
       this.areaForm.lat = null
       this.areaForm.lng = null
+      this.showAreaSpecies = false
     },
     onAreaSubmit() {
       if (!this.isAreaFormValid) {
@@ -402,6 +547,99 @@ export default defineComponent({
       return `${year}-${month}-${day}`
     },
 
+    async loadAreaSpecies(areaId: any) {
+      this.loadingSpecies = true
+      try {
+        const resp = await this.listHuntingAreaSpecies(areaId)
+        const list = Array.isArray(resp.data?.data) ? resp.data.data : Array.isArray(resp.data) ? resp.data : []
+        this.areaSpecies = list.map((item: any) => ({
+          id: item.id,
+          specie_id: item.specie_id ?? item.specie?.id,
+          specie_name: item.specie_name ?? item.specie?.name ?? item.name,
+        }))
+      } catch (error) {
+        this.toast.init({ message: 'Failed to load species for this area', color: 'danger' })
+      } finally {
+        this.loadingSpecies = false
+      }
+    },
+
+    async handleAreaCsvImport(rows: Array<{ name: string }>) {
+      if (!this.selectedArea) {
+        this.toast.init({ message: 'Select an area first', color: 'warning' })
+        return
+      }
+
+      const nameToOpt = new Map(this.speciesOptions.map((opt: any) => [String(opt.text).toLowerCase(), opt]))
+      const existingIds = new Set(this.areaSpecies.map((s: any) => String(s.specie_id)))
+      const toAdd: string[] = []
+
+      for (const row of rows) {
+        const key = String(row.name || '').toLowerCase()
+        if (!key) continue
+        const opt = nameToOpt.get(key)
+        if (!opt) continue
+        const idStr = String(opt.value)
+        if (existingIds.has(idStr)) continue
+        if (toAdd.includes(idStr)) continue
+        toAdd.push(idStr)
+      }
+
+      if (toAdd.length === 0) {
+        this.toast.init({ message: 'No new species to import', color: 'info' })
+        return
+      }
+
+      this.csvImporting = true
+      try {
+        for (const specieId of toAdd) {
+          await this.addHuntingAreaSpecies({ hunting_area_id: this.selectedArea.id, specie_id: specieId })
+        }
+        this.csvUploaded = true
+        this.toast.init({ message: `Imported ${toAdd.length} species`, color: 'success' })
+        this.loadAreaSpecies(this.selectedArea.id)
+      } catch (error: any) {
+        const errors = handleErrors(error)
+        this.toast.init({ message: errors.join('\n') || 'Failed to import species', color: 'danger' })
+      } finally {
+        this.csvImporting = false
+      }
+    },
+
+    async addSpeciesToArea() {
+      if (!this.selectedArea || !this.speciesForm.specie) return
+      this.savingSpecies = true
+      try {
+        await this.addHuntingAreaSpecies({
+          hunting_area_id: this.selectedArea.id,
+          specie_id: this.speciesForm.specie,
+        })
+        this.toast.init({ message: 'Species added to hunting area', color: 'success' })
+        this.speciesForm.specie = null
+        this.loadAreaSpecies(this.selectedArea.id)
+      } catch (error: any) {
+        const errors = handleErrors(error)
+        this.toast.init({ message: errors.join('\n') || 'Failed to add species', color: 'danger' })
+      } finally {
+        this.savingSpecies = false
+      }
+    },
+
+    async deleteAreaSpecies(record: any) {
+      if (!record?.id || !this.selectedArea) return
+      this.deleting = true
+      try {
+        await this.deleteHuntingAreaSpecies(record.id, this.selectedArea.id, record.specie_id)
+        this.toast.init({ message: 'Species removed from hunting area', color: 'success' })
+        this.loadAreaSpecies(this.selectedArea.id)
+      } catch (error: any) {
+        const errors = handleErrors(error)
+        this.toast.init({ message: errors.join('\n') || 'Failed to remove species', color: 'danger' })
+      } finally {
+        this.deleting = false
+      }
+    },
+
     async getAreas() {
       try {
         this.loading = true
@@ -450,6 +688,16 @@ export default defineComponent({
           message: 'Failed to load hunting areas',
           color: 'danger',
         })
+      }
+    },
+
+    async getSpeciesItems() {
+      try {
+        const response = await this.getSpeciesList()
+        const list = Array.isArray(response.data) ? response.data : response.data?.data || []
+        this.speciesOptions = list.map((item: any) => ({ value: item.id, text: item.name }))
+      } catch (error) {
+        // ignore load failure here; toast not critical
       }
     },
   },

@@ -347,5 +347,146 @@ export const useQuotaStore = defineStore('quota', {
         return response
       }
     },
+
+    // Reporting endpoint for quota-hunting-area-species with aggregates
+    async getQuotaSpeciesReport(quota_id: any, area_id: any, species_id: any) {
+      let url = import.meta.env.VITE_APP_BASE_URL + 'reportings/quota-hunting-area-species'
+
+      const params: QuotaParams = {}
+      if (quota_id && quota_id !== 'null' && quota_id !== 'undefined') {
+        params.quota_id = quota_id
+      }
+      if (area_id && area_id !== 'null' && area_id !== 'undefined') {
+        params.area_id = area_id
+      }
+      if (species_id && species_id !== 'null' && species_id !== 'undefined') {
+        params.species_id = species_id
+      }
+
+      if (Object.keys(params).length > 0) {
+        const queryString = new URLSearchParams(params as Record<string, string>).toString()
+        url += '?' + queryString
+      }
+
+      const config = {
+        method: 'get',
+        url: url,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+
+      try {
+        const response = await axios.request(config)
+        return response
+      } catch (error) {
+        console.error('Quota species report error:', error)
+        throw error
+      }
+    },
+
+    // Export quota-species as PDF (returns base64)
+    async exportQuotaSpeciesPdf(quota_id: any, area_id: any, species_id: any) {
+      let url = import.meta.env.VITE_APP_BASE_URL + 'reportings/quota-hunting-area-species/pdf'
+
+      const params: QuotaParams = {}
+      if (quota_id && quota_id !== 'null' && quota_id !== 'undefined') {
+        params.quota_id = quota_id
+      }
+      if (area_id && area_id !== 'null' && area_id !== 'undefined') {
+        params.area_id = area_id
+      }
+      if (species_id && species_id !== 'null' && species_id !== 'undefined') {
+        params.species_id = species_id
+      }
+
+      if (Object.keys(params).length > 0) {
+        const queryString = new URLSearchParams(params as Record<string, string>).toString()
+        url += '?' + queryString
+      }
+
+      const config = {
+        method: 'get',
+        url: url,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+
+      try {
+        const response = await axios.request(config)
+        return response
+      } catch (error) {
+        console.error('Quota species PDF export error:', error)
+        throw error
+      }
+    },
+
+    // Get quota with assignments (assignments = quota-area-species rows with joins)
+    async getQuotaWithAssignments(quota_id: any) {
+      let url = import.meta.env.VITE_APP_BASE_URL + 'sales/quota-with-assignments'
+      if (quota_id !== null && quota_id !== undefined) {
+        url += `?quota_id=${encodeURIComponent(quota_id)}`
+      }
+
+      const config = {
+        method: 'get',
+        url: url,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+
+      try {
+        const response = await axios.request(config)
+        return response
+      } catch (error) {
+        console.error('getQuotaWithAssignments error:', error)
+        throw error
+      }
+    },
+
+    // Delete a quota-area-species record
+    async deleteQuotaAreaSpecies(id: any) {
+      const url = `${import.meta.env.VITE_APP_BASE_URL}${import.meta.env.VITE_APP_SALES_QUOTAS_AREA_SPECIES_URL}${id}`
+
+      const config = {
+        method: 'delete',
+        url: url,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+
+      try {
+        const response = await axios.request(config)
+        return response
+      } catch (error) {
+        console.error('Delete quota-area-species error:', error)
+        throw error
+      }
+    },
+
+    // Update a quota-area-species record
+    async updateQuotaAreaSpecies(id: any, data: { quantity?: number; area_id?: any; species_id?: any }) {
+      const url = `${import.meta.env.VITE_APP_BASE_URL}${import.meta.env.VITE_APP_SALES_QUOTAS_AREA_SPECIES_URL}${id}`
+
+      const config = {
+        method: 'patch',
+        url: url,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        data: data,
+      }
+
+      try {
+        const response = await axios.request(config)
+        return response
+      } catch (error) {
+        console.error('Update quota-area-species error:', error)
+        throw error
+      }
+    },
   },
 })
