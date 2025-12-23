@@ -449,14 +449,16 @@ export const useAppSidebarMenuStore = defineStore("appSidebarMenu", () => {
         { url: '/module-settings/clients-settings', text: 'Price structures', permission: 'CAN_VIEW_SALES_PACKAGE' ,
         children: [
         { url: '/module-settings/sales-package', text: 'Sales Package', permission: 'CAN_VIEW_SALES_PACKAGE' },
-        // { url: '/module-settings/trophy-fees', text: 'Trophy fees', permission: 'CAN_VIEW_TROPHY_FEES' },
-        // { url: '/module-settings/safari-fee-deposits', text: 'Deposits planning', permission: 'CAN_VIEW_SAFARI_FEE_DEPOSITS' },
+        { url: '/module-settings/trophy-fees', text: 'Trophy Fees', permission: 'CAN_VIEW_TROPHY_FEES' },
+        // { url: '/module-settings/safari-fee-deposits', text: 'Deposits Planning', permission: 'CAN_VIEW_SAFARI_FEE_DEPOSITS' },
         { url: '/module-settings/sales-extra-services', text: 'Extra Services', permission: 'CAN_VIEW_SALES_EXTRA_SERVICES' },
 
           ],
         },
 
         // { url: '/module-settings/terms', text: 'Terms', permission: 'CAN_VIEW_APPROVAL_CHAIN' },
+
+        { url: '/module-settings/accounts', text: 'Accounts', permission: 'CAN_VIEW_MODULE_SETTINGS' },
 
         
 

@@ -6,7 +6,7 @@
         <div class="card-header bg-transparent border-bottom">
           <div class="d-flex justify-content-between align-items-center">
             <div class="d-flex align-items-center gap-2">
-              <button type="button" class="btn btn-secondary btn-sm" @click="handleGoBack">
+              <button type="button" class="btn btn-secondary btn-sm" @click="$emit('go-back')">
                 <i class="fa fa-arrow-left me-1"></i> Back
               </button>
 
@@ -19,8 +19,8 @@
         </div>
         <div class="card-body">
           <form ref="formRef" @submit.prevent="submit">
-            <div class="row mb-5">
-              <div class="col-md-4">
+            <div class="row mb-4">
+              <div class="col-md-3">
                 <div class="form-group">
                   <label class="form-label">Package <span class="text-danger">*</span></label>
                   <div class="input-group">
@@ -36,7 +36,15 @@
                   </div>
                 </div>
               </div>
-              <div class="col-md-4">
+
+              <div class="col-md-3">
+                <div class="form-group">
+                  <label class="form-label">Name <span class="text-danger">*</span></label>
+                  <input v-model="form.name" type="text" class="form-control" placeholder="Enter Name" required />
+                </div>
+              </div>
+
+              <div class="col-md-3">
                 <div class="form-group">
                   <label class="form-label">Hunting Type <span class="text-danger">*</span></label>
                   <select v-model="form.hunting_type_id" class="form-select" required>
@@ -47,15 +55,13 @@
                   </select>
                 </div>
               </div>
-              <div class="col-md-4">
+
+              <div class="col-md-3">
                 <div class="form-group">
-                  <label class="form-label">Season <span class="text-danger">*</span></label>
-                  <select v-model="selectedSeasonId" class="form-select" required @change="onSeasonChange">
-                    <option :value="null">Select season</option>
-                    <option v-for="option in seasonsOptions" :key="option.value?.id || option.value"
-                      :value="option.value?.id || option.value">
-                      {{ option.text }}
-                    </option>
+                  <label class="form-label">Area <span class="text-danger">*</span></label>
+                  <select v-model="form.area_id" class="form-select" required>
+                    <option :value="null">Select Area</option>
+                    <option v-for="opt in areasOptions" :key="opt.value" :value="opt.value">{{ opt.text }}</option>
                   </select>
                 </div>
               </div>
@@ -64,27 +70,45 @@
             <div class="row mb-5">
               <div class="col-md-4">
                 <div class="form-group">
-                  <label class="form-label">Amount <span class="text-danger">*</span></label>
-                  <input v-model="form.amount" type="text" class="form-control" placeholder="Enter Amount" required />
-                </div>
-              </div>
-              <div class="col-md-4">
-                <div class="form-group">
-                  <label class="form-label">Currency <span class="text-danger">*</span></label>
-                  <select v-model="form.currency" class="form-select" required>
-                    <option :value="null">Select Currency</option>
-                    <option v-for="option in currencyOptions" :key="option.value" :value="option.value">
+                  <label class="form-label">Duration (days) <span class="text-danger">*</span></label>
+                  <select v-model="form.duration" class="form-select" required>
+                    <option :value="null">Enter Duration eg: 21 days</option>
+                    <option v-for="option in durationsOptions" :key="option.value" :value="option.value">
                       {{ option.text }}
                     </option>
                   </select>
                 </div>
               </div>
+
               <div class="col-md-4">
                 <div class="form-group">
-                  <label class="form-label">Duration (days) <span class="text-danger">*</span></label>
-                  <select v-model="form.duration" class="form-select" required>
-                    <option :value="null">Enter Duration eg: 21 days</option>
-                    <option v-for="option in durationsOptions" :key="option.value" :value="option.value">
+                  <label class="form-label">Start Date <span class="text-danger">*</span></label>
+                  <input v-model="form.start_date" type="date" class="form-control" required />
+                </div>
+              </div>
+
+              <div class="col-md-4">
+                <div class="form-group">
+                  <label class="form-label">End Date <span class="text-danger">*</span></label>
+                  <input v-model="form.end_date" type="date" class="form-control" :aria-invalid="form.start_date && form.end_date && !hasValidDates" required />
+                  <small v-if="form.start_date && form.end_date && !hasValidDates" class="text-danger mt-1 d-block">Start date must be before or equal to End date.</small>
+                </div>
+              </div>
+            </div>
+
+            <div class="row mb-5">
+              <div class="col-md-6">
+                <div class="form-group">
+                  <label class="form-label">Amount <span class="text-danger">*</span></label>
+                  <input v-model="form.amount" type="text" class="form-control" placeholder="Enter Amount" required />
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="form-group">
+                  <label class="form-label">Currency <span class="text-danger">*</span></label>
+                  <select v-model="form.currency" class="form-select" required>
+                    <option :value="null">Select Currency</option>
+                    <option v-for="option in currencyOptions" :key="option.value" :value="option.value">
                       {{ option.text }}
                     </option>
                   </select>
@@ -142,54 +166,11 @@
                   Add upgrade fees for additional species that can be hunted beyond the standard package.
                 </p>
 
-                <div v-if="upgradeFees.length > 0">
-                  <div v-for="(fee, index) in upgradeFees" :key="index" class="card mb-2 border-warning"
-                    style="border-left: 3px solid #ffc107">
-                    <div class="card-body py-2">
-                      <div class="row g-2 mb-2">
-                        <div class="col-md-3">
-                          <label class="form-label small mb-1">Species <span class="text-danger">*</span></label>
-                          <select v-model="fee.species_id" class="form-select" required>
-                            <option :value="null">Select Species</option>
-                            <option v-for="option in speciesOptions" :key="option.value" :value="option.value">
-                              {{ option.text }}
-                            </option>
-                          </select>
-                        </div>
-                        <div class="col-md-2">
-                          <label class="form-label small mb-1">Amount <span class="text-danger">*</span></label>
-                          <input v-model="fee.amount" type="number" class="form-control" placeholder="Amount" required />
-                        </div>
-                        <div class="col-md-2">
-                          <label class="form-label small mb-1">Currency <span class="text-danger">*</span></label>
-                          <select v-model="fee.currency_id" class="form-select" required>
-                            <option :value="null">Currency</option>
-                            <option v-for="option in currencyOptions" :key="option.value" :value="option.value">
-                              {{ option.text }}
-                            </option>
-                          </select>
-                        </div>
-                        <div class="col-md-4">
-                          <label class="form-label small mb-1">Description (Optional)</label>
-                          <input v-model="fee.description" type="text" class="form-control"
-                            placeholder="Enter description" />
-                        </div>
-                        <div class="col-md-1 d-flex align-items-end">
-                          <button type="button" class="btn btn-danger btn-sm w-100"
-                            style="background-color: #b30000; border-color: #b30000; color: white" title="Remove"
-                            @click="removeUpgradeFee(index)">
-                            <i class="fa fa-trash" style="color: white"></i>
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div v-else class="text-center py-3 text-muted border border-dashed rounded small">
-                  <i class="fa fa-info-circle me-2"></i>
-                  No upgrade fees added. Click "Add Fee" to add optional upgrade fees.
-                </div>
+                <MultiRowTableInput
+                  v-model="upgradeFees"
+                  :fields="multiRowFields"
+                  add-button-label="Add Fee"
+                />
               </div>
             </div>
           </form>
@@ -198,11 +179,48 @@
 
       <!-- Save Button -->
       <div class="d-flex justify-content-end align-items-center mt-4 mb-3">
-        <button type="button" class="btn btn-primary" :disabled="savingPriceList || !canSubmit" @click="submit()">
+        <button type="button" class="btn btn-primary" :disabled="savingPriceList || !canSubmit" @click="submit">
           <i class="fa fa-save me-1"></i>
           <span v-if="savingPriceList" class="spinner-border spinner-border-sm me-1" role="status"></span>
           {{ editMode ? 'Update Price List' : 'Save Price List' }}
         </button>
+      </div>
+
+      <!-- Fetched Price List (edit/view) -->
+      <div v-if="loadingPriceList" class="card mt-3">
+        <div class="card-body text-center">
+          <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+          <span>Loading price list details...</span>
+        </div>
+      </div>
+
+      <div v-if="priceListError" class="card mt-3 border-danger">
+        <div class="card-body bg-light">
+          <div class="alert alert-danger mb-0">
+            <i class="fa fa-exclamation-triangle me-2"></i>
+            {{ priceListError }}
+          </div>
+        </div>
+      </div>
+
+      <div v-if="priceList && !loadingPriceList" class="card mt-3">
+        <div class="card-body">
+          <h5 class="card-title">Viewing Price List #{{ priceList.id }}</h5>
+          <p class="mb-1">Area: {{ priceList.area_name }} (ID: {{ priceList.area_id }})</p>
+          <p class="mb-1">Start: {{ priceList.start_date }} — End: {{ priceList.end_date }}</p>
+          <h6 class="mt-2">Items</h6>
+          <ul>
+            <li v-for="it in priceList.items || []" :key="it.id">{{ it.name }} — {{ it.currency_symbol }}{{ it.amount }}</li>
+          </ul>
+          <h6 class="mt-2">Companion Prices</h6>
+          <ul>
+            <li v-for="c in priceList.companion_hunter_prices || []" :key="c.id">{{ c.hunt_length_label }} — {{ c.currency_symbol }}{{ c.amount }}</li>
+          </ul>
+          <h6 class="mt-2">Observer Prices</h6>
+          <ul>
+            <li v-for="o in priceList.observer_hunter_prices || []" :key="o.id">{{ o.hunt_length_label }} — {{ o.currency_symbol }}{{ o.amount }}</li>
+          </ul>
+        </div>
       </div>
     </div>
 
@@ -216,742 +234,474 @@
     </div>
 
     <!-- Create New Package Modal -->
-    <div v-if="_shM" class="modal fade show d-block" style="z-index: 1050; display: block !important;" tabindex="-1"
-      role="dialog" @click.self="_shM = false">
+    <div v-if="showModal" class="modal fade show d-block" style="z-index: 1050; display: block !important;" tabindex="-1"
+      role="dialog" @click.self="showModal = false">
       <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
         <div class="modal-content">
           <div class="modal-header">
             <h5 class="modal-title">Create New Package</h5>
-            <button type="button" class="btn-close" @click="_shM = false"></button>
+            <button type="button" class="btn-close" @click="showModal = false"></button>
           </div>
           <div class="modal-body" style="max-height: 80vh; overflow-y: auto;">
-            <SalesPackageForm @go-back="_shM = false" @saved="handlePackageSaved"> </SalesPackageForm>
+            <SalesPackageForm @go-back="showModal = false" @saved="handlePackageSaved" />
           </div>
         </div>
       </div>
     </div>
-    <div v-if="_shM" class="modal-backdrop fade show" style="z-index: 1040;" @click="_shM = false"></div>
+    <div v-if="showModal" class="modal-backdrop fade show" style="z-index: 1040;" @click="showModal = false"></div>
   </div>
 </template>
 
-<script lang="ts">
-import { defineComponent, reactive, ref } from 'vue'
-// Va* components are globally registered Bootstrap components - no import needed
+<script setup lang="ts">
+import { reactive, ref, computed, onMounted, watch, nextTick } from 'vue'
+import Swal from '../../../utils/sweetalert2'
+import axios from 'axios'
 import handleErrors from '../../../stores/bushman/errorHandler.ts'
-import { validators } from '../../../stores/bushman/utils.ts'
-
 import { useToast } from '@/composables/useToast'
-import { mapActions, mapState, mapWritableState } from 'pinia'
 import { useQuotaStore } from '../../../stores/bushman/quota-store.ts'
 import { useSettingsStore } from '../../../stores/bushman/settings-store.ts'
 import { usePriceListStore } from '../../../stores/bushman/price-list-store.ts'
 import SalesPackageForm from '../../bushman/module-settings/SalesPackageForm.vue'
+import MultiRowTableInput from '@/views/bushman/reusables/MultiRowTableInput.vue'
 
-export default defineComponent({
-  components: {
-    // Salesinquirieslist,
-    SalesPackageForm,
-    // Va* components are globally registered
-  },
-  props: {
-    editMode: {
-      type: Boolean,
-      default: false,
-    },
-    editItem: {
-      type: Object,
-      default: null,
-    },
-  },
-  emits: ['saved', 'go-back'],
-  setup() {
-    const formRef = ref()
+// Props & Emits
+const props = withDefaults(defineProps<{ editMode?: boolean; editItem?: any }>(), {
+  editMode: false,
+  editItem: null,
+})
+const emit = defineEmits<{ saved: []; 'go-back': []; goBack: [] }>()
 
-    const { init } = useToast()
-    const showEditForm = ref(false)
-    const isValidForm = ref(true)
-    // const _usePriceListStore: any = usePriceListStore()
+// Stores
+const quotaStore = useQuotaStore()
+const settingsStore = useSettingsStore()
+const priceListStore = usePriceListStore()
+const { init } = useToast()
 
-    // const pkg: any = computed(() => {
-    //   return _usePriceListStore.latestPackage
-    // })
+// Refs
+const formRef = ref<HTMLFormElement>()
+const form = reactive({
+  id: null as any,
+  name: null as any,
+  hunting_type_id: null as any,
+  package: null as any,
+  area_id: null as any,
+  amount: null as any,
+  currency: null as any,
+  duration: null as any,
+  season: null as any,
+  start_date: null as any,
+  end_date: null as any,
+  species: null as any,
+  quantity: null as any,
+  companion_days: null as any,
+  companion_amount: null as any,
+  observer_days: null as any,
+  observer_amount: null as any,
+})
 
-    const form = reactive({
-      id: null as any,
-      hunting_type_id: null as any,
-      package: null as any,
-      // description: '',s
-      // sales_quota_id: null as any,
-      amount: null as any,
+// State
+const savingPriceList = ref(false)
+const speciesOptions = ref<any[]>([])
+const speciesObjects = ref<any[]>([])
+const areasOptions = ref<any[]>([])
+const huntingTypesOptions = ref<any[]>([])
+const currencyOptions = ref<any[]>([])
+const durationsOptions = ref<any[]>([])
+const seasonsOptions = ref<any[]>([])
+// Season selection removed - users can enter dates manually
+// const selectedSeasonId = ref<any>(null)
+const upgradeFees = ref<any[]>([])
+const originalFormData = ref<any>(null)
+const originalUpgradeFees = ref<any[]>([])
+const priceList = ref<any>(null)
+const loadingPriceList = ref(false)
+const priceListError = ref<string | null>(null)
 
-      currency: null as any,
-      duration: null as any,
-      season: null as any,
-      end_date: null as any,
-      species: null as any,
-      quantity: null as any,
-      // area: null as any,
-      companion_days: null as any,
-      companion_amount: null as any,
-      observer_days: null as any,
-      observer_amount: null as any,
-    })
+// Computed
+const showModal = computed({
+  get: () => priceListStore.showModal,
+  set: (val) => (priceListStore.showModal = val),
+})
+const packageOptions = computed(() => priceListStore.packageOptions)
+const canSubmit = computed(() => {
+  if (props.editMode) return hasFormChanged.value
 
-    // make as copy of pkg to form package
+  const hasPackage = !!form.package
+  const hasHuntType = !!form.hunting_type_id
+  // season is optional now - users fill dates manually
+  // const hasSeason = !!form.season || !!selectedSeasonId.value
+  const hasArea = !!form.area_id
+  const hasAmount = form.amount !== null && form.amount !== undefined && String(form.amount).trim() !== ''
+  const hasCurrency = !!form.currency || form.currency === 0 || typeof form.currency === 'number' || (form.currency && typeof form.currency === 'object')
+  const hasDuration = !!form.duration
 
-    const contactForm = reactive({
-      id: null as any,
-      client_id: null as any,
-      contact: '',
-      contact_type: null as any,
-      contactable: false,
-    })
+  // season removed from required checks; users can select start/end dates manually
+  // require valid start/end dates when both are set
+  const hasDatesValid = hasValidDates.value
 
-    const countries = ref([]) as any
-    const nationality = ref([]) as any
-    const categoryOptions = ref([]) as any
-    const contactsTypes = ref([]) as any
-    const clients = ref([]) as any
-    const step = ref(0) as any
+  return hasPackage && hasHuntType && hasArea && hasAmount && hasCurrency && hasDuration && hasDatesValid
+})
+const hasFormChanged = computed(() => {
+  if (!props.editMode || !originalFormData.value) return true
+  return JSON.stringify(form) !== JSON.stringify(originalFormData.value) ||
+    JSON.stringify(upgradeFees.value) !== JSON.stringify(originalUpgradeFees.value)
+})
 
-    return {
-      formRef,
-      form,
-      contactForm,
-      showEditForm,
-      countries,
-      nationality,
-      categoryOptions,
-      contactsTypes,
-      clients,
-      step,
-      // steps,
-      init,
-      isValidForm,
-      validators,
+// Date validation: start_date must be <= end_date when both are present
+const hasValidDates = computed(() => {
+  if (!form.start_date || !form.end_date) return true // treat missing dates as valid for now
+  try {
+    const sd = new Date(form.start_date)
+    const ed = new Date(form.end_date)
+    return sd.getTime() <= ed.getTime()
+  } catch (e) {
+    return false
+  }
+})
+
+const multiRowFields = computed<any>(() => [
+  { key: 'species_id', label: 'Species', type: 'select', required: true, options: speciesOptions.value },
+  { key: 'trigger_condition', label: 'Trigger Condition', type: 'text', required: true, placeholder: 'e.g., Trophy size > 9 feet' },
+  { key: 'fee_amount', label: 'Fee Amount', type: 'number', required: true },
+  { key: 'currency_id', label: 'Currency', type: 'select', required: true, options: currencyOptions.value },
+  { key: 'notes', label: 'Notes', type: 'text' },
+])
+
+// Methods
+const getData = async (fetcher: () => Promise<any>, mapper: (d: any) => any) => {
+  try { return (await fetcher()).data.map(mapper) } catch (e) { console.log(e); return [] }
+}
+const getAreas = async () => { areasOptions.value = await getData(() => quotaStore.getAreaList(), (item: any) => ({ value: item.id, text: item.name })) }
+const getHuntingTypes = async () => { huntingTypesOptions.value = await getData(() => settingsStore.getHuntingsTypes(), (item: any) => ({ value: item.id, text: item.name })) }
+const getCurrencyList = async () => { currencyOptions.value = await getData(() => settingsStore.getCurrencies(), (item: any) => ({ value: item.id, text: item.name })) }
+// getSeasonList removed - season selection removed from the form
+const getSpeciesItems = async () => { speciesOptions.value = await getData(() => quotaStore.getSpeciesList(), (item: any) => ({ value: item.id, text: item.name })) }
+const getHuntLengthsList = async () => {
+  try {
+    const response = await priceListStore.getHuntLengths()
+    const data = response.data?.data || response.data || []
+    durationsOptions.value = data.filter((item: any) => item.is_active).map((item: any) => ({
+      value: item.id, text: item.label, days: item.days,
+    }))
+  } catch (error) { console.log('Error fetching hunt lengths:', error) }
+}
+const getSalesPackages = async () => { await priceListStore.getSalesPackageList(true) }
+const getQuotaList = async () => {
+  try {
+    const response = await quotaStore.getQuotas(null)
+    const data = response?.data?.data || response?.data || []
+  } catch (error) { console.log(error) }
+}
+
+const populateFormForEdit = (editItem: any) => {
+  if (!editItem) return
+  const priceListType = editItem.price_list_type || editItem
+  form.name = priceListType.name || editItem.name || form.name
+  form.area_id = priceListType.area_id || editItem.area_id || form.area_id
+  if (priceListType.amount) form.amount = String(priceListType.amount).replace('$', '').replace(',', '')
+  const huntLengthId = priceListType.hunt_length_id || editItem.hunt_length_id
+  if (huntLengthId) form.duration = huntLengthId
+  else if (priceListType.duration) {
+    const foundDuration = durationsOptions.value.find((d: any) => d.days === priceListType.duration)
+    form.duration = foundDuration?.value || null
+  }
+  const huntingTypeName = priceListType.hunting_type?.name || editItem.hunting_type
+  if (huntingTypeName) {
+    const foundHuntingType = huntingTypesOptions.value.find((h: any) => h.text === huntingTypeName)
+    form.hunting_type_id = foundHuntingType?.value || null
+  }
+  const startDate = priceListType.price_list?.start_date
+  const endDate = priceListType.price_list?.end_date
+  if (startDate && endDate) {
+    // Populate explicit start_date and end_date fields
+    form.start_date = startDate
+    form.end_date = endDate
+    // Also find and set the matching season object (not required)
+    form.season = seasonsOptions.value.find((s: any) => s.value?.start_at === startDate && s.value?.end_at === endDate)
+    if (!form.season) {
+      const year = new Date(startDate).getFullYear()
+      form.season = seasonsOptions.value.find((s: any) => s.text?.includes(String(year)))
     }
-  },
-  data() {
-    // 1-21
-    const durationsOptions: any = [
-      { value: 1, text: '1 day' },
-      { value: 2, text: '2 days' },
-      { value: 3, text: '3 days' },
-      { value: 4, text: '4 days' },
-      { value: 5, text: '5 days' },
-      { value: 6, text: '6 days' },
-      { value: 7, text: '7 days' },
-      { value: 8, text: '8 days' },
-      { value: 9, text: '9 days' },
-      { value: 10, text: '10 days' },
-      { value: 11, text: '11 days' },
-      { value: 12, text: '12 days' },
-      { value: 13, text: '13 days' },
-      { value: 14, text: '14 days' },
-      { value: 15, text: '15 days' },
-      { value: 16, text: '16 days' },
-      { value: 17, text: '17 days' },
-      { value: 18, text: '18 days' },
-      { value: 19, text: '19 days' },
-      { value: 20, text: '20 days' },
-      { value: 21, text: '21 days' },
-    ]
-    return {
-      preferred_species: [] as any,
-      speciesOptions: [] as any,
-      speciesObjects: [] as any,
-      areasOptions: [] as any,
-      huntingTypesOptions: [] as any,
-      salesQuotasOptions: [] as any,
-      speciesItemOptions: [] as any,
-      currencyOptions: [] as any,
-      // packageOptions: [] as any,
-      savingPriceList: false,
-      durationsOptions,
-      seasonsOptions: [] as any,
-      selectedSeasonId: null as any,
-      upgradeFees: [] as any[],
-      originalFormData: null as any,
-      originalUpgradeFees: [] as any[],
+    // Note: we no longer use selectedSeasonId as season selection was removed
+  }
+  const currencyName = priceListType.currency?.name
+  if (currencyName) form.currency = currencyOptions.value.find((c: any) => c.text === currencyName)
+  if (!form.currency) form.currency = currencyOptions.value.find((c: any) => c.text === 'USD') || currencyOptions.value[0]
+  
+  const companionCosts = editItem.companion_hunter_costs || priceListType.companion_hunter_costs
+  if (companionCosts?.length > 0) {
+    const firstCompanion = companionCosts[0]
+    form.companion_amount = firstCompanion.amount || null
+    if (firstCompanion.hunt_length_id) form.companion_days = firstCompanion.hunt_length_id
+    else if (firstCompanion.days) {
+      const foundDuration = durationsOptions.value.find((d: any) => d.days === firstCompanion.days)
+      form.companion_days = foundDuration?.value || null
     }
-  },
-  computed: {
-    ...mapState(usePriceListStore, ['salesPackages', 'packageOptions', 'latestPackage', 'loadingpackages']),
-    ...mapWritableState(usePriceListStore, {
-      _shM: 'showModal',
-    }),
-    // Check if form has changed from original values
-    hasFormChanged() {
-      if (!this.editMode || !this.originalFormData) {
-        return true // In create mode, always allow submit (validation will handle it)
-      }
-
-      // Helper function to get value from option object or direct value
-      const getValue = (val: any) => {
-        if (val === null || val === undefined) return null
-        if (typeof val === 'object' && val !== null && 'value' in val) return val.value
-        return val
-      }
-
-      // Helper to compare two values (handles null/undefined)
-      const compareValues = (a: any, b: any) => {
-        const valA = getValue(a)
-        const valB = getValue(b)
-        if (valA === null && valB === null) return true
-        if (valA === null || valB === null) return false
-        return valA === valB
-      }
-
-      // Compare form fields
-      if (!compareValues(this.form.hunting_type_id, this.originalFormData.hunting_type_id)) return true
-      if (!compareValues(this.form.currency, this.originalFormData.currency)) return true
-      if (!compareValues(this.form.duration, this.originalFormData.duration)) return true
-
-      // Compare season by ID
-      const currentSeasonId = getValue(this.form.season)?.id || getValue(this.form.season)
-      const originalSeasonId = getValue(this.originalFormData.season)?.id || getValue(this.originalFormData.season)
-      if (currentSeasonId !== originalSeasonId) return true
-
-      // Compare amounts (normalize to string for comparison)
-      const normalizeAmount = (amt: any) => String(amt || '').trim()
-      if (normalizeAmount(this.form.amount) !== normalizeAmount(this.originalFormData.amount)) return true
-      if (normalizeAmount(this.form.companion_amount) !== normalizeAmount(this.originalFormData.companion_amount))
-        return true
-      if (normalizeAmount(this.form.observer_amount) !== normalizeAmount(this.originalFormData.observer_amount))
-        return true
-
-      if (!compareValues(this.form.companion_days, this.originalFormData.companion_days)) return true
-      if (!compareValues(this.form.observer_days, this.originalFormData.observer_days)) return true
-
-      // Compare package - now single value
-      if (!compareValues(this.form.package, this.originalFormData.package)) return true
-
-      // Compare upgrade fees
-      const normalizeFees = (fees: any[]) => {
-        return fees
-          .map((fee: any) => ({
-            id: fee.id || null,
-            species_id: getValue(fee.species_id),
-            amount: normalizeAmount(fee.amount),
-            currency_id: getValue(fee.currency_id),
-            description: (fee.description || '').trim(),
-          }))
-          .sort((a: any, b: any) => {
-            // Sort by id first, then by species_id
-            if (a.id !== b.id) return (a.id || 0) - (b.id || 0)
-            return (a.species_id || 0) - (b.species_id || 0)
-          })
-      }
-
-      const currentFees = normalizeFees(this.upgradeFees || [])
-      const originalFees = normalizeFees(this.originalUpgradeFees || [])
-      if (currentFees.length !== originalFees.length) return true
-      if (JSON.stringify(currentFees) !== JSON.stringify(originalFees)) return true
-
-      return false
-    },
-    // In edit mode, check if form has changed
-    // In create mode, check validation
-    canSubmit() {
-      if (this.editMode) {
-        return this.hasFormChanged // Only allow submit if form has changed
-      }
-      // Basic validation check
-      return (
-        this.form.package &&
-        this.form.hunting_type_id &&
-        this.form.season &&
-        this.form.amount &&
-        this.form.currency &&
-        this.form.duration
-      )
-    },
-  },
-
-  watch: {
-    // Watch for editItem changes to populate form when editing
-    editItem: {
-      handler(newVal) {
-        if (this.editMode && newVal) {
-          // Wait for options to be loaded before populating
-          this.$nextTick(() => {
-            setTimeout(() => {
-              this.populateFormForEdit()
-            }, 100)
-          })
-        }
-      },
-      immediate: true,
-      deep: true,
-    },
-    // use both close modal and show modal to close modal
-    // i want if the  closeMadal is true then showModal should be false
-  },
-  async mounted() {
-    // Ensure modal is closed when component mounts
-    this._shM = false
-    // this.getAllSpeciesPerQuotaPerArea()
-    await Promise.all([
-      this.getAreas(),
-      this.getHuntingTypes(),
-      this.getQuotaList(),
-      this.getCurrencyList(),
-      this.getSalesPackages(),
-      this.getSeasonList(),
-      this.getSpeciesItems(),
-    ])
-
-    // If in edit mode, populate form with existing data (after options are loaded)
-    if (this.editMode && this.editItem) {
-      this.populateFormForEdit()
+  } else {
+    form.companion_amount = editItem.companion_amount || null
+    if (editItem.companion_hunt_length_id) form.companion_days = editItem.companion_hunt_length_id
+    else if (editItem.companion_days) {
+      const foundDuration = durationsOptions.value.find((d: any) => d.days === editItem.companion_days)
+      form.companion_days = foundDuration?.value || null
     }
-  },
+  }
+  
+  const observerCosts = editItem.observer_hunter_costs || priceListType.observer_hunter_costs
+  if (observerCosts?.length > 0) {
+    const firstObserver = observerCosts[0]
+    form.observer_amount = firstObserver.amount || null
+    if (firstObserver.hunt_length_id) form.observer_days = firstObserver.hunt_length_id
+    else if (firstObserver.days) {
+      const foundDuration = durationsOptions.value.find((d: any) => d.days === firstObserver.days)
+      form.observer_days = foundDuration?.value || null
+    }
+  } else {
+    form.observer_amount = editItem.observer_amount || null
+    if (editItem.observer_hunt_length_id) form.observer_days = editItem.observer_hunt_length_id
+    else if (editItem.observer_days) {
+      const foundDuration = durationsOptions.value.find((d: any) => d.days === editItem.observer_days)
+      form.observer_days = foundDuration?.value || null
+    }
+  }
 
-  methods: {
-    ...mapActions(useQuotaStore, ['getSpeciesList']),
-    ...mapActions(useQuotaStore, ['getAllSpeciesPerQuotaPerArea']),
-    ...mapActions(useQuotaStore, ['getAreaList']),
-    ...mapActions(useSettingsStore, ['getHuntingsTypes']),
-    ...mapActions(useSettingsStore, ['getCurrencies', 'getSeasons']),
-    ...mapActions(useQuotaStore, ['getQuotas']),
-    ...mapActions(usePriceListStore, ['createPriceList', 'updatePriceList']),
-    ...mapActions(usePriceListStore, ['getSalesPackageList']),
+  if (editItem.sales_package) form.package = editItem.sales_package.id
+  else if (editItem.packages?.length > 0) form.package = editItem.packages[0].id
+  
+  const upgradeFeesList = editItem.upgrade_fees || priceListType.upgrade_fees
+  if (upgradeFeesList?.length > 0) {
+    upgradeFees.value = upgradeFeesList.map((fee: any, idx: number) => ({
+      _id: fee.id || idx + 1,
+      id: fee.id || null,
+      species_id: fee.species_id ?? fee.species?.id ?? null,
+      trigger_condition: fee.trigger_condition || '',
+      fee_amount: fee.fee_amount ? String(fee.fee_amount) : null,
+      currency_id: fee.currency_id ?? fee.currency?.id ?? null,
+      notes: fee.notes || '',
+    }))
+  }
+  originalFormData.value = JSON.parse(JSON.stringify(form))
+  originalUpgradeFees.value = JSON.parse(JSON.stringify(upgradeFees.value))
+}
 
-    // addNewSpeciesItemToStorage() {},
-    // CreateSalesInquiry
+// seasonStart and seasonEnd placeholders (if seasonsOptions contain date ranges, map accordingly)
+// Season helpers removed - users will fill dates manually
+// const seasonStart = computed(() => { ... })
+// const seasonEnd = computed(() => { ... })
+// const onSeasonChange = () => { ... }
+const onChangePackage = () => console.log('Selected package:', form.package)
+const addUpgradeFee = () => {
+  const newId = upgradeFees.value.length ? Math.max(...upgradeFees.value.map((r: any) => r._id || 0)) + 1 : 1
+  upgradeFees.value = [{ _id: newId, species_id: null, trigger_condition: '', fee_amount: null, currency_id: null, notes: '' }, ...upgradeFees.value]
+}
+const removeUpgradeFee = (index: number) => upgradeFees.value.splice(index, 1)
+const _showModal = () => { showModal.value = true }
+const handlePackageSaved = async () => { await getSalesPackages(); showModal.value = false }
 
-    // ...mapActions(useSalesInquiriesStore, ['createSalesInquiry']),
+const submit = async () => {
+  if (formRef.value && !formRef.value.checkValidity()) { formRef.value.reportValidity(); return }
+  savingPriceList.value = true
+  
+  const validUpgradeFees = upgradeFees.value.filter((fee: any) => fee.species_id && fee.fee_amount && fee.currency_id && fee.trigger_condition).map((fee: any) => ({
+    species_id: fee.species_id,
+    trigger_condition: fee.trigger_condition,
+    fee_amount: parseFloat(String(fee.fee_amount)),
+    currency_id: fee.currency_id,
+    notes: fee.notes || '',
+    ...(fee.id && { id: fee.id }),
+  }))
+  
+  const salesPackageIds = form.package ? [form.package] : []
+  const huntLengthId = form.duration || null
+  const companionHuntLengthId = form.companion_days || null
+  const observerHuntLengthId = form.observer_days || null
+  const currencyId = typeof form.currency === 'object' && form.currency !== null && 'value' in form.currency ? form.currency.value : form.currency
 
-    handleGoBack() {
-      this.$emit('go-back')
-    },
+  // Build `items` array: main item from form (upgrade fees are separate entity)
+  const items: any[] = []
+  // Always push main item using form fields
+  items.push({
+    name: form.name,
+    description: '',
+    hunting_type_id: form.hunting_type_id,
+    hunt_length_id: huntLengthId,
+    currency_id: currencyId,
+    amount: form.amount ? parseFloat(String(form.amount).replace(/[^0-9.-]+/g, '')) : null,
+    is_active: 1,
+  })
 
-    onAreaChange(value: any) {
-      console.log(value as any)
-      // this.getAllSpieces()
-    },
+  const requestdata = {
+      // Required fields per PRICE_STRUCTURE_API.md
+      area_id: form.area_id,
+      start_at: form.start_date,  // API accepts both start_at and start_date
+      end_at: form.end_date,      // API accepts both end_at and end_date
+      is_active: 1,
+      // Link to sales packages
+      sales_package_ids: salesPackageIds,
+      // Required items array (min:1)
+      items: items,
+      // Optional: Companion hunter prices
+      companion_hunter_prices: form.companion_amount ? [
+        {
+          hunt_length_id: companionHuntLengthId,
+          currency_id: currencyId,
+          amount: parseFloat(String(form.companion_amount)),
+        },
+      ] : undefined,
+      // Optional: Observer hunter prices
+      observer_hunter_prices: form.observer_amount ? [
+        {
+          hunt_length_id: observerHuntLengthId,
+          currency_id: currencyId,
+          amount: parseFloat(String(form.observer_amount)),
+        },
+      ] : undefined,
+      // Optional: Upgrade fees (separate entity with trigger_condition)
+      upgrade_fees: validUpgradeFees.length > 0 ? validUpgradeFees.map((f: any) => ({
+        species_id: f.species_id,
+        trigger_condition: f.trigger_condition,
+        fee_amount: parseFloat(String(f.fee_amount)),
+        currency_id: f.currency_id,
+        notes: f.notes || '',
+      })) : undefined,
+    }
 
-    async submit() {
-      // Validate form
-      if (this.formRef && !this.formRef.checkValidity()) {
-        this.formRef.reportValidity()
-        return
-      }
+  console.log('Submitting Price List Payload:', JSON.stringify(requestdata, null, 2))
 
-      this.savingPriceList = true
-
-      // Prepare upgrade fees data (only include valid entries)
-      const validUpgradeFees = this.upgradeFees
-        .filter((fee: any) => fee.species_id && fee.amount && fee.currency_id)
-        .map((fee: any) => {
-          const feeData: any = {
-            species_id: fee.species_id,
-            amount: parseFloat(fee.amount),
-            currency_id: fee.currency_id,
-            description: fee.description || '',
-          }
-          // Include ID for existing fees (when editing)
-          if (fee.id) {
-            feeData.id = fee.id
-          }
-          return feeData
-        })
-
-      // Handle package - now single value like hunting type
-      const salesPackageIds = this.form.package ? [this.form.package] : []
-
-      const requestdata = {
-        huntingTypeId: this.form.hunting_type_id,
-        sales_package_ids: salesPackageIds,
-        // Also include price_type_packages array expected by backend
-        price_type_packages: salesPackageIds.map((id: any) => ({ sales_package_id: id })),
-        amount: this.form.amount,
-        currency: this.form.currency,
-        duration: this.form.duration,
-        season_id: this.form.season?.value?.id || this.form.season?.id,
-        //chriss' codes
-        start_at: this.form.season?.value?.start_at || this.form.season?.start_at,
-        end_at: this.form.season?.value?.end_at || this.form.season?.end_at,
-        is_active: 1,
-        area_id: 3,
-        user_id: 1,
-        companionAmount:
-          this.form.companion_amount !== null && this.form.companion_amount !== undefined
-            ? Number(this.form.companion_amount)
-            : null,
-        companionDays: this.form.companion_days || null,
-        observerAmount:
-          this.form.observer_amount !== null && this.form.observer_amount !== undefined
-            ? Number(this.form.observer_amount)
-            : null,
-        observerDays: this.form.observer_days || null,
-        upgrade_fees: validUpgradeFees.length > 0 ? validUpgradeFees : null,
-      }
-
-      // Log the payload being sent
-      console.log('=== PRICE LIST SUBMIT PAYLOAD ===')
-      console.log('Edit Mode:', this.editMode)
-      console.log('Full Request Data:', JSON.stringify(requestdata, null, 2))
-      console.log('Observer Amount:', requestdata.observerAmount)
-      console.log('Observer Days:', requestdata.observerDays)
-      console.log('Companion Amount:', requestdata.companionAmount)
-      console.log('Companion Days:', requestdata.companionDays)
-      console.log('=================================')
-
-      try {
-        let response: any
-        if (this.editMode && this.editItem) {
-          console.log('Updating price list with ID:', this.editItem.id)
-          response = await this.updatePriceList(this.editItem.id, requestdata)
-          if (response.status === 200) {
-            this.init({ message: 'Price list updated successfully', color: 'success' })
-            this.savingPriceList = false
-            this.$emit('saved')
-          }
-        } else {
-          response = await this.createPriceList(requestdata)
-          if (response.status === 201) {
-            this.init({ message: response.data.message, color: 'success' })
-            // Reset form
-            this.form.package = null
-            this.form.hunting_type_id = null
-            this.form.season = null
-            this.selectedSeasonId = null
-            this.form.amount = null
-            this.form.currency = null
-            this.form.duration = null
-            this.form.companion_amount = null
-            this.form.companion_days = null
-            this.form.observer_amount = null
-            this.form.observer_days = null
-            this.speciesObjects = []
-            this.upgradeFees = []
-            this.savingPriceList = false
-            if (this.formRef) {
-              this.formRef.reset()
-            }
-          }
-        }
-      } catch (error: any) {
-        this.savingPriceList = false
-        handleErrors(error.response)
-        console.log(error)
-        this.init({
-          message: error.message,
-          color: 'danger',
-        })
-      }
-    },
-
-    populateFormForEdit() {
-      if (!this.editItem) return
-
-      // Options should already be loaded since we await them in mounted()
-      console.log('Edit Item:', JSON.stringify(this.editItem, null, 2))
-      console.log('Hunting Types Options:', this.huntingTypesOptions)
-      console.log('Seasons Options:', this.seasonsOptions)
-      console.log('Currency Options:', this.currencyOptions)
-
-      // Handle nested structure from API (price_list_type contains the main data)
-      const priceListType = this.editItem.price_list_type || this.editItem
-
-      // Set amount - handle different data structures
-      const rawAmount = priceListType.amount || this.editItem.amount
-      if (rawAmount) {
-        this.form.amount = String(rawAmount).replace('$', '').replace(',', '')
-      }
-
-      // Set duration - handle nested structure
-      const durationValue = priceListType.duration || this.editItem.duration
-      if (durationValue !== undefined && durationValue !== null) {
-        this.form.duration = this.durationsOptions.find((d: any) => d.value === durationValue) || {
-          value: durationValue,
-          text: `${durationValue} days`,
-        }
-      }
-
-      // Set hunting type - match by name since API returns name only
-      const huntingTypeName = priceListType.hunting_type?.name || this.editItem.hunting_type
-      console.log('Hunting Type Name:', huntingTypeName)
-      if (huntingTypeName) {
-        const foundHuntingType = this.huntingTypesOptions.find((h: any) => h.text === huntingTypeName)
-        this.form.hunting_type_id = foundHuntingType ? foundHuntingType.value : null
-      }
-      console.log('Selected Hunting Type:', this.form.hunting_type_id)
-
-      // Set season - need to find season that matches the date range
-      const startDate = priceListType.price_list?.start_date
-      const endDate = priceListType.price_list?.end_date
-      console.log('Season dates:', startDate, endDate)
-      if (startDate && endDate) {
-        // Find season by matching dates
-        this.form.season = this.seasonsOptions.find(
-          (s: any) => s.value?.start_at === startDate && s.value?.end_at === endDate,
-        )
-        // If not found by exact date, try to find by year
-        if (!this.form.season) {
-          const year = new Date(startDate).getFullYear()
-          this.form.season = this.seasonsOptions.find((s: any) => s.text?.includes(String(year)))
-        }
-        // Also set selectedSeasonId for the select dropdown
-        if (this.form.season) {
-          this.selectedSeasonId = this.form.season.value?.id || this.form.season.value
-        }
-      }
-      console.log('Selected Season:', this.form.season)
-      console.log('Selected Season ID:', this.selectedSeasonId)
-
-      // Set currency - match by name since API returns name only
-      const currencyName = priceListType.currency?.name
-      console.log('Currency Name:', currencyName)
-      if (currencyName) {
-        this.form.currency = this.currencyOptions.find((c: any) => c.text === currencyName)
-      }
-      if (!this.form.currency) {
-        // Default to USD if not set
-        this.form.currency = this.currencyOptions.find((c: any) => c.text === 'USD') || this.currencyOptions[0]
-      }
-      console.log('Selected Currency:', this.form.currency)
-
-      // Set companion fields - check for companion_hunter_costs in nested structure
-      const companionCosts = this.editItem.companion_hunter_costs || priceListType.companion_hunter_costs
-      if (companionCosts && companionCosts.length > 0) {
-        const firstCompanion = companionCosts[0]
-        this.form.companion_amount = firstCompanion.amount || null
-        if (firstCompanion.days) {
-          this.form.companion_days = this.durationsOptions.find((d: any) => d.value === firstCompanion.days) || {
-            value: firstCompanion.days,
-            text: `${firstCompanion.days} days`,
-          }
-        }
-      } else {
-        // Fallback to direct properties
-        this.form.companion_amount = this.editItem.companion_amount || null
-        if (this.editItem.companion_days) {
-          this.form.companion_days = this.durationsOptions.find(
-            (d: any) => d.value === this.editItem.companion_days,
-          ) || {
-            value: this.editItem.companion_days,
-            text: `${this.editItem.companion_days} days`,
-          }
-        }
-      }
-
-      // Set observer fields - check for observer_hunter_costs in nested structure
-      const observerCosts = this.editItem.observer_hunter_costs || priceListType.observer_hunter_costs
-      if (observerCosts && observerCosts.length > 0) {
-        const firstObserver = observerCosts[0]
-        this.form.observer_amount = firstObserver.amount || null
-        if (firstObserver.days) {
-          this.form.observer_days = this.durationsOptions.find((d: any) => d.value === firstObserver.days) || {
-            value: firstObserver.days,
-            text: `${firstObserver.days} days`,
-          }
-        }
-      } else {
-        // Fallback to direct properties
-        this.form.observer_amount = this.editItem.observer_amount || null
-        if (this.editItem.observer_days) {
-          this.form.observer_days = this.durationsOptions.find((d: any) => d.value === this.editItem.observer_days) || {
-            value: this.editItem.observer_days,
-            text: `${this.editItem.observer_days} days`,
-          }
-        }
-      }
-
-      // Set package if available - now single value
-      const salesPackage = this.editItem.sales_package
-      if (salesPackage) {
-        this.form.package = salesPackage.id
-      } else if (this.editItem.packages && Array.isArray(this.editItem.packages) && this.editItem.packages.length > 0) {
-        // If multiple packages, use the first one
-        this.form.package = this.editItem.packages[0].id
-      }
-
-      // Populate upgrade fees if available
-      const upgradeFees = this.editItem.upgrade_fees || priceListType.upgrade_fees
-      if (upgradeFees && Array.isArray(upgradeFees) && upgradeFees.length > 0) {
-        this.upgradeFees = upgradeFees.map((fee: any) => {
-          // Find species option
-          const speciesOption = this.speciesOptions.find((s: any) => s.value === fee.species_id)
-          // Find currency option
-          const currencyOption = this.currencyOptions.find((c: any) => c.value === fee.currency_id)
-
-          return {
-            id: fee.id, // Keep the ID for updating existing fees
-            species_id: speciesOption || {
-              value: fee.species_id,
-              text: fee.species?.name || fee.species_name || `Species ${fee.species_id}`,
-            },
-            // Convert amount to string for input field
-            amount: fee.amount ? String(fee.amount) : null,
-            currency_id: currencyOption || {
-              value: fee.currency_id,
-              text: fee.currency?.name || fee.currency_symbol || 'USD',
-            },
-            description: fee.description || '',
-          }
-        })
-      }
-
-      // Store original form data for change detection (deep clone)
-      this.originalFormData = JSON.parse(JSON.stringify(this.form))
-      this.originalUpgradeFees = JSON.parse(JSON.stringify(this.upgradeFees))
-    },
-
-    async getSpeciesItems() {
-      try {
-        const response = await this.getSpeciesList()
-
-        // Add the species items from the response
-        this.speciesOptions = response.data.map((item: { id: any; name: any }) => {
-          return {
-            value: item.id,
-            text: item.name,
-          }
-        })
-
-        // Combine default option with species items
-        // this.speciesOptions = this.speciesOptions.concat(speciesItems)
-      } catch (error) {
-        console.log(error)
-      }
-    },
-    async getSeasonList() {
-      try {
-        const response = await this.getSeasons()
-        this.seasonsOptions = response.data.map((item: { id: any; name: any }) => {
-          return {
-            value: item,
-            text: item.name,
-          }
-        })
-      } catch (error) {
-        console.log(error)
-      }
-    },
-
-    _showModal() {
-      this._shM = true
-    },
-
-    async handlePackageSaved() {
-      // Refresh the package list after a new package is created
-      await this.getSalesPackages()
-      // Close the modal
-      this._shM = false
-    },
-
-    async getSalesPackages() {
-      try {
-        await this.getSalesPackageList(true)
-      } catch (error) {
-        console.log(error)
-      }
-    },
-
-    deleteFromStorage(index: number) {
-      this.speciesObjects.splice(index, 1)
-      console.log('Species item deleted:', index)
-    },
-
-    async getAreas() {
-      try {
-        const response = await this.getAreaList()
-        this.areasOptions = response.data.map((item: { id: any; name: any }) => {
-          return {
-            value: item.id,
-            text: item.name,
-          }
-        })
-      } catch (error) {
-        console.log(error)
-      }
-    },
-
-    // get hunting types
-    async getHuntingTypes() {
-      try {
-        const response = await this.getHuntingsTypes()
-        this.huntingTypesOptions = response.data.map((item: { id: any; name: any }) => {
-          return {
-            value: item.id,
-            text: item.name,
-          }
-        })
-      } catch (error) {
-        console.log(error)
-      }
-    },
-    onChangePackage() {
-      // Package is now a single value like hunting type
-      console.log('Selected package:', this.form.package)
-    },
-    onSeasonChange() {
-      // Update form.season from selectedSeasonId
-      this.form.season = this.seasonsOptions.find((opt: any) => (opt.value?.id || opt.value) === this.selectedSeasonId)
-    },
-
-    // async getAllSpieces() {
-    //   try {
-    //     const response = await this.getAllSpeciesPerQuotaPerArea(null, this.form.area?.value ?? null, null)
-    //     this.speciesItemOptions = response.data.map((item: any) => {
-    //       return {
-    //         value: item.species.id,
-    //         text: item.species.name,
-    //       }
-    //     })
-    //     // }
-    //   } catch (error) {
-    //     console.log(error)
-    //   }
-    // },
-
-    // get quotas
-    async getQuotaList() {
-      try {
-        const response = await this.getQuotas(null)
-        this.salesQuotasOptions = response.data.map((item: { id: any; name: any }) => {
-          return {
-            value: item.id,
-            text: item.name,
-          }
-        })
-      } catch (error) {
-        console.log(error)
-      }
-    },
-
-    async getCurrencyList() {
-      try {
-        const response = await this.getCurrencies()
-        this.currencyOptions = response.data.map((item: { id: any; name: any }) => {
-          return {
-            value: item.id,
-            text: item.name,
-          }
-        })
-      } catch (error) {
-        console.log(error)
-      }
-    },
-
-    // Upgrade fees methods
-    addUpgradeFee() {
-      this.upgradeFees.push({
-        species_id: null,
-        amount: null,
-        currency_id: null,
-        description: '',
+  try {
+    let response: any
+    const token = localStorage.getItem('token')
+    const baseUrl = import.meta.env.VITE_APP_BASE_URL + import.meta.env.VITE_APP_PRICE_STRUCTURES_URL
+    
+    if (props.editMode && props.editItem) {
+      // Direct axios PUT for update
+      response = await axios.put(`${baseUrl}${props.editItem.id}`, requestdata, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
       })
-    },
+      if (response.status === 200) {
+        init({ message: 'Price list updated successfully', color: 'success' })
+        savingPriceList.value = false
+        emit('saved')
+      }
+    } else {
+      // Validate dates before sending POST
+      if (form.start_date && form.end_date) {
+        const sd = new Date(form.start_date)
+        const ed = new Date(form.end_date)
+        if (sd.getTime() > ed.getTime()) {
+          init({ message: 'Start date must be before or equal to End date', color: 'danger' })
+          savingPriceList.value = false
+          return
+        }
+      }
 
-    removeUpgradeFee(index: number) {
-      this.upgradeFees.splice(index, 1)
-    },
+      // Direct axios POST for create
+      console.log('Sending direct POST to:', baseUrl)
+      console.log('Request body:', requestdata)
+      response = await axios.post(baseUrl, requestdata, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      })
+      console.log('Response status:', response.status)
+      console.log('Response data:', response.data)
+      if (response.status === 201) {
+        init({ message: response.data.message, color: 'success' })
+        // Reset local form state and notify parent immediately so parent can switch view
+        form.package = null; form.hunting_type_id = null; form.season = null; // season removed; users set dates manually
+        form.amount = null; form.currency = null; form.duration = null
+        form.companion_amount = null; form.companion_days = null
+        form.observer_amount = null; form.observer_days = null
+        speciesObjects.value = []; upgradeFees.value = []; savingPriceList.value = false
+        if (formRef.value) formRef.value.reset()
+        // Emit events before showing the modal so the parent can react immediately
+        emit('saved')
+        emit('go-back')
+        emit('goBack')
+        console.log('CreatePricesListForm: emitted saved and go-back events')
+        try {
+          await Swal.fire({
+            title: 'Price list created.',
+            icon: 'success',
+            confirmButtonText: 'OK',
+            customClass: { confirmButton: 'btn btn-primary' },
+            buttonsStyling: false,
+          })
+        } catch (e) {
+          // ignore popup errors
+        }
+      }
+    }
+  } catch (error: any) {
+    savingPriceList.value = false
+    console.error('API Error full:', error)
+    console.error('API Error response.data:', error.response?.data)
+    console.error('API Error status:', error.response?.status)
+    console.error('API Error headers:', error.response?.headers)
+    handleErrors(error.response)
+    init({ message: error.message, color: 'danger' })
+  }
+}
 
-    // get clients
-  },
+// Fetch a single price list by id (handles responses with { success, data } or raw data)
+async function fetchPriceListById(id: number) {
+  loadingPriceList.value = true
+  priceListError.value = null
+  const token = localStorage.getItem('token')
+  const base = import.meta.env.VITE_APP_BASE_URL + import.meta.env.VITE_APP_PRICE_STRUCTURES_URL
+  const url = `${base}${id}`
+  
+  // Create abort controller with 10 second timeout
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 10000)
+  
+  try {
+    console.log('Fetching price list from:', url)
+    const res = await axios.get(url, {
+      signal: controller.signal,
+      headers: { Authorization: token ? `Bearer ${token}` : undefined },
+    })
+    clearTimeout(timeoutId)
+    const payload = res.data?.data ?? res.data
+    priceList.value = payload
+    console.log('Successfully fetched price list:', priceList.value)
+    return priceList.value
+  } catch (err: any) {
+    clearTimeout(timeoutId)
+    loadingPriceList.value = false
+    
+    if (err.code === 'ECONNABORTED') {
+      const msg = 'Request timeout (10s) - API server may be unresponsive'
+      console.error('Fetch timeout:', msg)
+      priceListError.value = msg
+    } else {
+      const errMsg = err?.response?.data?.message || err?.message || 'Failed to fetch price list'
+      console.error('Fetch price list error:', err?.response?.data || err?.message)
+      priceListError.value = errMsg
+    }
+    return null
+  } finally {
+    loadingPriceList.value = false
+  }
+}
+
+// Watchers & Lifecycle
+watch(() => props.editItem, (newVal) => {
+  if (props.editMode && newVal) {
+    nextTick(() => setTimeout(() => populateFormForEdit(newVal), 100))
+  }
+}, { immediate: true, deep: true })
+
+onMounted(async () => {
+  showModal.value = false
+    await Promise.all([getAreas(), getHuntingTypes(), getQuotaList(), getCurrencyList(), getSalesPackages(), getSpeciesItems(), getHuntLengthsList()])
+  if (props.editMode && props.editItem) {
+    populateFormForEdit(props.editItem)
+    if (props.editItem.id) await fetchPriceListById(props.editItem.id)
+  }
 })
 </script>
 
@@ -961,17 +711,14 @@ export default defineComponent({
   position: relative;
 }
 
-/* Form Price List Container - wraps card and footer */
 .form-price-list-container {
   position: relative;
 }
 
-/* Add padding to card body */
 .form-price-list-container .card-body {
   padding-bottom: 1rem;
 }
 
-/* Compact spacing for better space utilization */
 .card-header {
   padding: 0.5rem 1rem;
 }
@@ -990,13 +737,8 @@ export default defineComponent({
   margin-bottom: 0;
 }
 
-/* Ensure proper spacing between form rows */
 form .row {
   margin-bottom: 2rem !important;
-}
-
-/* Increased horizontal spacing between columns */
-form .row {
   --bs-gutter-x: 3rem !important;
   margin-left: calc(-1 * var(--bs-gutter-x) * 0.5) !important;
   margin-right: calc(-1 * var(--bs-gutter-x) * 0.5) !important;
@@ -1007,12 +749,6 @@ form .row>[class*='col-'] {
   padding-right: calc(var(--bs-gutter-x) * 0.5) !important;
 }
 
-/* Additional spacing for form groups */
-form .form-group {
-  margin-bottom: 0;
-}
-
-/* Reduce margins between cards */
 .card.mb-2 {
   margin-bottom: 0.5rem !important;
 }

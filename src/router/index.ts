@@ -29,6 +29,7 @@ const ManageSafariFeeDeposits = () => import('@/views/bushman/module-settings/Ma
 const ManageAreaSettings = () => import('@/views/bushman/module-settings/ManageArea.vue');
 const ManageHuntingTypes = () => import('@/views/bushman/module-settings/ManageHuntingTypes.vue');
 const ManageSpeciesSettings = () => import('@/views/bushman/module-settings/ManageSpecies.vue');
+const ManageAccounts = () => import('@/views/bushman/module-settings/ManageAccounts.vue');
 
 const Managesalesinquiry = () => import('@/views/bushman/sales/SalesInquiries.vue');
 const Managesalesconfirmation = () => import('@/views/bushman/sales/SalesConfirmationProposals.vue');
@@ -75,12 +76,16 @@ const router = createRouter({
       name: "login-page",
       component: LoginPage
     },   
-
     {
       path: "/companies-dashboard",
       name: "companies-dashboard",
       component: CompanyDashboard,
       meta: { requiresAuth: true }
+    },
+    {
+      path: "/coming-soon",
+      name: "coming-soon",
+      component: ComingSoon
     },
 
     // bushman routes
@@ -179,6 +184,12 @@ const router = createRouter({
       component: ManageSafariFeeDeposits,
       meta: { requiresAuth: true }
     },
+    {
+      path: "/module-settings/accounts",
+      name: "accounts",
+      component: ManageAccounts,
+      meta: { requiresAuth: true }
+    },
     // {
     //   path: "/module-settings/approval-chain",
     //   name: "approval-chain",
@@ -215,6 +226,10 @@ const router = createRouter({
       component: ManageSpeciesSettings,
       meta: { requiresAuth: true }
     },
+    {
+      path: "/:pathMatch(.*)*",
+      redirect: "/"
+    }
   ]
 
 });
@@ -224,9 +239,8 @@ router.beforeEach((to, from, next) => {
   const menuStore = useAppSidebarMenuStore();
   const appOption = useAppOptionStore();
 
-  if (!authStore.user) {
-    authStore.loadUser();
-  }
+  // Always load user from storage first
+  authStore.loadUser();
 
   const isAuthenticated = !!authStore.user;
 

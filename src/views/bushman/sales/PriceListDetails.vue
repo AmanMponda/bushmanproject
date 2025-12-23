@@ -1,8 +1,29 @@
 <template>
-  <div v-if="loading || !priceListItem || !priceListItem.sales_package" class="text-center p-5">
+  <div v-if="loading || !priceListItem" class="text-center p-5">
     <div class="spinner-border text-primary" role="status">
       <span class="visually-hidden">Loading...</span>
     </div>
+  </div>
+
+  <div
+    v-else-if="
+      !priceListItem.sales_package &&
+      !priceListItem.package_name &&
+      !priceListItem.area_name &&
+      !(priceListItem.items && priceListItem.items.length)
+    "
+    class="text-center p-5"
+  >
+    <div class="alert alert-warning">
+      <i class="fa fa-exclamation-triangle me-2"></i>
+      Price list data is incomplete or invalid.
+      <div class="mt-2 small">
+        <strong>Debug info:</strong> Missing both sales_package and package_name properties
+      </div>
+    </div>
+    <button class="btn btn-primary" @click="handleGoBack">
+      <i class="fa fa-arrow-left me-1"></i> Go Back
+    </button>
   </div>
 
   <div v-else class="price-list-details">
@@ -16,15 +37,15 @@
                 <i class="fa fa-tags fa-3x text-primary"></i>
               </div>
               <div>
-                <h4 class="mb-0">{{ priceListItem.sales_package?.name }}</h4>
+                <h4 class="mb-0">{{ packageName }}</h4>
                 <small class="text-muted">
-                  {{ priceListItem.sales_package?.area?.name }} •
-                  {{ formatDate(priceListItem.price_list_type?.price_list?.start_date) }} -
-                  {{ formatDate(priceListItem.price_list_type?.price_list?.end_date) }}
+                  {{ areaName }} •
+                  {{ formatDate(startDate) }} -
+                  {{ formatDate(endDate) }}
                   <span
-                    :class="priceListItem.price_list_type?.is_active ? 'badge bg-success ms-2' : 'badge bg-danger ms-2'"
+                    :class="isActive ? 'badge bg-success ms-2' : 'badge bg-danger ms-2'"
                   >
-                    {{ priceListItem.price_list_type?.is_active ? 'Active' : 'Inactive' }}
+                    {{ isActive ? 'Active' : 'Inactive' }}
                   </span>
                 </small>
               </div>
@@ -75,8 +96,7 @@
                     <div class="card-body text-center">
                       <i class="fa fa-dollar-sign fa-2x text-primary mb-2"></i>
                       <div class="h4 mb-0">
-                        {{ priceListItem.price_list_type.currency.symbol
-                        }}{{ formatAmount(priceListItem.price_list_type.amount) }}
+                        {{ currencySymbol }}{{ formatAmount(baseAmount) }}
                       </div>
                       <small class="text-muted">Base Amount</small>
                     </div>
@@ -86,7 +106,7 @@
                   <div class="card border-success">
                     <div class="card-body text-center">
                       <i class="fa fa-calendar fa-2x text-success mb-2"></i>
-                      <div class="h4 mb-0">{{ priceListItem.price_list_type.duration }}</div>
+                      <div class="h4 mb-0">{{ duration }}</div>
                       <small class="text-muted">Days Duration</small>
                     </div>
                   </div>
@@ -95,7 +115,7 @@
                   <div class="card border-warning">
                     <div class="card-body text-center">
                       <i class="fa fa-certificate fa-2x text-warning mb-2"></i>
-                      <div class="h6 mb-0">{{ priceListItem.sales_package.regulatory_package?.name }}</div>
+                      <div class="h6 mb-0">{{ licenseType }}</div>
                       <small class="text-muted">License Type</small>
                     </div>
                   </div>
@@ -104,7 +124,7 @@
                   <div class="card border-info">
                     <div class="card-body text-center">
                       <i class="fa fa-crosshairs fa-2x text-info mb-2"></i>
-                      <div class="h6 mb-0">{{ priceListItem.price_list_type.hunting_type.name }}</div>
+                      <div class="h6 mb-0">{{ huntingType }}</div>
                       <small class="text-muted">Hunting Type</small>
                     </div>
                   </div>
@@ -142,12 +162,14 @@
                           <div class="card-body">
                             <div class="d-flex justify-content-between align-items-center mb-2">
                               <span>Days</span>
-                              <span class="fw-bold h5 mb-0">{{ companion.days }}</span>
+                              <span class="fw-bold h5 mb-0">
+                                {{ companion.hunt_length_days || companion.days || 'N/A' }}
+                              </span>
                             </div>
                             <div class="d-flex justify-content-between align-items-center">
                               <span>Rate</span>
                               <span class="fw-bold h5 mb-0">
-                                {{ currencySymbol }}{{ formatAmount(companion.amount) }}
+                                {{ companion.currency_symbol || currencySymbol }}{{ formatAmount(companion.amount) }}
                               </span>
                             </div>
                           </div>
@@ -176,12 +198,14 @@
                           <div class="card-body">
                             <div class="d-flex justify-content-between align-items-center mb-2">
                               <span>Days</span>
-                              <span class="fw-bold h5 mb-0">{{ observer.days }}</span>
+                              <span class="fw-bold h5 mb-0">
+                                {{ observer.hunt_length_days || observer.days || 'N/A' }}
+                              </span>
                             </div>
                             <div class="d-flex justify-content-between align-items-center">
                               <span>Rate</span>
                               <span class="fw-bold h5 mb-0">
-                                {{ currencySymbol }}{{ formatAmount(observer.amount) }}
+                                {{ observer.currency_symbol || currencySymbol }}{{ formatAmount(observer.amount) }}
                               </span>
                             </div>
                           </div>
@@ -212,12 +236,12 @@
                           </tr>
                         </thead>
                         <tbody>
-                          <tr v-for="species in speciesList" :key="species.id">
+                          <tr v-for="species in speciesList" :key="species.id || species.species_id">
                             <td class="fw-semibold">{{ getSpeciesName(species) }}</td>
                             <td class="text-muted fst-italic">{{ getSpeciesScientificName(species) || 'N/A' }}</td>
                             <td class="text-center">
-                              <span :class="species.quantity > 0 ? 'badge bg-success' : 'badge bg-danger'">
-                                {{ species.quantity }}
+                              <span :class="(species.quantity ?? 0) > 0 ? 'badge bg-success' : 'badge bg-danger'">
+                                {{ species.quantity ?? 0 }}
                               </span>
                             </td>
                           </tr>
@@ -288,7 +312,7 @@
                               <span class="badge bg-primary">{{ getSequenceLabel(fee.sequence_order) }}</span>
                             </td>
                             <td class="text-end fw-bold">
-                              {{ priceListItem.price_list_type.currency.symbol }}{{ formatAmount(fee.amount) }}
+                              {{ currencySymbol }}{{ formatAmount(fee.amount) }}
                             </td>
                           </tr>
                         </tbody>
@@ -348,7 +372,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { format } from 'date-fns'
 import downloadPdf from '../../../stores/bushman/pdfDownloader.ts'
 
@@ -370,42 +394,143 @@ const emit = defineEmits<{
 // Reactive state
 const activeTab = ref('overview')
 
+// Watch for prop changes and log them
+watch(() => props.priceListItem, (newVal) => {
+  console.log('PriceListDetails received priceListItem:', newVal)
+  console.log('Has sales_package?', !!newVal?.sales_package)
+  console.log('Has price_list_type?', !!newVal?.price_list_type)
+  console.log('Has package_name?', !!newVal?.package_name)
+  console.log('Has area_name?', !!newVal?.area_name)
+}, { immediate: true })
+
 // Computed properties
 const loading = computed(() => false)
+
+const firstItem = computed(() => {
+  return Array.isArray(props.priceListItem.items) && props.priceListItem.items.length
+    ? props.priceListItem.items[0]
+    : null
+})
+
+// Computed properties to handle both nested and flattened structures
+const packageName = computed(() => {
+  return props.priceListItem.sales_package?.name ||
+    firstItem.value?.package_name ||
+    firstItem.value?.name ||
+    props.priceListItem.package_name ||
+    props.priceListItem.area_name ||
+    'Price List'
+})
+
+const areaName = computed(() => {
+  return props.priceListItem.sales_package?.area?.name ||
+    props.priceListItem.area_name ||
+    props.priceListItem.area ||
+    'Unknown Area'
+})
+
+const startDate = computed(() => {
+  return props.priceListItem.price_list_type?.price_list?.start_date ||
+    props.priceListItem.start_date ||
+    null
+})
+
+const endDate = computed(() => {
+  return props.priceListItem.price_list_type?.price_list?.end_date ||
+    props.priceListItem.end_date ||
+    null
+})
+
+const isActive = computed(() => {
+  return props.priceListItem.price_list_type?.is_active ||
+    props.priceListItem.is_active ||
+    false
+})
+
+const baseAmount = computed(() => {
+  return props.priceListItem.price_list_type?.amount ||
+    firstItem.value?.amount ||
+    props.priceListItem.amount ||
+    0
+})
+
+const currencySymbol = computed(() => {
+  return props.priceListItem.price_list_type?.currency?.symbol ||
+    firstItem.value?.currency_symbol ||
+    firstItem.value?.currency?.symbol ||
+    props.priceListItem.currency_symbol ||
+    props.priceListItem.currency ||
+    '$'
+})
+
+const duration = computed(() => {
+  return props.priceListItem.price_list_type?.duration ||
+    firstItem.value?.hunt_length_days ||
+    props.priceListItem.duration ||
+    0
+})
+
+const licenseType = computed(() => {
+  return props.priceListItem.sales_package?.regulatory_package?.name ||
+    firstItem.value?.regulatory_package?.name ||
+    firstItem.value?.sales_packages?.[0]?.regulatory_package?.name ||
+    props.priceListItem.regulatory_package_name ||
+    'N/A'
+})
+
+const huntingType = computed(() => {
+  return props.priceListItem.price_list_type?.hunting_type?.name ||
+    firstItem.value?.hunting_type_name ||
+    props.priceListItem.hunting_type_name ||
+    props.priceListItem.hunting_type ||
+    'N/A'
+})
 
 const hasUpgradeFees = computed(() => {
   return props.priceListItem.upgrade_fees && props.priceListItem.upgrade_fees.length > 0
 })
 
 const speciesList = computed(() => {
-  // New structure: species array directly on priceListItem
-  if (props.priceListItem.species && Array.isArray(props.priceListItem.species)) {
-    return props.priceListItem.species
+  if (Array.isArray(props.priceListItem.species)) {
+    return props.priceListItem.species.map((s: any) => ({
+      id: s.id || s.species_id || `${s.species_id || ''}-${s.species_name || ''}`,
+      name: s.name || s.species_name,
+      scientific_name: s.scientific_name || '',
+      quantity: s.quantity ?? s.total_quantity ?? s.total_count ?? 0,
+    }))
   }
-  // Old structure: nested under sales_package.species
-  return props.priceListItem.sales_package?.species || []
+  if (props.priceListItem.sales_package?.species) {
+    return props.priceListItem.sales_package.species.map((s: any) => ({
+      id: s.id || s.species?.id,
+      name: s.name || s.species?.name,
+      scientific_name: s.scientific_name || s.species?.scientific_name || '',
+      quantity: s.quantity ?? s.total_quantity ?? s.total_count ?? 0,
+    }))
+  }
+  return []
 })
 
 const companionHunterCosts = computed(() => {
-  // New structure: companion_hunter_costs array
+  // New structure: companion_hunter_prices array
+  if (props.priceListItem.companion_hunter_prices && Array.isArray(props.priceListItem.companion_hunter_prices)) {
+    return props.priceListItem.companion_hunter_prices
+  }
+  // Legacy structures
   if (props.priceListItem.companion_hunter_costs && Array.isArray(props.priceListItem.companion_hunter_costs)) {
     return props.priceListItem.companion_hunter_costs
   }
-  // Old structure: componions_hunter
   return props.priceListItem.componions_hunter || []
 })
 
 const observerHunterCosts = computed(() => {
-  // New structure: observer_hunter_costs array
+  // New structure: observer_hunter_prices array
+  if (props.priceListItem.observer_hunter_prices && Array.isArray(props.priceListItem.observer_hunter_prices)) {
+    return props.priceListItem.observer_hunter_prices
+  }
   if (props.priceListItem.observer_hunter_costs && Array.isArray(props.priceListItem.observer_hunter_costs)) {
     return props.priceListItem.observer_hunter_costs
   }
-  // Old structure: observer
   return props.priceListItem.observer || []
-})
-
-const currencySymbol = computed(() => {
-  return props.priceListItem.price_list_type?.currency?.symbol || props.priceListItem.currency?.symbol || '$'
 })
 
 const tabs = computed(() => {
@@ -493,20 +618,13 @@ const formatDate = (dateStr: string | null | undefined) => {
 }
 
 const getSpeciesName = (species: any) => {
-  // New structure: name directly on species object
-  if (species.name) {
-    return species.name
-  }
-  // Old structure: nested species.species.name
+  if (species.name) return species.name
+  if (species.species_name) return species.species_name
   return species.species?.name || 'Unknown'
 }
 
 const getSpeciesScientificName = (species: any) => {
-  // New structure: scientific_name directly on species object
-  if (species.scientific_name) {
-    return species.scientific_name
-  }
-  // Old structure: nested species.species.scientific_name
+  if (species.scientific_name) return species.scientific_name
   return species.species?.scientific_name || ''
 }
 

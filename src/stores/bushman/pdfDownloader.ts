@@ -53,22 +53,14 @@ const downloadPdf = async (base64OrUrl: string, filename = 'price-list-report.pd
       return
     }
 
-    // Otherwise assume PDF base64. Convert to byte array in chunks to avoid memory spikes
-    const b64 = cleaned
-    const sliceSize = 1024
-    const byteArrays: Uint8Array[] = []
-    for (let offset = 0; offset < b64.length; offset += sliceSize) {
-      const slice = b64.slice(offset, offset + sliceSize)
-      const byteChars = atob(slice)
-      const byteNumbers = new Array(byteChars.length)
-      for (let i = 0; i < byteChars.length; i++) {
-        byteNumbers[i] = byteChars.charCodeAt(i)
-      }
-      const byteArray = new Uint8Array(byteNumbers)
-      byteArrays.push(byteArray)
+    // Otherwise assume PDF base64. Decode the entire base64 string at once
+    const byteChars = atob(cleaned)
+    const byteNumbers = new Uint8Array(byteChars.length)
+    for (let i = 0; i < byteChars.length; i++) {
+      byteNumbers[i] = byteChars.charCodeAt(i)
     }
 
-    const blob = new Blob(byteArrays as BlobPart[], { type: 'application/pdf' })
+    const blob = new Blob([byteNumbers], { type: 'application/pdf' })
     const objectUrl = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = objectUrl

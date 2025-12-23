@@ -1,4 +1,84 @@
-Name,Scientific Name,Type,quantity
-Lesser Kudu,Tragelaphus imberbis,NORMAL,5
-Lion,Panthera leo,MAIN,6
-Banded Mongoose,Mungos mungo,NORMAL,8
+ID,Name,Scientific Name,Type,quantity
+48,Eland Patterson's,Tragelaphus oryx pattersonius,NORMAL,0
+49,African Elephant,Loxodonta Africana,MAIN,0
+50,Grants Gazelle,Nonger granli granli,NORMAL,0
+51,Robert's Gazelle,Nonger granli robortsi,NORMAL,0
+52,Thomson's Gazelle,Eudorcas thomsoni,NORMAL,0
+53,Garnet Botched,Genetta lingerie,NORMAL,0
+54,Genet Common,Genetta genetta,NORMAL,0
+55,Gerenuk,Lilocaeanus walled walled,NORMAL,0
+56,Sharpe's Grysbock,Raphicerus shapiro,NORMAL,0
+57,Hare cape,Lepus saxatilis,NORMAL,0
+58,Hare Scrub,Lepus capensis,NORMAL,0
+59,Hartebeest Cokes,Alcelaphus buselaphus cokii,NORMAL,0
+60,Hartebeest Lichtenstein's,Alcelaphus buselaphus lichtensteinii,NORMAL,0
+61,Hippo,Hippopotamus amphibious,MAIN,0
+62,Spotted Hyena,Crocuta crocuta,NORMAL,0
+63,Striped Hyena,Hyena hyena,NORMAL,0
+64,Impala East African,Aepyceros melampus rondii,NORMAL,0
+65,Impala Southern,Aepyceros melampus melampus,NORMAL,0
+66,Common/Golden Jackal,Canis aureus,NORMAL,0
+67,Side striped Jackal,Canis adustus,NORMAL,0
+68,Silver backed Jackal,Canis mesomelas,NORMAL,0
+69,Khospringer,Oreotragus oreotragus,NORMAL,0
+70,Greater Kudu,Tragelaphus strepsiceros,NORMAL,0
+71,Lesser Kudu,Tragelaphus imberbis,NORMAL,0
+72,Leopard,Panthera pardus pardus,MAIN,0
+73,Lion,Panthera leo,MAIN,0
+74,Banded Mongoose,Mungos mungo,NORMAL,0
+75,White tailed Mongoose,Ichneumia albicauda,NORMAL,0
+76,Blue Monkey,Cercopithecus mitis,NORMAL,0
+77,Vervet Monkey,Chlorocebus pygerythrus,NORMAL,0
+118,Baboon Olive,Papio anubis,NORMAL,0
+119,Baboon Yellow,Papio cynocephalus,NORMAL,0
+120,Buffalo African Cape,Syncerus caffer caffer,MAIN,0
+121,Bushbuck Chope,Tragelaphus scriptus ornalus,NORMAL,0
+122,Bushbuck Masai,Tragelaphus scriptus delamon,NORMAL,0
+123,Bushpig,Potamochoerus larvatus,NORMAL,0
+124,Caracal,Caracal caracal,NORMAL,0
+125,Civet African,Civeltictis civella,NORMAL,0
+126,Dikdik Kirk's,Madoqua dik dik,NORMAL,0
+127,Abbott's duiker,Cephalophus spadix,NORMAL,0
+128,Common Duiker,Sylvicapra grimmia,NORMAL,0
+129,Duiker Harvey's red,Cephalophus natalensis,NORMAL,0
+130,Eland Livingstone's,Tragelaphus oryx livingstoni,NORMAL,0
+131,Oribi Common,Ourebia ourebi,NORMAL,0
+132,Oryx Fringed Aared,Oryx beisa,NORMAL,0
+133,Porcupine Crested,Hystrix cristata,NORMAL,0
+134,Puku,Kobus vardoni,NORMAL,0
+135,Ratel (Honey Badger),Mellivora capensis,NORMAL,0
+136,Reedbuck Bohar,Redunca redunca,NORMAL,0
+137,Mountain Reedbuck (Chandler's),Redunca fulvorufula,NORMAL,0
+138,Southern Reedbuck (Common),Redunca arundinum,NORMAL,0
+139,Roan antelope,Hippotragus equinus,NORMAL,0
+140,Sable Antelope Common,Hippotragus niger,NORMAL,0
+141,Sable Antelope Roosevelt,Hippotragus niger,NORMAL,0
+142,Serval Cat,Leptailurus serval,NORMAL,0
+143,Sinalunga East African,Tragelaphus spekii,NORMAL,0
+144,Stenbuck,Raphicerus campestris,NORMAL,0
+145,Pygmy Antelope (Sun),Neotragus moschatus,NORMAL,0
+146,Topi,Damaliscus lunatus,NORMAL,0
+147,Warthog,Phacochoerus africanus,NORMAL,0
+148,Common Waterbuck,Kobus ellipsiprymnus,NORMAL,0
+149,Defassa Waterbuck,Kobus defassa,NORMAL,0
+150,Wildcat,Felis silvestris,NORMAL,0
+151,Eastern White bearded Wildebeest,Connochaetes taurinus,NORMAL,0
+152,Nyasa Wildebeest,Connochaetes taurinus,NORMAL,0
+153,Western White bearded wildebeest,Connochaetes taurinus,NORMAL,0
+154,Burchel's Zebra,Equus quagga burchellii,NORMAL,0
+155,Zonilla,Otocolobus manul,NORMAL,0
+156,Crocodile Nile,Crocodylus niloticus,MAIN,0
+157,Python Rock,Python sebae,NORMAL,0
+158,Ostrich,Struthio camelus,NORMAL,0
+159,Dove,Turtur chalcospilos,NORMAL,0
+160,Duck,Dendrocygna viduata,NORMAL,0
+161,Francolin,Francolinus coqui,NORMAL,0
+162,Geese,Alopochen aegyptiaca,NORMAL,0
+163,Guinea fowl,Numida meleagris,NORMAL,0
+164,Pigeon,Treron culver,NORMAL,0
+165,Sand grouse,Pterocles decoratus,NORMAL,0
+166,Spur fowl,Francolinus afer,NORMAL,0
+167,Grebe,Podiceps cristatus,NORMAL,0
+168,Crane,Balearica regulorum,NORMAL,0
+169,Kori Bustard,Ardeotis kori,NORMAL,0
+170,Stripes,Rostratula benghalensis,NORMAL,0

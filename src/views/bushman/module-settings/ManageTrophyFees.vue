@@ -82,93 +82,32 @@
 
             <div class="card-body">
               <form ref="trophyFeeFormRef" @submit.prevent="saveTrophyFee">
-                <div class="row mb-3 trophy-fees-form-row">
-                  <div class="col-md-6">
-                    <div class="form-group">
-                      <label class="form-label">Species <span class="text-danger">*</span></label>
-                      <select v-model="trophyFeeForm.species" class="form-select" required>
-                        <option :value="null">Select Species</option>
-                        <option v-for="option in speciesOptions" :key="option.value" :value="option.value">
-                          {{ option.text }}
-                        </option>
-                      </select>
-                    </div>
-                  </div>
-                  <div class="col-md-6">
-                    <div class="form-group">
-                      <label class="form-label">Hunting Area <span class="text-danger">*</span></label>
-                      <select v-model="trophyFeeForm.area" class="form-select" required>
-                        <option :value="null">Select Hunting Area</option>
-                        <option v-for="option in areaOptions" :key="option.value" :value="option.value">
-                          {{ option.text }}
-                        </option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
+                <!-- Use multi-row input table to allow creating multiple trophy fees at once -->
+                <MultiRowTableInput v-model="trophyRows" :fields="multiFields" add-button-label="Add Trophy Fee Row" />
 
-                <div class="row mb-3 trophy-fees-form-row">
-                  <div class="col-md-6">
-                    <div class="form-group">
-                      <label class="form-label">Season <span class="text-danger">*</span></label>
-                      <select v-model="trophyFeeForm.season" class="form-select" required>
-                        <option :value="null">Select Season</option>
-                        <option v-for="option in seasonOptions" :key="option.value" :value="option.value">
-                          {{ option.text }}
-                        </option>
-                      </select>
-                    </div>
-                  </div>
-                  <div class="col-md-6">
-                    <div class="form-group">
-                      <label class="form-label">Currency <span class="text-danger">*</span></label>
-                      <select v-model="trophyFeeForm.currency" class="form-select" required>
-                        <option :value="null">Select Currency</option>
-                        <option v-for="option in currencyOptions" :key="option.value" :value="option.value">
-                          {{ option.text }}
-                        </option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="row mb-3 trophy-fees-form-row">
-                  <div class="col-md-6">
-                    <div class="form-group">
-                      <label class="form-label">Sequence Order <span class="text-danger">*</span></label>
-                      <div class="input-group">
-                        <input
-                          v-model.number="trophyFeeForm.sequence_order"
-                          type="number"
-                          class="form-control"
-                          min="1"
-                          placeholder="Enter sequence number"
-                          required
-                        />
-                        <button
-                          type="button"
-                          class="btn btn-outline-secondary"
-                          data-bs-toggle="tooltip"
-                          data-bs-placement="top"
-                          title="Sequence order represents the trophy number (1st, 2nd, 3rd, etc.). Different sequences can have different prices for the same species."
-                        >
-                          <i class="fa fa-info-circle"></i>
-                        </button>
+                <!-- Keep durations selection outside bulk creation (applies when editing a single fee)
+                     Durations are applied only when editing an existing trophy fee. -->
+                <div v-if="editMode && huntLengthOptions.length > 0" class="row mb-3">
+                  <div class="col-12">
+                    <label class="form-label fw-bold">Available Hunt Durations <small class="text-muted">(Optional)</small></label>
+                    <small class="d-block text-muted mb-2">Select which hunt lengths this trophy fee applies to. Leave all unchecked to apply to all durations.</small>
+                    <div class="border rounded p-3">
+                      <div class="row">
+                        <div v-for="huntLength in huntLengthOptions" :key="huntLength.value" class="col-md-4 mb-2">
+                          <div class="form-check">
+                            <input
+                              :id="`hunt-length-${huntLength.value}`"
+                              v-model="trophyFeeForm.durations"
+                              type="checkbox"
+                              class="form-check-input"
+                              :value="huntLength.value"
+                            />
+                            <label class="form-check-label" :for="`hunt-length-${huntLength.value}`">
+                              {{ huntLength.text }}
+                            </label>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                  <div class="col-md-6">
-                    <div class="form-group">
-                      <label class="form-label">Amount <span class="text-danger">*</span></label>
-                      <input
-                        v-model.number="trophyFeeForm.amount"
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        class="form-control"
-                        placeholder="0.00"
-                        required
-                      />
                     </div>
                   </div>
                 </div>
@@ -198,14 +137,17 @@ import { useToast } from '@/composables/useToast'
 import { useForm } from '@/composables/useForm'
 import handleErrors from '../../../stores/bushman/errorHandler'
 import StandardDataTable from '@/components/bootstrap/StandardDataTable.vue'
+import MultiRowTableInput from '../reusables/MultiRowTableInput.vue'
 import { useTrophyFeesStore } from '../../../stores/bushman/trophy-fees-store'
 import { useQuotaStore } from '../../../stores/bushman/quota-store'
 import { useSettingsStore } from '../../../stores/bushman/settings-store'
+import { usePriceListStore } from '../../../stores/bushman/price-list-store'
 
 export default defineComponent({
   name: 'ManageTrophyFeesPage',
   components: {
     StandardDataTable,
+    MultiRowTableInput,
   },
 
   setup() {
@@ -222,9 +164,8 @@ export default defineComponent({
       { key: 'id', label: 'ID', sortable: true, visible: true },
       { key: 'species_name', label: 'Species Name', sortable: true, visible: true },
       { key: 'area_name', label: 'Hunting Area', sortable: true, visible: true },
-      { key: 'season_name', label: 'Season', sortable: true, visible: true },
-      { key: 'sequence_order', label: 'Sequence', sortable: true, visible: true },
       { key: 'amount', label: 'Amount', sortable: true, visible: true },
+      { key: 'price_structure', label: 'Price Structure', sortable: true, visible: true },
       { key: 'actions', label: 'Actions', sortable: false, visible: true },
     ]
 
@@ -245,15 +186,25 @@ export default defineComponent({
       id: null as any,
       species: null as any,
       area: null as any,
-      season: null as any,
       currency: null as any,
-      sequence_order: 1,
+      price_structure_id: null as any,
       amount: null as any,
+      durations: [] as any[],
     })
 
     return {
       items,
       trophyFeeForm,
+      trophyRows: [
+        {
+          _id: 1,
+          species: '',
+          area: '',
+          currency: '',
+          amount: '',
+          price_structure_id: '',
+        },
+      ],
       showTrophyFeesList: true,
       loading: false,
       saving: false,
@@ -261,15 +212,62 @@ export default defineComponent({
       toast: useToast(),
       speciesOptions: [] as any[],
       areaOptions: [] as any[],
-      seasonOptions: [] as any[],
       currencyOptions: [] as any[],
+      priceStructureOptions: [] as any[],
+      huntLengthOptions: [] as any[],
       selectedSpecies: null as any,
       selectedArea: null as any,
-      selectedSeason: null as any,
+      selectedPriceStructure: null as any,
     }
   },
 
+  /* multiFields moved into the main computed block below */
+
   computed: {
+    multiFields() {
+      return [
+        {
+          key: 'species',
+          label: 'Species',
+          type: 'select',
+          required: true,
+          options: this.speciesOptions.map((o: any) => ({ value: o.value, text: o.text })),
+          headerStyle: 'width:220px',
+        },
+        {
+          key: 'area',
+          label: 'Hunting Area',
+          type: 'select',
+          required: true,
+          options: this.areaOptions.map((o: any) => ({ value: o.value, text: o.text })),
+          headerStyle: 'width:220px',
+        },
+        {
+          key: 'currency',
+          label: 'Currency',
+          type: 'select',
+          required: true,
+          options: this.currencyOptions.map((o: any) => ({ value: o.value, text: o.text })),
+          headerStyle: 'width:140px',
+        },
+        {
+          key: 'amount',
+          label: 'Amount',
+          type: 'number',
+          required: true,
+          placeholder: '0.00',
+          headerStyle: 'width:140px',
+        },
+        {
+          key: 'price_structure_id',
+          label: 'Price Structure',
+          type: 'select',
+          required: false,
+          options: this.priceStructureOptions.map((o: any) => ({ value: o.value, text: o.text })),
+          headerStyle: 'width:220px',
+        },
+      ]
+    },
     uniqueSpeciesCount() {
       const speciesIds = new Set(this.items.map((item: any) => item._raw?.species_id))
       return speciesIds.size
@@ -315,27 +313,34 @@ export default defineComponent({
           defaultValue: this.selectedArea?.value || '',
         },
         {
-          key: 'season_id',
-          label: 'Season',
+          key: 'price_structure_id',
+          label: 'Price Structure',
           type: 'select',
-          placeholder: 'Select Season',
-          options: this.seasonOptions.map((opt: any) => ({
+          placeholder: 'Select Price Structure',
+          options: this.priceStructureOptions.map((opt: any) => ({
             value: opt.value,
             label: opt.text,
           })),
-          defaultValue: this.selectedSeason?.value || '',
+          defaultValue: this.selectedPriceStructure?.value || '',
         },
       ]
     },
     canSubmit() {
-      return (
-        this.trophyFeeForm.species &&
-        this.trophyFeeForm.area &&
-        this.trophyFeeForm.season &&
-        this.trophyFeeForm.currency &&
-        this.trophyFeeForm.sequence_order > 0 &&
-        this.trophyFeeForm.amount > 0
-      )
+      if (this.editMode) {
+        return (
+          this.trophyFeeForm.species &&
+          this.trophyFeeForm.area &&
+          this.trophyFeeForm.currency &&
+          this.trophyFeeForm.amount > 0
+        )
+      }
+
+      // Bulk create: ensure at least one valid row exists
+      if (this.trophyRows && this.trophyRows.length > 0) {
+        return this.trophyRows.some((r: any) => r.species && r.area && r.currency && parseFloat(r.amount) > 0)
+      }
+
+      return false
     },
   },
 
@@ -343,14 +348,15 @@ export default defineComponent({
     this.getTrophyFees()
     this.loadSpecies()
     this.loadAreas()
-    this.loadSeasons()
     this.loadCurrencies()
+    this.loadPriceStructures()
+    this.loadHuntLengths()
   },
 
   methods: {
     ...mapActions(useTrophyFeesStore, ['fetchTrophyFees', 'createTrophyFee', 'updateTrophyFee', 'deleteTrophyFeeById']),
     ...mapActions(useQuotaStore, ['getSpeciesList', 'getAreaList']),
-    ...mapActions(useSettingsStore, ['getSeasons', 'getCurrencies']),
+    ...mapActions(useSettingsStore, ['getCurrencies']),
 
     async getTrophyFees() {
       this.loading = true
@@ -362,8 +368,8 @@ export default defineComponent({
         if (this.selectedArea) {
           params.area_id = this.selectedArea.value
         }
-        if (this.selectedSeason) {
-          params.season_id = this.selectedSeason.value
+        if (this.selectedPriceStructure) {
+          params.price_structure_id = this.selectedPriceStructure.value
         }
 
         const response = await this.fetchTrophyFees(params)
@@ -373,11 +379,12 @@ export default defineComponent({
 
           this.items = data.map((item: any) => ({
             id: item.id,
-            species_name: item.species?.name || 'N/A',
+            species_name: item.species?.swahili_name 
+              ? `${item.species.name} (${item.species.swahili_name})`
+              : item.species?.name || 'N/A',
             area_name: item.area?.name || 'N/A',
-            season_name: item.season?.name || 'N/A',
-            sequence_order: this.getSequenceLabel(item.sequence_order),
             amount: `${item.currency?.symbol || '$'}${parseFloat(item.amount).toFixed(2)}`,
+            price_structure: item.price_structure?.id ? `PS-${item.price_structure.id}` : 'General',
             _raw: item,
           }))
         }
@@ -397,7 +404,7 @@ export default defineComponent({
         const response = await this.getSpeciesList()
         this.speciesOptions = response.data.map((item: any) => ({
           value: item.id,
-          text: item.name,
+          text: item.swahili_name ? `${item.name} (${item.swahili_name})` : item.name,
         }))
       } catch (error) {
         console.error('Failed to load species', error)
@@ -419,7 +426,7 @@ export default defineComponent({
     clearFilters() {
       this.selectedSpecies = null
       this.selectedArea = null
-      this.selectedSeason = null
+      this.selectedPriceStructure = null
       this.getTrophyFees()
     },
 
@@ -434,29 +441,42 @@ export default defineComponent({
       } else {
         this.selectedArea = null
       }
-      if (filters.season_id) {
-        this.selectedSeason = this.seasonOptions.find((s: any) => s.value === filters.season_id)
+      if (filters.price_structure_id) {
+        this.selectedPriceStructure = this.priceStructureOptions.find((p: any) => p.value === filters.price_structure_id)
       } else {
-        this.selectedSeason = null
+        this.selectedPriceStructure = null
       }
       this.getTrophyFees()
     },
 
-    getSequenceLabel(sequence: number) {
-      const suffixes = ['th', 'st', 'nd', 'rd']
-      const value = sequence % 100
-      return sequence + (suffixes[(value - 20) % 10] || suffixes[value] || suffixes[0])
+    async loadPriceStructures() {
+      try {
+        const priceListStore = usePriceListStore()
+        const response = await priceListStore.getPriceStructures()
+        if (response.status === 200) {
+          const data = response.data?.data || response.data || []
+          this.priceStructureOptions = data.map((item: any) => ({
+            value: item.id,
+            text: `PS-${item.id} - ${item.area?.name || 'N/A'} (${item.start_date || 'N/A'})`,
+          }))
+        }
+      } catch (error) {
+        console.error('Failed to load price structures', error)
+      }
     },
 
-    async loadSeasons() {
+    async loadHuntLengths() {
       try {
-        const response = await this.getSeasons()
-        this.seasonOptions = response.data.map((item: any) => ({
-          value: item.id,
-          text: item.name,
-        }))
+        const priceListStore = usePriceListStore()
+        const response = await priceListStore.getHuntLengths()
+        if (response.status === 200) {
+          this.huntLengthOptions = response.data.map((item: any) => ({
+            value: item.id,
+            text: item.label || `${item.days} days`,
+          }))
+        }
       } catch (error) {
-        console.error('Failed to load seasons', error)
+        console.error('Failed to load hunt lengths', error)
       }
     },
 
@@ -488,63 +508,123 @@ export default defineComponent({
       this.trophyFeeForm.id = raw.id
       const speciesId = raw.species_id || raw.species?.id
       const areaId = raw.area_id || raw.area?.id
-      const seasonId = raw.season_id || raw.season?.id
       const currencyId = raw.currency_id || raw.currency?.id
 
       this.trophyFeeForm.species = speciesId
       this.trophyFeeForm.area = areaId
-      this.trophyFeeForm.season = seasonId
       this.trophyFeeForm.currency = currencyId
-      this.trophyFeeForm.sequence_order = raw.sequence_order
+      this.trophyFeeForm.price_structure_id = raw.price_structure_id || null
       this.trophyFeeForm.amount = raw.amount
+      
+      // Load durations if exists
+      if (raw.durations && Array.isArray(raw.durations)) {
+        this.trophyFeeForm.durations = raw.durations
+          .filter((d: any) => d.is_allowed)
+          .map((d: any) => d.hunt_length_id)
+      } else {
+        this.trophyFeeForm.durations = []
+      }
     },
 
     async saveTrophyFee() {
-      if (!this.trophyFeeFormRef?.checkValidity()) {
-        this.trophyFeeFormRef?.reportValidity()
+      // If editing a single fee, keep previous flow
+      if (this.editMode) {
+        if (!this.trophyFeeFormRef?.checkValidity()) {
+          this.trophyFeeFormRef?.reportValidity()
+          return
+        }
+
+        this.saving = true
+        try {
+          const payload: any = {
+            species_id:
+              typeof this.trophyFeeForm.species === 'object'
+                ? this.trophyFeeForm.species.value
+                : this.trophyFeeForm.species,
+            area_id:
+              typeof this.trophyFeeForm.area === 'object' ? this.trophyFeeForm.area.value : this.trophyFeeForm.area,
+            currency_id:
+              typeof this.trophyFeeForm.currency === 'object'
+                ? this.trophyFeeForm.currency.value
+                : this.trophyFeeForm.currency,
+            amount: this.trophyFeeForm.amount,
+            price_structure_id: this.trophyFeeForm.price_structure_id || null,
+          }
+
+          // Add durations if selected
+          if (this.trophyFeeForm.durations && this.trophyFeeForm.durations.length > 0) {
+            payload.durations = this.trophyFeeForm.durations.map((huntLengthId: any) => ({
+              hunt_length_id: huntLengthId,
+              is_allowed: true,
+            }))
+          }
+
+          const response = await this.updateTrophyFee(this.trophyFeeForm.id, payload)
+
+          if (response.status === 200) {
+            this.toast.init({ message: 'Trophy fee updated successfully', color: 'success' })
+            this.toggleFormAndList()
+            this.getTrophyFees()
+          }
+        } catch (error) {
+          handleErrors(error)
+          this.toast.init({ message: 'Failed to update trophy fee', color: 'danger' })
+        } finally {
+          this.saving = false
+        }
+
         return
+      }
+
+      // Bulk creation flow using trophyRows
+      if (!this.trophyRows || this.trophyRows.length === 0) {
+        this.toast.init({ message: 'No trophy fee rows to save', color: 'warning' })
+        return
+      }
+
+      // Basic validation for required fields in rows
+      for (const row of this.trophyRows) {
+        if (!row.species || !row.area || !row.currency || !row.amount) {
+          this.toast.init({ message: 'Please fill required fields for all rows', color: 'warning' })
+          return
+        }
       }
 
       this.saving = true
       try {
-        const payload: any = {
-          species_id:
-            typeof this.trophyFeeForm.species === 'object'
-              ? this.trophyFeeForm.species.value
-              : this.trophyFeeForm.species,
-          area_id:
-            typeof this.trophyFeeForm.area === 'object' ? this.trophyFeeForm.area.value : this.trophyFeeForm.area,
-          season_id:
-            typeof this.trophyFeeForm.season === 'object' ? this.trophyFeeForm.season.value : this.trophyFeeForm.season,
-          currency_id:
-            typeof this.trophyFeeForm.currency === 'object'
-              ? this.trophyFeeForm.currency.value
-              : this.trophyFeeForm.currency,
-          sequence_order: this.trophyFeeForm.sequence_order,
-          amount: this.trophyFeeForm.amount,
+        const results: any[] = []
+        for (const row of this.trophyRows) {
+          const payload: any = {
+            species_id: typeof row.species === 'object' ? row.species.value : row.species,
+            area_id: typeof row.area === 'object' ? row.area.value : row.area,
+            currency_id: typeof row.currency === 'object' ? row.currency.value : row.currency,
+            amount: parseFloat(row.amount) || 0,
+            price_structure_id: row.price_structure_id || null,
+          }
+
+          try {
+            const resp = await this.createTrophyFee(payload)
+            results.push(resp)
+          } catch (err) {
+            // Collect error but continue creating other rows
+            results.push({ error: err })
+          }
         }
 
-        let response
-        if (this.editMode) {
-          response = await this.updateTrophyFee(this.trophyFeeForm.id, payload)
-        } else {
-          response = await this.createTrophyFee(payload)
-        }
-
-        if (response.status === 200 || response.status === 201) {
-          this.toast.init({
-            message: this.editMode ? 'Trophy fee updated successfully' : 'Trophy fee created successfully',
-            color: 'success',
-          })
+        const failed = results.filter((r) => r && r.error)
+        if (failed.length === 0) {
+          this.toast.init({ message: 'All trophy fees created successfully', color: 'success' })
           this.toggleFormAndList()
           this.getTrophyFees()
+        } else if (failed.length < results.length) {
+          this.toast.init({ message: 'Some trophy fees were created; some failed', color: 'warning' })
+          this.getTrophyFees()
+        } else {
+          this.toast.init({ message: 'Failed to create trophy fees', color: 'danger' })
         }
       } catch (error) {
         handleErrors(error)
-        this.toast.init({
-          message: 'Failed to save trophy fee',
-          color: 'danger',
-        })
+        this.toast.init({ message: 'Failed to save trophy fees', color: 'danger' })
       } finally {
         this.saving = false
       }
@@ -583,10 +663,21 @@ export default defineComponent({
       this.trophyFeeForm.id = null
       this.trophyFeeForm.species = null
       this.trophyFeeForm.area = null
-      this.trophyFeeForm.season = null
       this.trophyFeeForm.currency = null
-      this.trophyFeeForm.sequence_order = 1
+      this.trophyFeeForm.price_structure_id = null
       this.trophyFeeForm.amount = null
+      this.trophyFeeForm.durations = []
+      // Reset bulk rows to a single empty row
+      this.trophyRows = [
+        {
+          _id: 1,
+          species: '',
+          area: '',
+          currency: '',
+          amount: '',
+          price_structure_id: '',
+        },
+      ]
       this.resetValidationTrophyFeeForm()
     },
   },

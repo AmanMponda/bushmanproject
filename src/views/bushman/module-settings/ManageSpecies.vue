@@ -32,6 +32,11 @@
                   {{ row.name }}
                 </template>
 
+                <template #swahili_name="{ row }">
+                  <span v-if="row.swahili_name" class="text-muted">{{ row.swahili_name }}</span>
+                  <span v-else class="text-muted fst-italic">-</span>
+                </template>
+
                 <template #scientific_name="{ row }">
                   {{ row.scientific_name }}
                 </template>
@@ -88,6 +93,10 @@
                 <h6 class="fw-bold text-primary mb-3"><i class="fa fa-info-circle me-2"></i>Species Information</h6>
                 <div class="mb-2">
                   <strong>Name:</strong> {{ currentSpecies.name }}
+                </div>
+                <div class="mb-2" v-if="currentSpecies.swahili_name">
+                  <strong>Swahili Name:</strong> 
+                  <span class="text-muted">{{ currentSpecies.swahili_name }}</span>
                 </div>
                 <div class="mb-2">
                   <strong>Scientific Name:</strong> {{ currentSpecies.scientific_name }}
@@ -222,24 +231,30 @@
             <div v-if="sform.id">
               <div class="row mb-3">
                 <div class="col-md-4">
-                  <label class="form-label">Species Name</label>
+                  <label class="form-label">Species Name <span class="text-danger">*</span></label>
                   <input v-model="sform.name" type="text" class="form-control" required />
                 </div>
                 <div class="col-md-4">
-                  <label class="form-label">Scientific Name</label>
-                  <input v-model="sform.scientific_name" type="text" class="form-control" required />
+                  <label class="form-label">Swahili Name</label>
+                  <input v-model="sform.swahili_name" type="text" class="form-control" 
+                    placeholder="e.g., Simba, Ndovu, Twiga" />
+                  <small class="text-muted">Local/Swahili name (optional)</small>
                 </div>
                 <div class="col-md-4">
-                  <label class="form-label">Type</label>
+                  <label class="form-label">Scientific Name <span class="text-danger">*</span></label>
+                  <input v-model="sform.scientific_name" type="text" class="form-control" required />
+                </div>
+              </div>
+              <div class="row mb-3">
+                <div class="col-md-6">
+                  <label class="form-label">Type <span class="text-danger">*</span></label>
                   <select v-model="sform.type" class="form-select" required>
                     <option v-for="type in TYPES" :key="type.value" :value="type.value">{{ type.text }}</option>
                   </select>
                 </div>
-              </div>
-              <div class="row mb-3">
-                <div class="col-12">
+                <div class="col-md-6">
                   <label class="form-label">Description</label>
-                  <textarea v-model="sform.description" class="form-control" rows="2" required></textarea>
+                  <textarea v-model="sform.description" class="form-control" rows="2"></textarea>
                 </div>
               </div>
             </div>
@@ -266,7 +281,7 @@
                 Bulk Import from CSV
               </h6>
 
-              <a href="/assets/uploadsguide/species-upload.csv" download class="btn btn-sm btn-outline-success">
+              <a href="/assets/uploadsguide/species-upload1.csv" download class="btn btn-sm btn-outline-success">
                 <i class="fa fa-download me-1"></i>
                 Download Template
               </a>
@@ -274,6 +289,7 @@
 
             <CSVInput :column-fields="[
               { key: 'name', label: 'Name' },
+              { key: 'swahili_name', label: 'Swahili Name' },
               { key: 'scientific_name', label: 'Scientific Name' },
               { key: 'type', label: 'Type' },
             ]" :model-value="items" duplicate-key-field="name" @import="handleCsvImport" />
@@ -381,6 +397,7 @@ const isDragOver = ref(false)
 const sform = reactive({
   id: null as number | null,
   name: '',
+  swahili_name: '',
   type: 'NORMAL',
   scientific_name: '',
   description: '',
@@ -388,7 +405,7 @@ const sform = reactive({
 
 // Table-like multi-column input state
 const tableColumns = ref([
-  { _id: 1, name: '', scientific_name: '', type: 'NORMAL', description: '' },
+  { _id: 1, name: '', swahili_name: '', scientific_name: '', type: 'NORMAL', description: '' },
 ])
 
 // CSV Import State
@@ -448,6 +465,96 @@ async function loadSpecieUnits(specieId: number) {
   }
 }
 
+// Show species details (view) and load related units
+async function viewSpeciesDetails(row: any) {
+  if (!row || !row.id) return
+  currentSpecies.value = row
+  showSpeciesList.value = false
+  showSpeciesDetails.value = true
+  // load units for this species
+  await loadSpecieUnits(row.id)
+}
+
+function backToList() {
+  showSpeciesDetails.value = false
+  showSpeciesList.value = true
+  currentSpecies.value = null
+  specieUnits.value = []
+}
+
+// Trophy unit helpers
+function openEditUnitForm(unit: any) {
+  editingUnit.value = unit || null
+  unitForm.name = unit?.name || ''
+  unitForm.descriptions = unit?.descriptions || ''
+  showUnitForm.value = true
+}
+
+async function saveUnit() {
+  if (!currentSpecies.value) return
+  savingUnit.value = true
+  try {
+    if (editingUnit.value && editingUnit.value.id) {
+      const resp = await specieUnitsStore.updateSpecieUnit(editingUnit.value.id, {
+        name: unitForm.name,
+        descriptions: unitForm.descriptions,
+      })
+      if (resp.status === 200) {
+        toast.init({ message: 'Trophy unit updated', color: 'success' })
+      }
+    } else {
+      const resp = await specieUnitsStore.createSpecieUnit({
+        specie_id: currentSpecies.value.id,
+        name: unitForm.name,
+        descriptions: unitForm.descriptions,
+      })
+      if (resp.status === 201 || resp.status === 200) {
+        toast.init({ message: 'Trophy unit created', color: 'success' })
+      }
+    }
+    await loadSpecieUnits(currentSpecies.value.id)
+    showUnitForm.value = false
+    editingUnit.value = null
+    unitForm.name = ''
+    unitForm.descriptions = ''
+  } catch (err: any) {
+    toast.init({ message: handleErrors(err.response || err).join('\n') || 'Failed to save unit', color: 'danger' })
+  } finally {
+    savingUnit.value = false
+  }
+}
+
+async function cancelUnitForm() {
+  editingUnit.value = null
+  unitForm.name = ''
+  unitForm.descriptions = ''
+  showUnitForm.value = false
+}
+
+async function deleteUnit(unit: any) {
+  if (!unit || !unit.id) return
+  const res = await Swal.fire({
+    title: 'Delete trophy unit',
+    text: `Delete "${unit.name || unit.id}"? This cannot be undone.`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'Delete',
+    customClass: { confirmButton: 'btn btn-danger', cancelButton: 'btn btn-secondary' },
+    buttonsStyling: false,
+  })
+  if (!res.isConfirmed) return
+  try {
+    const r = await specieUnitsStore.deleteSpecieUnit(unit.id)
+    if (r.status === 204 || r.status === 200) {
+      toast.init({ message: 'Trophy unit deleted', color: 'success' })
+      if (currentSpecies.value) await loadSpecieUnits(currentSpecies.value.id)
+    }
+  } catch (err: any) {
+    toast.init({ message: handleErrors(err.response || err).join('\n') || 'Failed to delete unit', color: 'danger' })
+  }
+
+}
+
 function openAddUnitForm() {
   editingUnit.value = null
   unitForm.name = ''
@@ -496,6 +603,7 @@ const TYPES = [
 
 const speciesTableFields = computed(() => [
   { key: 'name', label: 'Name', type: 'text', placeholder: 'Species name', required: true, headerStyle: 'width:150px', cellStyle: 'width:150px' },
+  { key: 'swahili_name', label: 'Swahili Name', type: 'text', placeholder: 'Swahili name (optional)', headerStyle: 'width:150px', cellStyle: 'width:150px' },
   { key: 'scientific_name', label: 'Scientific Name', type: 'text', placeholder: 'Scientific name' },
   { key: 'type', label: 'Type', type: 'select', required: true, options: TYPES, headerStyle: 'width:150px', cellStyle: 'width:150px' },
   { key: 'description', label: 'Description', type: 'text', placeholder: 'Description', headerStyle: 'width:200px', cellStyle: 'width:200px' },
@@ -505,6 +613,7 @@ const columns = [
   { key: 'select', label: '', sortable: false, visible: true },
   { key: 'id', label: 'ID', sortable: true, visible: true },
   { key: 'name', label: 'Name', sortable: true, visible: true },
+  { key: 'swahili_name', label: 'Swahili Name', sortable: true, visible: true },
   { key: 'scientific_name', label: 'Scientific Name', sortable: true, visible: true },
   { key: 'type', label: 'Type', sortable: true, visible: true },
   { key: 'actions', label: 'Actions', sortable: false, visible: true },
@@ -751,8 +860,8 @@ async function handleCsvImport(data: any[]) {
     try {
       const r = await speciesStore.createSpecies({
         name: sp.name,
+        swahili_name: sp.swahili_name || '',
         scientific_name: sp.scientific_name || '',
-        description: sp.description || '',
         type: sp.type || 'NORMAL',
       })
       importResults.value.push({ name: sp.name, ok: r.status === 201 || r.status === 200 })
@@ -786,7 +895,7 @@ function showSpecies(row?: any) {
   if (row) {
     // Optionally populate sform for editing if needed
   } else {
-    Object.assign(sform, { id: null, name: '', type: '', scientific_name: '', description: '' })
+    Object.assign(sform, { id: null, name: '', swahili_name: '', type: '', scientific_name: '', description: '' })
   }
 }
 
@@ -798,6 +907,7 @@ function editSpeciesForm(row: any) {
   Object.assign(sform, {
     id: row.id,
     name: row.name || '',
+    swahili_name: row.swahili_name || '',
     type: row.type || '',
     scientific_name: row.scientific_name || '',
     description: row.description || '',
@@ -835,8 +945,8 @@ async function onSubmit() {
           try {
             const response = await speciesStore.createSpecies({
               name: col.name,
+              swahili_name: col.swahili_name || '',
               scientific_name: col.scientific_name || '',
-              description: col.description || '',
               type: col.type || 'NORMAL',
             })
             if (response.status === 201 || response.status === 200) {
@@ -873,9 +983,9 @@ async function onSubmit() {
         // Single form mode (fallback - shouldn't normally happen since UI shows table when sform.id is null)
         const response = await speciesStore.createSpecies({
           name: sform.name,
+          swahili_name: sform.swahili_name || '',
           scientific_name: sform.scientific_name,
-          description: sform.description,
-          type: sform.type,
+          type: sform.type || 'NORMAL',
         })
         if (response.status === 201 || response.status === 200) {
           toast.init({ message: response.data.message || 'Species created successfully', color: 'success' })
@@ -904,12 +1014,21 @@ onMounted(() => {
 
 <style scoped>
 .species-page {
-  padding: 16px;
+  padding: 0;
 }
 
 .custom-table {
   background: #fff;
   border-radius: 8px;
+}
+
+/* Match ManageArea spacing */
+.layout-top-spacing {
+  margin-top: 20px;
+}
+
+.layout-spacing {
+  padding: 10px 0;
 }
 
 .card {

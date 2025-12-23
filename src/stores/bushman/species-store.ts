@@ -31,9 +31,9 @@ export const useSpeciesStore = defineStore('species-store', {
       const url = import.meta.env.VITE_APP_BASE_URL + import.meta.env.VITE_APP_SPECIES_URL
       const data = JSON.stringify({
         name: species.name,
-        type: species.type,
+        swahili_name: species.swahili_name || null,
         scientific_name: species.scientific_name,
-        description: species.description,
+        type: species.type || 'NORMAL',
       })
       const config = {
         method: 'post',
@@ -53,6 +53,7 @@ export const useSpeciesStore = defineStore('species-store', {
       const url = import.meta.env.VITE_APP_BASE_URL + import.meta.env.VITE_APP_SPECIES_URL + id + '/'
       const data = JSON.stringify({
         name: species.name,
+        swahili_name: species.swahili_name || null,
         type: species.type,
         scientific_name: species.scientific_name,
         description: species.description,

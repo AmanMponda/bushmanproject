@@ -31,148 +31,100 @@
               :class="pipelineView === 'full' ? 'btn-primary' : 'btn-outline-secondary'"
               @click="pipelineView = 'full'"
             >
-              <i class="fa fa-th me-1"></i> Full
+              <i class="fa fa-list me-1"></i> Full
             </button>
+            <!-- Partial/Full toggle buttons stay here -->
           </div>
-          <select
-            v-model="seasonFilter"
-            class="form-select form-select-sm season-select"
-            @change="loadPipeline"
-          >
-            <option :value="null">All Seasons</option>
-            <option v-for="season in seasonOptions" :key="season.value" :value="season.value">
-              {{ season.text }}
-            </option>
-          </select>
-          <button class="btn btn-outline-secondary btn-sm" :disabled="loading" @click="loadPipeline">
-            <span v-if="loading" class="spinner-border spinner-border-sm me-1" role="status"></span>
-            <i v-else class="fa fa-refresh me-1"></i>
-            Refresh
-          </button>
         </div>
       </div>
     </div>
 
-    <!-- Pipeline Content -->
     <div class="pipeline-content">
-      <!-- Loading State -->
-      <div v-if="loading && !hasData" class="loading-container py-4">
-        <div class="spinner-border text-primary" role="status">
-          <span class="visually-hidden">Loading...</span>
-        </div>
-        <p class="text-center mt-4 text-muted">Loading pipeline...</p>
-      </div>
 
-      <!-- Partial Pipeline View (4 columns) -->
-      <div v-else-if="pipelineView === 'partial'" class="pipeline-columns pipeline-columns-partial">
-        <!-- Column 1: Canceled & New Inquiries -->
-        <div class="pipeline-column">
-          <div class="column-header">
-            <div class="column-title">
-              <i class="fa fa-inbox" style="font-size: 16px"></i>
-              <span>Inquiries</span>
+        <!-- Partial Pipeline View (3 columns) -->
+        <div v-if="pipelineView === 'partial'" class="pipeline-columns pipeline-columns-partial">
+          <!-- Column 1: Quotation (new inquiries + pending) -->
+          <div class="pipeline-column">
+            <div class="column-header">
+              <div class="column-title">
+                <i class="fa fa-file-alt" style="font-size: 16px"></i>
+                <span>Quotation</span>
+              </div>
+              <span class="badge bg-warning">
+                {{ counts.new_inquiries + counts.pending }}
+              </span>
             </div>
-            <span class="badge bg-secondary">
-              {{ counts.cancelled + counts.new_inquiries }}
-            </span>
-          </div>
-          <div class="column-content">
-            <div v-if="pipeline.cancelled.length === 0 && pipeline.new_inquiries.length === 0" class="empty-column">
-              <i class="fa fa-inbox fa-3x text-muted"></i>
-              <span>No items</span>
+            <div class="column-content">
+              <div v-if="pipeline.new_inquiries.length === 0 && pipeline.pending.length === 0" class="empty-column">
+                <i class="fa fa-file-alt fa-3x text-muted"></i>
+                <span>No items</span>
+              </div>
+              <PipelineCard
+                v-for="item in [...pipeline.new_inquiries, ...pipeline.pending]"
+                :key="`quotation-${item.id}`"
+                :item="item"
+                @createProposal="handleCreateProposal(item)"
+                @view="handleViewProposal(item)"
+                @edit="handleEditProposal(item)"
+                @click="handleCardClick(item)"
+              />
             </div>
-            <PipelineCard
-              v-for="item in [...pipeline.cancelled, ...pipeline.new_inquiries]"
-              :key="`col1-${item.id}`"
-              :item="item"
-              @createProposal="handleCreateProposal(item)"
-              @view="handleViewProposal(item)"
-              @click="handleCardClick(item)"
-            />
           </div>
-        </div>
 
-        <!-- Column 2: Quotations/Pending -->
-        <div class="pipeline-column">
-          <div class="column-header">
-            <div class="column-title">
-              <i class="fa fa-file-alt" style="font-size: 16px"></i>
-              <span>Quotations</span>
+          <!-- Column 2: Confirmed Sales (provision_sales + confirmed) -->
+          <div class="pipeline-column">
+            <div class="column-header">
+              <div class="column-title">
+                <i class="fa fa-check-circle" style="font-size: 16px"></i>
+                <span>Confirmed Sales</span>
+              </div>
+              <span class="badge bg-info">
+                {{ counts.provision_sales + counts.confirmed }}
+              </span>
             </div>
-            <span class="badge bg-warning">
-              {{ counts.pending }}
-            </span>
-          </div>
-          <div class="column-content">
-            <div v-if="pipeline.pending.length === 0" class="empty-column">
-              <i class="fa fa-hourglass-half fa-3x text-muted"></i>
-              <span>No pending items</span>
+            <div class="column-content">
+              <div v-if="pipeline.provision_sales.length === 0 && pipeline.confirmed.length === 0" class="empty-column">
+                <i class="fa fa-check-circle fa-3x text-muted"></i>
+                <span>No items</span>
+              </div>
+              <PipelineCard
+                v-for="item in [...pipeline.provision_sales, ...pipeline.confirmed]"
+                :key="`confirmed-${item.id}`"
+                :item="item"
+                @view="handleViewProposal(item)"
+                @edit="handleEditProposal(item)"
+                @click="handleCardClick(item)"
+              />
             </div>
-            <PipelineCard
-              v-for="item in pipeline.pending"
-              :key="`col2-${item.id}`"
-              :item="item"
-              @view="handleViewProposal(item)"
-              @edit="handleEditProposal(item)"
-              @click="handleCardClick(item)"
-            />
           </div>
-        </div>
 
-        <!-- Column 3: Provisional Sales & Confirmed -->
-        <div class="pipeline-column">
-          <div class="column-header">
-            <div class="column-title">
-              <i class="fa fa-check-circle" style="font-size: 16px"></i>
-              <span>Provisional Sales</span>
+          <!-- Column 3: Completed -->
+          <div class="pipeline-column">
+            <div class="column-header">
+              <div class="column-title">
+                <i class="fa fa-check-double" style="font-size: 16px"></i>
+                <span>Completed</span>
+              </div>
+              <span class="badge bg-success">
+                {{ counts.completed }}
+              </span>
             </div>
-            <span class="badge bg-info">
-              {{ counts.provision_sales + counts.confirmed }}
-            </span>
-          </div>
-          <div class="column-content">
-            <div v-if="pipeline.provision_sales.length === 0 && pipeline.confirmed.length === 0" class="empty-column">
-              <i class="fa fa-check-circle fa-3x text-muted"></i>
-              <span>No items</span>
+            <div class="column-content">
+              <div v-if="pipeline.completed.length === 0" class="empty-column">
+                <i class="fa fa-check-double fa-3x text-muted"></i>
+                <span>No items</span>
+              </div>
+              <PipelineCard
+                v-for="item in pipeline.completed"
+                :key="`completed-${item.id}`"
+                :item="item"
+                @view="handleViewProposal(item)"
+                @edit="handleEditProposal(item)"
+                @click="handleCardClick(item)"
+              />
             </div>
-            <PipelineCard
-              v-for="item in [...pipeline.provision_sales, ...pipeline.confirmed]"
-              :key="`col3-${item.id}`"
-              :item="item"
-              @view="handleViewProposal(item)"
-              @edit="handleEditProposal(item)"
-              @click="handleCardClick(item)"
-            />
-          </div>
-        </div>
-
-        <!-- Column 4: Completed -->
-        <div class="pipeline-column">
-          <div class="column-header">
-            <div class="column-title">
-              <i class="fa fa-check-double" style="font-size: 16px"></i>
-              <span>Completed</span>
-            </div>
-            <span class="badge bg-success">
-              {{ counts.completed }}
-            </span>
-          </div>
-          <div class="column-content">
-            <div v-if="pipeline.completed.length === 0" class="empty-column">
-              <i class="fa fa-check-double fa-3x text-muted"></i>
-              <span>No completed items</span>
-            </div>
-            <PipelineCard
-              v-for="item in pipeline.completed"
-              :key="`col4-${item.id}`"
-              :item="item"
-              @view="handleViewProposal(item)"
-              @edit="handleEditProposal(item)"
-              @click="handleCardClick(item)"
-            />
           </div>
         </div>
-      </div>
 
       <!-- Full Pipeline View (6 columns) -->
       <div v-else class="pipeline-columns pipeline-columns-full">
@@ -618,7 +570,7 @@ onMounted(() => {
 
 /* Partial Pipeline - 4 columns in a single horizontal row */
 .pipeline-columns-partial {
-  grid-template-columns: repeat(4, minmax(280px, 1fr));
+  grid-template-columns: repeat(3, minmax(280px, 1fr));
   width: 100%;
   overflow-x: auto;
   overflow-y: hidden;
@@ -792,7 +744,7 @@ onMounted(() => {
 /* Responsive Design */
 @media (max-width: 1400px) {
   .pipeline-columns-partial {
-    grid-template-columns: repeat(4, minmax(260px, 1fr));
+    grid-template-columns: repeat(3, minmax(260px, 1fr));
     overflow-x: auto;
   }
   .pipeline-columns-full {
@@ -812,7 +764,7 @@ onMounted(() => {
   }
 
   .pipeline-columns-partial {
-    grid-template-columns: repeat(4, minmax(240px, 1fr));
+    grid-template-columns: repeat(3, minmax(240px, 1fr));
     overflow-x: auto;
   }
   .pipeline-columns-full {

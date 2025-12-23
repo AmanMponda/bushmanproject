@@ -50,6 +50,7 @@ export const useSettingsStore = defineStore('settings-store', {
       loadingSafariFeeDeposits: false,
 
       accounts: [] as any,
+      subAccounts: [] as any,
     }
   },
 
@@ -167,7 +168,83 @@ export const useSettingsStore = defineStore('settings-store', {
           text: `${item.name} (${item.code || 'N/A'})`,
           raw: item,
         }))
+      } else if (Array.isArray(response?.data)) {
+        // fallback if API returns a plain array
+        this.accounts = response.data.map((item: any) => ({
+          value: item.id,
+          text: `${item.name} (${item.code || 'N/A'})`,
+          raw: item,
+        }))
       }
+      return response
+    },
+
+    async getSubAccounts(search: string = '') {
+      const url = import.meta.env.VITE_APP_BASE_URL + 'settings/sub-accounts'
+
+      const config = {
+        method: 'get',
+        maxBodyLength: Infinity,
+        url: url,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        params: search ? { search } : {},
+      }
+
+      const response = await axios.request(config)
+      const data = response?.data?.data || response?.data || []
+      this.subAccounts = data.map((sa: any) => ({ value: sa.id, text: sa.name, groupId: sa.account_group_id, raw: sa }))
+      return response
+    },
+
+    async createAccount(payload: { name: string; code?: string | null; is_default: boolean; payment_type: string; sub_account_id: number }) {
+      const url = import.meta.env.VITE_APP_BASE_URL + 'settings/accounts'
+
+      const config = {
+        method: 'post',
+        maxBodyLength: Infinity,
+        url: url,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        data: payload,
+      }
+
+      const response = await axios.request(config)
+      return response
+    },
+
+    async updateAccount(id: number, updates: Partial<{ name: string; code: string | null; is_default: boolean; payment_type: string; sub_account_id: number }>) {
+      const url = import.meta.env.VITE_APP_BASE_URL + 'settings/accounts/' + id
+
+      const config = {
+        method: 'put',
+        maxBodyLength: Infinity,
+        url: url,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        data: updates,
+      }
+
+      const response = await axios.request(config)
+      return response
+    },
+
+    async deleteAccount(id: number) {
+      const url = import.meta.env.VITE_APP_BASE_URL + 'settings/accounts/' + id
+
+      const config = {
+        method: 'delete',
+        maxBodyLength: Infinity,
+        url: url,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+
+      const response = await axios.request(config)
       return response
     },
     // VITE_APP_SEASONS_URL

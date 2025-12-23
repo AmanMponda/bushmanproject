@@ -18,20 +18,10 @@
           <div class="col-xl-12 col-lg-12 col-sm-12 layout-spacing">
             <div class="panel br-6 p-0">
               <div class="custom-table p-3">
-                <StandardDataTable
-                  :columns="columns"
-                  :data="dataFetched"
-                  :loading="loading"
-                  :filters="tableFilters"
-                  :default-page-size="tableFilters.pageSize"
-                  :disable-pagination="false"
-                  :show-date-filters="false"
-                  :action-buttons="pageActions"
-                  :custom-filters="customFilters"
-                  :selectable="true"
-                  @update:filters="handleFiltersUpdate"
-                  @selectionChange="handleSelectionChange"
-                >
+                <StandardDataTable :columns="columns" :data="dataFetched" :loading="loading" :filters="tableFilters"
+                  :default-page-size="tableFilters.pageSize" :disable-pagination="false" :show-date-filters="false"
+                  :action-buttons="pageActions" :custom-filters="customFilters" :selectable="true"
+                  @update:filters="handleFiltersUpdate" @selectionChange="handleSelectionChange">
                   <template #package_name="{ row }">
                     {{ (row as any).package_name }}
                   </template>
@@ -42,22 +32,20 @@
                     {{ (row as any).hunting_type }}
                   </template>
                   <template #amount="{ row }">
-                    {{ (row as any).amount }}
+                    {{ (row as any).currency_symbol || '$' }}{{ formatAmount((row as any).amount) }}
                   </template>
                   <template #duration="{ row }"> {{ (row as any).duration }} Days </template>
-                  <template #season_name="{ row }">
-                    {{ (row as any).season_name || 'N/A' }}
-                  </template>
-                  <template #species_count="{ row }">
-                    {{ (row as any).species_count || 0 }}
-                  </template>
+                  <template #start date="{ row }">{{ (row as any).start_date }}</template>
+                  <!-- Species column removed temporarily -->
                   <template #status="{ row }">
                     {{ (row as any).status }}
                   </template>
                   <template #actions="{ row }">
                     <div class="d-flex gap-1">
-                      <button class="btn btn-info btn-sm" title="View" @click="toggleShowPriceListMethod(row as any)">
-                        <i class="fa fa-eye"></i>
+                      <button class="btn btn-info btn-sm" title="View" :disabled="loadingDetail"
+                        @click="toggleShowPriceListMethod(row as any)">
+                        <i v-if="!loadingDetail" class="fa fa-eye"></i>
+                        <span v-else class="spinner-border spinner-border-sm"></span>
                       </button>
                       <button class="btn btn-danger btn-sm" title="Delete" @click="confirmDelete(row as any)">
                         <i class="fa fa-trash"></i>
@@ -73,29 +61,20 @@
 
       <!-- Detail View -->
       <template v-else-if="!showEditForm">
-        <PricesListDetails
-          :price-list-item="item"
-          :pdf-data="individualPriceListPdf"
-          @goBack="goBack"
-          @edit="handleEditFromDetails"
-          @delete="handleDeleteFromDetails"
-        ></PricesListDetails>
+        <PricesListDetails :price-list-item="item" :pdf-data="individualPriceListPdf" @goBack="goBack"
+          @edit="handleEditFromDetails" @delete="handleDeleteFromDetails"></PricesListDetails>
       </template>
 
       <!-- Edit Form -->
       <template v-else-if="showEditForm">
-        <CreatePricesListForm
-          :edit-mode="true"
-          :edit-item="editItem"
-          @saved="onEditSaved"
-          @goBack="goBack"
-        ></CreatePricesListForm>
+        <CreatePricesListForm :edit-mode="true" :edit-item="editItem" @saved="onEditSaved" @goBack="goBack">
+        </CreatePricesListForm>
       </template>
     </template>
 
     <!-- Create Form -->
     <template v-if="ShowCreateNewPriceListForm">
-      <CreatePricesListForm @goBack="goBack"></CreatePricesListForm>
+      <CreatePricesListForm @goBack="goBack" @saved="getPriceLists"></CreatePricesListForm>
     </template>
   </div>
 
@@ -124,8 +103,11 @@ const columns = [
   { key: 'hunting_type', label: 'Hunting Type', sortable: true, visible: true },
   { key: 'amount', label: 'Price', sortable: true, visible: true },
   { key: 'duration', label: 'Duration', sortable: true, visible: true },
-  { key: 'season_name', label: 'Season', sortable: true, visible: true },
-  { key: 'species_count', label: 'Species', sortable: true, visible: true },
+  { key: 'start_date', label: 'start date', sortable: true, visible: true },
+  { key: 'end_date', label: 'end date', sortable: true, visible: true },
+
+  // Species column removed temporarily
+  
   { key: 'status', label: 'Status', sortable: true, visible: true },
   { key: 'actions', label: 'Actions', sortable: false, visible: true },
 ]
@@ -142,6 +124,7 @@ const seasonOptions = ref<any[]>([])
 const showPriceList = ref(true)
 const ShowCreateNewPriceListForm = ref(false)
 const loading = ref(false)
+const loadingDetail = ref(false)
 const loadingSeasons = ref(false)
 const huntingTypeValue = ref<any>(null)
 const areaValue = ref<any>(null)
@@ -169,6 +152,13 @@ const tableFilters = ref({
   min_amount: '',
   max_amount: '',
 })
+
+const formatAmount = (amount: string | number | null | undefined) => {
+  if (amount === null || amount === undefined) return '0.00'
+  const num = typeof amount === 'string' ? parseFloat(amount) : amount
+  if (isNaN(num)) return '0.00'
+  return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
 
 // Stores
 const priceListStore = usePriceListStore()
@@ -271,13 +261,45 @@ const toggleShowPriceListMethod = async (rowData: any) => {
   const priceListId = rowData?.id
   if (!priceListId) return
 
+  loadingDetail.value = true
   try {
     const response = await priceListStore.getPriceListById(priceListId)
-    item.value = response.data.data || response.data
-    individualPriceListPdf.value = response.data.pdf || ''
-    showPriceList.value = false
+    console.log('getPriceListById full response:', response)
+    console.log('response.data:', response.data)
+    
+    // Handle different response structures
+    let priceListData = response.data
+    if (priceListData && typeof priceListData === 'object') {
+      // If data is nested in a 'data' property, extract it
+      if ('data' in priceListData && priceListData.data) {
+        item.value = priceListData.data
+        individualPriceListPdf.value = priceListData.pdf || ''
+        console.log('Using nested data structure, item:', item.value)
+      } else {
+        // Otherwise use the response data directly
+        item.value = priceListData
+        individualPriceListPdf.value = priceListData.pdf || ''
+        console.log('Using direct data structure, item:', item.value)
+      }
+      
+      console.log('Final item.value:', item.value)
+      console.log('Item value keys:', Object.keys(item.value || {}))
+      console.log('Has sales_package?', !!item.value?.sales_package)
+      
+      // Only switch view if we have valid data with required structure
+      if (item.value) {
+        showPriceList.value = false
+      } else {
+        toast?.init({ message: 'Invalid price list data received', color: 'warning' })
+      }
+    } else {
+      toast?.init({ message: 'No price list data received', color: 'warning' })
+    }
   } catch (error) {
     console.error('Error fetching price list detail:', error)
+    toast?.init({ message: 'Failed to load price list details', color: 'danger' })
+  } finally {
+    loadingDetail.value = false
   }
 }
 
@@ -320,13 +342,16 @@ const onDownloadPdf = async () => {
     }
   } catch (err) {
     console.error('Error downloading PDF:', err)
-    toast?.init({ message: 'Failed to download PDF', color: 'danger' })
+    // Display the actual error message from the API if available
+    const errorMessage = err instanceof Error ? err.message : 'Failed to download PDF'
+    toast?.init({ message: errorMessage, color: 'danger' })
   } finally {
     downloadingPdf.value = false
   }
 }
 
 const goBack = () => {
+  console.log('ManagePriceList: goBack called')
   showPriceList.value = true
   ShowCreateNewPriceListForm.value = false
   showEditForm.value = false
@@ -368,7 +393,7 @@ const handleDeleteFromDetails = async () => {
   if (!item.value) return
 
   const packageName = item.value.sales_package?.name || item.value.package_name || 'this price list'
-  
+
   const result = await Swal.fire({
     title: 'Are you sure?',
     text: `Do you want to delete "${packageName}"? This action cannot be undone!`,
@@ -496,28 +521,67 @@ const getPriceLists = async () => {
       poriceListPdf.value = raw?.pdf || ''
 
       if (Array.isArray(dataArray)) {
-        items.value = dataArray.map((item: any) => ({
-          id: item.id,
-          package_name: item.package_name,
-          area: item.area,
-          area_package: item.area_package,
-          hunting_type: item.hunting_type,
-          amount: item.amount,
-          duration: item.duration,
-          status: item.status,
-          start_date: item.start_date,
-          end_date: item.end_date,
-          season_id: item.season_id,
-          season_name: item.season_name,
-          species_count: item.species_count,
-          species: item.species || [],
-          companion_hunter_costs: item.companion_hunter_costs || [],
-        }))
-        dataFetched.value = items.value
-      } else {
-        items.value = []
-        dataFetched.value = []
-      }
+          // Helper to extract currency symbol from various payload shapes
+          const extractCurrency = (it: any) => {
+            if (!it) return ''
+            return it.currency_symbol || it.currency?.symbol || it.currency ||
+              (it.items && (it.items[0]?.currency_symbol || it.items[0]?.currency?.symbol || it.items[0]?.currency)) ||
+              it.price_list_type?.currency?.symbol || ''
+          }
+
+          // Helper to extract amount from various payload shapes
+          const extractAmount = (it: any) => {
+            if (it == null) return ''
+            if (typeof it.amount !== 'undefined' && it.amount !== null) return it.amount
+            if (it.items && it.items[0] && (typeof it.items[0].amount !== 'undefined')) return it.items[0].amount
+            if (typeof it.total_amount !== 'undefined') return it.total_amount
+            return ''
+          }
+
+          // Helper to compute species count (either explicit count, sum of total_quantity, or length)
+          const computeSpeciesCount = (it: any) => {
+            if (typeof it.species_count !== 'undefined' && it.species_count !== null) return it.species_count
+            if (Array.isArray(it.species)) {
+              // If species entries include total_quantity, sum them; otherwise return length
+              const hasQty = it.species.some((s: any) => typeof s.total_quantity !== 'undefined')
+              if (hasQty) return it.species.reduce((sum: number, s: any) => sum + (Number(s.total_quantity) || 0), 0)
+              return it.species.length
+            }
+            // fallback to 0
+            return 0
+          }
+
+          items.value = dataArray.map((item: any) => {
+            const currency = extractCurrency(item)
+            const rawAmount = extractAmount(item)
+            const displayAmount = currency ? `${currency}${rawAmount}` : rawAmount
+            const speciesCount = computeSpeciesCount(item)
+
+            console.log('Mapped price list item:', { id: item.id, currency, rawAmount, displayAmount, speciesCount, items0: item.items?.[0] })
+
+            return {
+              id: item.id,
+              package_name: item.package_name || item.items?.[0]?.package_name || item.items?.[0]?.name || '',
+              area: item.area || item.area_name || item.area_package,
+              area_package: item.area_package,
+              hunting_type: item.hunting_type || item.items?.[0]?.hunting_type_name || item.hunting_type_name,
+              amount: displayAmount,
+              duration: item.duration || item.items?.[0]?.hunt_length_days || item.items?.[0]?.hunt_length_label,
+              status: item.status,
+              start_date: item.start_date,
+              end_date: item.end_date,
+              season_id: item.season_id,
+              season_name: item.season_name,
+              species_count: speciesCount,
+              species: item.species || [],
+              companion_hunter_costs: item.companion_hunter_costs || item.companion_hunter_prices || [],
+            }
+          })
+          dataFetched.value = items.value
+        } else {
+          items.value = []
+          dataFetched.value = []
+        }
     }
   } catch (error) {
     console.error('Error in getPriceLists:', error)

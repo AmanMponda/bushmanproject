@@ -158,15 +158,25 @@
         <div class="p-2">
           <form @submit.prevent="onQuotaSubmit">
             <div class="row g-3 mb-4">
-              <div class="col-md-4">
+              <div class="col-md-6">
                 <label class="form-label">Name</label>
                 <input v-model="form.name" type="text" class="form-control" placeholder="Enter quota name" required />
               </div>
-              <div class="col-md-4">
+              <div class="col-md-6">
+                <label class="form-label">Hunting Area</label>
+                <select v-model="sform.area" class="form-select">
+                  <option :value="null">Select an area to assign species</option>
+                  <option v-for="a in areasOptions" :key="a.value" :value="a">{{ a.text }}</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="row g-3 mb-4">
+              <div class="col-md-6">
                 <label class="form-label">Start Date</label>
                 <input v-model="form.start_date" type="date" class="form-control" required />
               </div>
-              <div class="col-md-4">
+              <div class="col-md-6">
                 <label class="form-label">End Date</label>
                 <input v-model="form.end_date" type="date" class="form-control" required />
               </div>
@@ -176,16 +186,6 @@
               <div class="col-md-12">
                 <label class="form-label">Description</label>
                 <textarea v-model="form.description" class="form-control" rows="3" placeholder="Optional description"></textarea>
-              </div>
-            </div>
-            
-            <div class="row g-3 mb-4">
-              <div class="col-md-4">
-                <label class="form-label">Hunting Area</label>
-                <select v-model="sform.area" class="form-select">
-                  <option :value="null">Select an area to assign species</option>
-                  <option v-for="a in areasOptions" :key="a.value" :value="a">{{ a.text }}</option>
-                </select>
               </div>
             </div>
 
@@ -876,7 +876,7 @@ onMounted(() => {
 
 <style scoped>
 .quota-page {
-  padding: 16px;
+  padding: 0;
 }
 
 .breadcrumb {
@@ -963,5 +963,14 @@ onMounted(() => {
   padding: 0.75rem;
   border-bottom: 1px solid #dee2e6;
   vertical-align: middle;
+}
+
+/* Match ManageArea / ManageSpecies spacing */
+.layout-top-spacing {
+  margin-top: 20px;
+}
+
+.layout-spacing {
+  padding: 10px 0;
 }
 </style>
