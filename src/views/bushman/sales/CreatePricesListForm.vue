@@ -20,7 +20,7 @@
         <div class="card-body">
           <form ref="formRef" @submit.prevent="submit">
             <div class="row mb-4">
-              <div class="col-md-3">
+                <div v-if="!props.structureOnly" class="col-md-3">
                 <div class="form-group">
                   <label class="form-label">Package <span class="text-danger">*</span></label>
                   <div class="input-group">
@@ -37,14 +37,14 @@
                 </div>
               </div>
 
-              <div class="col-md-3">
+              <div v-if="!props.structureOnly" class="col-md-3">
                 <div class="form-group">
                   <label class="form-label">Name <span class="text-danger">*</span></label>
                   <input v-model="form.name" type="text" class="form-control" placeholder="Enter Name" required />
                 </div>
               </div>
 
-              <div class="col-md-3">
+              <div v-if="!props.structureOnly" class="col-md-3">
                 <div class="form-group">
                   <label class="form-label">Hunting Type <span class="text-danger">*</span></label>
                   <select v-model="form.hunting_type_id" class="form-select" required>
@@ -56,7 +56,7 @@
                 </div>
               </div>
 
-              <div class="col-md-3">
+              <div v-if="!props.structureOnly" class="col-md-3">
                 <div class="form-group">
                   <label class="form-label">Area <span class="text-danger">*</span></label>
                   <select v-model="form.area_id" class="form-select" required>
@@ -67,8 +67,34 @@
               </div>
             </div>
 
-            <div class="row mb-5">
+            <!-- Structure-only layout: Area, Start Date and End Date on same row -->
+            <div v-if="props.structureOnly" class="row mb-5">
               <div class="col-md-4">
+                <div class="form-group">
+                  <label class="form-label">Area <span class="text-danger">*</span></label>
+                  <select v-model="form.area_id" class="form-select" required>
+                    <option :value="null">Select Area</option>
+                    <option v-for="opt in areasOptions" :key="opt.value" :value="opt.value">{{ opt.text }}</option>
+                  </select>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="form-group">
+                  <label class="form-label">Start Date <span class="text-danger">*</span></label>
+                  <input v-model="form.start_date" type="date" class="form-control" required />
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="form-group">
+                  <label class="form-label">End Date <span class="text-danger">*</span></label>
+                  <input v-model="form.end_date" type="date" class="form-control" :aria-invalid="form.start_date && form.end_date && !hasValidDates" required />
+                  <small v-if="form.start_date && form.end_date && !hasValidDates" class="text-danger mt-1 d-block">Start date must be before or equal to End date.</small>
+                </div>
+              </div>
+            </div>
+
+            <div class="row mb-5">
+              <div v-if="!props.structureOnly" class="col-md-4">
                 <div class="form-group">
                   <label class="form-label">Duration (days) <span class="text-danger">*</span></label>
                   <select v-model="form.duration" class="form-select" required>
@@ -80,14 +106,14 @@
                 </div>
               </div>
 
-              <div class="col-md-4">
+              <div v-if="!props.structureOnly" class="col-md-4">
                 <div class="form-group">
                   <label class="form-label">Start Date <span class="text-danger">*</span></label>
                   <input v-model="form.start_date" type="date" class="form-control" required />
                 </div>
               </div>
 
-              <div class="col-md-4">
+              <div v-if="!props.structureOnly" class="col-md-4">
                 <div class="form-group">
                   <label class="form-label">End Date <span class="text-danger">*</span></label>
                   <input v-model="form.end_date" type="date" class="form-control" :aria-invalid="form.start_date && form.end_date && !hasValidDates" required />
@@ -96,7 +122,7 @@
               </div>
             </div>
 
-            <div class="row mb-5">
+            <div v-if="!props.structureOnly" class="row mb-5">
               <div class="col-md-6">
                 <div class="form-group">
                   <label class="form-label">Amount <span class="text-danger">*</span></label>
@@ -116,7 +142,7 @@
               </div>
             </div>
 
-            <div class="row mb-5">
+            <div v-if="!props.structureOnly" class="row mb-5">
               <div class="col-md-3">
                 <div class="form-group">
                   <label class="form-label">Companion Cost</label>
@@ -154,7 +180,7 @@
             </div>
 
             <!-- Upgrade Fees Section (Optional) -->
-            <div class="card mb-2">
+            <div v-if="!props.structureOnly" class="card mb-2">
               <div class="card-header bg-light py-2 d-flex justify-content-between align-items-center">
                 <h6 class="mb-0"><i class="fa fa-arrow-up text-primary me-2"></i>Upgrade Fees (Optional)</h6>
                 <button type="button" class="btn btn-primary btn-sm" @click="addUpgradeFee">
@@ -182,7 +208,7 @@
         <button type="button" class="btn btn-primary" :disabled="savingPriceList || !canSubmit" @click="submit">
           <i class="fa fa-save me-1"></i>
           <span v-if="savingPriceList" class="spinner-border spinner-border-sm me-1" role="status"></span>
-          {{ editMode ? 'Update Price List' : 'Save Price List' }}
+          {{ props.structureOnly ? (editMode ? 'Update Price Structure' : 'Save Price Structure') : (editMode ? 'Update Price List' : 'Save Price List') }}
         </button>
       </div>
 
@@ -261,13 +287,15 @@ import { useToast } from '@/composables/useToast'
 import { useQuotaStore } from '../../../stores/bushman/quota-store.ts'
 import { useSettingsStore } from '../../../stores/bushman/settings-store.ts'
 import { usePriceListStore } from '../../../stores/bushman/price-list-store.ts'
+import { usePriceStructuresStore } from '@/stores/bushman/price-structures-store'
 import SalesPackageForm from '../../bushman/module-settings/SalesPackageForm.vue'
 import MultiRowTableInput from '@/views/bushman/reusables/MultiRowTableInput.vue'
 
 // Props & Emits
-const props = withDefaults(defineProps<{ editMode?: boolean; editItem?: any }>(), {
+const props = withDefaults(defineProps<{ editMode?: boolean; editItem?: any; structureOnly?: boolean }>(), {
   editMode: false,
   editItem: null,
+  structureOnly: false,
 })
 const emit = defineEmits<{ saved: []; 'go-back': []; goBack: [] }>()
 
@@ -275,6 +303,7 @@ const emit = defineEmits<{ saved: []; 'go-back': []; goBack: [] }>()
 const quotaStore = useQuotaStore()
 const settingsStore = useSettingsStore()
 const priceListStore = usePriceListStore()
+const priceStructuresStore = usePriceStructuresStore()
 const { init } = useToast()
 
 // Refs
@@ -325,6 +354,13 @@ const showModal = computed({
 const packageOptions = computed(() => priceListStore.packageOptions)
 const canSubmit = computed(() => {
   if (props.editMode) return hasFormChanged.value
+
+  // When creating only a Price Structure, require only area and valid dates
+  if (props.structureOnly) {
+    const hasArea = !!form.area_id
+    const hasDates = !!form.start_date && !!form.end_date
+    return hasArea && hasDates && hasValidDates.value
+  }
 
   const hasPackage = !!form.package
   const hasHuntType = !!form.hunting_type_id
@@ -500,7 +536,66 @@ const handlePackageSaved = async () => { await getSalesPackages(); showModal.val
 const submit = async () => {
   if (formRef.value && !formRef.value.checkValidity()) { formRef.value.reportValidity(); return }
   savingPriceList.value = true
-  
+
+  // If creating/editing a Price Structure only, send minimal payload
+  if (props.structureOnly) {
+    try {
+      // Validate dates
+      if (form.start_date && form.end_date) {
+        const sd = new Date(form.start_date)
+        const ed = new Date(form.end_date)
+        if (sd.getTime() > ed.getTime()) {
+          init({ message: 'Start date must be before or equal to End date', color: 'danger' })
+          savingPriceList.value = false
+          return
+        }
+      } else {
+        init({ message: 'Start date and End date are required', color: 'danger' })
+        savingPriceList.value = false
+        return
+      }
+
+      const payload: any = {
+        area_id: form.area_id,
+        start_at: form.start_date,
+        start_date: form.start_date,
+        end_at: form.end_date,
+        end_date: form.end_date,
+        is_active: 1,
+      }
+
+      let response: any
+      if (props.editMode && props.editItem && props.editItem.id) {
+        response = await priceStructuresStore.update(props.editItem.id, payload)
+      } else {
+        response = await priceStructuresStore.create(payload)
+      }
+
+      if (response && (response.status === 201 || response.status === 200)) {
+        init({ message: response.data?.message || 'Price structure saved', color: 'success' })
+        savingPriceList.value = false
+        // Reset minimal fields
+        form.area_id = null
+        form.start_date = null
+        form.end_date = null
+        // Inform parent and go back
+        emit('saved')
+        emit('go-back')
+        emit('goBack')
+      } else {
+        savingPriceList.value = false
+        init({ message: 'Failed to save price structure', color: 'danger' })
+      }
+    } catch (error: any) {
+      savingPriceList.value = false
+      console.error('Structure create error:', error)
+      handleErrors(error.response)
+      init({ message: error.message || 'Failed to save price structure', color: 'danger' })
+    }
+
+    return
+  }
+
   const validUpgradeFees = upgradeFees.value.filter((fee: any) => fee.species_id && fee.fee_amount && fee.currency_id && fee.trigger_condition).map((fee: any) => ({
     species_id: fee.species_id,
     trigger_condition: fee.trigger_condition,
@@ -533,7 +628,9 @@ const submit = async () => {
       // Required fields per PRICE_STRUCTURE_API.md
       area_id: form.area_id,
       start_at: form.start_date,  // API accepts both start_at and start_date
+      start_date: form.start_date,
       end_at: form.end_date,      // API accepts both end_at and end_date
+      end_date: form.end_date,
       is_active: 1,
       // Link to sales packages
       sales_package_ids: salesPackageIds,

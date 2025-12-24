@@ -189,44 +189,139 @@
               </div>
             </div>
 
-            <hr class="my-4" />
-
-            <div class="mb-4">
-              <div class="d-flex justify-content-between align-items-center mb-3">
-                <span class="fw-bold">Species List</span>
-              </div>
-
-              <!-- MultiRowTableInput Component -->
-              <MultiRowTableInput v-model="speciesRows" :fields="speciesFields" add-button-label="Add Species" />
-            </div>
-
-            <!-- CSV Input Component -->
-            <div v-if="!csvUploaded" class="mb-4">
-              <h6 class="fw-bold mb-3 d-flex align-items-center">
-                <div class="d-flex align-items-center gap-2">
-                  <i class="fa fa-file-csv text-success"></i>
-                  <span>Bulk Import from CSV</span>
-                </div>
-                <a href="/assets/uploadsguide/other-uploads.csv" download class="btn btn-sm btn-outline-success ms-auto">
-                  <i class="fa fa-download me-1"></i>
-                  Download Template
-                </a>
-              </h6>
-              <CSVInput
-                :column-fields="csvColumnFields"
-                duplicate-key-field="name"
-                :model-value="existingCsvModel"
-                :allowed-values="allowedSpeciesNames"
-                @import="handleCsvImport"
-              />
-            </div>
-
-            <div class="mb-4">
+            <div v-if="!quotaCreatedForSpecies" class="mb-4">
               <button class="btn btn-success" :disabled="savingQuota || !form.name || !form.start_date || !form.end_date" type="submit">
                 <span v-if="savingQuota" class="spinner-border spinner-border-sm me-1"></span>
                 <i v-else class="fa fa-check me-2"></i>{{ isEditing ? 'Update Quota' : 'Create Quota' }}
               </button>
             </div>
+
+            <!-- Species Section (shown after quota creation) -->
+            <template v-if="quotaCreatedForSpecies">
+              <hr class="my-4" />
+
+              <!-- Import Mode Toggle -->
+              <div v-if="!importInProgress && !showImportResults" class="mb-4">
+                <div class="d-flex align-items-center gap-3 p-3 bg-light rounded">
+                  <span class="fw-semibold text-muted" style="font-size: 0.9rem;">Import Method:</span>
+                  <div class="btn-group" role="group">
+                    <input type="radio" class="btn-check" id="csvMode" value="csv" v-model="importMode" autocomplete="off">
+                    <label class="btn btn-outline-primary" for="csvMode">
+                      <i class="fa fa-file-csv me-1"></i> CSV Import
+                    </label>
+                    <input type="radio" class="btn-check" id="manualMode" value="manual" v-model="importMode" autocomplete="off">
+                    <label class="btn btn-outline-primary" for="manualMode">
+                      <i class="fa fa-keyboard me-1"></i> Manual Entry
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Manual Species Entry -->
+              <div v-if="importMode === 'manual' && !importInProgress && !showImportResults" class="mb-4">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                  <span class="fw-bold">Add Species Manually</span>
+                </div>
+
+                <!-- MultiRowTableInput Component -->
+                <MultiRowTableInput v-model="speciesRows" :fields="speciesFields" add-button-label="Add Species" />
+              </div>
+
+              <hr v-if="importMode === 'manual' && !importInProgress && !showImportResults" class="my-4" />
+
+              <!-- CSV Input Component -->
+              <div v-if="importMode === 'csv'" class="mb-4">
+                <h6 class="fw-bold mb-3 d-flex align-items-center">
+                  <div class="d-flex align-items-center gap-2">
+                    <i class="fa fa-file-csv text-success"></i>
+                    <span>Bulk Import from CSV</span>
+                  </div>
+                  <button type="button" class="btn btn-sm btn-outline-success ms-auto" @click="downloadSpeciesTemplate">
+                    <i class="fa fa-download me-1"></i>
+                    Download Template
+                  </button>
+                </h6>
+                <CSVInput
+                  :column-fields="csvColumnFields"
+                  duplicate-key-field="name"
+                  :model-value="existingCsvModel"
+                  :allowed-values="allowedSpeciesNames"
+                  :clear-after-import="true"
+                  @import="handleCsvImport"
+                />
+
+                <!-- Import Progress -->
+                <div v-if="importInProgress" class="mt-3">
+                  <div class="card border-primary">
+                    <div class="card-body">
+                      <div class="d-flex align-items-center gap-3 mb-2">
+                        <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                        <span class="fw-semibold">Importing species...</span>
+                        <span class="text-muted">{{ importProcessed }} / {{ importTotal }}</span>
+                      </div>
+                      <div class="progress" style="height: 8px;">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar"
+                          :style="{ width: importProgressPercent + '%' }"></div>
+                      </div>
+                      <div v-if="importResults.length > 0" class="mt-2">
+                        <small class="text-success"><i class="fa fa-check me-1"></i>{{ importSuccessCount }} succeeded</small>
+                        <small v-if="importFailCount > 0" class="text-danger ms-3"><i class="fa fa-times me-1"></i>{{ importFailCount }} failed</small>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Import Results -->
+                <div v-if="showImportResults && !importInProgress" class="mt-3">
+                  <div class="card" :class="importFailCount > 0 ? 'border-warning' : 'border-success'">
+                    <div class="card-header d-flex align-items-center justify-content-between py-2" :class="importFailCount > 0 ? 'bg-warning bg-opacity-10' : 'bg-success bg-opacity-10'">
+                      <span class="fw-semibold">
+                        <i class="fa fa-check-circle text-success me-2" v-if="importFailCount === 0"></i>
+                        <i class="fa fa-exclamation-triangle text-warning me-2" v-else></i>
+                        Import Complete
+                      </span>
+                      <button type="button" class="btn btn-sm btn-outline-secondary" @click="closeImportResults">
+                        <i class="fa fa-times"></i>
+                      </button>
+                    </div>
+                    <div class="card-body">
+                      <div class="row text-center">
+                        <div class="col">
+                          <h4 class="text-success mb-0">{{ importSuccessCount }}</h4>
+                          <small class="text-muted">Imported</small>
+                        </div>
+                        <div class="col" v-if="importFailCount > 0">
+                          <h4 class="text-danger mb-0">{{ importFailCount }}</h4>
+                          <small class="text-muted">Failed</small>
+                        </div>
+                      </div>
+                      <div v-if="importFailCount > 0" class="mt-3">
+                        <p class="small text-muted mb-2">Failed items:</p>
+                        <ul class="list-group list-group-flush small">
+                          <li v-for="(r, i) in importResults.filter(x => !x.ok).slice(0, 10)" :key="i" class="list-group-item py-1 px-2">
+                            <i class="fa fa-times text-danger me-1"></i> {{ r.name }}
+                            <span v-if="r.error" class="text-muted">- {{ Array.isArray(r.error) ? r.error.join(', ') : r.error }}</span>
+                          </li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div v-if="importMode === 'manual' && !importInProgress && !showImportResults" class="mb-4">
+                <button class="btn btn-success" :disabled="savingQuotaSpecies || speciesRows.length === 0 || !sform.area" type="button" @click="submitSpeciesAfterQuotaCreation">
+                  <span v-if="savingQuotaSpecies" class="spinner-border spinner-border-sm me-1"></span>
+                  <i v-else class="fa fa-check me-2"></i>Submit Species
+                </button>
+              </div>
+
+              <div class="mt-3">
+                <button class="btn btn-secondary" @click="goBackToList">
+                  <i class="fa fa-times me-1"></i>Close
+                </button>
+              </div>
+            </template>
           </form>
         </div>
       </div>
@@ -250,49 +345,121 @@
                 <label class="form-label">Sales Quota</label>
                 <input type="text" class="form-control" :value="currentViewQuota?.name" disabled />
               </div>
-              <div class="col-md-4">
-                <label class="form-label">Hunting Area</label>
-                <select v-model="sform.area" class="form-select" required>
-                  <option :value="null" disabled>Select an area</option>
-                  <option v-for="a in areasOptions" :key="a.value" :value="a">{{ a.text }}</option>
-                </select>
-              </div>
             </div>
 
             <hr class="my-4" />
 
-            <div class="mb-4">
+            <!-- Import Mode Toggle -->
+            <div v-if="!importInProgress && !showImportResults" class="mb-4">
+              <div class="d-flex align-items-center gap-3 p-3 bg-light rounded">
+                <span class="fw-semibold text-muted" style="font-size: 0.9rem;">Import Method:</span>
+                <div class="btn-group" role="group">
+                  <input type="radio" class="btn-check" id="csvModeSpecies" value="csv" v-model="importMode" autocomplete="off">
+                  <label class="btn btn-outline-primary" for="csvModeSpecies">
+                    <i class="fa fa-file-csv me-1"></i> CSV Import
+                  </label>
+                  <input type="radio" class="btn-check" id="manualModeSpecies" value="manual" v-model="importMode" autocomplete="off">
+                  <label class="btn btn-outline-primary" for="manualModeSpecies">
+                    <i class="fa fa-keyboard me-1"></i> Manual Entry
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <!-- Manual Species Entry -->
+            <div v-if="importMode === 'manual' && !importInProgress && !showImportResults" class="mb-4">
               <div class="d-flex justify-content-between align-items-center mb-3">
-                <span class="fw-bold">Species List</span>
+                <span class="fw-bold">Add Species Manually</span>
               </div>
 
               <!-- MultiRowTableInput Component -->
               <MultiRowTableInput v-model="speciesRows" :fields="speciesFields" add-button-label="Add Species" />
             </div>
 
+            <hr v-if="importMode === 'manual' && !importInProgress && !showImportResults" class="my-4" />
+
             <!-- CSV Input Component -->
-            <div v-if="!csvUploaded" class="mb-4">
+            <div v-if="importMode === 'csv'" class="mb-4">
               <h6 class="fw-bold mb-3 d-flex align-items-center">
                 <div class="d-flex align-items-center gap-2">
                   <i class="fa fa-file-csv text-success"></i>
                   <span>Bulk Import from CSV</span>
                 </div>
-                <a href="/assets/uploadsguide/other-uploads.csv" download class="btn btn-sm btn-outline-success ms-auto">
+                <button type="button" class="btn btn-sm btn-outline-success ms-auto" @click="downloadSpeciesTemplate">
                   <i class="fa fa-download me-1"></i>
                   Download Template
-                </a>
+                </button>
               </h6>
               <CSVInput
                 :column-fields="csvColumnFields"
                 duplicate-key-field="name"
                 :model-value="existingCsvModel"
                 :allowed-values="allowedSpeciesNames"
+                :clear-after-import="true"
                 @import="handleCsvImport"
               />
+
+              <!-- Import Progress -->
+              <div v-if="importInProgress" class="mt-3">
+                <div class="card border-primary">
+                  <div class="card-body">
+                    <div class="d-flex align-items-center gap-3 mb-2">
+                      <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                      <span class="fw-semibold">Importing species...</span>
+                      <span class="text-muted">{{ importProcessed }} / {{ importTotal }}</span>
+                    </div>
+                    <div class="progress" style="height: 8px;">
+                      <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar"
+                        :style="{ width: importProgressPercent + '%' }"></div>
+                    </div>
+                    <div v-if="importResults.length > 0" class="mt-2">
+                      <small class="text-success"><i class="fa fa-check me-1"></i>{{ importSuccessCount }} succeeded</small>
+                      <small v-if="importFailCount > 0" class="text-danger ms-3"><i class="fa fa-times me-1"></i>{{ importFailCount }} failed</small>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Import Results -->
+              <div v-if="showImportResults && !importInProgress" class="mt-3">
+                <div class="card" :class="importFailCount > 0 ? 'border-warning' : 'border-success'">
+                  <div class="card-header d-flex align-items-center justify-content-between py-2" :class="importFailCount > 0 ? 'bg-warning bg-opacity-10' : 'bg-success bg-opacity-10'">
+                    <span class="fw-semibold">
+                      <i class="fa fa-check-circle text-success me-2" v-if="importFailCount === 0"></i>
+                      <i class="fa fa-exclamation-triangle text-warning me-2" v-else></i>
+                      Import Complete
+                    </span>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" @click="closeImportResults">
+                      <i class="fa fa-times"></i>
+                    </button>
+                  </div>
+                  <div class="card-body">
+                    <div class="row text-center">
+                      <div class="col">
+                        <h4 class="text-success mb-0">{{ importSuccessCount }}</h4>
+                        <small class="text-muted">Imported</small>
+                      </div>
+                      <div class="col" v-if="importFailCount > 0">
+                        <h4 class="text-danger mb-0">{{ importFailCount }}</h4>
+                        <small class="text-muted">Failed</small>
+                      </div>
+                    </div>
+                    <div v-if="importFailCount > 0" class="mt-3">
+                      <p class="small text-muted mb-2">Failed items:</p>
+                      <ul class="list-group list-group-flush small">
+                        <li v-for="(r, i) in importResults.filter(x => !x.ok).slice(0, 10)" :key="i" class="list-group-item py-1 px-2">
+                          <i class="fa fa-times text-danger me-1"></i> {{ r.name }}
+                          <span v-if="r.error" class="text-muted">- {{ Array.isArray(r.error) ? r.error.join(', ') : r.error }}</span>
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <div class="mb-4">
-              <button class="btn btn-success" :disabled="savingQuotaSpecies || speciesRows.length === 0 || !sform.area" type="submit">
+            <div v-if="importMode === 'manual' && !importInProgress && !showImportResults" class="mb-4">
+              <button class="btn btn-success" :disabled="savingQuotaSpecies || speciesRows.length === 0" type="submit">
                 <span v-if="savingQuotaSpecies" class="spinner-border spinner-border-sm me-1"></span>
                 <i v-else class="fa fa-check me-2"></i>Submit Species
               </button>
@@ -315,6 +482,8 @@ import StandardDataTable from '@/components/bootstrap/StandardDataTable.vue'
 import MultiRowTableInput from '../reusables/MultiRowTableInput.vue'
 import CSVInput from '../reusables/CSVInput.vue'
 import Swal from 'sweetalert2'
+import { useSpeciesStore } from '@/stores/bushman/species-store'
+
 
 interface SelectOption {
   value: any
@@ -347,6 +516,7 @@ interface SpeciesFormData {
 
 const quotaStore = useQuotaStore()
 const toast = useToast()
+const speciesStore = useSpeciesStore()
 
 // View state
 const showQuotaList = ref(true)
@@ -372,6 +542,28 @@ const areasOptions = ref<SelectOption[]>([])
 const speciesObjects = ref<SpeciesObject[]>([])
 const currentViewQuota = ref<any>(null)
 const csvUploaded = ref(false)
+const importMode = ref<'csv' | 'manual'>('csv')
+const quotaCreatedForSpecies = ref(false)
+
+// CSV import progress state (same UX as ManageSpecies)
+const importInProgress = ref(false)
+const importTotal = ref(0)
+const importProcessed = ref(0)
+const importResults = ref<any[]>([])
+const showImportResults = ref(false)
+
+const importProgressPercent = computed(() => {
+  return importTotal.value > 0 ? Math.round((importProcessed.value / importTotal.value) * 100) : 0
+})
+const importSuccessCount = computed(() => importResults.value.filter((r: any) => r.ok).length)
+const importFailCount = computed(() => importResults.value.filter((r: any) => !r.ok).length)
+
+function closeImportResults() {
+  showImportResults.value = false
+  importResults.value = []
+  importTotal.value = 0
+  importProcessed.value = 0
+}
 
 // Species rows for MultiRowTableInput
 const speciesRows = ref<any[]>([{ _id: 1, species: '', quantity: 1 }])
@@ -413,27 +605,140 @@ const existingCsvModel = computed(() => {
     .map((r: any) => ({ name: idToName.get(String(r.species)) || '', quantity: r.quantity }))
 })
 
-function handleCsvImport(rows: Array<{ name: string; quantity: any }>) {
+async function handleCsvImport(rows: Array<{ name: string; quantity: any }>) {
+  if (!rows || rows.length === 0) {
+    toast.init({ message: 'No rows in CSV', color: 'info' })
+    return
+  }
+
+  // Validate required context - only require area when creating new quota
+  if (!showSpeciesForm.value && (!sform.area || !sform.area.value)) {
+    toast.init({ message: 'Please select a hunting area before importing CSV', color: 'warning' })
+    return
+  }
+
+  // For Add Species form, require quota selection
+  if (showSpeciesForm.value && !currentViewQuota.value) {
+    toast.init({ message: 'No quota selected', color: 'warning' })
+    return
+  }
+
+  // Initialize import progress state
+  importInProgress.value = true
+  importTotal.value = rows.length
+  importProcessed.value = 0
+  importResults.value = []
+  showImportResults.value = false
+
   const nameToOption = new Map(
     speciesOptions.value.map((opt: any) => [String(opt.text).toLowerCase(), opt])
   )
 
-  const newSpeciesRows: any[] = []
-  let newId = 0
-
   let added = 0
+  let created = 0
+  let failed = 0
+
+  // Process rows sequentially: create missing species, then create quota assignments
   for (const row of rows) {
-    const key = String(row.name || '').toLowerCase()
-    const opt = nameToOption.get(key)
-    if (!opt) continue
-    newId++
-    newSpeciesRows.push({ _id: newId, species: opt.value, quantity: Number(row.quantity) || 1 })
-    added++
+    const name = String(row.name || '').trim()
+    if (!name) {
+      importProcessed.value += 1
+      importResults.value.push({ name: '', ok: false, error: 'Empty name' })
+      failed++
+      continue
+    }
+
+    const qty = Number(row.quantity) || 1
+    const key = name.toLowerCase()
+    let speciesId = null
+    let existing = nameToOption.get(key)
+
+    if (existing) {
+      speciesId = existing.value
+    } else {
+      // Create species via species store (same behavior as ManageSpecies)
+      try {
+        const r = await speciesStore.createSpecies({ name, swahili_name: '', scientific_name: '', type: 'NORMAL' })
+        if (r && (r.status === 201 || r.status === 200)) {
+          speciesId = r.data?.id || (r.data?.data && r.data.data.id)
+          const createdName = r.data?.name || name
+          // Add to local speciesOptions so subsequent rows can find it
+          speciesOptions.value.unshift({ value: speciesId, text: createdName })
+          nameToOption.set(String(createdName).toLowerCase(), { value: speciesId, text: createdName })
+          created++
+        } else {
+          failed++
+          importResults.value.push({ name, ok: false, error: 'Failed to create species' })
+          importProcessed.value += 1
+          continue
+        }
+      } catch (err: any) {
+        failed++
+        const errorMsg = handleErrors(err.response || err)
+        importResults.value.push({ name, ok: false, error: Array.isArray(errorMsg) ? errorMsg.join(', ') : String(errorMsg) })
+        importProcessed.value += 1
+        continue
+      }
+    }
+
+    // Now create the quota-area-species assignment
+    if (speciesId) {
+      try {
+        const quotaId = showSpeciesForm.value ? currentViewQuota.value.id : (form.id || null)
+        
+        // If we're in the main quota form (creating new quota), we can't assign species yet
+        // So we'll skip direct assignment and just track success
+        if (showQuotaForm.value && !form.id) {
+          added++
+          importResults.value.push({ name, ok: true })
+        } else if (quotaId) {
+          // We have an existing quota - create assignment
+          const payload: any = {
+            quota_id: quotaId,
+            speciesObjects: [{ species_id: speciesId, quantity: qty }]
+          }
+          
+          // Only include area_id if it's provided (not required when adding to existing quota)
+          if (sform.area?.value) {
+            payload.area_id = sform.area.value
+          }
+          
+          const assignResp = await quotaStore.createQuotaAreaSpecies(payload)
+          if (assignResp && (assignResp.status === 201 || assignResp.status === 200 || assignResp.data?.success)) {
+            added++
+            importResults.value.push({ name, ok: true })
+          } else {
+            failed++
+            importResults.value.push({ name, ok: false, error: 'Failed to assign species to quota' })
+          }
+        } else {
+          // No quota context - just track as added for later use
+          added++
+          importResults.value.push({ name, ok: true })
+        }
+      } catch (err: any) {
+        failed++
+        const errorMsg = handleErrors(err.response || err)
+        importResults.value.push({ name, ok: false, error: Array.isArray(errorMsg) ? errorMsg.join(', ') : String(errorMsg) })
+      }
+    }
+
+    importProcessed.value += 1
   }
-  if (added > 0) {
-    speciesRows.value = newSpeciesRows
-    csvUploaded.value = true
-    toast.init({ message: `Imported ${added} species from CSV`, color: 'success' })
+
+  // Summarize results and show UI
+  importInProgress.value = false
+  showImportResults.value = true
+
+  if (failed > 0) {
+    toast.init({ message: `Import completed: ${added} assigned, ${created} species created, ${failed} failed`, color: 'warning' })
+  } else {
+    toast.init({ message: `Import completed: ${added} assigned, ${created} species created`, color: 'success' })
+  }
+
+  // Reload quota details if in details view
+  if (showSpeciesForm.value && currentViewQuota.value) {
+    await loadQuotaSpecies(currentViewQuota.value.id)
   }
 }
 
@@ -488,6 +793,7 @@ function goBackToDetails() {
   speciesRows.value = [{ _id: 1, species: '', quantity: 1 }]
   csvUploaded.value = false
   sform.area = null
+  importMode.value = 'csv'
   // Reload species for this quota
   if (currentViewQuota.value) {
     loadQuotaSpecies(currentViewQuota.value.id)
@@ -500,6 +806,7 @@ function showAddSpeciesForm() {
   speciesRows.value = [{ _id: 1, species: '', quantity: 1 }]
   csvUploaded.value = false
   sform.area = null
+  importMode.value = 'csv'
 }
 
 function showAddQuotaForm() {
@@ -644,6 +951,8 @@ function resetQuotaForm() {
   speciesRows.value = [{ _id: 1, species: '', quantity: 1 }]
   csvUploaded.value = false
   sform.area = null
+  importMode.value = 'csv'
+  quotaCreatedForSpecies.value = false
 }
 
 async function onQuotaSubmit() {
@@ -664,47 +973,16 @@ async function onQuotaSubmit() {
     } else {
       const resp = await quotaStore.createQuota({ name: form.name, start_date: form.start_date, end_date: form.end_date, description: form.description })
       if (resp && (resp.status === 201 || resp.success)) {
-        toast.init({ message: resp.data?.message || resp.message || 'Quota created', color: 'success' })
-
         // Get created quota id from response
         const createdId = resp.data?.data?.id || resp.data?.id || resp.data?.data?.quota_id || resp.data?.data?.quota?.id || resp.data?.id
-
-        // If user added species rows during creation, submit them to the area-species endpoint
-        const validSpecies = speciesRows.value.filter((row: any) => row.species && row.quantity > 0)
-        if (validSpecies.length > 0) {
-          if (!sform.area || !sform.area.value) {
-            toast.init({ message: 'Quota created but no hunting area selected — species not assigned', color: 'warning' })
-            goBackToList()
-            return
-          }
-
-          const speciesObjectList = validSpecies.map((row: any) => ({
-            species_id: row.species,
-            quantity: Number(row.quantity),
-          }))
-
-          const rdata = {
-            area_id: sform.area?.value,
-            quota_id: createdId,
-            speciesObjects: speciesObjectList,
-          }
-
-          try {
-            const assignResp = await quotaStore.createQuotaAreaSpecies(rdata)
-            if (assignResp && (assignResp.status === 201 || assignResp.data?.success)) {
-              toast.init({ message: 'Species assigned to quota successfully', color: 'success' })
-            } else {
-              toast.init({ message: 'Quota created but failed to assign species', color: 'warning' })
-            }
-          } catch (err: any) {
-            const errors = handleErrors(err)
-            toast.init({ message: errors.length > 0 ? errors.join('\n') : 'Failed to assign species', color: 'danger' })
-          }
+        
+        if (createdId) {
+          form.id = createdId
+          currentViewQuota.value = { id: createdId, name: form.name, start_date: form.start_date, end_date: form.end_date }
+          quotaCreatedForSpecies.value = true
+          toast.init({ message: resp.data?.message || resp.message || 'Quota created. Now add species.', color: 'success' })
         }
-
-        goBackToList()
-      } else {
-        toast.init({ message: resp.message || 'Failed to create quota', color: 'danger' })
+        return
       }
     }
   } catch (err: any) {
@@ -712,6 +990,49 @@ async function onQuotaSubmit() {
     toast.init({ message: errors.length > 0 ? errors.join('\n') : 'Failed to save quota', color: 'danger' })
   } finally {
     savingQuota.value = false
+  }
+}
+
+async function submitSpeciesAfterQuotaCreation() {
+  savingQuotaSpecies.value = true
+  try {
+    if (!sform.area || !sform.area.value) {
+      toast.init({ message: 'Please select a hunting area', color: 'warning' })
+      savingQuotaSpecies.value = false
+      return
+    }
+
+    // Filter out empty rows
+    const validSpecies = speciesRows.value.filter(row => row.species && row.quantity > 0)
+
+    if (validSpecies.length === 0) {
+      toast.init({ message: 'Please add at least one species item.', color: 'warning' })
+      savingQuotaSpecies.value = false
+      return
+    }
+
+    // Transform to API format
+    const speciesObjectList = validSpecies.map(row => ({
+      species_id: row.species,
+      quantity: Number(row.quantity),
+    }))
+
+    const rdata = {
+      area_id: sform.area?.value,
+      quota_id: form.id,
+      speciesObjects: speciesObjectList,
+    }
+
+    const response = await quotaStore.createQuotaAreaSpecies(rdata)
+    if (response.status === 201 || response.data?.success) {
+      toast.init({ message: response.data?.message || 'Species added to quota', color: 'success' })
+      goBackToList()
+    }
+  } catch (error: any) {
+    const errors = handleErrors(error.response || error)
+    toast.init({ message: errors.length > 0 ? errors.join('\n') : 'Failed to add species', color: 'danger' })
+  } finally {
+    savingQuotaSpecies.value = false
   }
 }
 
@@ -727,8 +1048,8 @@ async function onSpeciesSubmit() {
     return
   }
 
-  if (!sform.area || !currentViewQuota.value) {
-    toast.init({ message: 'Please select a hunting area.', color: 'warning' })
+  if (!currentViewQuota.value) {
+    toast.init({ message: 'No quota selected.', color: 'warning' })
     savingQuotaSpecies.value = false
     return
   }
@@ -740,10 +1061,14 @@ async function onSpeciesSubmit() {
     quantity: Number(row.quantity),
   }))
 
-  const rdata = {
-    area_id: sform.area?.value,
+  const rdata: any = {
     quota_id: currentViewQuota.value.id,
     speciesObjects: speciesObjectList,
+  }
+
+  // Only include area_id if it's provided
+  if (sform.area?.value) {
+    rdata.area_id = sform.area.value
   }
 
   try {
@@ -792,6 +1117,43 @@ function exportQuotaCsv() {
   a.click()
   a.remove()
   URL.revokeObjectURL(url)
+}
+
+function downloadSpeciesTemplate() {
+  if (!speciesOptions.value || speciesOptions.value.length === 0) {
+    toast.init({ message: 'No species available. Please wait for species to load.', color: 'warning' })
+    return
+  }
+
+  const escapeCsv = (value: any) => {
+    if (value === null || value === undefined) return ''
+    const str = String(value)
+    return '"' + str.replace(/"/g, '""') + '"'
+  }
+
+  const rows = speciesOptions.value.map((opt: any) => {
+    const id = opt.value || opt.id || ''
+    const name = opt.text || opt.name || ''
+    const quantity = '' // Empty quantity column for template
+    return `${escapeCsv(id)},${escapeCsv(name)},${escapeCsv(quantity)}`
+  })
+
+  const header = 'Species ID,Species Name,Quantity'
+  const csvContent = [header].concat(rows).join('\n')
+
+  const filename = 'species_template.csv'
+
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.setAttribute('download', filename)
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
+  
+  toast.init({ message: 'Species template downloaded successfully', color: 'success' })
 }
 
 function generateQuotaYear(startDate: string, endDate: string): string {

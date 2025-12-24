@@ -163,7 +163,7 @@
                             <div class="d-flex justify-content-between align-items-center mb-2">
                               <span>Days</span>
                               <span class="fw-bold h5 mb-0">
-                                {{ companion.hunt_length_days || companion.days || 'N/A' }}
+                                {{ getHuntLengthText(companion) }}
                               </span>
                             </div>
                             <div class="d-flex justify-content-between align-items-center">
@@ -199,7 +199,7 @@
                             <div class="d-flex justify-content-between align-items-center mb-2">
                               <span>Days</span>
                               <span class="fw-bold h5 mb-0">
-                                {{ observer.hunt_length_days || observer.days || 'N/A' }}
+                                {{ getHuntLengthText(observer) }}
                               </span>
                             </div>
                             <div class="d-flex justify-content-between align-items-center">
@@ -646,6 +646,14 @@ const getSequenceLabel = (sequence: number) => {
   const value = sequence % 100
   const suffix = suffixes[(value - 20) % 10] || suffixes[value] || suffixes[0]
   return `${sequence}${suffix}`
+}
+
+// Helper: show label if available (no duplicate "days"), otherwise show days with unit
+const getHuntLengthText = (obj: any) => {
+  const label = obj?.hunt_length_label || obj?.hunt_length?.label || ''
+  if (label) return label
+  const days = obj?.hunt_length_days || obj?.days || obj?.hunt_length?.days || null
+  return days ? `${days} days` : 'N/A'
 }
 
 const downloadPriceListPdf = async () => {

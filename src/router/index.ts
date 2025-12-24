@@ -17,6 +17,10 @@ const SalesQuotas = () => import ('@/views/bushman/details/QoutaPage.vue')
 const Salespipeline = () => import('@/views/bushman/sales/SalesPipeline.vue');
 const SalesCalendar = () => import ('@/views/bushman/details/Calendar.vue')
 const ManagePriceList = () => import('@/views/bushman/sales/ManagePriceList.vue');
+const PriceStructureAddItem = () => import('@/views/bushman/sales/price-structures/PriceStructureAddItem.vue');
+const PriceStructureAddPrice = () => import('@/views/bushman/sales/price-structures/PriceStructureAddPrice.vue');
+const PriceStructureAddUpgradeFee = () => import('@/views/bushman/sales/price-structures/PriceStructureAddUpgradeFee.vue');
+const PriceStructureAddTrophyFee = () => import('@/views/bushman/sales/price-structures/PriceStructureAddTrophyFee.vue');
 const ManageQuotasSettings = () => import('@/views/bushman/module-settings/ManageQuota.vue');
 const ManageRegulatoryPackage = () => import('@/views/bushman/module-settings/ManageRegulatoryPackage.vue');
 const ManageSalesPackage = () => import('@/views/bushman/module-settings/ManageSalesPackage.vue');
@@ -122,6 +126,38 @@ const router = createRouter({
       path: "/sales/price-list",
       name: "sales-price-list",
       component: ManagePriceList,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/sales/price-structures/:id/items/create",
+      name: "price-structure-item-create",
+      component: PriceStructureAddItem,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/sales/price-structures/:id/observer/create",
+      name: "price-structure-observer-create",
+      component: PriceStructureAddPrice,
+      props: (route) => ({ id: Number(route.params.id), mode: 'observer' }),
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/sales/price-structures/:id/companion/create",
+      name: "price-structure-companion-create",
+      component: PriceStructureAddPrice,
+      props: (route) => ({ id: Number(route.params.id), mode: 'companion' }),
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/sales/price-structures/:id/upgrade-fees/create",
+      name: "price-structure-upgrade-fee-create",
+      component: PriceStructureAddUpgradeFee,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/sales/price-structures/:id/trophy-fees/create",
+      name: "price-structure-trophy-fee-create",
+      component: PriceStructureAddTrophyFee,
       meta: { requiresAuth: true }
     },
 

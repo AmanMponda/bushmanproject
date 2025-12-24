@@ -65,32 +65,56 @@
             <div class="text-muted">Manage species for this hunting area</div>
           </div>
           <div class="d-flex gap-2">
-            <button class="btn btn-secondary" @click="goBackToList">Back</button>
+            <button class="btn btn-secondary" @click="goBackToList">
+              <i class="fa fa-arrow-left me-2"></i>Go Back
+            </button>
           </div>
         </div>
 
         <div class="card mb-4">
           <div class="card-body">
             <h6 class="fw-bold mb-3">Add Species to Area</h6>
-            <form class="row g-3" @submit.prevent="addSpeciesToArea">
-              <div class="col-md-6">
-                <label class="form-label">Species</label>
-                <select v-model="speciesForm.specie" class="form-select" required>
-                  <option :value="null" disabled>Select species</option>
-                  <option v-for="s in speciesOptions" :key="s.value" :value="s.value">{{ s.text }}</option>
-                </select>
-              </div>
-              <div class="col-md-12">
-                <button type="submit" class="btn btn-primary" :disabled="savingSpecies || !speciesForm.specie">
-                  <span v-if="savingSpecies" class="spinner-border spinner-border-sm me-1"></span>
-                  Add Species
-                </button>
-              </div>
-            </form>
 
-            <hr class="my-4" />
-
+            <!-- Import Mode Toggle -->
             <div class="mb-3">
+              <div class="d-flex align-items-center gap-3 p-2 bg-light rounded">
+                <span class="fw-semibold text-muted">Import Method:</span>
+                <div class="btn-group" role="group">
+                  <input type="radio" class="btn-check" id="areaCsvMode" value="csv" v-model="importMode" autocomplete="off">
+                  <label class="btn btn-outline-primary" for="areaCsvMode">
+                    <i class="fa fa-file-csv me-1"></i> CSV Import
+                  </label>
+                  <input type="radio" class="btn-check" id="areaManualMode" value="manual" v-model="importMode" autocomplete="off">
+                  <label class="btn btn-outline-primary" for="areaManualMode">
+                    <i class="fa fa-keyboard me-1"></i> Manual Entry
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <!-- Manual Single-Add Form -->
+            <div v-if="importMode === 'manual'" class="mb-3">
+              <form class="row g-3" @submit.prevent="addSpeciesToArea">
+                <div class="col-md-6">
+                  <label class="form-label">Species</label>
+                  <select v-model="speciesForm.specie" class="form-select" required>
+                    <option :value="null" disabled>Select species</option>
+                    <option v-for="s in speciesOptions" :key="s.value" :value="s.value">{{ s.text }}</option>
+                  </select>
+                </div>
+                <div class="col-md-12">
+                  <button type="submit" class="btn btn-primary" :disabled="savingSpecies || !speciesForm.specie">
+                    <span v-if="savingSpecies" class="spinner-border spinner-border-sm me-1"></span>
+                    Add Species
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            <hr v-if="importMode === 'manual'" class="my-4" />
+
+            <!-- CSV Input -->
+            <div v-if="importMode === 'csv'" class="mb-3">
               <div class="d-flex align-items-center mb-2">
                 <h6 class="fw-bold mb-0">Bulk Import from CSV</h6>
                 <a href="/assets/uploadsguide/species-upload.csv" download class="btn btn-sm btn-outline-success ms-auto">
@@ -289,6 +313,7 @@ export default defineComponent({
       selectedArea: null as any,
       csvUploaded: false,
       csvImporting: false,
+      importMode: 'csv',
       showCreatenewForm: false,
       quotasOptions,
       showHuntingAreaList: true,

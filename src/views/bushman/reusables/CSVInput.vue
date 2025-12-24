@@ -154,12 +154,14 @@ const props = withDefaults(
     modelValue?: CsvRow[]
     examplePath?: string
     allowedValues?: string[] // List of allowed values for duplicateKeyField (e.g. species names from licence)
+    clearAfterImport?: boolean // When true, clear uploaded file after import (useful for flows that proceed immediately)
   }>(),
   {
     duplicateKeyField: 'name',
     modelValue: () => [],
     examplePath: '',
-    allowedValues: () => [] // Empty means no validation, all values allowed
+    allowedValues: () => [], // Empty means no validation, all values allowed
+    clearAfterImport: false,
   }
 )
 
@@ -271,6 +273,7 @@ async function parseCsvText(text: string) {
   if (!trimmed) return { headerFields: [], rows: [] }
 
   try {
+    // @ts-ignore - papaparse has no type declarations in this project
     const PapaModule = await import('papaparse')
     const Papa = PapaModule && (PapaModule.default || PapaModule)
     const parsed = Papa.parse(trimmed, { header: true, skipEmptyLines: true })
@@ -343,7 +346,12 @@ function importCsvData() {
 
   emit('import', toImport)
   emit('update:modelValue', [...props.modelValue, ...toImport])
-  closeCsvPreview()
+  // Optionally clear uploaded file immediately after import (useful for flows that proceed directly to processing)
+  if (props.clearAfterImport) {
+    clearCsvFile()
+  } else {
+    closeCsvPreview()
+  }
 }
 
 function closeCsvPreview() {

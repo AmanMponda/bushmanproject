@@ -11,9 +11,9 @@
     </div>
 
     <!-- Main Content -->
-    <template v-if="!ShowCreateNewPriceListForm">
+    <div v-if="!ShowCreateNewPriceListForm">
       <!-- Price List View -->
-      <template v-if="showPriceList">
+      <div v-if="showPriceList">
         <div class="row layout-top-spacing bg-white rounded">
           <div class="col-xl-12 col-lg-12 col-sm-12 layout-spacing">
             <div class="panel br-6 p-0">
@@ -22,24 +22,15 @@
                   :default-page-size="tableFilters.pageSize" :disable-pagination="false" :show-date-filters="false"
                   :action-buttons="pageActions" :custom-filters="customFilters" :selectable="true"
                   @update:filters="handleFiltersUpdate" @selectionChange="handleSelectionChange">
-                  <template #package_name="{ row }">
-                    {{ (row as any).package_name }}
+                  <template #start_date="{ row }">{{ formatDateShort((row as any).start_date) }}</template>
+                  <template #end_date="{ row }">{{ formatDateShort((row as any).end_date) }}</template>
+                  <template #area="{ row }">{{ (row as any).area }}</template>
+                  <template #is_active="{ row }">
+                    <span :class="(row as any).is_active ? 'badge bg-success' : 'badge bg-secondary'">{{ (row as any).is_active ? 'Active' : 'Inactive' }}</span>
                   </template>
-                  <template #area="{ row }">
-                    {{ (row as any).area }}
-                  </template>
-                  <template #hunting_type="{ row }">
-                    {{ (row as any).hunting_type }}
-                  </template>
-                  <template #amount="{ row }">
-                    {{ (row as any).currency_symbol || '$' }}{{ formatAmount((row as any).amount) }}
-                  </template>
-                  <template #duration="{ row }"> {{ (row as any).duration }} Days </template>
-                  <template #start date="{ row }">{{ (row as any).start_date }}</template>
-                  <!-- Species column removed temporarily -->
-                  <template #status="{ row }">
-                    {{ (row as any).status }}
-                  </template>
+                  <template #items_count="{ row }">{{ (row as any).items_count }}</template>
+                  <template #companion="{ row }">{{ (row as any).companion }}</template>
+                  <template #observer="{ row }">{{ (row as any).observer }}</template>
                   <template #actions="{ row }">
                     <div class="d-flex gap-1">
                       <button class="btn btn-info btn-sm" title="View" :disabled="loadingDetail"
@@ -57,24 +48,23 @@
             </div>
           </div>
         </div>
-      </template>
+      </div>
 
       <!-- Detail View -->
-      <template v-else-if="!showEditForm">
-        <PricesListDetails :price-list-item="item" :pdf-data="individualPriceListPdf" @goBack="goBack"
-          @edit="handleEditFromDetails" @delete="handleDeleteFromDetails"></PricesListDetails>
-      </template>
+      <div v-else-if="showStructureDetails">
+        <PriceStructureDetails :id="selectedStructureId" :initial-view="initialView" @go-back="goBackToStructures" />
+      </div>
 
       <!-- Edit Form -->
-      <template v-else-if="showEditForm">
+      <div v-else-if="showEditForm">
         <CreatePricesListForm :edit-mode="true" :edit-item="editItem" @saved="onEditSaved" @goBack="goBack">
         </CreatePricesListForm>
-      </template>
-    </template>
+      </div>
+    </div>
 
     <!-- Create Form -->
     <template v-if="ShowCreateNewPriceListForm">
-      <CreatePricesListForm @goBack="goBack" @saved="getPriceLists"></CreatePricesListForm>
+      <CreatePricesListForm :structure-only="createStructureMode" @goBack="goBack" @saved="onCreateSaved"></CreatePricesListForm>
     </template>
   </div>
 
@@ -84,11 +74,15 @@
 
 <script setup lang="ts">
 // @ts-nocheck - StandardDataTable component doesn't provide TypeScript types for row parameter
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { useToast } from '../../../composables/useToast.ts'
 import PricesListDetails from './PriceListDetails.vue'
 import { usePriceListStore } from '../../../stores/bushman/price-list-store.ts'
 import CreatePricesListForm from './CreatePricesListForm.vue'
+// New: Price Structures
+import { usePriceStructuresStore } from '@/stores/bushman/price-structures-store'
+import PriceStructureDetails from './price-structures/PriceStructureDetails.vue'
 import { useQuotaStore } from '../../../stores/bushman/quota-store.ts'
 import { useSettingsStore } from '../../../stores/bushman/settings-store.ts'
 import downloadPdf from '../../../stores/bushman/pdfDownloader.ts'
@@ -98,17 +92,11 @@ import Swal from 'sweetalert2'
 
 // Constants
 const columns = [
-  { key: 'package_name', label: 'Package Name', sortable: true, visible: true },
+  { key: 'start_date', label: 'Start Date', sortable: true, visible: true },
+  { key: 'end_date', label: 'End Date', sortable: true, visible: true },
   { key: 'area', label: 'Area', sortable: true, visible: true },
-  { key: 'hunting_type', label: 'Hunting Type', sortable: true, visible: true },
-  { key: 'amount', label: 'Price', sortable: true, visible: true },
-  { key: 'duration', label: 'Duration', sortable: true, visible: true },
-  { key: 'start_date', label: 'start date', sortable: true, visible: true },
-  { key: 'end_date', label: 'end date', sortable: true, visible: true },
-
-  // Species column removed temporarily
-  
-  { key: 'status', label: 'Status', sortable: true, visible: true },
+  { key: 'is_active', label: 'Active', sortable: true, visible: true },
+  { key: 'items_count', label: 'price Items', sortable: false, visible: true },
   { key: 'actions', label: 'Actions', sortable: false, visible: true },
 ]
 
@@ -128,6 +116,8 @@ const loadingDetail = ref(false)
 const loadingSeasons = ref(false)
 const huntingTypeValue = ref<any>(null)
 const areaValue = ref<any>(null)
+// initial view for PriceStructureDetails (items|prices)
+const initialView = ref<'items'|'prices'>('items')
 const seasonValue = ref<any>(null)
 const minAmount = ref<any>(null)
 const maxAmount = ref<any>(null)
@@ -160,19 +150,37 @@ const formatAmount = (amount: string | number | null | undefined) => {
   return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
+const formatDateShort = (isoDate?: string | null) => {
+  if (!isoDate) return ''
+  try {
+    const d = new Date(isoDate)
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  } catch (e) { return isoDate || '' }
+}
+
 // Stores
 const priceListStore = usePriceListStore()
+const priceStructuresStore = usePriceStructuresStore()
 const quotaStore = useQuotaStore()
 const settingsStore = useSettingsStore()
+
+// route
+const route = useRoute()
+
+// Price Structures state
+const showPriceStructuresOnly = ref(true)
+const showStructureDetails = ref(false)
+const selectedStructureId = ref<number | null>(null)
+const createStructureMode = ref(false)
 
 const pageActions = computed(() => {
   const actions = []
   if (showPriceList.value && !ShowCreateNewPriceListForm.value && !showEditForm.value) {
     actions.push({
-      label: 'Add New',
+      label: 'Add Price Structure',
       icon: 'fa fa-plus',
       class: 'btn btn-primary',
-      method: () => showCreateNewPriceListFormMethod(),
+      method: () => showCreateNewPriceListFormMethod(true),
     })
     actions.push({
       label: 'Download PDF',
@@ -258,49 +266,42 @@ const getSeasonOptions = async () => {
 }
 
 const toggleShowPriceListMethod = async (rowData: any) => {
-  const priceListId = rowData?.id
-  if (!priceListId) return
+  const id = rowData?.id
+  if (!id) return
 
-  loadingDetail.value = true
-  try {
-    const response = await priceListStore.getPriceListById(priceListId)
-    console.log('getPriceListById full response:', response)
-    console.log('response.data:', response.data)
-    
-    // Handle different response structures
-    let priceListData = response.data
-    if (priceListData && typeof priceListData === 'object') {
-      // If data is nested in a 'data' property, extract it
-      if ('data' in priceListData && priceListData.data) {
-        item.value = priceListData.data
-        individualPriceListPdf.value = priceListData.pdf || ''
-        console.log('Using nested data structure, item:', item.value)
-      } else {
-        // Otherwise use the response data directly
-        item.value = priceListData
-        individualPriceListPdf.value = priceListData.pdf || ''
-        console.log('Using direct data structure, item:', item.value)
-      }
-      
-      console.log('Final item.value:', item.value)
-      console.log('Item value keys:', Object.keys(item.value || {}))
-      console.log('Has sales_package?', !!item.value?.sales_package)
-      
-      // Only switch view if we have valid data with required structure
-      if (item.value) {
-        showPriceList.value = false
-      } else {
-        toast?.init({ message: 'Invalid price list data received', color: 'warning' })
-      }
-    } else {
-      toast?.init({ message: 'No price list data received', color: 'warning' })
-    }
-  } catch (error) {
-    console.error('Error fetching price list detail:', error)
-    toast?.init({ message: 'Failed to load price list details', color: 'danger' })
-  } finally {
-    loadingDetail.value = false
+  // Open price structure details view
+  selectedStructureId.value = id
+  showPriceList.value = false
+  showStructureDetails.value = true
+}
+
+// Handle route query param to open a specific structure and optionally select a view
+const handleRouteQuery = (query: any) => {
+  const structureId = query?.structureId || query?.structureID || query?.id
+  const view = query?.view
+  if (structureId) {
+    selectedStructureId.value = Number(structureId)
+    showPriceList.value = false
+    showStructureDetails.value = true
+    // Set local initialView instead of touching window inside template
+    initialView.value = view === 'prices' ? 'prices' : 'items'
   }
+}
+
+// Watch route query for incoming instructions
+onMounted(() => {
+  handleRouteQuery(route.query)
+})
+
+watch(() => route.query, (q) => {
+  handleRouteQuery(q)
+})
+
+const goBackToStructures = () => {
+  showStructureDetails.value = false
+  showPriceList.value = true
+  selectedStructureId.value = null
+  getPriceLists()
 }
 
 const onDownloadPdf = async () => {
@@ -356,14 +357,33 @@ const goBack = () => {
   ShowCreateNewPriceListForm.value = false
   showEditForm.value = false
   editItem.value = null
+  createStructureMode.value = false
   getPriceLists()
 }
 
-const showCreateNewPriceListFormMethod = () => {
+const showCreateNewPriceListFormMethod = (structureOnly = false) => {
   ShowCreateNewPriceListForm.value = true
   showPriceList.value = false
   showEditForm.value = false
+  createStructureMode.value = structureOnly
 }
+
+const onCreateSaved = () => {
+  // Reset the create state and refresh the list
+  ShowCreateNewPriceListForm.value = false
+  createStructureMode.value = false
+  showPriceList.value = true
+  // Show success SweetAlert to reward the user
+  Swal.fire({
+    title: 'Price Structure Created',
+    text: 'The price structure was created successfully.',
+    icon: 'success',
+    timer: 2000,
+    showConfirmButton: false,
+  })
+  getPriceLists()
+}
+
 
 const handleEditFromDetails = async () => {
   try {
@@ -451,9 +471,10 @@ const confirmDelete = async (itemData: any) => {
 
   deleting.value = true
   try {
-    const response = await priceListStore.deletePriceList(itemData.id, true)
+    // Use price structures delete when listing price structures
+    const response = await priceStructuresStore.remove(itemData.id)
     if (response.status === 200 || response.status === 204) {
-      toast?.init({ message: 'Price list deleted successfully', color: 'success' })
+      toast?.init({ message: 'Price structure deleted successfully', color: 'success' })
       // Go back to list view after deletion
       showPriceList.value = true
       item.value = null
@@ -499,89 +520,34 @@ const getPriceLists = async () => {
   loading.value = true
 
   try {
-    const unwrap = (v: any) => {
-      if (v === null || v === undefined) return ''
-      if (typeof v === 'object' && 'value' in v) return v.value
-      return v
-    }
-
-    const huntingTypeId = unwrap(huntingTypeValue.value) || tableFilters.value.hunting_type_id || ''
-    const areaId = unwrap(areaValue.value) || tableFilters.value.area_id || ''
-    const seasonId = unwrap(seasonValue.value) || tableFilters.value.season_id || ''
-    const minAmountValue = minAmount.value || tableFilters.value.min_amount || ''
-    const maxAmountValue = maxAmount.value || tableFilters.value.max_amount || ''
-
-    const response = await priceListStore.getPriceList(huntingTypeId, areaId, seasonId, minAmountValue, maxAmountValue)
+    // Fetch price structures from the new store
+    const response = await priceStructuresStore.list()
 
     if (response.status === 200) {
       const raw = response?.data
       const dataArray = Array.isArray(raw) ? raw : (raw?.data ?? [])
 
       printableDataList.value = raw
-      poriceListPdf.value = raw?.pdf || ''
 
       if (Array.isArray(dataArray)) {
-          // Helper to extract currency symbol from various payload shapes
-          const extractCurrency = (it: any) => {
-            if (!it) return ''
-            return it.currency_symbol || it.currency?.symbol || it.currency ||
-              (it.items && (it.items[0]?.currency_symbol || it.items[0]?.currency?.symbol || it.items[0]?.currency)) ||
-              it.price_list_type?.currency?.symbol || ''
+        items.value = dataArray.map((it: any) => {
+          return {
+            id: it.id,
+            start_date: it.start_date,
+            end_date: it.end_date,
+            area: it.area || it.area_name || (it.area_object?.name || ''),
+            is_active: !!it.is_active,
+            items_count: Array.isArray(it.items) ? it.items.length : 0,
+            companion: (it.companion_hunter_prices && it.companion_hunter_prices.length) || (it.companion_hunter_costs && it.companion_hunter_costs.length) ? 'Yes' : '',
+            observer: (it.observer_hunter_prices && it.observer_hunter_prices.length) ? 'Yes' : '',
+            raw: it, // keep original payload for details
           }
-
-          // Helper to extract amount from various payload shapes
-          const extractAmount = (it: any) => {
-            if (it == null) return ''
-            if (typeof it.amount !== 'undefined' && it.amount !== null) return it.amount
-            if (it.items && it.items[0] && (typeof it.items[0].amount !== 'undefined')) return it.items[0].amount
-            if (typeof it.total_amount !== 'undefined') return it.total_amount
-            return ''
-          }
-
-          // Helper to compute species count (either explicit count, sum of total_quantity, or length)
-          const computeSpeciesCount = (it: any) => {
-            if (typeof it.species_count !== 'undefined' && it.species_count !== null) return it.species_count
-            if (Array.isArray(it.species)) {
-              // If species entries include total_quantity, sum them; otherwise return length
-              const hasQty = it.species.some((s: any) => typeof s.total_quantity !== 'undefined')
-              if (hasQty) return it.species.reduce((sum: number, s: any) => sum + (Number(s.total_quantity) || 0), 0)
-              return it.species.length
-            }
-            // fallback to 0
-            return 0
-          }
-
-          items.value = dataArray.map((item: any) => {
-            const currency = extractCurrency(item)
-            const rawAmount = extractAmount(item)
-            const displayAmount = currency ? `${currency}${rawAmount}` : rawAmount
-            const speciesCount = computeSpeciesCount(item)
-
-            console.log('Mapped price list item:', { id: item.id, currency, rawAmount, displayAmount, speciesCount, items0: item.items?.[0] })
-
-            return {
-              id: item.id,
-              package_name: item.package_name || item.items?.[0]?.package_name || item.items?.[0]?.name || '',
-              area: item.area || item.area_name || item.area_package,
-              area_package: item.area_package,
-              hunting_type: item.hunting_type || item.items?.[0]?.hunting_type_name || item.hunting_type_name,
-              amount: displayAmount,
-              duration: item.duration || item.items?.[0]?.hunt_length_days || item.items?.[0]?.hunt_length_label,
-              status: item.status,
-              start_date: item.start_date,
-              end_date: item.end_date,
-              season_id: item.season_id,
-              season_name: item.season_name,
-              species_count: speciesCount,
-              species: item.species || [],
-              companion_hunter_costs: item.companion_hunter_costs || item.companion_hunter_prices || [],
-            }
-          })
-          dataFetched.value = items.value
-        } else {
-          items.value = []
-          dataFetched.value = []
-        }
+        })
+        dataFetched.value = items.value
+      } else {
+        items.value = []
+        dataFetched.value = []
+      }
     }
   } catch (error) {
     console.error('Error in getPriceLists:', error)

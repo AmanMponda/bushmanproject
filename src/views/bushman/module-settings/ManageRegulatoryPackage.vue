@@ -11,7 +11,7 @@
     </div>
 
     <!-- Table View -->
-    <template v-if="showpackForm">
+    <div v-if="showpackForm">
       <div class="row layout-top-spacing bg-white rounded">
         <div class="col-xl-12 col-lg-12 col-sm-12 layout-spacing">
           <div class="panel br-6 p-0">
@@ -48,10 +48,10 @@
           </div>
         </div>
       </div>
-    </template>
+    </div>
 
     <!-- Details View -->
-    <template v-else-if="showDetailsPage && selectItem">
+    <div v-else-if="showDetailsPage && selectItem">
       <div class="regulatory-package-details">
         <div class="card">
           <div class="card-header d-flex align-items-center bg-white">
@@ -65,6 +65,9 @@
               </div>
             </div>
             <div class="ms-auto d-flex gap-2">
+              <button v-if="!showAddSpeciesForm" class="btn btn-success btn-sm" @click="showAddSpeciesForm = true">
+                <i class="fa fa-plus me-1"></i> Add Species
+              </button>
               <button class="btn btn-outline-primary btn-sm" @click="exportPackageCsv">
                 <i class="fa fa-file-csv me-1"></i> Export CSV
               </button>
@@ -93,6 +96,117 @@
                 </h6>
               </div>
               <div class="card-body">
+
+                <!-- Add Species Form Section -->
+                <div v-if="showAddSpeciesForm" class="mb-4">
+                  <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="mb-0 fw-bold">Add Species</h6>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" @click="closeAddSpeciesForm">
+                      <i class="fa fa-times me-1"></i> Cancel
+                    </button>
+                  </div>
+
+                  <!-- Import controls moved to details view -->
+                  <div v-if="!importInProgress && !showImportResults" class="mb-4 p-3">
+                    <div class="d-flex align-items-center gap-3 p-3 bg-light rounded">
+                      <span class="fw-semibold text-muted" style="font-size: 0.9rem;">Import Method:</span>
+                      <div class="btn-group" role="group">
+                        <input type="radio" class="btn-check" id="rpCsvModeDetails" value="csv" v-model="importMode" autocomplete="off" />
+                        <label class="btn btn-outline-primary" for="rpCsvModeDetails">
+                          <i class="fa fa-file-csv me-1"></i> CSV Import
+                        </label>
+                        <input type="radio" class="btn-check" id="rpManualModeDetails" value="manual" v-model="importMode" autocomplete="off" />
+                        <label class="btn btn-outline-primary" for="rpManualModeDetails">
+                          <i class="fa fa-keyboard me-1"></i> Manual Entry
+                        </label>
+                      </div>
+                      <button type="button" class="btn btn-sm btn-outline-success ms-auto" @click="downloadSpeciesTemplate">
+                        <i class="fa fa-download me-1"></i> Download Template
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Manual entry UI for details -->
+                  <div v-if="importMode === 'manual' && !importInProgress && !showImportResults" class="mb-4 p-3">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                      <span class="fw-bold">Species List</span>
+                      <button type="button" class="btn btn-sm btn-primary" :disabled="!selectItem || speciesRows.length === 0" @click="submitSpeciesAfterCreation()">
+                        <i class="fa fa-save me-1"></i>Save Manual Species
+                      </button>
+                    </div>
+                    <MultiRowTableInput v-model="speciesRows" :fields="speciesFields" add-button-label="Add Species" />
+                  </div>
+
+                  <!-- CSV input for details -->
+                  <div v-if="importMode === 'csv' && !importInProgress && !showImportResults" class="mb-4 p-3">
+                    <h6 class="fw-bold mb-3 d-flex align-items-center">
+                      <div class="d-flex align-items-center gap-2">
+                        <i class="fa fa-file-csv text-success"></i>
+                        <span>Bulk Import from CSV</span>
+                      </div>
+                    </h6>
+                    <CSVInput :column-fields="csvColumnFields" duplicate-key-field="name" :model-value="existingCsvModel"
+                      :allowed-values="allowedSpeciesNames" :clear-after-import="true" @import="handleCsvImport" />
+                  </div>
+                </div>
+
+                <!-- Import Progress -->
+                <div v-if="importInProgress" class="mt-3">
+                  <div class="card border-primary">
+                    <div class="card-body">
+                      <div class="d-flex align-items-center gap-3 mb-2">
+                        <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                        <span class="fw-semibold">Importing species...</span>
+                        <span class="text-muted">{{ importProcessed }} / {{ importTotal }}</span>
+                      </div>
+                      <div class="progress" style="height: 8px;">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" :style="{ width: importProgressPercent + '%' }"></div>
+                      </div>
+                      <div v-if="importResults.length > 0" class="mt-2">
+                        <small class="text-success"><i class="fa fa-check me-1"></i>{{ importSuccessCount }} succeeded</small>
+                        <small v-if="importFailCount > 0" class="text-danger ms-3"><i class="fa fa-times me-1"></i>{{ importFailCount }} failed</small>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Import Results -->
+                <div v-if="showImportResults && !importInProgress" class="mt-3">
+                  <div class="card" :class="importFailCount > 0 ? 'border-warning' : 'border-success'">
+                    <div class="card-header d-flex align-items-center justify-content-between py-2" :class="importFailCount > 0 ? 'bg-warning bg-opacity-10' : 'bg-success bg-opacity-10'">
+                      <span class="fw-semibold">
+                        <i class="fa fa-check-circle text-success me-2" v-if="importFailCount === 0"></i>
+                        <i class="fa fa-exclamation-triangle text-warning me-2" v-else></i>
+                        Import Complete
+                      </span>
+                      <button type="button" class="btn btn-sm btn-outline-secondary" @click="closeImportResults">
+                        <i class="fa fa-times"></i>
+                      </button>
+                    </div>
+                    <div class="card-body">
+                      <div class="row text-center">
+                        <div class="col">
+                          <h4 class="text-success mb-0">{{ importSuccessCount }}</h4>
+                          <small class="text-muted">Imported</small>
+                        </div>
+                        <div class="col" v-if="importFailCount > 0">
+                          <h4 class="text-danger mb-0">{{ importFailCount }}</h4>
+                          <small class="text-muted">Failed</small>
+                        </div>
+                      </div>
+                      <div v-if="importFailCount > 0" class="mt-3">
+                        <p class="small text-muted mb-2">Failed items:</p>
+                        <ul class="list-group list-group-flush small">
+                          <li v-for="(r, i) in importResults.filter(x => !x.ok).slice(0, 10)" :key="i" class="list-group-item py-1 px-2">
+                            <i class="fa fa-times text-danger me-1"></i> {{ r.name }}
+                            <span v-if="r.error" class="text-muted">- {{ Array.isArray(r.error) ? r.error.join(', ') : r.error }}</span>
+                          </li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 <div v-if="hasSpecies()" class="table-responsive">
                   <table class="table table-hover">
                     <thead>
@@ -117,10 +231,10 @@
           </div>
         </div>
       </div>
-    </template>
+    </div>
 
     <!-- Form View -->
-    <template v-else-if="!showDetailsPage">
+    <div v-else>
       <div class="p-6">
         <!-- Form for Adding Species -->
         <div class="d-flex justify-content-between align-items-center mb-4">
@@ -132,62 +246,29 @@
         </div>
 
         <div class="p-2">
-          <form @submit.prevent="validatepackageForm() && addNewRegulatoryPackage()">
+          <form @submit.prevent="createRegulatoryPackageFirst()">
             <div class="row g-3 mb-4">
               <div class="col-md-4">
                 <label class="form-label">Name</label>
-                <input v-model="packageForm.name" type="text" class="form-control" placeholder="Enter package Name"
+                <input v-model="packageForm.name" :disabled="packageCreatedForSpecies" type="text" class="form-control" placeholder="Enter package Name"
                   required />
               </div>
 
               <div class="col-md-4">
                 <label class="form-label">Duration in days</label>
-                <input v-model="packageForm.duration" type="number" class="form-control"
+                <input v-model="packageForm.duration" :disabled="packageCreatedForSpecies" type="number" class="form-control"
                   placeholder="Enter package Duration" required />
               </div>
             </div>
-
-            <hr class="my-4" />
-
-            <div class="mb-4">
-              <div class="d-flex justify-content-between align-items-center mb-3">
-                <span class="fw-bold">Species List</span>
-              </div>
-
-              <!-- MultiRowTableInput Component -->
-              <MultiRowTableInput v-model="speciesRows" :fields="speciesFields" add-button-label="Add Species" />
-            </div>
-
-            <!-- CSV Input Component -->
-            <div v-if="!csvUploaded" class="mb-4">
-
-              <h6 class="fw-bold mb-3 d-flex align-items-center">
-                <div class="d-flex align-items-center gap-2">
-                  <i class="fa fa-file-csv text-success"></i>
-                  <span>Bulk Import from CSV</span>
-                </div>
-
-                <a href="/assets/uploadsguide/other-uploads.csv" download
-                  class="btn btn-sm btn-outline-success ms-auto">
-                  <i class="fa fa-download me-1"></i>
-                  Download Template
-                </a>
-              </h6>
-
-
-              <CSVInput :column-fields="csvColumnFields" duplicate-key-field="name" :model-value="existingCsvModel"
-                :allowed-values="allowedSpeciesNames" @import="handleCsvImport" />
-            </div>
-
-            <div class="mb-4">
-              <button class="btn btn-success" :disabled="!isValidpackageForm || speciesRows.length === 0" type="submit">
-                <i class="fa fa-check me-2"></i>Submit New
+            <div class="mb-4" v-if="!packageCreatedForSpecies">
+              <button class="btn btn-success" :disabled="!packageForm.name || !packageForm.duration" type="submit">
+                <i class="fa fa-check me-2"></i>Create Package
               </button>
             </div>
           </form>
         </div>
       </div>
-    </template>
+    </div>
   </div>
 </template>
 
@@ -203,11 +284,14 @@ import StandardDataTable from '@/components/bootstrap/StandardDataTable.vue'
 import MultiRowTableInput from '../reusables/MultiRowTableInput.vue'
 import CSVInput from '../reusables/CSVInput.vue'
 import Swal from 'sweetalert2'
+import { useSpeciesStore } from '@/stores/bushman/species-store'
+import axios from 'axios'
 
 // Stores
 const quotaStore = useQuotaStore()
 const regulatoryPackageStore = useRegulatoryPackageStore()
 const { init: toastInit } = useToast()
+const speciesStore = useSpeciesStore()
 
 // Form validation
 const { isValid: isValidpackageForm, validate: validatepackageForm, resetValidation: resetValidationpackageForm, reset: resetpackageForm } = useForm()
@@ -227,6 +311,41 @@ const deleting = ref(false)
 const speciesOptions = ref<any[]>([])
 const quotasOptions = ref<any[]>([])
 const csvUploaded = ref(false)
+// CSV import progress state
+const importMode = ref<'csv' | 'manual'>('csv')
+const importInProgress = ref(false)
+const importTotal = ref(0)
+const importProcessed = ref(0)
+const importResults = ref<any[]>([])
+const showImportResults = ref(false)
+const packageCreatedForSpecies = ref(false)
+const createdPackageId = ref<number | null>(null)
+const createdPackageName = ref<string | null>(null)
+const showAddSpeciesForm = ref(false)
+
+const importProgressPercent = computed(() => importTotal.value > 0 ? Math.round((importProcessed.value / importTotal.value) * 100) : 0)
+const importSuccessCount = computed(() => importResults.value.filter((r: any) => r.ok).length)
+const importFailCount = computed(() => importResults.value.filter((r: any) => !r.ok).length)
+
+function closeImportResults() {
+  const hadFailures = importResults.value.some((r: any) => !r.ok)
+  showImportResults.value = false
+  importResults.value = []
+  importTotal.value = 0
+  importProcessed.value = 0
+  // Close the form if import was completely successful
+  if (!hadFailures && showAddSpeciesForm.value) {
+    closeAddSpeciesForm()
+  }
+}
+
+function closeAddSpeciesForm() {
+  showAddSpeciesForm.value = false
+  speciesRows.value = [{ _id: 1, species: '', quantity: 1 }]
+  csvUploaded.value = false
+  importMode.value = 'csv'
+  closeImportResults()
+}
 
 // Species rows for MultiRowTableInput
 const speciesRows = ref<any[]>([{ _id: 1, species: '', quantity: 1 }])
@@ -268,28 +387,112 @@ const existingCsvModel = computed(() => {
     .map((r: any) => ({ name: idToName.get(String(r.species)) || '', quantity: r.quantity }))
 })
 
-function handleCsvImport(rows: Array<{ name: string; quantity: any }>) {
+async function handleCsvImport(rows: Array<{ name: string; quantity: any }>) {
+  if (!rows || rows.length === 0) {
+    toastInit({ message: 'No rows in CSV', color: 'info' })
+    return
+  }
+
+  const packageId = createdPackageId.value || selectItem.value?.id
+  if (!packageId) {
+    toastInit({ message: 'Open the package details first before importing species.', color: 'warning' })
+    return
+  }
+
+  importInProgress.value = true
+  importTotal.value = rows.length
+  importProcessed.value = 0
+  importResults.value = []
+  showImportResults.value = false
+
   const nameToOption = new Map(
     speciesOptions.value.map((opt: any) => [String(opt.text).toLowerCase(), opt])
   )
 
-  // Clear existing data and start fresh with CSV data
   const newSpeciesRows: any[] = []
+  const toAssignBulk: Array<{ species_id: number; quantity: number }> = []
   let newId = 0
-
   let added = 0
+  let created = 0
+  let failed = 0
+
   for (const row of rows) {
-    const key = String(row.name || '').toLowerCase()
-    const opt = nameToOption.get(key)
-    if (!opt) continue
+    const name = String(row.name || '').trim()
+    if (!name) {
+      importProcessed.value += 1
+      importResults.value.push({ name: '', ok: false, error: 'Empty name' })
+      failed++
+      continue
+    }
+
+    const qty = Number(row.quantity) || 1
+    const key = name.toLowerCase()
+    let opt = nameToOption.get(key)
+
+    if (!opt) {
+      try {
+        const r = await speciesStore.createSpecies({ name, swahili_name: '', scientific_name: '', type: 'NORMAL' })
+        if (r && (r.status === 201 || r.status === 200)) {
+          const id = r.data?.id || r.data?.data?.id
+          const createdName = r.data?.name || name
+          opt = { value: id, text: createdName }
+          speciesOptions.value.unshift(opt as any)
+          nameToOption.set(String(createdName).toLowerCase(), opt)
+          created++
+        } else {
+          failed++
+          importResults.value.push({ name, ok: false, error: 'Failed to create species' })
+          importProcessed.value += 1
+          continue
+        }
+      } catch (err: any) {
+        failed++
+        const errorMsg = handleErrors(err.response || err)
+        importResults.value.push({ name, ok: false, error: Array.isArray(errorMsg) ? errorMsg.join(', ') : String(errorMsg) })
+        importProcessed.value += 1
+        continue
+      }
+    }
+
     newId++
-    newSpeciesRows.push({ _id: newId, species: opt.value, quantity: Number(row.quantity) || 1 })
+    newSpeciesRows.push({ _id: newId, species: opt.value, quantity: qty })
+    toAssignBulk.push({ species_id: Number(opt?.value), quantity: qty })
     added++
+    importResults.value.push({ name, ok: true })
+    importProcessed.value += 1
   }
-  if (added > 0) {
+
+  if (added + created > 0) {
     speciesRows.value = newSpeciesRows
     csvUploaded.value = true
-    toastInit({ message: `Imported ${added} species from CSV`, color: 'success' })
+
+    // Immediately persist to backend after successful import
+    try {
+      let resp: any
+      const maybeFn: any = (regulatoryPackageStore as any).addSpeciesToRegulatoryPackage
+      if (typeof maybeFn === 'function') {
+        resp = await maybeFn(packageId as number, toAssignBulk)
+      } else {
+        resp = await postSpeciesToPackage(packageId as number, toAssignBulk)
+      }
+      if (!(resp && (resp.status === 201 || resp.status === 200 || resp.data?.success))) {
+        toastInit({ message: 'Failed to save imported species to package', color: 'danger' })
+      } else {
+        // Refresh details to show newly added species
+        await showDetails({ id: packageId })
+      }
+    } catch (error: any) {
+      const msg = handleErrors(error.response || error)
+      toastInit({ message: Array.isArray(msg) ? msg.join(', ') : String(msg || 'Failed to save species'), color: 'danger' })
+    }
+  }
+
+  importInProgress.value = false
+  showImportResults.value = true
+  if (failed) {
+    toastInit({ message: `Import completed: ${added} matched, ${created} created, ${failed} failed`, color: 'warning' })
+  } else {
+    toastInit({ message: `Import completed: ${added} matched, ${created} created`, color: 'success' })
   }
 }
 
@@ -347,6 +550,7 @@ const showDetails = async (row: any) => {
 
       showDetailsPage.value = true
       showpackForm.value = false
+      showAddSpeciesForm.value = false
     }
   } catch (error) {
     console.error('Error fetching package details:', error)
@@ -360,6 +564,7 @@ const goBack = () => {
   showDetailsPage.value = false
   selectItem.value = null
   showpackForm.value = true
+  showAddSpeciesForm.value = false
   getPackages()
 }
 
@@ -428,45 +633,143 @@ const exportPackageCsv = () => {
   URL.revokeObjectURL(url)
 }
 
-const addNewRegulatoryPackage = async () => {
-  // Filter out empty rows
-  const validSpecies = speciesRows.value.filter(row => row.species && row.quantity > 0)
+const downloadSpeciesTemplate = () => {
+  if (!speciesOptions.value || speciesOptions.value.length === 0) {
+    toastInit({ message: 'No species available. Please wait for species to load.', color: 'warning' })
+    return
+  }
 
+  const escapeCsv = (value: any) => {
+    if (value === null || value === undefined) return ''
+    const str = String(value)
+    return '"' + str.replace(/"/g, '""') + '"'
+  }
+
+  const rows = speciesOptions.value.map((opt: any) => {
+    const id = opt.value || opt.id || ''
+    const name = opt.text || opt.name || ''
+    const quantity = '' // Empty quantity column for template
+    return `${escapeCsv(id)},${escapeCsv(name)},${escapeCsv(quantity)}`
+  })
+
+  const header = 'Species ID,Species Name,Quantity'
+  const csvContent = [header].concat(rows).join('\n')
+
+  const filename = 'species_template.csv'
+
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.setAttribute('download', filename)
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
+  
+  toastInit({ message: 'Species template downloaded successfully', color: 'success' })
+}
+
+const createRegulatoryPackageFirst = async () => {
+  if (!packageForm.name || !packageForm.duration) {
+    toastInit({ message: 'Please enter name and duration.', color: 'warning' })
+    return
+  }
+
+  const payload = {
+    name: packageForm.name,
+    duration: packageForm.duration,
+    speciesObjectList: [],
+  }
+
+  try {
+    const response = await regulatoryPackageStore.createNewRegulatoryPackage(payload)
+    if (response && (response.status === 201 || response.status === 200)) {
+      const id = response.data?.id
+        || response.data?.data?.id
+        || response.data?.data?.regulatory_package?.id
+        || response.data?.data?.regulatoryPackage?.id
+        || response.data?.data?.regulatoryPackageId
+
+      if (id) {
+        createdPackageId.value = id
+        createdPackageName.value = String(packageForm.name || '')
+        toastInit({ message: 'Package created. Opening package details...', color: 'success' })
+        // Open details view so user can add species there
+        await showDetails({ id })
+        showpackForm.value = false
+      } else {
+        // Fallback: try to fetch the latest packages and match by name
+        await getPackages()
+        const found = items.value.find((p: any) => String(p.name).trim().toLowerCase() === String(packageForm.name).trim().toLowerCase())
+        if (found?.id) {
+          createdPackageId.value = found.id
+          createdPackageName.value = String(found.name || packageForm.name || '')
+          toastInit({ message: 'Package created. Opening package details...', color: 'success' })
+          await showDetails({ id: found.id })
+          showpackForm.value = false
+        } else {
+          toastInit({ message: 'Package created but could not resolve ID. Please reopen and try again.', color: 'warning' })
+        }
+      }
+    }
+  } catch (error) {
+    const msg = handleErrors(error)
+    toastInit({ message: Array.isArray(msg) ? msg.join(', ') : (msg || 'Failed to create package'), color: 'danger' })
+  }
+}
+
+// Fallback helper: directly POST species to package if store action is missing
+async function postSpeciesToPackage(packageId: number, speciesBulk: Array<{ species_id: number; quantity: number }>) {
+  const baseUrl = (import.meta.env.VITE_APP_BASE_URL || '').replace(/\/+$/, '')
+  const endpoint = (import.meta.env.VITE_APP_REGULATORY_HUNTING_PACKAGES_URL || '').replace(/\/+$/, '')
+  const url = `${baseUrl}/${endpoint}/${packageId}/species`
+  const data = { species: speciesBulk }
+  const config = {
+    method: 'post',
+    maxBodyLength: Infinity,
+    url,
+    headers: { 'Content-Type': 'application/json' },
+    data,
+  } as any
+  const response = await axios.request(config)
+  return response
+}
+
+const submitSpeciesAfterCreation = async (silent = false) => {
+  const packageId = createdPackageId.value || selectItem.value?.id
+  if (!packageId) {
+    toastInit({ message: 'Open the package details first before saving species.', color: 'warning' })
+    return
+  }
+
+  const validSpecies = speciesRows.value.filter(row => row.species && Number(row.quantity) > 0)
   if (validSpecies.length === 0) {
     toastInit({ message: 'Please add at least one species item.', color: 'warning' })
     return
   }
 
-  // Transform the data to match API format
-  const speciesObjectList = validSpecies.map(row => ({
-    id: row.species,
-    quantity: Number(row.quantity),
-  }))
-
-  const rdata = {
-    name: packageForm.name,
-    duration: packageForm.duration,
-    speciesObjectList: speciesObjectList,
-  }
+  const speciesBulk = validSpecies.map(row => ({ species_id: Number(row.species), quantity: Number(row.quantity) }))
 
   try {
-    const response = await regulatoryPackageStore.createNewRegulatoryPackage(rdata)
-    if (response.status === 201) {
-      toastInit({ message: response.data.message, color: 'success' })
-      resetpackageForm()
-      packageForm.name = null
-      packageForm.duration = null
-      speciesRows.value = [{ _id: 1, species: '', quantity: 1 }]
-      csvUploaded.value = false
-      showpackForm.value = true
-      getPackages()
+    let response: any
+    const maybeFn: any = (regulatoryPackageStore as any).addSpeciesToRegulatoryPackage
+    if (typeof maybeFn === 'function') {
+      response = await maybeFn(packageId as number, speciesBulk)
+    } else {
+      response = await postSpeciesToPackage(packageId as number, speciesBulk)
+    }
+    if (response && (response.status === 201 || response.status === 200 || response.data?.success)) {
+      toastInit({ message: 'Species saved to package.', color: 'success' })
+      if (!silent) {
+        // Reload details to reflect new species
+        await showDetails({ id: packageId })
+        closeAddSpeciesForm()
+      }
     }
   } catch (error) {
-    handleErrors(error)
-    toastInit({
-      message: error instanceof Error ? error.message : 'An error occurred',
-      color: 'danger',
-    })
+    const msg = handleErrors(error)
+    toastInit({ message: Array.isArray(msg) ? msg.join(', ') : (msg || 'Failed to save species'), color: 'danger' })
   }
 }
 

@@ -1,0 +1,6 @@
+species_id,trigger_condition,fee_amount,notes
+1,Over Trophy Size,500,Premium fee for oversized trophies
+2,Extra Guest,250,Companion surcharge
+3,Extended Hunt,1000,7-day extension fee
+4,Rifle Change,100,Additional rifle permit fee
+5,Vehicle Upgrade,300,4x4 vehicle upgrade fee

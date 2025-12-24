@@ -151,24 +151,103 @@
 
                 <!-- CSV Mode -->
                 <div v-else-if="entryMode === 'csv' && licenceAreaSpecies && licenceAreaSpecies.length > 0">
-                  <div v-if="csvImportUsed" class="alert alert-success py-2 mb-3">
-                    <i class="fa fa-check-circle me-2"></i>
-                    <strong>CSV Imported:</strong> {{ csvImportedSpeciesNames.length }} species will be saved to this package.
+                  <!-- Custom CSV File Input -->
+                  <div class="csv-upload-area">
+                    <div class="upload-box" :class="{ 'drag-over': isDragging }">
+                      <input
+                        ref="fileInput"
+                        type="file"
+                        accept=".csv"
+                        class="d-none"
+                        @change="handleFileSelect"
+                      />
+                      <div v-if="!csvFile" class="upload-placeholder" @dragover.prevent="isDragging = true" @dragleave="isDragging = false" @drop.prevent="handleFileDrop">
+                        <i class="fa fa-cloud-upload fa-3x text-muted mb-3"></i>
+                        <p class="mb-2">Drag & drop your CSV file here</p>
+                        <p class="text-muted small">or</p>
+                        <button type="button" class="btn btn-outline-primary" @click="$refs.fileInput.click()">
+                          <i class="fa fa-folder-open me-1"></i> Browse Files
+                        </button>
+                      </div>
+                      <div v-else class="file-info">
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                          <div class="d-flex align-items-center gap-2">
+                            <i class="fa fa-file-csv text-success fa-2x"></i>
+                            <div>
+                              <div class="fw-bold">{{ csvFile.name }}</div>
+                              <div class="text-muted small">{{ formatFileSize(csvFile.size) }} • {{ csvRows.length }} rows</div>
+                            </div>
+                          </div>
+                          <button type="button" class="btn btn-sm btn-outline-danger" @click="clearCsvFile">
+                            <i class="fa fa-times"></i> Remove
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  
-                  <CSVInput
-                    :column-fields="[
-                      { key: 'name', label: 'Species Name' },
-                      { key: 'quantity', label: 'Quantity' },
-                    ]"
-                    :model-value="[]"
-                    :allowed-values="licenceSpeciesNames"
-                    duplicate-key-field="name"
-                    @import="handleCsvImport"
-                  />
 
-                  <!-- Show imported species summary -->
+                  <!-- CSV Parsing Progress -->
+                  <div v-if="parsingCsv" class="mt-3">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                      <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                      <span>Parsing CSV file...</span>
+                    </div>
+                  </div>
+
+                  <!-- CSV Preview Table -->
+                  <div v-if="csvRows.length > 0 && !parsingCsv" class="mt-3">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                      <h6 class="mb-0">Preview ({{ csvRows.length }} rows)</h6>
+                      <div class="form-check">
+                        <input
+                          id="selectAllRows"
+                          v-model="selectAllRows"
+                          type="checkbox"
+                          class="form-check-input"
+                          @change="toggleSelectAll"
+                        />
+                        <label class="form-check-label" for="selectAllRows">
+                          Select All
+                        </label>
+                      </div>
+                    </div>
+                    <div class="table-responsive">
+                      <table class="table table-sm table-bordered">
+                        <thead class="table-light">
+                          <tr>
+                            <th style="width: 40px;"></th>
+                            <th>Species Name</th>
+                            <th>Quantity</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr v-for="(row, idx) in csvRows" :key="idx">
+                            <td class="text-center">
+                              <input
+                                v-model="row.selected"
+                                type="checkbox"
+                                class="form-check-input"
+                              />
+                            </td>
+                            <td>{{ row.name }}</td>
+                            <td>{{ row.quantity }}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                    <div class="d-flex justify-content-end mt-2">
+                      <button type="button" class="btn btn-success" @click="importCsvRows">
+                        <i class="fa fa-check me-1"></i> Import Selected
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Import Progress -->
                   <div v-if="csvImportUsed" class="mt-3">
+                    <div class="alert alert-success py-2 mb-3">
+                      <i class="fa fa-check-circle me-2"></i>
+                      <strong>CSV Imported:</strong> {{ csvImportedSpeciesNames.length }} species will be saved to this package.
+                    </div>
                     <h6 class="text-muted mb-2">Species to be saved:</h6>
                     <div class="table-responsive">
                       <table class="table table-sm table-bordered">
@@ -279,12 +358,10 @@ import { useQuotaStore } from '../../../stores/bushman/quota-store.ts'
 import { useSettingsStore } from '../../../stores/bushman/settings-store.ts'
 import { usePriceListStore } from '../../../stores/bushman/price-list-store.ts'
 import { useRegulatoryPackageStore } from '../../../stores/bushman/regulatory-store.ts'
-import CSVInput from '../reusables/CSVInput.vue'
 import MultiRowTableInput from '../reusables/MultiRowTableInput.vue'
 
 export default defineComponent({
   components: {
-    CSVInput,
     MultiRowTableInput,
   },
   props: {
@@ -337,6 +414,12 @@ export default defineComponent({
       csvImportUsed: false,
       csvImportedSpeciesNames: [] as string[],
       csvImportedSpeciesList: [] as { name: string; quantity: number }[],
+      // Custom CSV variables
+      csvFile: null as File | null,
+      csvRows: [] as any[],
+      parsingCsv: false,
+      isDragging: false,
+      selectAllRows: true,
     }
   },
 
@@ -462,7 +545,7 @@ export default defineComponent({
 
       if (this.entryMode === 'csv') {
         // CSV mode: use the imported species list
-        speciesWithQuantity = this.csvImportedSpeciesList.map((item) => {
+        speciesWithQuantity = this.csvImportedSpeciesList.map((item: any) => {
           // Find the species in licenceAreaSpecies to get the ID
           const licenceSpecies = this.licenceAreaSpecies.find((s: any) => 
             (s.name || '').toLowerCase().trim() === item.name.toLowerCase().trim()
@@ -472,7 +555,7 @@ export default defineComponent({
             name: item.name,
             quantity: item.quantity
           }
-        }).filter((s) => s.id) // Only include if we found a matching licence species
+        }).filter((s: any) => s.id) // Only include if we found a matching licence species
       } else {
         // Manual mode: filter species with quantity > 0
         speciesWithQuantity = this.licenceAreaSpecies.filter((species: any) => species.quantity > 0)
@@ -642,6 +725,142 @@ export default defineComponent({
         color: 'success' 
       })
     },
+
+    // Custom CSV file handling methods
+    handleFileSelect(event: Event) {
+      const target = event.target as HTMLInputElement
+      const files = target.files
+      if (files && files.length > 0) {
+        this.processFile(files[0])
+      }
+    },
+
+    handleFileDrop(event: DragEvent) {
+      this.isDragging = false
+      const files = event.dataTransfer?.files
+      if (files && files.length > 0) {
+        this.processFile(files[0])
+      }
+    },
+
+    processFile(file: File) {
+      if (!file.name.endsWith('.csv')) {
+        this.init({ message: 'Please upload a CSV file', color: 'warning' })
+        return
+      }
+
+      this.csvFile = file
+      this.parsingCsv = true
+
+      const reader = new FileReader()
+      reader.onload = (event) => {
+        const csv = event.target?.result as string
+        this.parseCSV(csv)
+      }
+      reader.onerror = () => {
+        this.init({ message: 'Failed to read file', color: 'danger' })
+        this.parsingCsv = false
+      }
+      reader.readAsText(file)
+    },
+
+    parseCSV(csv: string) {
+      try {
+        const lines = csv.split('\n').filter(line => line.trim())
+        
+        // Skip header if it exists (first line with common headers)
+        let startIdx = 0
+        if (lines.length > 0 && (lines[0].toLowerCase().includes('name') || lines[0].toLowerCase().includes('species'))) {
+          startIdx = 1
+        }
+
+        const rows = []
+        for (let i = startIdx; i < lines.length; i++) {
+          const parts = lines[i].split(',').map(p => p.trim())
+          if (parts.length >= 2) {
+            const name = parts[0]
+            const quantity = parseInt(parts[1]) || 1
+
+            // Check if species exists in licence
+            const exists = this.licenceAreaSpecies?.some((s: any) => 
+              (s.name || '').toLowerCase().trim() === name.toLowerCase().trim()
+            )
+
+            if (exists && name) {
+              rows.push({
+                name,
+                quantity: Math.max(1, quantity),
+                selected: true
+              })
+            }
+          }
+        }
+
+        this.csvRows = rows
+        this.selectAllRows = true
+        this.parsingCsv = false
+
+        if (rows.length === 0) {
+          this.init({ 
+            message: 'No valid species found in CSV. Species must match those in the selected licence.', 
+            color: 'warning' 
+          })
+        }
+      } catch (err) {
+        this.init({ message: 'Failed to parse CSV file', color: 'danger' })
+        this.parsingCsv = false
+      }
+    },
+
+    clearCsvFile() {
+      this.csvFile = null
+      this.csvRows = []
+      this.csvImportUsed = false
+      this.csvImportedSpeciesNames = []
+      this.csvImportedSpeciesList = []
+      this.selectAllRows = true
+      if (this.$refs.fileInput) {
+        (this.$refs.fileInput as HTMLInputElement).value = ''
+      }
+    },
+
+    toggleSelectAll() {
+      this.csvRows.forEach((row: any) => {
+        row.selected = this.selectAllRows
+      })
+    },
+
+    formatFileSize(bytes: number): string {
+      if (bytes === 0) return '0 Bytes'
+      const k = 1024
+      const sizes = ['Bytes', 'KB', 'MB', 'GB']
+      const i = Math.floor(Math.log(bytes) / Math.log(k))
+      return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i]
+    },
+
+    importCsvRows() {
+      const selectedRows = this.csvRows.filter((row: any) => row.selected)
+      if (selectedRows.length === 0) {
+        this.init({ message: 'Please select at least one row to import', color: 'warning' })
+        return
+      }
+
+      // Store imported species data
+      this.csvImportUsed = true
+      this.csvImportedSpeciesNames = selectedRows.map((row: any) => row.name.toLowerCase().trim())
+      this.csvImportedSpeciesList = selectedRows.map((row: any) => ({
+        name: String(row.name || '').trim(),
+        quantity: Math.max(1, parseInt(row.quantity) || 1)
+      }))
+
+      this.init({ 
+        message: `${selectedRows.length} species imported successfully!`, 
+        color: 'success' 
+      })
+
+      // Clear file after import
+      this.clearCsvFile()
+    },
   },
 })
 </script>
@@ -711,5 +930,33 @@ export default defineComponent({
 
 .cursor-pointer {
   cursor: pointer;
+}
+
+/* Custom CSV Upload Styles */
+.csv-upload-area {
+  margin: 1rem 0;
+}
+
+.upload-box {
+  border: 2px dashed #dee2e6;
+  border-radius: 0.5rem;
+  padding: 2rem;
+  text-align: center;
+  transition: all 0.3s ease;
+  background: #f8f9fa;
+}
+
+.upload-box.drag-over {
+  border-color: #0d6efd;
+  background: #e7f1ff;
+}
+
+.upload-placeholder {
+  cursor: pointer;
+  padding: 1rem;
+}
+
+.file-info {
+  padding: 1rem;
 }
 </style>
