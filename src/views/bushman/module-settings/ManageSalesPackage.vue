@@ -414,7 +414,8 @@ export default {
           packages.value = dataArray.map((item: any) => ({
             id: item.id,
             name: item.name || 'N/A',
-            area_name: item?.area?.name ?? 'N/A',
+            // Use nested area.location.name when present, otherwise fall back to area.name or description
+            area_name: item?.area?.location?.name ?? item?.area?.name ?? item?.area?.description ?? 'N/A',
             regulatory_package_name: item?.regulatory_package?.name ?? 'N/A',
             selfItem: item,
           }))

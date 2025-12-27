@@ -285,10 +285,12 @@ const loadAreas = async () => {
   try {
     const response = await quotaStore.getAreaList()
     const list = Array.isArray(response.data) ? response.data : (response.data?.data || response.data || [])
-    areaOptions.value = list.map((item: any) => ({
-      id: item.id,
-      name: item.name
-    }))
+    areaOptions.value = list.map((item: any) => {
+      const location = item.location || {}
+      const locationName = location.name || item.name || item.description || 'N/A'
+      const locationCode = location.code ? ` (${location.code})` : ''
+      return { id: item.id, name: `${locationName}${locationCode}` }
+    })
   } catch (error) {
     console.error('Failed to load areas:', error)
   }

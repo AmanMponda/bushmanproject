@@ -11,15 +11,15 @@
     </div>
 
     <!-- Main Content -->
-    <div class="row layout-top-spacing bg-white rounded">
+    <div v-if="!showFormPage" class="row layout-top-spacing bg-white rounded">
       <div class="col-xl-12 col-lg-12 col-sm-12 layout-spacing">
         <div class="panel br-6 p-0">
           <div class="custom-table p-3">
             <!-- Header with Add Button -->
             <div class="d-flex justify-content-between align-items-center mb-3">
-              <h2 class="mb-0">Safari Extra Services</h2>
-              <button class="btn btn-primary" @click="openAddModal()">
-                <i class="fa fa-plus me-2"></i>Add Safari Extra
+              <h2 class="mb-0">Safari Extra Services by Season</h2>
+              <button v-if="!selectedSeason && !showFormPage" class="btn btn-primary" @click="openAddForm(null)">
+                <i class="fa fa-plus me-2"></i>Add Extra Service
               </button>
             </div>
 
@@ -32,11 +32,78 @@
 
             <!-- Extras Table -->
             <template v-else>
-              <div v-if="allExtras && allExtras.length > 0" class="table-responsive">
+              <!-- Season Selection View -->
+              <div v-if="!selectedSeason">
+                <div v-if="seasonsWithExtras.length > 0">
+                  <h4 class="mb-4">Select a Season</h4>
+                  <div class="row g-4">
+                    <div v-for="season in seasonsWithExtras" :key="season.id" class="col-md-4 col-sm-6">
+                      <div
+                        class="card season-card h-100 cursor-pointer shadow-sm"
+                        :class="{ 'border-primary bg-light': selectedSeason?.id === season.id }"
+                        @click="selectSeason(season)"
+                      >
+                        <div class="card-body">
+                          <div class="d-flex align-items-center justify-content-between">
+                            <div class="d-flex align-items-center">
+                              <i class="fa fa-calendar text-primary me-3" style="font-size: 2rem"></i>
+                              <div>
+                                <h5 class="card-title mb-1">{{ season.name }}</h5>
+                                <p class="text-muted mb-0 small">
+                                  {{ season.start_at ? new Date(season.start_at).toLocaleDateString() : 'N/A' }} -
+                                  {{ season.end_at ? new Date(season.end_at).toLocaleDateString() : 'Ongoing' }}
+                                </p>
+                              </div>
+                            </div>
+                            <span class="badge bg-primary" style="font-size: 1rem; padding: 0.5rem 0.75rem">
+                              {{ season.extras.length }} {{ season.extras.length === 1 ? 'Service' : 'Services' }}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- No seasons message -->
+                <div v-else class="text-center py-5 text-muted">
+                  <i class="fa fa-calendar-times fa-3x mb-3"></i>
+                  <p>No seasons with extra services found.</p>
+                  <button class="btn btn-primary" @click="openAddForm(null)">
+                    <i class="fa fa-plus me-2"></i>Add Extra Service
+                  </button>
+                </div>
+              </div>
+
+              <!-- Selected Season View -->
+              <div v-else>
+              <div class="mb-4">
+                <button class="btn btn-outline-secondary mb-3" @click="clearSelection">
+                  <i class="fa fa-arrow-left me-2"></i>Back to Seasons
+                </button>
+                <div class="d-flex justify-content-between align-items-center">
+                  <div>
+                    <h3 class="mb-1">
+                      <i class="fa fa-calendar text-primary me-2"></i>
+                      {{ selectedSeason.name }}
+                    </h3>
+                    <p class="text-muted mb-0">
+                      {{ selectedSeason.start_at ? new Date(selectedSeason.start_at).toLocaleDateString() : 'N/A' }} -
+                      {{ selectedSeason.end_at ? new Date(selectedSeason.end_at).toLocaleDateString() : 'Ongoing' }}
+                    </p>
+                  </div>
+                  <button class="btn btn-success" @click="openAddForm(selectedSeason)">
+                    <i class="fa fa-plus me-2"></i>Add Extra Service
+                  </button>
+                </div>
+              </div>
+
+              <!-- Extras Table -->
+              <div v-if="selectedSeasonExtras && selectedSeasonExtras.length > 0" class="table-responsive">
                 <StandardDataTable
-                  :key="`table-${allExtras.length}`"
+                  :key="`table-${selectedSeasonExtras.length}`"
                   :columns="columns"
-                  :data="allExtras"
+                  :data="selectedSeasonExtras"
                   :loading="false"
                   :filters="{}"
                   :default-page-size="10"
@@ -73,7 +140,7 @@
                   <!-- @ts-ignore - StandardDataTable doesn't provide row type -->
                   <template #actions="{ row }">
                     <div class="d-flex gap-1">
-                      <button class="btn btn-warning btn-sm" title="Edit" @click="openEditModal(row as any)">
+                      <button class="btn btn-warning btn-sm" title="Edit" @click="openEditForm(row as any)">
                         <i class="fa fa-edit"></i>
                       </button>
                       <button class="btn btn-danger btn-sm" title="Delete" @click="confirmDelete(row as any)">
@@ -87,10 +154,11 @@
               <!-- No extras message -->
               <div v-else class="text-center py-5 text-muted">
                 <i class="fa fa-inbox fa-3x mb-3"></i>
-                <p>No safari extras found.</p>
-                <button class="btn btn-primary" @click="openAddModal()">
-                  <i class="fa fa-plus me-2"></i>Add Safari Extra
+                <p>No extra services for this season.</p>
+                <button class="btn btn-primary" @click="openAddForm(selectedSeason)">
+                  <i class="fa fa-plus me-2"></i>Add Extra Service
                 </button>
+              </div>
               </div>
             </template>
           </div>
@@ -98,123 +166,142 @@
       </div>
     </div>
 
-    <!-- Add/Edit Modal -->
-    <div
-      class="modal fade"
-      :class="{ show: showFormModal, 'd-block': showFormModal }"
-      :style="{ display: showFormModal ? 'block' : 'none' }"
-      tabindex="-1"
-      role="dialog"
-      @click.self="closeFormModal"
-    >
-      <div class="modal-dialog modal-lg" role="document">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title">{{ editMode ? 'Edit Safari Extra' : 'Add Safari Extra' }}</h5>
-            <button type="button" class="btn-close" @click="closeFormModal"></button>
-          </div>
-          <div class="modal-body">
-            <form ref="formRef" @submit.prevent="submitForm">
-              <div class="row mb-3 trophy-fees-form-row">
-                <div class="col-md-6">
-                  <div class="form-group">
-                    <label class="form-label">Account <span class="text-danger">*</span></label>
-                    <select v-model="form.account_id" class="form-select" required>
-                      <option :value="null">Select Account</option>
-                      <option v-for="option in accountsOptions" :key="option.value" :value="option.value">
-                        {{ option.text }}
-                      </option>
-                    </select>
-                  </div>
-                </div>
-                <div class="col-md-6">
-                  <div class="form-group">
-                    <label class="form-label">Amount <span class="text-danger">*</span></label>
-                    <input
-                      v-model="form.amount"
-                      type="number"
-                      class="form-control"
-                      placeholder="Enter amount"
-                      required
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div class="row mb-3 trophy-fees-form-row">
-                <div class="col-md-6">
-                  <div class="form-group">
-                    <label class="form-label">Currency <span class="text-danger">*</span></label>
-                    <select v-model="form.currency_id" class="form-select" required>
-                      <option :value="null">Select Currency</option>
-                      <option v-for="option in currenciesOptions" :key="option.value" :value="option.value">
-                        {{ option.text }}
-                      </option>
-                    </select>
-                  </div>
-                </div>
-                <div class="col-md-6">
-                  <div class="form-group">
-                    <label class="form-label">Hunting Area (Optional)</label>
-                    <select v-model="form.area_id" class="form-select">
-                      <option :value="null">All Areas</option>
-                      <option v-for="option in areasOptions" :key="option.value" :value="option.value">
-                        {{ option.text }}
-                      </option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              <div class="row mb-3 trophy-fees-form-row">
-                <div class="col-md-6">
-                  <div class="form-group">
-                    <label class="form-label">Charge Type <span class="text-danger">*</span></label>
-                    <select v-model="form.charge_type" class="form-select" required>
-                      <option :value="null">Select charge type</option>
-                      <option v-for="option in chargeTypeOptions" :key="option.value" :value="option.value">
-                        {{ option.text }}
-                      </option>
-                    </select>
-                  </div>
-                </div>
-                <div class="col-md-6">
-                  <div class="form-group">
-                    <label class="form-label">Status</label>
-                    <div class="form-check form-switch mt-2">
-                      <input v-model="form.is_active" class="form-check-input" type="checkbox" id="isActiveSwitch">
-                      <label class="form-check-label" for="isActiveSwitch">{{ form.is_active ? 'Active' : 'Inactive' }}</label>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div class="row mb-3">
-                <div class="col-12">
-                  <div class="form-group">
-                    <label class="form-label">Description (Optional)</label>
-                    <textarea
-                      v-model="form.description"
-                      class="form-control"
-                      rows="3"
-                      placeholder="Describe this extra service"
-                    ></textarea>
-                  </div>
-                </div>
-              </div>
-            </form>
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" @click="closeFormModal">Cancel</button>
-            <button type="button" class="btn btn-primary" :disabled="savingSafariExtra" @click="submitForm">
-              <span v-if="savingSafariExtra" class="spinner-border spinner-border-sm me-2"></span>
-              {{ editMode ? 'Update' : 'Save' }}
+    <!-- Add/Edit Form Page -->
+    <template v-if="showFormPage">
+      <div class="p-6">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+          <div>
+            <button class="btn btn-secondary" @click="closeFormPage">
+              <i class="fa fa-arrow-left me-2"></i>Go Back
             </button>
           </div>
+          <h4 class="mb-0">{{ editMode ? 'Edit Extra Service' : 'Add Extra Service' }}</h4>
+        </div>
+
+        <div class="p-2">
+          <form ref="formRef" @submit.prevent="submitForm">
+            <!-- Row 1: Season and Hunting Area -->
+            <div class="row g-3 mb-4">
+              <div class="col-md-6">
+                <label class="form-label">Season <span class="text-danger">*</span></label>
+                <select v-model="form.season_id" class="form-select" :disabled="!!preselectedSeason" required>
+                  <option :value="null">Select Season</option>
+                  <option v-for="option in seasonsOptions" :key="option.value" :value="option.value">
+                    {{ option.text }}
+                  </option>
+                </select>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Hunting Area <span class="text-danger">*</span></label>
+                <select v-model="form.hunting_area_id" class="form-select" required>
+                  <option :value="null">Select Hunting Area</option>
+                  <option v-for="option in areasOptions" :key="option.value" :value="option.value">
+                    {{ option.text }}
+                  </option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Row 2: Description -->
+            <div class="row g-3 mb-4">
+              <div class="col-md-12">
+                <label class="form-label">Description</label>
+                <textarea
+                  v-model="form.description"
+                  class="form-control"
+                  rows="3"
+                  placeholder="Enter description"
+                ></textarea>
+              </div>
+            </div>
+
+            <!-- Row 3: Extras Table Form -->
+            <div class="row g-3 mb-4">
+              <div class="col-md-12">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                  <h6 class="mb-0 fw-bold">Extras</h6>
+                  <button type="button" class="btn btn-sm btn-primary" @click="addExtraRow">
+                    <i class="fa fa-plus me-1"></i>Add Extra
+                  </button>
+                </div>
+
+                <div class="table-responsive">
+                  <table class="table table-bordered">
+                    <thead class="table-light">
+                      <tr>
+                        <th>Account <span class="text-danger">*</span></th>
+                        <th>Amount <span class="text-danger">*</span></th>
+                        <th>Currency <span class="text-danger">*</span></th>
+                        <th>Charge Per <span class="text-danger">*</span></th>
+                        <th style="width: 50px;">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="(extra, index) in extrasRows" :key="extra._id">
+                        <td>
+                          <select v-model="extra.account_id" class="form-select form-select-sm" required>
+                            <option :value="null">Select Account</option>
+                            <option v-for="option in accountsOptions" :key="option.value" :value="option.value">
+                              {{ option.text }}
+                            </option>
+                          </select>
+                        </td>
+                        <td>
+                          <input
+                            v-model.number="extra.amount"
+                            type="number"
+                            class="form-control form-control-sm"
+                            placeholder="Enter amount"
+                            required
+                          />
+                        </td>
+                        <td>
+                          <select v-model="extra.currency_id" class="form-select form-select-sm" required>
+                            <option :value="null">Select Currency</option>
+                            <option v-for="option in currenciesOptions" :key="option.value" :value="option.value">
+                              {{ option.text }}
+                            </option>
+                          </select>
+                        </td>
+                        <td>
+                          <select v-model="extra.charges_per" class="form-select form-select-sm" required>
+                            <option :value="null">Select charge type</option>
+                            <option v-for="option in chargesPerOptions" :key="option.value" :value="option.value">
+                              {{ option.text }}
+                            </option>
+                          </select>
+                        </td>
+                        <td class="text-center">
+                          <button
+                            type="button"
+                            class="btn btn-sm btn-danger"
+                            @click="removeExtraRow(index)"
+                            :disabled="extrasRows.length === 1"
+                          >
+                            <i class="fa fa-trash"></i>
+                          </button>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <div class="mb-4">
+              <button
+                class="btn btn-success"
+                :disabled="savingSafariExtra || extrasRows.length === 0"
+                type="submit"
+              >
+                <span v-if="savingSafariExtra" class="spinner-border spinner-border-sm me-1"></span>
+                <i v-else class="fa fa-check me-2"></i>{{ editMode ? 'Update Extra Service' : 'Create Extra Service' }}
+              </button>
+            </div>
+          </form>
         </div>
       </div>
-    </div>
-    <div v-if="showFormModal" class="modal-backdrop fade show" @click="closeFormModal"></div>
+    </template>
 
     <!-- Delete Confirmation Modal -->
     <div
@@ -237,10 +324,6 @@
               "<strong>{{ itemToDelete?.account?.name || itemToDelete?.account_name || itemToDelete?.description }}</strong>"?
             </p>
           </div>
-              <p>
-                Are you sure you want to delete
-                "<strong>{{ itemToDelete?.account?.name || itemToDelete?.account_name || itemToDelete?.description }}</strong>"?
-              </p>
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary" @click="showDeleteModal = false">Cancel</button>
             <button type="button" class="btn btn-danger" :disabled="deleting" @click="deleteExtra">
@@ -314,25 +397,38 @@ const form = reactive({
   charge_type: null as any,
   description: '',
   is_active: true,
+  season_id: null as any,
+  hunting_area_id: null as any,
 })
 
 const currenciesOptions = ref<any[]>([])
 const areasOptions = ref<any[]>([])
 const accountsOptions = ref<any[]>([])
 const allExtras = ref<any[]>([])
-const showFormModal = ref(false)
+const loadingSeasons = ref(false)
+const showFormPage = ref(false)
 const showDeleteModal = ref(false)
 const editMode = ref(false)
 const itemToDelete = ref<any>(null)
 const deleting = ref(false)
 const loadingExtras = ref(false)
+const selectedSeason = ref<any>(null)
+const preselectedSeason = ref<any>(null)
+const seasonsOptions = ref<any[]>([])
+const chargesPerOptions = ref<any[]>([
+  { value: 'PER_DAY', text: 'Per Day' },
+  { value: 'PER_DAY_PERSON', text: 'Per Day Per Person' },
+  { value: 'PER_ROUND', text: 'Per Round' },
+  { value: 'FLAT', text: 'Flat Fee' },
+])
+const extrasRows = ref<any[]>([{ _id: 1, account_id: null, amount: null, currency_id: null, charges_per: null }])
 
 // Computed properties
 const savingSafariExtra = computed(() => settingsStore.savingSafariExtra)
 
 // Methods
 const loadData = async () => {
-  await Promise.all([loadExtras(), loadCurrencies(), loadAreas(), loadAccounts()])
+  await Promise.all([loadExtras(), loadCurrencies(), loadAreas(), loadAccounts(), loadSeasons()])
 }
 
 const loadExtras = async () => {
@@ -398,30 +494,63 @@ const formatChargeType = (value: string): string => {
   return map[value] || value
 }
 
-const openAddModal = () => {
+const openAddForm = (season: any) => {
   editMode.value = false
   resetForm()
-  showFormModal.value = true
+
+  if (season) {
+    preselectedSeason.value = season
+    form.season_id = season.id
+  }
+
+  showFormPage.value = true
 }
 
-const openEditModal = (item: any) => {
+const openEditForm = (item: any) => {
   editMode.value = true
 
   form.id = item.id
-  form.amount = item.amount
   form.description = item.description || ''
   form.currency_id = item.currency?.id || item.currency_id || null
   form.area_id = item.area?.id || item.area_id || null
   form.charge_type = item.charge_type || null
   form.account_id = item.account?.id || item.account_id || null
   form.is_active = item.is_active !== false
+  form.season_id = item.season ? item.season.id : null
+  form.hunting_area_id = item.hunting_area ? item.hunting_area.id : null
 
-  showFormModal.value = true
+  // Populate extras rows with single item for edit
+  extrasRows.value = [{
+    _id: 1,
+    account_id: item.account?.id || item.account_id || null,
+    amount: item.amount || null,
+    currency_id: item.currency ? item.currency.id : null,
+    charges_per: item.charges_per || null,
+  }]
+
+  showFormPage.value = true
 }
 
-const closeFormModal = () => {
-  showFormModal.value = false
+const closeFormPage = () => {
+  showFormPage.value = false
   resetForm()
+}
+
+const addExtraRow = () => {
+  const newId = Math.max(...extrasRows.value.map((r: any) => r._id || 0), 0) + 1
+  extrasRows.value.push({
+    _id: newId,
+    account_id: null,
+    amount: null,
+    currency_id: null,
+    charges_per: null,
+  })
+}
+
+const removeExtraRow = (index: number) => {
+  if (extrasRows.value.length > 1) {
+    extrasRows.value.splice(index, 1)
+  }
 }
 
 const resetForm = () => {
@@ -433,7 +562,60 @@ const resetForm = () => {
   form.charge_type = null
   form.description = ''
   form.is_active = true
+  form.season_id = null
+  form.hunting_area_id = null
+  preselectedSeason.value = null
+  extrasRows.value = [{ _id: 1, account_id: null, amount: null, currency_id: null, charges_per: null }]
 }
+
+const selectSeason = (season: any) => {
+  selectedSeason.value = season
+}
+
+const clearSelection = () => {
+  selectedSeason.value = null
+}
+
+const loadSeasons = async () => {
+  try {
+    const response = await quotaStore.getSeasonList()
+    seasonsOptions.value = response.data.map((item: any) => ({
+      value: item.id,
+      text: item.name,
+    }))
+  } catch (error) {
+    console.error('Error loading seasons:', error)
+  }
+}
+
+const seasonsWithExtras = computed(() => {
+  // Group extras by season
+  const seasonMap = new Map()
+  allExtras.value.forEach((extra: any) => {
+    const seasonId = extra.season?.id || extra.season_id
+    if (seasonId) {
+      if (!seasonMap.has(seasonId)) {
+        seasonMap.set(seasonId, {
+          id: seasonId,
+          name: extra.season?.name || 'Unknown Season',
+          start_at: extra.season?.start_at,
+          end_at: extra.season?.end_at,
+          extras: [],
+        })
+      }
+      seasonMap.get(seasonId).extras.push(extra)
+    }
+  })
+  return Array.from(seasonMap.values())
+})
+
+const selectedSeasonExtras = computed(() => {
+  if (!selectedSeason.value) return []
+  return allExtras.value.filter((extra: any) => {
+    const seasonId = extra.season?.id || extra.season_id
+    return seasonId === selectedSeason.value.id
+  })
+})
 
 const submitForm = async () => {
   if (!formRef.value?.checkValidity()) {
@@ -441,33 +623,54 @@ const submitForm = async () => {
     return
   }
 
-  if (!form.account_id) {
-    init({ message: 'Please select an account.', color: 'warning' })
-    return
-  }
+  // Validate extras rows
+  const validExtras = extrasRows.value.filter((extra: any) => 
+    extra.account_id && extra.amount && extra.currency_id && extra.charges_per
+  )
 
-  const payload = {
-    account_id: form.account_id,
-    amount: parseFloat(form.amount),
-    currency_id: form.currency_id,
-    area_id: form.area_id,
-    charge_type: form.charge_type,
-    description: form.description || '',
-    is_active: form.is_active,
+  if (validExtras.length === 0) {
+    init({ message: 'Please add at least one valid extra with all required fields.', color: 'warning' })
+    return
   }
 
   try {
     const url = import.meta.env.VITE_APP_BASE_URL + import.meta.env.VITE_APP_SAFARI_EXTRAS_NEW_URL
     if (editMode.value) {
+      // For edit mode, update the single extra
+      const payload = {
+        account_id: validExtras[0].account_id,
+        amount: validExtras[0].amount,
+        currency_id: validExtras[0].currency_id,
+        season_id: form.season_id,
+        hunting_area_id: form.hunting_area_id,
+        charges_per: validExtras[0].charges_per,
+        description: form.description || '',
+      }
       await updateExtra(form.id, payload)
     } else {
-      const response = await axios.post(url, payload)
-      if (response.status === 201) {
-        init({ message: 'Safari extra created successfully', color: 'success' })
-      }
+      // For create mode, create multiple extras
+      const promises = validExtras.map((extra: any) => {
+        const payload = {
+          account_id: extra.account_id,
+          amount: extra.amount,
+          currency_id: extra.currency_id,
+          season_id: form.season_id,
+          hunting_area_id: form.hunting_area_id,
+          charges_per: extra.charges_per,
+          description: form.description || '',
+        }
+        return settingsStore.createSafariExtras(payload)
+      })
+
+      const responses = await Promise.all(promises)
+      const successCount = responses.filter((r: any) => r.status === 201).length
+      init({ 
+        message: `${successCount} extra service(s) created successfully`, 
+        color: 'success' 
+      })
     }
     await loadExtras()
-    closeFormModal()
+    closeFormPage()
   } catch (error: any) {
     console.error(error)
     const errors = handleErrors(error.response)

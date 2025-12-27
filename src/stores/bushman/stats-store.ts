@@ -16,39 +16,56 @@ export const useStatsStore = defineStore('stats', {
   actions: {
     async getStats() {
       this.loadingStats = true
-      const url = import.meta.env.VITE_APP_BASE_URL + (import.meta.env.VITE_APP_QUOTA_STATS_URL || 'reportings/quota-stats/')
+      const baseUrl = import.meta.env.VITE_APP_BASE_URL || ''
+      // Base URL already includes /api/v1.0/, so just append the endpoint
+      const url = `${baseUrl}reportings/quota-stats/`
 
+      const token = localStorage.getItem('token')
       const config = {
-        method: 'get',
-        maxBodyLength: Infinity,
-        url: url,
         headers: {
           'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
         },
       }
-      const response = await axios.request(config)
+      try {
+        const response = await axios.get(url, config)
 
-      if (response.status === 200) {
-        // Backend returns { success: true, data: [...species], totals: {...}, pdf: "..." }
-        const totals = response.data.totals || {}
-        const quotaName =
-          response.data.data && response.data.data.length > 0 ? response.data.data[0].quota?.name : 'Unknown'
+        if (response.status === 200) {
+          // Backend returns { success: true, data: [...species], totals: {...}, pdf: "..." }
+          const totals = response.data.totals || response.data || {}
+          const quotaName =
+            response.data.data && response.data.data.length > 0 ? response.data.data[0].quota?.name : 'Unknown'
 
-        this.quotaStats = {
-          confirmed: totals.confirmed || 0,
-          pending: 0, // Not provided in current backend response
-          cancelled: totals.cancelled || 0,
-          taken: totals.taken || 0,
-          provisioned: totals.provisioned || 0,
-          totalQuota: totals.total_quota_balance || 0,
-          quota: quotaName,
+          this.quotaStats = {
+            confirmed: totals.confirmed || 0,
+            pending: totals.pending || 0,
+            cancelled: totals.cancelled || 0,
+            taken: totals.taken || 0,
+            provisioned: totals.provisioned || 0,
+            totalQuota: totals.total_quota_balance || totals.total_quota || totals.total || 0,
+            quota: quotaName,
+          }
+
+          this.loadingStats = false
+          return response
         }
-
-        console.log(this.quotaStats)
         this.loadingStats = false
         return response
+      } catch (error: any) {
+        console.error('Error fetching quota stats:', error)
+        this.loadingStats = false
+        // Set default values on error
+        this.quotaStats = {
+          confirmed: 0,
+          pending: 0,
+          cancelled: 0,
+          taken: 0,
+          provisioned: 0,
+          totalQuota: 0,
+          quota: '',
+        }
+        throw error
       }
-      return response
     },
   },
 })

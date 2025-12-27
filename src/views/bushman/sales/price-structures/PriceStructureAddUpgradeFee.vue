@@ -217,7 +217,12 @@ onMounted(async () => {
     speciesOptions.value = speciesList.map((item: any) => ({ id: item.id, name: item.name }))
 
     const areasList = Array.isArray(areasResp?.data) ? areasResp.data : (areasResp?.data?.data || [])
-    areaOptions.value = areasList.map((item: any) => ({ id: item.id, name: item.name }))
+    areaOptions.value = areasList.map((item: any) => {
+      const location = item.location || {}
+      const locationName = location.name || item.name || item.description || 'N/A'
+      const locationCode = location.code ? ` (${location.code})` : ''
+      return { id: item.id, name: `${locationName}${locationCode}` }
+    })
 
     // currencies already shaped as { value, text }
     currencyOptions.value = settingsStore.currencies || []
@@ -240,7 +245,12 @@ onMounted(async () => {
         const res = await fetch(import.meta.env.VITE_APP_BASE_URL + 'settings/hunting-areas')
         const data = await res.json()
         const list = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : [])
-        areaOptions.value = list.map((item: any) => ({ id: item.id, name: item.name }))
+        areaOptions.value = list.map((item: any) => {
+          const location = item.location || {}
+          const locationName = location.name || item.name || item.description || 'N/A'
+          const locationCode = location.code ? ` (${location.code})` : ''
+          return { id: item.id, name: `${locationName}${locationCode}` }
+        })
       } catch (e) {
         console.warn('Fallback areas fetch failed')
       }

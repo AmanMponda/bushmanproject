@@ -262,10 +262,20 @@ export const useQuotaStore = defineStore('quota', {
       try {
         const response = await axios.request(config)
         console.log('Delete response:', response)
-        return response
-      } catch (error) {
+        return {
+          status: response.status,
+          data: response.data,
+          message: response.data?.message || 'Quota deleted successfully.',
+          success: response.status === 200 || response.status === 204,
+        }
+      } catch (error: any) {
         console.error('Delete quota error:', error)
-        throw error
+        return {
+          status: error.response?.status || 500,
+          data: error.response?.data || error,
+          message: error.response?.data?.message || error.message || 'Failed to delete quota.',
+          success: false,
+        }
       }
     },
 

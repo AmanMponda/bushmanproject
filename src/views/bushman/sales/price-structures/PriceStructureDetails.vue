@@ -11,9 +11,19 @@
               <span>{{ formatDateShort(structure.start_date) }} — {{ formatDateShort(structure.end_date) }}</span>
             </div>
           </div>
-          <button class="btn btn-outline-secondary" @click="$emit('go-back')">
-            <i class="fa fa-arrow-left me-2"></i> Back to List
-          </button>
+          <div class="header-actions">
+            <button 
+              class="btn btn-outline-primary" 
+              @click="downloadPdf" 
+              :disabled="downloadingPdf"
+            >
+              <i class="fa fa-file-pdf me-2"></i>
+              {{ downloadingPdf ? 'Downloading...' : 'Download PDF' }}
+            </button>
+            <button class="btn btn-outline-secondary" @click="$emit('go-back')">
+              <i class="fa fa-arrow-left me-2"></i> Back to List
+            </button>
+          </div>
         </div>
 
         <!-- Tab Navigation -->
@@ -297,6 +307,7 @@ const settingsStore = useSettingsStore()
 const toast = useToast()
 
 const loading = ref(false)
+const downloadingPdf = ref(false)
 const structure = ref<any | null>(null)
 const trophyFees = ref<any[]>([])
 const activeView = ref<'items' | 'prices' | 'trophy-fees' | 'upgrade-fees'>(props.initialView)
@@ -430,6 +441,53 @@ const goToAddTrophyFee = () => {
   router.push({ name: 'price-structure-trophy-fee-create', params: { id: props.id } })
 }
 
+const downloadPdf = async () => {
+  if (downloadingPdf.value) return
+  downloadingPdf.value = true
+  try {
+    const url = `http://localhost:8000/api/v1.0/settings/price-structures/${props.id}/pdf`
+    const response = await fetch(url)
+    if (!response.ok) throw new Error('Failed to fetch PDF')
+
+    let base64 = ''
+    const contentType = response.headers.get('content-type') || ''
+    if (contentType.includes('application/json')) {
+      const data = await response.json()
+      base64 = data?.data || data?.pdf || data?.base64 || ''
+    } else {
+      base64 = (await response.text()).trim()
+    }
+
+    if (base64.startsWith('data:')) {
+      const parts = base64.split(',')
+      base64 = parts[1] || ''
+    }
+
+    if (!base64) throw new Error('Empty PDF payload')
+
+    const byteString = atob(base64)
+    const bytes = new Uint8Array(byteString.length)
+    for (let i = 0; i < byteString.length; i += 1) {
+      bytes[i] = byteString.charCodeAt(i)
+    }
+
+    const blob = new Blob([bytes], { type: 'application/pdf' })
+    const blobUrl = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = blobUrl
+    link.download = `price-structure-${props.id}.pdf`
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(blobUrl)
+    toast?.init({ message: 'PDF downloaded', color: 'success' })
+  } catch (error) {
+    toast?.init({ message: 'Failed to download PDF', color: 'danger' })
+  } finally {
+    downloadingPdf.value = false
+  }
+}
+
 const deleteItem = async (item: any) => {
   try {
     const url = `${import.meta.env.VITE_APP_BASE_URL}settings/price-structures/${props.id}/items/${item.id}`
@@ -524,6 +582,12 @@ onMounted(async () => {
 
 .date-range i {
   color: #0d6efd;
+}
+
+.header-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 /* Tab Navigation */

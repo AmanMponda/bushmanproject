@@ -145,8 +145,10 @@
                         <span>Bulk Import from CSV</span>
                       </div>
                     </h6>
-                    <CSVInput :column-fields="csvColumnFields" duplicate-key-field="name" :model-value="existingCsvModel"
-                      :allowed-values="allowedSpeciesNames" :clear-after-import="true" @import="handleCsvImport" />
+                    <RegulatoryPackageCSVInput
+                      :allowed-species-names="allowedSpeciesNames"
+                      @import="handleCsvImport"
+                    />
                   </div>
                 </div>
 
@@ -282,7 +284,7 @@ import { useForm } from '@/composables/useForm'
 import handleErrors from '../../../stores/bushman/errorHandler'
 import StandardDataTable from '@/components/bootstrap/StandardDataTable.vue'
 import MultiRowTableInput from '../reusables/MultiRowTableInput.vue'
-import CSVInput from '../reusables/CSVInput.vue'
+import RegulatoryPackageCSVInput from './RegulatoryPackageCSVInput.vue'
 import Swal from 'sweetalert2'
 import { useSpeciesStore } from '@/stores/bushman/species-store'
 import axios from 'axios'
@@ -372,20 +374,8 @@ const speciesFields = computed(() => [
   }
 ])
 
-// CSVInput configuration and handlers
-const csvColumnFields = [
-  { key: 'name', label: 'Species Name' },
-  { key: 'quantity', label: 'Quantity' },
-]
-
+// CSV Input handlers
 const allowedSpeciesNames = computed(() => speciesOptions.value.map((opt: any) => String(opt.text)))
-
-const existingCsvModel = computed(() => {
-  const idToName = new Map(speciesOptions.value.map((opt: any) => [String(opt.value), String(opt.text)]))
-  return speciesRows.value
-    .filter((r: any) => r.species)
-    .map((r: any) => ({ name: idToName.get(String(r.species)) || '', quantity: r.quantity }))
-})
 
 async function handleCsvImport(rows: Array<{ name: string; quantity: any }>) {
   if (!rows || rows.length === 0) {
@@ -477,22 +467,39 @@ async function handleCsvImport(rows: Array<{ name: string; quantity: any }>) {
       }
       if (!(resp && (resp.status === 201 || resp.status === 200 || resp.data?.success))) {
         toastInit({ message: 'Failed to save imported species to package', color: 'danger' })
+        importInProgress.value = false
+        showImportResults.value = true
       } else {
-        // Refresh details to show newly added species
-        await showDetails({ id: packageId })
+        // Clear CSV data and return to packages list
+        importInProgress.value = false
+        showImportResults.value = false
+        importResults.value = []
+        importTotal.value = 0
+        importProcessed.value = 0
+        speciesRows.value = [{ _id: 1, species: '', quantity: 1 }]
+        csvUploaded.value = false
+        showAddSpeciesForm.value = false
+        createdPackageId.value = null
+        createdPackageName.value = ''
+        toastInit({ message: `Import completed: ${added} matched, ${created} created. Returning to packages list.`, color: 'success' })
+        goBack()
+        return // Exit early after successful import and navigation
       }
     } catch (error: any) {
       const msg = handleErrors(error.response || error)
       toastInit({ message: Array.isArray(msg) ? msg.join(', ') : String(msg || 'Failed to save species'), color: 'danger' })
+      importInProgress.value = false
+      showImportResults.value = true
     }
   }
 
+  // Show import results if no species were added or if there were failures
   importInProgress.value = false
-  showImportResults.value = true
-  if (failed) {
-    toastInit({ message: `Import completed: ${added} matched, ${created} created, ${failed} failed`, color: 'warning' })
-  } else {
-    toastInit({ message: `Import completed: ${added} matched, ${created} created`, color: 'success' })
+  if (added + created === 0 || failed > 0) {
+    showImportResults.value = true
+    if (failed) {
+      toastInit({ message: `Import completed: ${added} matched, ${created} created, ${failed} failed`, color: 'warning' })
+    }
   }
 }
 
@@ -565,6 +572,12 @@ const goBack = () => {
   selectItem.value = null
   showpackForm.value = true
   showAddSpeciesForm.value = false
+  speciesRows.value = [{ _id: 1, species: '', quantity: 1 }]
+  csvUploaded.value = false
+  importResults.value = []
+  showImportResults.value = false
+  createdPackageId.value = null
+  createdPackageName.value = ''
   getPackages()
 }
 
@@ -694,10 +707,11 @@ const createRegulatoryPackageFirst = async () => {
       if (id) {
         createdPackageId.value = id
         createdPackageName.value = String(packageForm.name || '')
-        toastInit({ message: 'Package created. Opening package details...', color: 'success' })
-        // Open details view so user can add species there
+        toastInit({ message: 'Package created. You can now add species.', color: 'success' })
+        // Open details view and show add species form immediately
         await showDetails({ id })
         showpackForm.value = false
+        showAddSpeciesForm.value = true
       } else {
         // Fallback: try to fetch the latest packages and match by name
         await getPackages()
@@ -705,9 +719,10 @@ const createRegulatoryPackageFirst = async () => {
         if (found?.id) {
           createdPackageId.value = found.id
           createdPackageName.value = String(found.name || packageForm.name || '')
-          toastInit({ message: 'Package created. Opening package details...', color: 'success' })
+          toastInit({ message: 'Package created. You can now add species.', color: 'success' })
           await showDetails({ id: found.id })
           showpackForm.value = false
+          showAddSpeciesForm.value = true
         } else {
           toastInit({ message: 'Package created but could not resolve ID. Please reopen and try again.', color: 'warning' })
         }

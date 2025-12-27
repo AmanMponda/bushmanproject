@@ -407,7 +407,14 @@ const multiRowFields = computed<any>(() => [
 const getData = async (fetcher: () => Promise<any>, mapper: (d: any) => any) => {
   try { return (await fetcher()).data.map(mapper) } catch (e) { console.log(e); return [] }
 }
-const getAreas = async () => { areasOptions.value = await getData(() => quotaStore.getAreaList(), (item: any) => ({ value: item.id, text: item.name })) }
+const getAreas = async () => {
+  areasOptions.value = await getData(() => quotaStore.getAreaList(), (item: any) => {
+    const location = item.location || {}
+    const locationName = location.name || item.name || item.description || 'N/A'
+    const locationCode = location.code ? ` (${location.code})` : ''
+    return { value: item.id, text: `${locationName}${locationCode}` }
+  })
+}
 const getHuntingTypes = async () => { huntingTypesOptions.value = await getData(() => settingsStore.getHuntingsTypes(), (item: any) => ({ value: item.id, text: item.name })) }
 const getCurrencyList = async () => { currencyOptions.value = await getData(() => settingsStore.getCurrencies(), (item: any) => ({ value: item.id, text: item.name })) }
 // getSeasonList removed - season selection removed from the form

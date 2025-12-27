@@ -75,7 +75,7 @@
 <script setup lang="ts">
 // @ts-nocheck - StandardDataTable component doesn't provide TypeScript types for row parameter
 import { ref, onMounted, computed, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useToast } from '../../../composables/useToast.ts'
 import PricesListDetails from './PriceListDetails.vue'
 import { usePriceListStore } from '../../../stores/bushman/price-list-store.ts'
@@ -166,6 +166,7 @@ const settingsStore = useSettingsStore()
 
 // route
 const route = useRoute()
+const router = useRouter()
 
 // Price Structures state
 const showPriceStructuresOnly = ref(true)
@@ -279,12 +280,18 @@ const toggleShowPriceListMethod = async (rowData: any) => {
 const handleRouteQuery = (query: any) => {
   const structureId = query?.structureId || query?.structureID || query?.id
   const view = query?.view
+  const itemCreated = query?.itemCreated
   if (structureId) {
     selectedStructureId.value = Number(structureId)
     showPriceList.value = false
     showStructureDetails.value = true
     // Set local initialView instead of touching window inside template
     initialView.value = view === 'prices' ? 'prices' : 'items'
+  }
+  if (itemCreated) {
+    toast?.init({ message: 'Price item created successfully', color: 'success' })
+    const { itemCreated: _ignore, ...rest } = query
+    router.replace({ query: rest })
   }
 }
 

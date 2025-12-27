@@ -116,7 +116,6 @@
                       <tr>
                         <th>Species Name</th>
                         <th>Quantity</th>
-                        <th>Area</th>
                         <th>Actions</th>
                       </tr>
                     </thead>
@@ -124,7 +123,6 @@
                       <tr v-for="(species, index) in speciesObjects" :key="index">
                         <td>{{ species.name }}</td>
                         <td>{{ species.quantity || 'N/A' }}</td>
-                        <td>{{ species.area_name || 'N/A' }}</td>
                         <td>
                           <button class="btn btn-sm btn-danger" @click="deleteSpeciesFromQuota(index, species.record_id)">
                             <i class="fa fa-trash"></i>
@@ -476,6 +474,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import axios from 'axios'
 import { useQuotaStore } from '../../../stores/bushman/quota-store'
+import { useHuntingAreaStore } from '@/stores/bushman/hunting-story'
 import handleErrors from '../../../stores/bushman/errorHandler'
 import { useToast } from '@/composables/useToast'
 import StandardDataTable from '@/components/bootstrap/StandardDataTable.vue'
@@ -515,6 +514,7 @@ interface SpeciesFormData {
 }
 
 const quotaStore = useQuotaStore()
+const huntingAreaStore = useHuntingAreaStore()
 const toast = useToast()
 const speciesStore = useSpeciesStore()
 
@@ -868,7 +868,8 @@ function getSpeciesNameById(speciesId: any): string {
 
 function getAreaNameById(areaId: any): string {
   const found = areasOptions.value.find((opt: any) => opt.value === areaId)
-  return found ? found.text : 'Unknown'
+  // Return location name if available, otherwise the full text
+  return found ? (found.location_name || found.text) : 'Unknown'
 }
 
 function editQuota(row: any) {
@@ -910,16 +911,14 @@ async function deleteQuotaItem(row: any) {
   deletingQuota.value = true
   try {
     const response = await quotaStore.deleteQuota(row.id)
-    const success = response.status === 200 || response.status === 204 || response.data?.success
-    if (success) {
-      toast.init({ message: response.data?.message || 'Quota deleted successfully', color: 'success' })
-      items.value = items.value.filter((item: any) => item.id !== row.id)
-      quotasOptions.value = quotasOptions.value.filter((option: any) => option.value !== row.id)
+    if (response.success) {
+      toast.init({ message: response.message || 'Quota deleted successfully', color: 'success' })
+      await getQs() // Re-fetch the quota list
     } else {
-      toast.init({ message: response.data?.message || 'Delete operation failed', color: 'warning' })
+      toast.init({ message: response.message || 'Delete operation failed', color: 'warning' })
     }
   } catch (error: any) {
-    toast.init({ message: error.response?.data?.message || 'Failed to delete quota. It may be in use.', color: 'danger' })
+    toast.init({ message: 'An unexpected error occurred.', color: 'danger' })
   } finally {
     deletingQuota.value = false
   }
@@ -1217,15 +1216,37 @@ async function getSpeciesItems() {
 
 async function getAreas() {
   try {
-    const response = await quotaStore.getAreaList()
-    const list = Array.isArray(response.data) ? response.data : (response.data?.data || response.data)
-    if (Array.isArray(list)) {
-      areasOptions.value = list.map((item: any) => ({ value: item.id, text: item.name }))
+    const response = await huntingAreaStore.getAllHuntingAreas()
+    // Response data is an array of hunting areas with nested location
+    const huntingAreas = Array.isArray(response.data) 
+      ? response.data 
+      : Array.isArray(response.data?.data) 
+        ? response.data.data 
+        : []
+    
+    if (Array.isArray(huntingAreas)) {
+      areasOptions.value = huntingAreas.map((area: any) => {
+        // Extract location info from nested location object
+        const location = area.location || {}
+        const locationName = location.name || 'N/A'
+        const locationCode = location.code || 'N/A'
+        // Display format: "Location Name (Code)"
+        return { 
+          value: area.id, 
+          text: `${locationName} (${locationCode})`,
+          location_name: locationName,
+          location_code: locationCode,
+        }
+      })
     } else {
       areasOptions.value = []
     }
   } catch (error: any) {
     console.error('Failed to load areas:', error)
+    toast.init({
+      message: 'Failed to load hunting areas',
+      color: 'danger',
+    })
   }
 }
 

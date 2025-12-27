@@ -49,20 +49,32 @@ onMounted(() => {
 		authStore.loadUser();
 	}
 
-	console.log(authStore.isAuthenticated);
+	// Only log in development mode
+	if (import.meta.env.DEV) {
+		console.log(authStore.isAuthenticated);
+	}
 	authCheck.value = true;
 
-	// Try to load selected service from localStorage
-	const savedService = localStorage.getItem('selectedService');
-	if (savedService) {
-		try {
-			const service = JSON.parse(savedService);
-			menuStore.setActiveService(service.service_id);
-		} catch (e) {
-			console.error('Error parsing saved service:', e);
-			localStorage.removeItem('selectedService');
-			// reload the page to reset state
-			window.location.reload();
+	// Try to load selected service from localStorage using store method
+	const activeService = menuStore.getActiveService();
+	if (activeService === null) {
+		// If no service is set, try to load from localStorage
+		const savedService = localStorage.getItem('selectedService');
+		if (savedService) {
+			try {
+				const service = JSON.parse(savedService);
+				menuStore.setActiveService(service.service_id);
+			} catch (e) {
+				// Only log errors in development
+				if (import.meta.env.DEV) {
+					console.error('Error parsing saved service:', e);
+				}
+				localStorage.removeItem('selectedService');
+				// Only reload in development to avoid infinite loops in production
+				if (import.meta.env.DEV) {
+					window.location.reload();
+				}
+			}
 		}
 	}
 });
@@ -84,7 +96,9 @@ watch(() => authStore.isAuthenticated,
 				(menuStore as any).setActiveService?.(null);
 			} catch (e) {
 				// fallback: if setActiveService expects a number, directly remove saved service and rely on default
-				console.warn('Could not set null active service on menuStore:', e);
+				if (import.meta.env.DEV) {
+					console.warn('Could not set null active service on menuStore:', e);
+				}
 			}
 			// Remove persisted selected service to ensure a fresh state after re-login
 			localStorage.removeItem('selectedService');

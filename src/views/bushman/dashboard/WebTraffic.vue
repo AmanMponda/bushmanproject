@@ -5,71 +5,173 @@
         <h6 class="analytics-title">Quota Distribution</h6>
         <p class="analytics-subtitle">Quota allocation by category</p>
       </div>
-      <button class="refresh-btn" title="Refresh">
-        <i class="bi bi-arrow-clockwise"></i>
+      <button 
+        class="refresh-btn" 
+        title="Refresh" 
+        @click="refreshData"
+        :disabled="loadingStats"
+      >
+        <i class="bi bi-arrow-clockwise" :class="{ 'spinning': loadingStats }"></i>
       </button>
     </div>
 
-    <div class="distribution-content">
+    <div v-if="loadingStats" class="loading-state">
+      <div class="spinner"></div>
+      <p>Loading quota data...</p>
+    </div>
+
+    <div v-else class="distribution-content">
       <div class="distribution-stats">
         <div class="stat-box">
-          <span class="stat-number">457</span>
-          <span class="stat-change text-success"> <i class="bi bi-arrow-up"></i> +12.5% </span>
+          <span class="stat-number">{{ totalQuota }}</span>
+          <span class="stat-change text-success">
+            <i class="bi bi-arrow-up"></i> 
+            {{ quotaName || 'Total Quota' }}
+          </span>
         </div>
       </div>
 
       <div class="progress-section">
         <div class="progress-bar">
-          <div class="progress-segment" style="flex-basis: 40.7%; background: #3b82f6 !important"></div>
-          <div class="progress-segment" style="flex-basis: 32.2%; background: #10b981 !important"></div>
-          <div class="progress-segment" style="flex-basis: 15.3%; background: #f59e0b !important"></div>
-          <div class="progress-segment" style="flex-basis: 7.7%; background: #ef4444 !important"></div>
-          <div class="progress-segment" style="flex-basis: 4.1%; background: #d1d5db !important"></div>
+          <div 
+            v-if="provisionedPercentage > 0"
+            class="progress-segment" 
+            :style="`flex-basis: ${provisionedPercentage}%; background: #3b82f6 !important`"
+          ></div>
+          <div 
+            v-if="confirmedPercentage > 0"
+            class="progress-segment" 
+            :style="`flex-basis: ${confirmedPercentage}%; background: #10b981 !important`"
+          ></div>
+          <div 
+            v-if="cancelledPercentage > 0"
+            class="progress-segment" 
+            :style="`flex-basis: ${cancelledPercentage}%; background: #f59e0b !important`"
+          ></div>
+          <div 
+            v-if="pendingPercentage > 0"
+            class="progress-segment" 
+            :style="`flex-basis: ${pendingPercentage}%; background: #ef4444 !important`"
+          ></div>
+          <div 
+            v-if="takenPercentage > 0"
+            class="progress-segment" 
+            :style="`flex-basis: ${takenPercentage}%; background: #d1d5db !important`"
+          ></div>
         </div>
       </div>
 
       <div class="legend-section">
-        <div class="legend-item">
+        <div class="legend-item" v-if="provisioned > 0">
           <span class="legend-dot" style="background: #3b82f6"></span>
           <div class="legend-info">
             <span class="legend-label">Provisioned</span>
-            <span class="legend-value">186 (40.7%)</span>
+            <span class="legend-value">{{ provisioned }} ({{ provisionedPercentage.toFixed(1) }}%)</span>
           </div>
         </div>
-        <div class="legend-item">
+        <div class="legend-item" v-if="confirmed > 0">
           <span class="legend-dot" style="background: #10b981"></span>
           <div class="legend-info">
             <span class="legend-label">Confirmed</span>
-            <span class="legend-value">147 (32.2%)</span>
+            <span class="legend-value">{{ confirmed }} ({{ confirmedPercentage.toFixed(1) }}%)</span>
           </div>
         </div>
-        <div class="legend-item">
+        <div class="legend-item" v-if="cancelled > 0">
           <span class="legend-dot" style="background: #f59e0b"></span>
           <div class="legend-info">
             <span class="legend-label">Cancelled</span>
-            <span class="legend-value">70 (15.3%)</span>
+            <span class="legend-value">{{ cancelled }} ({{ cancelledPercentage.toFixed(1) }}%)</span>
           </div>
         </div>
-        <div class="legend-item">
+        <div class="legend-item" v-if="pending > 0">
           <span class="legend-dot" style="background: #ef4444"></span>
           <div class="legend-info">
             <span class="legend-label">Pending</span>
-            <span class="legend-value">35 (7.7%)</span>
+            <span class="legend-value">{{ pending }} ({{ pendingPercentage.toFixed(1) }}%)</span>
           </div>
         </div>
-        <div class="legend-item">
+        <div class="legend-item" v-if="taken > 0">
           <span class="legend-dot" style="background: #d1d5db"></span>
           <div class="legend-info">
             <span class="legend-label">Taken</span>
-            <span class="legend-value">19 (4.1%)</span>
+            <span class="legend-value">{{ taken }} ({{ takenPercentage.toFixed(1) }}%)</span>
           </div>
+        </div>
+        <div v-if="totalQuota === 0" class="no-data-message">
+          <p>No quota data available</p>
         </div>
       </div>
     </div>
   </div>
 </template>
 
-<script setup lang="ts"></script>
+<script setup lang="ts">
+import { ref, computed, onMounted } from 'vue'
+import { useStatsStore } from '@/stores/bushman/stats-store'
+
+const statsStore = useStatsStore()
+
+const loadingStats = computed(() => statsStore.loadingStats)
+const quotaStats = computed(() => statsStore.quotaStats)
+
+// Computed values for display
+const totalQuota = computed(() => {
+  const total = Number(quotaStats.value?.totalQuota) || 0
+  return total
+})
+
+const provisioned = computed(() => Number(quotaStats.value?.provisioned) || 0)
+const confirmed = computed(() => Number(quotaStats.value?.confirmed) || 0)
+const cancelled = computed(() => Number(quotaStats.value?.cancelled) || 0)
+const pending = computed(() => Number(quotaStats.value?.pending) || 0)
+const taken = computed(() => Number(quotaStats.value?.taken) || 0)
+const quotaName = computed(() => quotaStats.value?.quota || '')
+
+// Calculate percentages
+const provisionedPercentage = computed(() => {
+  if (totalQuota.value === 0) return 0
+  return (provisioned.value / totalQuota.value) * 100
+})
+
+const confirmedPercentage = computed(() => {
+  if (totalQuota.value === 0) return 0
+  return (confirmed.value / totalQuota.value) * 100
+})
+
+const cancelledPercentage = computed(() => {
+  if (totalQuota.value === 0) return 0
+  return (cancelled.value / totalQuota.value) * 100
+})
+
+const pendingPercentage = computed(() => {
+  if (totalQuota.value === 0) return 0
+  return (pending.value / totalQuota.value) * 100
+})
+
+const takenPercentage = computed(() => {
+  if (totalQuota.value === 0) return 0
+  return (taken.value / totalQuota.value) * 100
+})
+
+// Fetch data
+const fetchData = async () => {
+  try {
+    await statsStore.getStats()
+  } catch (error) {
+    console.error('Error fetching quota stats:', error)
+  }
+}
+
+// Refresh handler
+const refreshData = async () => {
+  await fetchData()
+}
+
+// Load data on mount
+onMounted(() => {
+  fetchData()
+})
+</script>
 
 <style scoped>
 .web-traffic {
@@ -112,9 +214,27 @@
   justify-content: center;
 }
 
-.refresh-btn:hover {
+.refresh-btn:hover:not(:disabled) {
   background: #e5e7eb;
   color: #666;
+}
+
+.refresh-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.refresh-btn .spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .distribution-content {
@@ -254,5 +374,36 @@
 
 .text-success {
   color: #10b981;
+}
+
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  gap: 12px;
+}
+
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid #f3f4f6;
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.loading-state p {
+  color: #666;
+  font-size: 14px;
+  margin: 0;
+}
+
+.no-data-message {
+  text-align: center;
+  padding: 20px;
+  color: #999;
+  font-size: 14px;
 }
 </style>

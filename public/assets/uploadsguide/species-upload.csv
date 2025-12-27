@@ -1,84 +1,84 @@
-"ID","Name","Scientific Name","Type"
-"48","Eland Patterson's","Tragelaphus oryx pattersonius","NORMAL"
-"49","African Elephant","Loxodonta Africana","MAIN"
-"50","Grants Gazelle","Nonger granli granli","NORMAL"
-"51","Robert's Gazelle","Nonger granli robortsi","NORMAL"
-"52","Thomson's Gazelle","Eudorcas thomsoni","NORMAL"
-"53","Garnet Botched","Genetta lingerie","NORMAL"
-"54","Genet Common","Genetta genetta","NORMAL"
-"55","Gerenuk","Lilocaeanus walled walled","NORMAL"
-"56","Sharpe's Grysbock","Raphicerus shapiro","NORMAL"
-"57","Hare cape","Lepus saxatilis","NORMAL"
-"58","Hare Scrub","Lepus capensis","NORMAL"
-"59","Hartebeest Cokes","Alcelaphus buselaphus cokii","NORMAL"
-"60","Hartebeest Lichtenstein's","Alcelaphus buselaphus lichtensteinii","NORMAL"
-"61","Hippo","Hippopotamus amphibious","MAIN"
-"62","Spotted Hyena","Crocuta crocuta","NORMAL"
-"63","Striped Hyena","Hyena hyena","NORMAL"
-"64","Impala East African","Aepyceros melampus rondii","NORMAL"
-"65","Impala Southern","Aepyceros melampus melampus","NORMAL"
-"66","Common/Golden Jackal","Canis aureus","NORMAL"
-"67","Side striped Jackal","Canis adustus","NORMAL"
-"68","Silver backed Jackal","Canis mesomelas","NORMAL"
-"69","Khospringer","Oreotragus oreotragus","NORMAL"
-"70","Greater Kudu","Tragelaphus strepsiceros","NORMAL"
-"71","Lesser Kudu","Tragelaphus imberbis","NORMAL"
-"72","Leopard","Panthera pardus pardus","MAIN"
-"73","Lion","Panthera leo","MAIN"
-"74","Banded Mongoose","Mungos mungo","NORMAL"
-"75","White tailed Mongoose","Ichneumia albicauda","NORMAL"
-"76","Blue Monkey","Cercopithecus mitis","NORMAL"
-"77","Vervet Monkey","Chlorocebus pygerythrus","NORMAL"
-"118","Baboon Olive","Papio anubis","NORMAL"
-"119","Baboon Yellow","Papio cynocephalus","NORMAL"
-"120","Buffalo African Cape","Syncerus caffer caffer","MAIN"
-"121","Bushbuck Chope","Tragelaphus scriptus ornalus","NORMAL"
-"122","Bushbuck Masai","Tragelaphus scriptus delamon","NORMAL"
-"123","Bushpig","Potamochoerus larvatus","NORMAL"
-"124","Caracal","Caracal caracal","NORMAL"
-"125","Civet African","Civeltictis civella","NORMAL"
-"126","Dikdik Kirk's","Madoqua dik dik","NORMAL"
-"127","Abbott's duiker","Cephalophus spadix","NORMAL"
-"128","Common Duiker","Sylvicapra grimmia","NORMAL"
-"129","Duiker Harvey's red","Cephalophus natalensis","NORMAL"
-"130","Eland Livingstone's","Tragelaphus oryx livingstoni","NORMAL"
-"131","Oribi Common","Ourebia ourebi","NORMAL"
-"132","Oryx Fringed Aared","Oryx beisa","NORMAL"
-"133","Porcupine Crested","Hystrix cristata","NORMAL"
-"134","Puku","Kobus vardoni","NORMAL"
-"135","Ratel (Honey Badger)","Mellivora capensis","NORMAL"
-"136","Reedbuck Bohar","Redunca redunca","NORMAL"
-"137","Mountain Reedbuck (Chandler's)","Redunca fulvorufula","NORMAL"
-"138","Southern Reedbuck (Common)","Redunca arundinum","NORMAL"
-"139","Roan antelope","Hippotragus equinus","NORMAL"
-"140","Sable Antelope Common","Hippotragus niger","NORMAL"
-"141","Sable Antelope Roosevelt","Hippotragus niger","NORMAL"
-"142","Serval Cat","Leptailurus serval","NORMAL"
-"143","Sinalunga East African","Tragelaphus spekii","NORMAL"
-"144","Stenbuck","Raphicerus campestris","NORMAL"
-"145","Pygmy Antelope (Sun)","Neotragus moschatus","NORMAL"
-"146","Topi","Damaliscus lunatus","NORMAL"
-"147","Warthog","Phacochoerus africanus","NORMAL"
-"148","Common Waterbuck","Kobus ellipsiprymnus","NORMAL"
-"149","Defassa Waterbuck","Kobus defassa","NORMAL"
-"150","Wildcat","Felis silvestris","NORMAL"
-"151","Eastern White bearded Wildebeest","Connochaetes taurinus","NORMAL"
-"152","Nyasa Wildebeest","Connochaetes taurinus","NORMAL"
-"153","Western White bearded wildebeest","Connochaetes taurinus","NORMAL"
-"154","Burchel's Zebra","Equus quagga burchellii","NORMAL"
-"155","Zonilla","Otocolobus manul","NORMAL"
-"156","Crocodile Nile","Crocodylus niloticus","MAIN"
-"157","Python Rock","Python sebae","NORMAL"
-"158","Ostrich","Struthio camelus","NORMAL"
-"159","Dove","Turtur chalcospilos","NORMAL"
-"160","Duck","Dendrocygna viduata","NORMAL"
-"161","Francolin","Francolinus coqui","NORMAL"
-"162","Geese","Alopochen aegyptiaca","NORMAL"
-"163","Guinea fowl","Numida meleagris","NORMAL"
-"164","Pigeon","Treron culver","NORMAL"
-"165","Sand grouse","Pterocles decoratus","NORMAL"
-"166","Spur fowl","Francolinus afer","NORMAL"
-"167","Grebe","Podiceps cristatus","NORMAL"
-"168","Crane","Balearica regulorum","NORMAL"
-"169","Kori Bustard","Ardeotis kori","NORMAL"
-"170","Stripes","Rostratula benghalensis","NORMAL"
+specie_id,name,scientific_name,type
+48,Eland Patterson's,,
+49,African Elephant,,
+50,Grants Gazelle,,
+51,Robert's Gazelle,,
+52,Thomson's Gazelle,,
+53,Garnet Botched,,
+54,Genet Common,,
+55,Gerenuk,,
+56,Sharpe's Grysbock,,
+57,Hare cape,,
+58,Hare Scrub,,
+59,Hartebeest Cokes,,
+60,Hartebeest Lichtenstein's,,
+61,Hippo,,
+62,Spotted Hyena,,
+63,Striped Hyena,,
+64,Impala East African,,
+65,Impala Southern,,
+66,Common/Golden Jackal,,
+67,Side striped Jackal,,
+68,Silver backed Jackal,,
+69,Khospringer,,
+70,Greater Kudu,,
+71,Lesser Kudu,,
+72,Leopard,,
+73,Lion,,
+74,Banded Mongoose,,
+75,White tailed Mongoose,,
+76,Blue Monkey,,
+77,Vervet Monkey,,
+118,Baboon Olive,,
+119,Baboon Yellow,,
+120,Buffalo African Cape,,
+121,Bushbuck Chope,,
+122,Bushbuck Masai,,
+123,Bushpig,,
+124,Caracal,,
+125,Civet African,,
+126,Dikdik Kirk's,,
+127,Abbott's duiker,,
+128,Common Duiker,,
+129,Duiker Harvey's red,,
+130,Eland Livingstone's,,
+131,Oribi Common,,
+132,Oryx Fringed Aared,,
+133,Porcupine Crested,,
+134,Puku,,
+135,Ratel (Honey Badger),,
+136,Reedbuck Bohar,,
+137,Mountain Reedbuck (Chandler's),,
+138,Southern Reedbuck (Common),,
+139,Roan antelope,,
+140,Sable Antelope Common,,
+141,Sable Antelope Roosevelt,,
+142,Serval Cat,,
+143,Sinalunga East African,,
+144,Stenbuck,,
+145,Pygmy Antelope (Sun),,
+146,Topi,,
+147,Warthog,,
+148,Common Waterbuck,,
+149,Defassa Waterbuck,,
+150,Wildcat,,
+151,Eastern White bearded Wildebeest,,
+152,Nyasa Wildebeest,,
+153,Western White bearded wildebeest,,
+154,Burchel's Zebra,,
+155,Zonilla,,
+156,Crocodile Nile,,
+157,Python Rock,,
+158,Ostrich,,
+159,Dove,,
+160,Duck,,
+161,Francolin,,
+162,Geese,,
+163,Guinea fowl,,
+164,Pigeon,,
+165,Sand grouse,,
+166,Spur fowl,,
+167,Grebe,,
+168,Crane,,
+169,Kori Bustard,,
+170,Stripes,,

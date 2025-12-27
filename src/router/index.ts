@@ -275,8 +275,10 @@ router.beforeEach((to, from, next) => {
   const menuStore = useAppSidebarMenuStore();
   const appOption = useAppOptionStore();
 
-  // Always load user from storage first
-  authStore.loadUser();
+  // Only load user if not already loaded (avoid unnecessary localStorage reads)
+  if (!authStore.user && !authStore.token) {
+    authStore.loadUser();
+  }
 
   const isAuthenticated = !!authStore.user;
 

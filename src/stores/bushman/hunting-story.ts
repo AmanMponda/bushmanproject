@@ -7,19 +7,97 @@ export const useHuntingAreaStore = defineStore('hunting-area-store', {
   },
 
   actions: {
-    async createHuntingArea(payload: any) {
+    /**
+     * Get all locations (for selecting location when creating hunting areas)
+     */
+    async getLocations() {
+      const config = {
+        method: 'get',
+        maxBodyLength: Infinity,
+        url: import.meta.env.VITE_APP_BASE_URL + 'locations',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+      const response = await axios.request(config)
+      return response
+    },
+
+    /**
+     * Get all hunting areas across all locations
+     * Uses the settings/hunting-areas endpoint which returns hunting areas with nested location data
+     */
+    async getAllHuntingAreas() {
+      const config = {
+        method: 'get',
+        maxBodyLength: Infinity,
+        url: import.meta.env.VITE_APP_BASE_URL + 'settings/hunting-areas',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+      const response = await axios.request(config)
+      return response
+    },
+
+    /**
+     * Get hunting areas for a specific location
+     */
+    async getHuntingAreasByLocation(locationId: number | string) {
+      const config = {
+        method: 'get',
+        maxBodyLength: Infinity,
+        url: import.meta.env.VITE_APP_BASE_URL + `locations/${locationId}/hunting-areas`,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+      const response = await axios.request(config)
+      return response
+    },
+
+    /**
+     * One-shot creation: Create location with hunting area and geo-locations in one request
+     */
+    async createLocationWithHuntingArea(payload: {
+      name: string
+      code: string
+      descriptions?: string
+      is_disabled?: boolean
+      hunting_areas: Array<{ description?: string }>
+      geo_locations: Array<{
+        coordinates_type: 'POINT' | 'POLYGON' | 'LINESTRING'
+        coordinates: string
+      }>
+    }) {
+      const data = JSON.stringify(payload)
+
+      const config = {
+        method: 'post',
+        maxBodyLength: Infinity,
+        url: import.meta.env.VITE_APP_BASE_URL + 'locations',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        data: data,
+      }
+
+      const response = await axios.request(config)
+      return response
+    },
+
+    /**
+     * Create a hunting area for a specific location
+     */
+    async createHuntingArea(locationId: number | string, payload: { description?: string }) {
       const data = JSON.stringify({
-        name: payload.name,
-        description: payload.description,
-        coordinates_type: 'Point',
-        coordinates: payload.coordinates,
-        is_disabled: false,
+        description: payload.description || '',
       })
 
       const config = {
         method: 'post',
         maxBodyLength: Infinity,
-        url: import.meta.env.VITE_APP_BASE_URL + import.meta.env.VITE_APP_HUTING_AREAS_URL,
+        url: import.meta.env.VITE_APP_BASE_URL + `locations/${locationId}/hunting-areas`,
         headers: {
           'Content-Type': 'application/json',
         },
@@ -30,19 +108,18 @@ export const useHuntingAreaStore = defineStore('hunting-area-store', {
       return response
     },
 
-    async updateHuntingArea(id: string, payload: any) {
+    /**
+     * Update a hunting area for a specific location
+     */
+    async updateHuntingArea(locationId: number | string, huntingAreaId: number | string, payload: { description?: string }) {
       const data = JSON.stringify({
-        name: payload.name,
-        description: payload.description,
-        coordinates_type: 'Point',
-        coordinates: payload.coordinates,
-        is_disabled: false,
+        description: payload.description || '',
       })
 
       const config = {
         method: 'put',
         maxBodyLength: Infinity,
-        url: import.meta.env.VITE_APP_BASE_URL + import.meta.env.VITE_APP_HUTING_AREAS_URL + id + '/',
+        url: import.meta.env.VITE_APP_BASE_URL + `locations/${locationId}/hunting-areas/${huntingAreaId}`,
         headers: {
           'Content-Type': 'application/json',
         },
@@ -53,16 +130,14 @@ export const useHuntingAreaStore = defineStore('hunting-area-store', {
       return response
     },
 
-    async deleteHuntingArea(id: string, force: boolean = false) {
+    /**
+     * Delete a hunting area for a specific location
+     */
+    async deleteHuntingArea(locationId: number | string, huntingAreaId: number | string) {
       const config = {
         method: 'delete',
         maxBodyLength: Infinity,
-        url:
-          import.meta.env.VITE_APP_BASE_URL +
-          import.meta.env.VITE_APP_HUTING_AREAS_URL +
-          id +
-          '/' +
-          (force ? '?force=true' : ''),
+        url: import.meta.env.VITE_APP_BASE_URL + `locations/${locationId}/hunting-areas/${huntingAreaId}`,
         headers: {
           'Content-Type': 'application/json',
         },
@@ -72,11 +147,14 @@ export const useHuntingAreaStore = defineStore('hunting-area-store', {
       return response
     },
 
-    async getHuntingAreaById(id: string) {
+    /**
+     * Get a single hunting area by ID (requires locationId)
+     */
+    async getHuntingAreaById(locationId: number | string, huntingAreaId: number | string) {
       const config = {
         method: 'get',
         maxBodyLength: Infinity,
-        url: import.meta.env.VITE_APP_BASE_URL + import.meta.env.VITE_APP_HUTING_AREAS_URL + id + '/',
+        url: import.meta.env.VITE_APP_BASE_URL + `locations/${locationId}/hunting-areas/${huntingAreaId}`,
         headers: {
           'Content-Type': 'application/json',
         },
@@ -86,6 +164,27 @@ export const useHuntingAreaStore = defineStore('hunting-area-store', {
       return response
     },
 
+    /**
+     * Get a single hunting area by ID using the direct endpoint
+     */
+    async getHuntingAreaByIdDirect(huntingAreaId: number | string) {
+      const config = {
+        method: 'get',
+        maxBodyLength: Infinity,
+        url: import.meta.env.VITE_APP_BASE_URL + `locations/hunting-areas/${huntingAreaId}`,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+
+      const response = await axios.request(config)
+      return response
+    },
+
+    /**
+     * Get species for a hunting area
+     * Note: This endpoint might need to be updated based on the new API structure
+     */
     async listHuntingAreaSpecies(huntingAreaId?: number | string) {
       const config = {
         method: 'get',
@@ -158,16 +257,20 @@ export const useHuntingAreaStore = defineStore('hunting-area-store', {
     },
 
     async deleteHuntingAreaSpecies(id: any, huntingAreaId?: any, specieId?: any) {
+      const resolvedHuntingAreaId = huntingAreaId ?? id
+      if (!resolvedHuntingAreaId || !specieId) {
+        throw new Error('hunting_area_id and specie_id are required')
+      }
       const config = {
         method: 'delete',
         maxBodyLength: Infinity,
-        url: import.meta.env.VITE_APP_BASE_URL + `settings/hunting-area-species/${id}`,
+        url: import.meta.env.VITE_APP_BASE_URL + 'hunting-area-species/0',
         headers: {
           'Content-Type': 'application/json',
         },
         params: {
-          ...(huntingAreaId ? { hunting_area_id: huntingAreaId } : {}),
-          ...(specieId ? { specie_id: specieId } : {}),
+          hunting_area_id: resolvedHuntingAreaId,
+          specie_id: specieId,
         },
       }
 

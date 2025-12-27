@@ -14,5 +14,31 @@ export default defineConfig({
   },
   optimizeDeps: {
     exclude: ['vue-demi']
-	}
+  },
+  build: {
+    // Remove console logs in production builds using esbuild
+    minify: 'esbuild',
+    // Optimize chunk splitting
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-vue': ['vue', 'vue-router', 'pinia'],
+          'vendor-ui': ['bootstrap', '@fortawesome/fontawesome-free'],
+          'vendor-charts': ['chart.js', 'apexcharts', 'vue3-apexcharts'],
+        },
+      },
+    },
+    // Increase chunk size warning limit
+    chunkSizeWarningLimit: 1000,
+  },
+  esbuild: {
+    // Drop console and debugger in production
+    drop: process.env.NODE_ENV === 'production' ? ['console', 'debugger'] : [],
+  },
+  // Optimize dev server
+  server: {
+    hmr: {
+      overlay: true,
+    },
+  },
 });

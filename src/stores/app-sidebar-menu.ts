@@ -50,17 +50,8 @@ export const useAppSidebarMenuStore = defineStore("appSidebarMenu", () => {
     }).filter(Boolean) as MenuItem[];
   };
 
-  // Try to load selected service from localStorage
-  const savedService = localStorage.getItem('selectedService');
-  if (savedService) {
-    try {
-      const service: Service = JSON.parse(savedService);
-      activeServiceId.value = service.service_id;
-    } catch (e) {
-      console.error('Error parsing saved service:', e);
-      localStorage.removeItem('selectedService');
-    }
-  }
+  // Initialize activeServiceId - will be loaded lazily when needed
+  // Avoid synchronous localStorage read at module level for better performance
 
   const commonMenuItems = computed<MenuItem[]>(() => [
     {
@@ -449,7 +440,7 @@ export const useAppSidebarMenuStore = defineStore("appSidebarMenu", () => {
         { url: '/module-settings/clients-settings', text: 'Price structures', permission: 'CAN_VIEW_SALES_PACKAGE' ,
         children: [
         { url: '/module-settings/sales-package', text: 'Sales Package', permission: 'CAN_VIEW_SALES_PACKAGE' },
-        { url: '/module-settings/trophy-fees', text: 'Trophy Fees', permission: 'CAN_VIEW_TROPHY_FEES' },
+        // { url: '/module-settings/trophy-fees', text: 'Trophy Fees', permission: 'CAN_VIEW_TROPHY_FEES' },
         // { url: '/module-settings/safari-fee-deposits', text: 'Deposits Planning', permission: 'CAN_VIEW_SAFARI_FEE_DEPOSITS' },
         { url: '/module-settings/sales-extra-services', text: 'Extra Services', permission: 'CAN_VIEW_SALES_EXTRA_SERVICES' },
 
@@ -508,12 +499,45 @@ export const useAppSidebarMenuStore = defineStore("appSidebarMenu", () => {
   });
 
   // Action to set the active service
-  const setActiveService = (serviceId: number) => {
+  const setActiveService = (serviceId: number | null) => {
     activeServiceId.value = serviceId;
+    if (serviceId !== null) {
+      // Save to localStorage when setting
+      const savedService = localStorage.getItem('selectedService');
+      if (savedService) {
+        try {
+          const service: Service = JSON.parse(savedService);
+          if (service.service_id !== serviceId) {
+            // Update if different
+            localStorage.setItem('selectedService', JSON.stringify({ service_id: serviceId }));
+          }
+        } catch (e) {
+          // If parsing fails, just set new value
+          localStorage.setItem('selectedService', JSON.stringify({ service_id: serviceId }));
+        }
+      } else {
+        localStorage.setItem('selectedService', JSON.stringify({ service_id: serviceId }));
+      }
+    } else {
+      localStorage.removeItem('selectedService');
+    }
   };
 
-  // Get the current active service
+  // Get the current active service (lazy load from localStorage if not set)
   const getActiveService = () => {
+    if (activeServiceId.value === null) {
+      // Lazy load from localStorage only when needed
+      const savedService = localStorage.getItem('selectedService');
+      if (savedService) {
+        try {
+          const service: Service = JSON.parse(savedService);
+          activeServiceId.value = service.service_id;
+        } catch (e) {
+          // Silently handle error, remove corrupted data
+          localStorage.removeItem('selectedService');
+        }
+      }
+    }
     return activeServiceId.value;
   };
 

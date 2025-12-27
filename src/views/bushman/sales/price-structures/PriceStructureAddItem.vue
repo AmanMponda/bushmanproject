@@ -209,8 +209,10 @@ const submit = async () => {
 
   try {
     await store.createItem(priceStructureId, payload)
-    toast.init({ message: 'Item created', color: 'success' })
-    router.push({ name: 'sales-price-list', query: { structureId: String(priceStructureId), view: 'items' } })
+    router.push({
+      name: 'sales-price-list',
+      query: { structureId: String(priceStructureId), view: 'items', itemCreated: '1' },
+    })
   } catch (err: any) {
     console.error('Failed to create item:', err)
     toast.init({ message: err?.message || 'Failed to create item', color: 'danger' })

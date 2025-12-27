@@ -123,7 +123,10 @@ export const useAuthStore = defineStore("auth", {
           }
         }
       } catch (error) {
-        console.error('Error loading user data:', error);
+        // Only log in development to avoid performance issues
+        if (import.meta.env.DEV) {
+          console.error('Error loading user data:', error);
+        }
         this.clearAuthData();
       }
 
@@ -168,7 +171,10 @@ export const useAuthStore = defineStore("auth", {
           });
         }
       } catch (error) {
-        console.error('Logout failed:', error);
+        // Only log in development to avoid performance issues
+        if (import.meta.env.DEV) {
+          console.error('Logout failed:', error);
+        }
         const errorMessage = error instanceof Error ? (error as any).response?.data?.message || error.message : 'Please try again.';
         // showAlert('error', `Logout failed. ` + (errorMessage || 'Please try again.'));
         throw error;
