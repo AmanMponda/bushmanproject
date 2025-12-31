@@ -358,9 +358,9 @@ export default {
       const requestdata = {
         name: form.package_name,
         description: form.description,
-        areaId: form.area.value,
-        licenceId: form.licence.value,
-        speciesObjectList: speciesWithQuantity,
+        area_id: form.area.value,
+        regulatory_package_id: form.licence.value,
+        species_object_list: speciesWithQuantity,
       }
       try {
         const response = await priceListStore.createSalesPackage(requestdata)

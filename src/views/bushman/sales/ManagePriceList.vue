@@ -24,7 +24,9 @@
                   @update:filters="handleFiltersUpdate" @selectionChange="handleSelectionChange">
                   <template #start_date="{ row }">{{ formatDateShort((row as any).start_date) }}</template>
                   <template #end_date="{ row }">{{ formatDateShort((row as any).end_date) }}</template>
-                  <template #area="{ row }">{{ (row as any).area }}</template>
+                  <template #name="{ row }">{{ (row as any).name }}</template>
+                  <template #location_name="{ row }">{{ (row as any).location_name }}</template>
+                  <template #season="{ row }">{{ (row as any).season }}</template>
                   <template #is_active="{ row }">
                     <span :class="(row as any).is_active ? 'badge bg-success' : 'badge bg-secondary'">{{ (row as any).is_active ? 'Active' : 'Inactive' }}</span>
                   </template>
@@ -83,7 +85,7 @@ import CreatePricesListForm from './CreatePricesListForm.vue'
 // New: Price Structures
 import { usePriceStructuresStore } from '@/stores/bushman/price-structures-store'
 import PriceStructureDetails from './price-structures/PriceStructureDetails.vue'
-import { useQuotaStore } from '../../../stores/bushman/quota-store.ts'
+import { useHuntingAreaStore } from '../../../stores/bushman/hunting-story.ts'
 import { useSettingsStore } from '../../../stores/bushman/settings-store.ts'
 import downloadPdf from '../../../stores/bushman/pdfDownloader.ts'
 import handleErrors from '../../../stores/bushman/errorHandler.ts'
@@ -92,9 +94,11 @@ import Swal from 'sweetalert2'
 
 // Constants
 const columns = [
+  { key: 'name', label: 'Name', sortable: true, visible: true },
+  { key: 'location_name', label: 'Location', sortable: true, visible: true },
+  { key: 'season', label: 'Season', sortable: true, visible: true },
   { key: 'start_date', label: 'Start Date', sortable: true, visible: true },
   { key: 'end_date', label: 'End Date', sortable: true, visible: true },
-  { key: 'area', label: 'Area', sortable: true, visible: true },
   { key: 'is_active', label: 'Active', sortable: true, visible: true },
   { key: 'items_count', label: 'price Items', sortable: false, visible: true },
   { key: 'actions', label: 'Actions', sortable: false, visible: true },
@@ -106,7 +110,7 @@ const dataFetched = ref<any[]>([])
 const printableDataList = ref<any[]>([])
 const item = ref<any>(null)
 const toast = useToast()
-const areasOptions = ref<any[]>([])
+const locationsOptions = ref<any[]>([])
 const huntingTypeOptions = ref<any[]>([])
 const seasonOptions = ref<any[]>([])
 const showPriceList = ref(true)
@@ -115,7 +119,7 @@ const loading = ref(false)
 const loadingDetail = ref(false)
 const loadingSeasons = ref(false)
 const huntingTypeValue = ref<any>(null)
-const areaValue = ref<any>(null)
+const locationValue = ref<any>(null)
 // initial view for PriceStructureDetails (items|prices)
 const initialView = ref<'items'|'prices'>('items')
 const seasonValue = ref<any>(null)
@@ -138,7 +142,7 @@ const tableFilters = ref({
   date_to: '',
   season_id: '',
   hunting_type_id: '',
-  area_id: '',
+  location_id: '',
   min_amount: '',
   max_amount: '',
 })
@@ -161,7 +165,7 @@ const formatDateShort = (isoDate?: string | null) => {
 // Stores
 const priceListStore = usePriceListStore()
 const priceStructuresStore = usePriceStructuresStore()
-const quotaStore = useQuotaStore()
+const huntingAreaStore = useHuntingAreaStore()
 const settingsStore = useSettingsStore()
 
 // route
@@ -182,12 +186,6 @@ const pageActions = computed(() => {
       icon: 'fa fa-plus',
       class: 'btn btn-primary',
       method: () => showCreateNewPriceListFormMethod(true),
-    })
-    actions.push({
-      label: 'Download PDF',
-      icon: 'fa fa-download',
-      class: 'btn btn-info',
-      method: () => onDownloadPdf(),
     })
   }
   return actions
@@ -218,11 +216,11 @@ const customFilters = computed(() => {
       defaultValue: '',
     },
     {
-      key: 'area_id',
-      label: 'Area',
+      key: 'location_id',
+      label: 'Location',
       type: 'select',
-      placeholder: 'Select Area',
-      options: areasOptions.value.map((opt: any) => ({
+      placeholder: 'Select Location',
+      options: locationsOptions.value.map((opt: any) => ({
         value: opt.value,
         label: opt.text,
       })),
@@ -321,14 +319,14 @@ const onDownloadPdf = async () => {
     }
 
     const huntingTypeId = unwrap(huntingTypeValue.value) || ''
-    const areaId = unwrap(areaValue.value) || ''
+    const locationId = unwrap(locationValue.value) || ''
     const seasonId = unwrap(seasonValue.value) || ''
     const minAmountValue = minAmount.value || ''
     const maxAmountValue = maxAmount.value || ''
 
     const response = await priceListStore.getCompletePriceListPdf(
       huntingTypeId,
-      areaId,
+      locationId,
       seasonId,
       minAmountValue,
       maxAmountValue,
@@ -505,8 +503,8 @@ const handleFiltersUpdate = (filters: any) => {
   if (filters.hunting_type_id !== undefined) {
     huntingTypeValue.value = huntingTypeOptions.value.find((opt: any) => opt.value === filters.hunting_type_id) || null
   }
-  if (filters.area_id !== undefined) {
-    areaValue.value = areasOptions.value.find((opt: any) => opt.value === filters.area_id) || null
+  if (filters.location_id !== undefined) {
+    locationValue.value = locationsOptions.value.find((opt: any) => opt.value === filters.location_id) || null
   }
   if (filters.min_amount !== undefined) {
     minAmount.value = filters.min_amount
@@ -542,9 +540,11 @@ const getPriceLists = async () => {
             id: it.id,
             start_date: it.start_date,
             end_date: it.end_date,
-            area: it.area || it.area_name || (it.area_object?.name || ''),
+            name: it.name || '',
+            location_name: it.location_name || it.area || it.location?.name || '',
+            season: it.season || seasonOptions.value.find((opt: any) => opt.value === it.season_id)?.text || '',
             is_active: !!it.is_active,
-            items_count: Array.isArray(it.items) ? it.items.length : 0,
+            items_count: (it.price_items_count ?? (Array.isArray(it.items) ? it.items.length : 0)),
             companion: (it.companion_hunter_prices && it.companion_hunter_prices.length) || (it.companion_hunter_costs && it.companion_hunter_costs.length) ? 'Yes' : '',
             observer: (it.observer_hunter_prices && it.observer_hunter_prices.length) ? 'Yes' : '',
             raw: it, // keep original payload for details
@@ -563,19 +563,21 @@ const getPriceLists = async () => {
   }
 }
 
-const getAreas = async () => {
+const getLocations = async () => {
   try {
-    const response = await quotaStore.getAreaList()
-    const all = { value: '', text: 'All Areas' }
-    areasOptions.value =
-      response?.data?.map((item: any) => ({
+    const response = await huntingAreaStore.getLocations()
+    const all = { value: '', text: 'All Locations' }
+    // Handle paginated response: { success: true, data: { current_page: 1, data: [...] } }
+    const locationData = response?.data?.data?.data || response?.data?.data || response?.data || []
+    locationsOptions.value =
+      locationData.map((item: any) => ({
         value: item.id,
         text: item.name,
       })) || []
-    areasOptions.value.unshift(all)
-    areaValue.value = areasOptions.value[0]
+    locationsOptions.value.unshift(all)
+    locationValue.value = locationsOptions.value[0]
   } catch (error) {
-    console.error('Error fetching areas:', error)
+    console.error('Error fetching locations:', error)
   }
 }
 
@@ -601,7 +603,7 @@ const getHuntingTypesOptions = async () => {
 onMounted(() => {
   getSeasonOptions()
   getPriceLists()
-  getAreas()
+  getLocations()
   getHuntingTypesOptions()
   settingsStore.loadLogo()
 })

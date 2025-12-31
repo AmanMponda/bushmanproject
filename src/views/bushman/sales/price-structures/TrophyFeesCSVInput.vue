@@ -19,7 +19,7 @@
           <p class="text-muted small mb-0">or click to browse files</p>
         </div>
         <div class="upload-hint mt-2">
-          <span class="badge bg-light text-dark"><i class="fa fa-info-circle me-1"></i>CSV: Species ID, Species Name, Amount</span>
+          <span class="badge bg-light text-dark"><i class="fa fa-info-circle me-1"></i>CSV: Species ID, Species Name, Scientific Name, Amount</span>
         </div>
       </template>
       <template v-else-if="csvFile && !showPreview">
@@ -59,6 +59,7 @@
                 </th>
                 <th>Species ID</th>
                 <th>Species Name</th>
+                <th>Scientific Name</th>
                 <th>Amount</th>
               </tr>
             </thead>
@@ -69,6 +70,7 @@
                 </td>
                 <td>{{ row.species_id }}</td>
                 <td>{{ row.species_name }}</td>
+                <td>{{ row.scientific_name }}</td>
                 <td>{{ row.amount }}</td>
               </tr>
             </tbody>
@@ -90,6 +92,7 @@ import { ref, computed } from 'vue'
 interface CsvRow {
   species_id: string | number
   species_name: string
+  scientific_name: string
   amount: string | number
   _selected?: boolean
 }
@@ -178,15 +181,18 @@ function parseCsv(text: string): CsvRow[] {
     const headers = lines[0].split(',').map((h) => h.trim().toLowerCase().replace(/"/g, ''))
     const speciesIdIdx = headers.indexOf('species id')
     const speciesNameIdx = headers.indexOf('species name')
+    const scientificNameIdx = headers.indexOf('scientific name')
     const amountIdx = headers.indexOf('amount')
 
     // Fallback to alternative header names
     const speciesIdIdxAlt = headers.indexOf('species_id')
     const speciesNameIdxAlt = headers.indexOf('species_name')
+    const scientificNameIdxAlt = headers.indexOf('scientific_name')
     const amountIdxAlt = headers.indexOf('amount')
 
     const finalSpeciesIdIdx = speciesIdIdx !== -1 ? speciesIdIdx : speciesIdIdxAlt
     const finalSpeciesNameIdx = speciesNameIdx !== -1 ? speciesNameIdx : speciesNameIdxAlt
+    const finalScientificNameIdx = scientificNameIdx !== -1 ? scientificNameIdx : scientificNameIdxAlt
     const finalAmountIdx = amountIdx !== -1 ? amountIdx : amountIdxAlt
 
     if (finalSpeciesIdIdx === -1 || finalAmountIdx === -1) {
@@ -200,12 +206,14 @@ function parseCsv(text: string): CsvRow[] {
       const cells = parseCsvLine(lines[i])
       const species_id = cells[finalSpeciesIdIdx]?.trim().replace(/"/g, '')
       const species_name = finalSpeciesNameIdx >= 0 ? (cells[finalSpeciesNameIdx]?.trim().replace(/"/g, '') || '') : ''
+      const scientific_name = finalScientificNameIdx >= 0 ? (cells[finalScientificNameIdx]?.trim().replace(/"/g, '') || '') : ''
       const amount = cells[finalAmountIdx]?.trim().replace(/"/g, '')
 
       if (species_id && amount) {
         rows.push({
           species_id,
           species_name: species_name || '',
+          scientific_name: scientific_name || '',
           amount,
         })
       }

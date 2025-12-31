@@ -1,859 +1,1901 @@
-<template>
-  <div class="price-list-form-page">
-    <!-- Form Container -->
-    <div class="form-price-list-container">
-      <div v-if="!savingPriceList" class="card bg-transparent border-0 shadow-none">
-        <div class="card-header bg-transparent border-bottom">
-          <div class="d-flex justify-content-between align-items-center">
-            <div class="d-flex align-items-center gap-2">
-              <button type="button" class="btn btn-secondary btn-sm" @click="$emit('go-back')">
-                <i class="fa fa-arrow-left me-1"></i> Back
-              </button>
+﻿<template>
+  <div class="ps-page">
+    <!-- Page Content -->
+    <main class="content">
+      <!-- Page Title Row -->
+      <div class="page-head">
+        <div>
+          <div class="crumbs">SALES / <span>PRICE STRUCTURES</span></div>
+          <h1>{{ editMode ? 'Edit Price Structure' : 'Create Price Structure' }}</h1>
+          <p class="subtitle">Rate card for a specific area + season + currency.</p>
+        </div>
 
-              <i class="fa fa-edit text-primary fs-5"></i>
-              <h2 class="h5 mb-0">
-                {{ editMode ? 'Edit Price List' : 'Create New Price List' }}
-              </h2>
+        <div class="head-actions">
+          <button class="btn ghost" type="button" @click="$emit('goBack')">← Back</button>
+          <button class="btn ghost" type="button" @click="resetForm">⟲ Reset</button>
+          <button class="btn ghost" type="button" @click="saveDraft" :disabled="saving">💾 Save Draft</button>
+          <button class="btn primary" type="button" @click="submit" :disabled="saving || !canSubmit">
+            💾 Save &amp; Activate
+          </button>
+        </div>
+      </div>
+
+      <!-- 3-column layout -->
+      <section class="grid">
+        <!-- LEFT: Create Price Structure Form -->
+        <aside class="panel">
+          <div class="panel-title">{{ editMode ? 'Edit Price Structure' : 'Create Price Structure' }}</div>
+
+          <div class="form">
+            <label class="field">
+              <span class="lbl">Name <span class="req">*</span></span>
+              <input v-model.trim="form.name" />
+            </label>
+
+            <label class="field">
+              <span class="lbl">Area <span class="req">*</span></span>
+              <select v-model="form.areaId" :disabled="loadingAreas">
+                <option :value="null" disabled>Select area</option>
+                <option v-for="a in lookups.areas" :key="a.id" :value="a.id">{{ a.name }}</option>
+              </select>
+            </label>
+
+            <label class="field">
+              <span class="lbl">Season</span>
+              <select v-model="form.seasonId" :disabled="loadingSeasons">
+                <option :value="null">None</option>
+                <option v-for="s in lookups.seasons" :key="s.id" :value="s.id">{{ s.name }}</option>
+              </select>
+            </label>
+
+            <label class="field">
+              <span class="lbl">Start Date <span class="req">*</span></span>
+              <input v-model="form.startDate" type="date" />
+            </label>
+
+            <label class="field">
+              <span class="lbl">End Date <span class="req">*</span></span>
+              <input v-model="form.endDate" type="date" />
+              <small v-if="form.startDate && form.endDate && !hasValidDates" class="text-danger">
+                Start date must be before or equal to End date.
+              </small>
+            </label>
+
+            <label class="field">
+              <span class="lbl">Currency <span class="req">*</span></span>
+              <select v-model="form.currencyId" :disabled="loadingCurrencies">
+                <option :value="null" disabled>Select currency</option>
+                <option v-for="c in lookups.currencies" :key="c.id" :value="c.id">{{ c.code }}</option>
+              </select>
+            </label>
+
+            <div class="toggle-row">
+              <span class="lbl">Active</span>
+              <label class="switch">
+                <input type="checkbox" v-model="form.isActive" />
+                <span class="slider"></span>
+              </label>
             </div>
           </div>
-        </div>
-        <div class="card-body">
-          <form ref="formRef" @submit.prevent="submit">
-            <div class="row mb-4">
-                <div v-if="!props.structureOnly" class="col-md-3">
-                <div class="form-group">
-                  <label class="form-label">Package <span class="text-danger">*</span></label>
-                  <div class="input-group">
-                    <select v-model="form.package" class="form-select" required @change="onChangePackage">
-                      <option :value="null">Select Package</option>
-                      <option v-for="option in packageOptions" :key="option.value" :value="option.value">
-                        {{ option.text }}
-                      </option>
-                    </select>
-                    <button type="button" class="btn btn-outline-secondary" title="Add New Package" @click="_showModal()">
-                      <i class="fa fa-plus"></i>
+        </aside>
+
+        <!-- CENTER: Price Map + Rate Lines -->
+        <section class="panel center">
+          <div class="panel-title">Price Map</div>
+
+          <!-- Tabs Card -->
+          <div class="inner-card tabs-card">
+            <div class="tabs">
+              <button
+                v-for="t in tabs"
+                :key="t"
+                class="tab"
+                :class="{ active: activeTab === t }"
+                @click="activeTab = t"
+              >
+                <span class="tab-icon">{{ tabIcon(t) }}</span>
+                {{ t }}
+              </button>
+            </div>
+          </div>
+
+          <!-- Search & Actions Card -->
+          <div class="inner-card toolbar-card">
+            <div class="search-row">
+              <span class="icon">🔎</span>
+              <input v-model="search" placeholder="Search item name/code..." />
+            </div>
+            <div class="rate-lines-head">
+              <div class="lines-info">
+                <h3>Rate Lines</h3>
+                <span class="line-count">{{ filteredLines.length }} items</span>
+              </div>
+              <button class="btn btn-blue small" type="button" @click="addLine">+ Add line</button>
+            </div>
+          </div>
+
+          <!-- Table Card -->
+          <div class="inner-card table-card">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th class="col-item">Item</th>
+                  <th class="col-type">Type</th>
+                  <th class="col-hunting">Hunting</th>
+                  <th class="col-days" v-if="activeTab === 'Packages' || activeTab === 'Companion Hunter'">Hunt Length</th>
+                  <th class="col-action"></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="(line, idx) in filteredLines"
+                  :key="line._key"
+                  class="data-row"
+                  :class="{ selected: selectedLineKey === line._key }"
+                  @click="selectLine(line._key)"
+                >
+                  <td class="item-col">
+                    <div class="item-info">
+                      <span class="code">{{ getLineCode(line) }}</span>
+                      <span class="name">{{ getLineName(line) }}</span>
+                    </div>
+                  </td>
+
+                  <td>
+                    <div class="type-display">{{ line.itemType || '�' }}</div>
+                  </td>
+
+                  <td>
+                    <div class="detail-display">{{ getHuntingTypeName(line.huntingTypeId) }}</div>
+                  </td>
+
+                  <td v-if="activeTab === 'Packages' || activeTab === 'Companion Hunter'">
+                    <div class="detail-display">{{ getHuntLengthLabelById(line.minDays) }}</div>
+                  </td>
+
+                  <td class="action-col">
+                    <button class="remove-btn" type="button" @click.stop="removeLine(line._key)" title="Remove line">
+                      <span>✕</span>
                     </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div v-if="filteredLines.length === 0" class="empty-state">
+              <div class="empty-icon">📋</div>
+              <div class="empty-text">No lines found</div>
+              <div class="empty-hint">Click "Add line" to create a new rate line</div>
+              <button class="btn primary small" type="button" @click="addLine">+ Add line</button>
+            </div>
+          </div>
+
+          <div class="inner-card details-card">
+            <div class="details-head">Line Details</div>
+            <div v-if="selectedLine" class="details-form">
+              <div class="edit-section">
+                <label class="field" v-if="selectedLine.itemType && selectedLine.itemType !== 'PACKAGE' && selectedLine.itemType !== 'COMPANION'">
+                  <span class="lbl">Source</span>
+                  <select v-model="selectedLine.source" :class="{'source-new': selectedLine.source === 'new'}">
+                    <option value="existing">Existing Item</option>
+                    <option value="new">New Item (Create New)</option>
+                  </select>
+                </label>
+
+                <!-- For existing source: show Item selector -->
+                <label class="field" v-if="selectedLine.source === 'existing' && selectedLine.itemType !== 'PACKAGE' && selectedLine.itemType !== 'COMPANION'">
+                  <span class="lbl">Item <span class="req">*</span></span>
+                  <select v-model="selectedLine.itemId" :disabled="!selectedLine.itemType">
+                    <option :value="null" disabled>Select item</option>
+                    <option v-for="i in itemsForType(selectedLine.itemType)" :key="i.id" :value="i.id">
+                      {{ i.code ? `${i.code} - ` : '' }}{{ i.name }}
+                    </option>
+                  </select>
+                </label>
+
+                <!-- For new source: show Item Name input -->
+                <label class="field" v-else-if="selectedLine.source === 'new' && selectedLine.itemType !== 'COMPANION'">
+                  <span class="lbl">{{ selectedLine.itemType === 'PACKAGE' ? 'Package Name' : 'Item Name' }} <span class="req">*</span></span>
+                  <input v-model.trim="selectedLine.name" :placeholder="selectedLine.itemType === 'PACKAGE' ? 'e.g., 7 Day Buffalo Hunt' : 'New item name'" :disabled="!selectedLine.itemType" />
+                </label>
+
+                <label class="field" v-if="selectedLine.itemType === 'PACKAGE'">
+                  <span class="lbl">Hunting Type <span class="req">*</span></span>
+                  <select v-model="selectedLine.huntingTypeId" :disabled="loadingHuntingTypes">
+                    <option :value="null" disabled>Select hunting type</option>
+                    <option v-for="h in lookups.huntingTypes" :key="h.id" :value="h.id">{{ h.name }}</option>
+                  </select>
+                </label>
+
+                <label class="field" v-if="selectedLine.itemType === 'PACKAGE' || selectedLine.itemType === 'COMPANION'">
+                  <span class="lbl">Hunt Length <span class="req">*</span></span>
+                  <select v-model.number="selectedLine.minDays" :disabled="loadingHuntLengths">
+                    <option :value="null" disabled>Select hunt length</option>
+                    <option v-for="hl in lookups.huntLengths" :key="hl.id" :value="hl.id">{{ getHuntLengthLabel(hl) }}</option>
+                  </select>
+                </label>
+
+                <!-- Sales Packages for PACKAGE items -->
+                <div class="package-builder-section" v-if="selectedLine.itemType === 'PACKAGE'">
+                  <div class="sales-packages-row">
+                    <div class="sales-packages-label">
+                      <span class="lbl">Sales Packages <span class="req">*</span></span>
+                      <small class="field-hint">Select one or more sales packages.</small>
+                    </div>
+                    <div class="sales-packages-input">
+                      <select v-model="selectedPackageToAdd" class="package-select">
+                        <option :value="null" disabled>Select a package</option>
+                        <option v-for="pkg in availableSalesPackages" :key="pkg.id" :value="pkg.id">
+                          {{ pkg.name }}
+                        </option>
+                      </select>
+                      <button 
+                        type="button" 
+                        class="add-package-btn" 
+                        @click="addPackageToLine(selectedLine)" 
+                        :disabled="!selectedPackageToAdd"
+                        title="Add package"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                  <div class="selected-packages" v-if="selectedLine.salesPackageIds && selectedLine.salesPackageIds.length > 0">
+                    <div v-for="pkgId in selectedLine.salesPackageIds" :key="pkgId" class="package-tag">
+                      <span>{{ getPackageName(pkgId) }}</span>
+                      <button type="button" class="remove-pkg-btn" @click="removePackageFromLine(selectedLine, pkgId)">&times;</button>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div v-if="!props.structureOnly" class="col-md-3">
-                <div class="form-group">
-                  <label class="form-label">Name <span class="text-danger">*</span></label>
-                  <input v-model="form.name" type="text" class="form-control" placeholder="Enter Name" required />
-                </div>
-              </div>
+                <!-- Description for new items -->
+                <label class="field" v-if="selectedLine.source === 'new' && selectedLine.itemType !== 'COMPANION'">
+                  <span class="lbl">Description</span>
+                  <input v-model.trim="selectedLine.description" placeholder="Optional description" />
+                </label>
 
-              <div v-if="!props.structureOnly" class="col-md-3">
-                <div class="form-group">
-                  <label class="form-label">Hunting Type <span class="text-danger">*</span></label>
-                  <select v-model="form.hunting_type_id" class="form-select" required>
-                    <option :value="null">Select Hunting Type</option>
-                    <option v-for="option in huntingTypesOptions" :key="option.value" :value="option.value">
-                      {{ option.text }}
-                    </option>
+                <label class="field" v-if="selectedLine.itemType !== 'PACKAGE' && selectedLine.itemType !== 'COMPANION'">
+                  <span class="lbl">Pricing Unit</span>
+                  <select v-model="selectedLine.pricingUnit">
+                    <option value="FLAT">FLAT</option>
+                    <option value="PER_DAY">PER_DAY</option>
+                    <option value="PER_NIGHT">PER_NIGHT</option>
+                    <option value="PER_PERSON_PER_DAY">PER_PERSON_PER_DAY</option>
+                    <option value="PER_ITEM">PER_ITEM</option>
                   </select>
-                </div>
-              </div>
+                </label>
 
-              <div v-if="!props.structureOnly" class="col-md-3">
-                <div class="form-group">
-                  <label class="form-label">Area <span class="text-danger">*</span></label>
-                  <select v-model="form.area_id" class="form-select" required>
-                    <option :value="null">Select Area</option>
-                    <option v-for="opt in areasOptions" :key="opt.value" :value="opt.value">{{ opt.text }}</option>
-                  </select>
-                </div>
+                <label class="field">
+                  <span class="lbl">Amount</span>
+                  <input v-model.number="selectedLine.amount" type="number" min="0" step="0.01" />
+                </label>
               </div>
             </div>
-
-            <!-- Structure-only layout: Area, Start Date and End Date on same row -->
-            <div v-if="props.structureOnly" class="row mb-5">
-              <div class="col-md-4">
-                <div class="form-group">
-                  <label class="form-label">Area <span class="text-danger">*</span></label>
-                  <select v-model="form.area_id" class="form-select" required>
-                    <option :value="null">Select Area</option>
-                    <option v-for="opt in areasOptions" :key="opt.value" :value="opt.value">{{ opt.text }}</option>
-                  </select>
-                </div>
-              </div>
-              <div class="col-md-4">
-                <div class="form-group">
-                  <label class="form-label">Start Date <span class="text-danger">*</span></label>
-                  <input v-model="form.start_date" type="date" class="form-control" required />
-                </div>
-              </div>
-              <div class="col-md-4">
-                <div class="form-group">
-                  <label class="form-label">End Date <span class="text-danger">*</span></label>
-                  <input v-model="form.end_date" type="date" class="form-control" :aria-invalid="form.start_date && form.end_date && !hasValidDates" required />
-                  <small v-if="form.start_date && form.end_date && !hasValidDates" class="text-danger mt-1 d-block">Start date must be before or equal to End date.</small>
-                </div>
-              </div>
+            <div v-else class="empty-details">
+              Select a line from "Rate Lines" to view details.
             </div>
-
-            <div class="row mb-5">
-              <div v-if="!props.structureOnly" class="col-md-4">
-                <div class="form-group">
-                  <label class="form-label">Duration (days) <span class="text-danger">*</span></label>
-                  <select v-model="form.duration" class="form-select" required>
-                    <option :value="null">Enter Duration eg: 21 days</option>
-                    <option v-for="option in durationsOptions" :key="option.value" :value="option.value">
-                      {{ option.text }}
-                    </option>
-                  </select>
-                </div>
-              </div>
-
-              <div v-if="!props.structureOnly" class="col-md-4">
-                <div class="form-group">
-                  <label class="form-label">Start Date <span class="text-danger">*</span></label>
-                  <input v-model="form.start_date" type="date" class="form-control" required />
-                </div>
-              </div>
-
-              <div v-if="!props.structureOnly" class="col-md-4">
-                <div class="form-group">
-                  <label class="form-label">End Date <span class="text-danger">*</span></label>
-                  <input v-model="form.end_date" type="date" class="form-control" :aria-invalid="form.start_date && form.end_date && !hasValidDates" required />
-                  <small v-if="form.start_date && form.end_date && !hasValidDates" class="text-danger mt-1 d-block">Start date must be before or equal to End date.</small>
-                </div>
-              </div>
-            </div>
-
-            <div v-if="!props.structureOnly" class="row mb-5">
-              <div class="col-md-6">
-                <div class="form-group">
-                  <label class="form-label">Amount <span class="text-danger">*</span></label>
-                  <input v-model="form.amount" type="text" class="form-control" placeholder="Enter Amount" required />
-                </div>
-              </div>
-              <div class="col-md-6">
-                <div class="form-group">
-                  <label class="form-label">Currency <span class="text-danger">*</span></label>
-                  <select v-model="form.currency" class="form-select" required>
-                    <option :value="null">Select Currency</option>
-                    <option v-for="option in currencyOptions" :key="option.value" :value="option.value">
-                      {{ option.text }}
-                    </option>
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            <div v-if="!props.structureOnly" class="row mb-5">
-              <div class="col-md-3">
-                <div class="form-group">
-                  <label class="form-label">Companion Cost</label>
-                  <input v-model="form.companion_amount" type="number" class="form-control" placeholder="Enter Amount" />
-                </div>
-              </div>
-              <div class="col-md-3">
-                <div class="form-group">
-                  <label class="form-label">Companion Days</label>
-                  <select v-model="form.companion_days" class="form-select">
-                    <option :value="null">Select Days</option>
-                    <option v-for="option in durationsOptions" :key="option.value" :value="option.value">
-                      {{ option.text }}
-                    </option>
-                  </select>
-                </div>
-              </div>
-              <div class="col-md-3">
-                <div class="form-group">
-                  <label class="form-label">Observer Cost</label>
-                  <input v-model="form.observer_amount" type="number" class="form-control" placeholder="Enter Amount" />
-                </div>
-              </div>
-              <div class="col-md-3">
-                <div class="form-group">
-                  <label class="form-label">Observer Days</label>
-                  <select v-model="form.observer_days" class="form-select">
-                    <option :value="null">Select Days</option>
-                    <option v-for="option in durationsOptions" :key="option.value" :value="option.value">
-                      {{ option.text }}
-                    </option>
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            <!-- Upgrade Fees Section (Optional) -->
-            <div v-if="!props.structureOnly" class="card mb-2">
-              <div class="card-header bg-light py-2 d-flex justify-content-between align-items-center">
-                <h6 class="mb-0"><i class="fa fa-arrow-up text-primary me-2"></i>Upgrade Fees (Optional)</h6>
-                <button type="button" class="btn btn-primary btn-sm" @click="addUpgradeFee">
-                  <i class="fa fa-plus me-1"></i> Add Fee
-                </button>
-              </div>
-              <div class="card-body py-2">
-                <p class="text-muted small mb-2">
-                  Add upgrade fees for additional species that can be hunted beyond the standard package.
-                </p>
-
-                <MultiRowTableInput
-                  v-model="upgradeFees"
-                  :fields="multiRowFields"
-                  add-button-label="Add Fee"
-                />
-              </div>
-            </div>
-          </form>
-        </div>
-      </div>
-
-      <!-- Save Button -->
-      <div class="d-flex justify-content-end align-items-center mt-4 mb-3">
-        <button type="button" class="btn btn-primary" :disabled="savingPriceList || !canSubmit" @click="submit">
-          <i class="fa fa-save me-1"></i>
-          <span v-if="savingPriceList" class="spinner-border spinner-border-sm me-1" role="status"></span>
-          {{ props.structureOnly ? (editMode ? 'Update Price Structure' : 'Save Price Structure') : (editMode ? 'Update Price List' : 'Save Price List') }}
-        </button>
-      </div>
-
-      <!-- Fetched Price List (edit/view) -->
-      <div v-if="loadingPriceList" class="card mt-3">
-        <div class="card-body text-center">
-          <div class="spinner-border spinner-border-sm me-2" role="status"></div>
-          <span>Loading price list details...</span>
-        </div>
-      </div>
-
-      <div v-if="priceListError" class="card mt-3 border-danger">
-        <div class="card-body bg-light">
-          <div class="alert alert-danger mb-0">
-            <i class="fa fa-exclamation-triangle me-2"></i>
-            {{ priceListError }}
           </div>
-        </div>
-      </div>
+        </section>
 
-      <div v-if="priceList && !loadingPriceList" class="card mt-3">
-        <div class="card-body">
-          <h5 class="card-title">Viewing Price List #{{ priceList.id }}</h5>
-          <p class="mb-1">Area: {{ priceList.area_name }} (ID: {{ priceList.area_id }})</p>
-          <p class="mb-1">Start: {{ priceList.start_date }} — End: {{ priceList.end_date }}</p>
-          <h6 class="mt-2">Items</h6>
-          <ul>
-            <li v-for="it in priceList.items || []" :key="it.id">{{ it.name }} — {{ it.currency_symbol }}{{ it.amount }}</li>
-          </ul>
-          <h6 class="mt-2">Companion Prices</h6>
-          <ul>
-            <li v-for="c in priceList.companion_hunter_prices || []" :key="c.id">{{ c.hunt_length_label }} — {{ c.currency_symbol }}{{ c.amount }}</li>
-          </ul>
-          <h6 class="mt-2">Observer Prices</h6>
-          <ul>
-            <li v-for="o in priceList.observer_hunter_prices || []" :key="o.id">{{ o.hunt_length_label }} — {{ o.currency_symbol }}{{ o.amount }}</li>
-          </ul>
-        </div>
-      </div>
-    </div>
+        <!-- RIGHT: Line Details -->
+        <aside class="panel">
+          <div class="panel-title">Line Details</div>
 
-    <!-- Loading Overlay -->
-    <div v-if="savingPriceList"
-      class="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
-      style="background: rgba(0, 0, 0, 0.5); z-index: 9999">
-      <div class="spinner-border text-primary" role="status">
-        <span class="visually-hidden">Loading...</span>
-      </div>
-    </div>
+          <div v-if="selectedLine" class="details">
+            <div class="detail-title">
+              <div class="big">{{ getLineName(selectedLine) }}</div>
+              <div class="small muted">{{ getLineCode(selectedLine) }}</div>
+            </div>
 
-    <!-- Create New Package Modal -->
-    <div v-if="showModal" class="modal fade show d-block" style="z-index: 1050; display: block !important;" tabindex="-1"
-      role="dialog" @click.self="showModal = false">
-      <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title">Create New Package</h5>
-            <button type="button" class="btn-close" @click="showModal = false"></button>
+            <div class="kv">
+              <div class="row">
+                <span class="k">Area:</span>
+                <span class="v">{{ getAreaName() }}</span>
+                <span class="badge" :class="form.isActive ? 'ok' : 'off'">
+                  {{ form.isActive ? 'Active' : 'Inactive' }}
+                </span>
+              </div>
+
+              <div class="row">
+                <span class="k">Season:</span>
+                <span class="v">{{ getSeasonName() }}</span>
+              </div>
+
+              <div class="row">
+                <span class="k">Hunting Type:</span>
+                <span class="v">{{ getHuntingTypeName(selectedLine.huntingTypeId) }}</span>
+              </div>
+
+              <hr />
+
+              <div class="row">
+                <span class="k">Pricing Unit:</span>
+                <span class="v">{{ selectedLine.pricingUnit }}</span>
+              </div>
+
+              <div class="row">
+                <span class="k">Amount:</span>
+                <span class="v"><b>{{ money(selectedLine.amount) }}</b> {{ getCurrencyCode() }}</span>
+              </div>
+            </div>
+
           </div>
-          <div class="modal-body" style="max-height: 80vh; overflow-y: auto;">
-            <SalesPackageForm @go-back="showModal = false" @saved="handlePackageSaved" />
+
+          <div v-else class="empty-details">
+            Select a line from "Rate Lines" to view details.
           </div>
-        </div>
-      </div>
-    </div>
-    <div v-if="showModal" class="modal-backdrop fade show" style="z-index: 1040;" @click="showModal = false"></div>
+
+          <div class="bottom-actions">
+            <button class="btn ghost full" type="button" @click="saveDraft" :disabled="saving">Save Draft</button>
+            <button class="btn success full" type="button" @click="submit" :disabled="saving || !canSubmit">💾 Save &amp; Activate</button>
+          </div>
+        </aside>
+      </section>
+    </main>
   </div>
 </template>
 
 <script setup lang="ts">
-import { reactive, ref, computed, onMounted, watch, nextTick } from 'vue'
-import Swal from '../../../utils/sweetalert2'
 import axios from 'axios'
-import handleErrors from '../../../stores/bushman/errorHandler.ts'
+import { reactive, ref, computed, onMounted } from 'vue'
 import { useToast } from '@/composables/useToast'
-import { useQuotaStore } from '../../../stores/bushman/quota-store.ts'
-import { useSettingsStore } from '../../../stores/bushman/settings-store.ts'
-import { usePriceListStore } from '../../../stores/bushman/price-list-store.ts'
+import { useHuntingAreaStore } from '@/stores/bushman/hunting-story'
+import { useSettingsStore } from '@/stores/bushman/settings-store'
 import { usePriceStructuresStore } from '@/stores/bushman/price-structures-store'
-import SalesPackageForm from '../../bushman/module-settings/SalesPackageForm.vue'
-import MultiRowTableInput from '@/views/bushman/reusables/MultiRowTableInput.vue'
+import handleErrors from '@/stores/bushman/errorHandler'
+import Swal from 'sweetalert2'
 
-// Props & Emits
-const props = withDefaults(defineProps<{ editMode?: boolean; editItem?: any; structureOnly?: boolean }>(), {
+const props = withDefaults(defineProps<{ 
+  editMode?: boolean
+  editItem?: any
+  structureOnly?: boolean 
+}>(), {
   editMode: false,
   editItem: null,
   structureOnly: false,
 })
-const emit = defineEmits<{ saved: []; 'go-back': []; goBack: [] }>()
 
-// Stores
-const quotaStore = useQuotaStore()
+const emit = defineEmits<{ 
+  saved: []
+  'go-back': []
+  goBack: []
+  saveDraft: [form: any]
+  submit: [form: any]
+}>()
+
+const huntingAreaStore = useHuntingAreaStore()
 const settingsStore = useSettingsStore()
-const priceListStore = usePriceListStore()
 const priceStructuresStore = usePriceStructuresStore()
-const { init } = useToast()
+const toast = useToast()
 
-// Refs
-const formRef = ref<HTMLFormElement>()
+const baseUrl = import.meta.env.VITE_APP_BASE_URL
+
+const loading = ref(false)
+const saving = ref(false)
+const loadingAreas = ref(false)
+const loadingSeasons = ref(false)
+const loadingCurrencies = ref(false)
+const loadingHuntingTypes = ref(false)
+const loadingHuntLengths = ref(false)
+const loadingItems = ref(false)
+
+// New refs for 3-column layout
+const tabs = ["Packages", "Extras", "Companion Hunter"]
+const activeTab = ref("Packages")
+const search = ref("")
+const selectedLineKey = ref<string | null>(null)
+const selectedPackageToAdd = ref<number | null>(null)
+
+const lookups = reactive({
+  areas: [] as Array<{ id: number; name: string }>,
+  seasons: [] as Array<{ id: number; name: string }>,
+  currencies: [] as Array<{ id: number; code: string; name?: string }>,
+  huntingTypes: [] as Array<{ id: number; name: string }>,
+  huntLengths: [] as Array<{ id: number; label?: string; days?: number }>,
+  items: {
+    packages: [] as Array<{ id: number; code: string; name: string }>,
+    trophyFees: [] as Array<{ id: number; code: string; name: string }>,
+    extras: [] as Array<{ id: number; code: string; name: string }>,
+    upgradeFees: [] as Array<{ id: number; code: string; name: string }>,
+  },
+  salesPackages: [] as Array<{ id: number; name: string }>,
+})
+
 const form = reactive({
-  id: null as any,
-  name: null as any,
-  hunting_type_id: null as any,
-  package: null as any,
-  area_id: null as any,
-  amount: null as any,
-  currency: null as any,
-  duration: null as any,
-  season: null as any,
-  start_date: null as any,
-  end_date: null as any,
-  species: null as any,
-  quantity: null as any,
-  companion_days: null as any,
-  companion_amount: null as any,
-  observer_days: null as any,
-  observer_amount: null as any,
+  name: '',
+  areaId: null as number | null,
+  seasonId: null as number | null,
+  startDate: '',
+  endDate: '',
+  currencyId: null as number | null,
+  isActive: true,
+  lines: [] as Array<{
+    _key: string
+    source: 'existing' | 'new'
+    itemId: number | null
+    name: string
+    description: string
+    itemType: string | null
+    huntingTypeId: number | null
+    minDays: number | null
+    maxDays: number | null
+    pricingUnit: string
+    amount: number
+    salesPackageIds: number[]
+  }>,
 })
 
-// State
-const savingPriceList = ref(false)
-const speciesOptions = ref<any[]>([])
-const speciesObjects = ref<any[]>([])
-const areasOptions = ref<any[]>([])
-const huntingTypesOptions = ref<any[]>([])
-const currencyOptions = ref<any[]>([])
-const durationsOptions = ref<any[]>([])
-const seasonsOptions = ref<any[]>([])
-// Season selection removed - users can enter dates manually
-// const selectedSeasonId = ref<any>(null)
-const upgradeFees = ref<any[]>([])
-const originalFormData = ref<any>(null)
-const originalUpgradeFees = ref<any[]>([])
-const priceList = ref<any>(null)
-const loadingPriceList = ref(false)
-const priceListError = ref<string | null>(null)
+// Tab to item type mapping
+const tabToType: Record<string, string> = {
+  "Packages": "PACKAGE",
+  "Trophy Fees": "TROPHY",
+  "Extras": "EXTRA",
+  "Companion Hunter": "COMPANION",
+  "Upgrade Fees": "ADJUSTMENT",
+}
 
-// Computed
-const showModal = computed({
-  get: () => priceListStore.showModal,
-  set: (val) => (priceListStore.showModal = val),
-})
-const packageOptions = computed(() => priceListStore.packageOptions)
-const canSubmit = computed(() => {
-  if (props.editMode) return hasFormChanged.value
-
-  // When creating only a Price Structure, require only area and valid dates
-  if (props.structureOnly) {
-    const hasArea = !!form.area_id
-    const hasDates = !!form.start_date && !!form.end_date
-    return hasArea && hasDates && hasValidDates.value
-  }
-
-  const hasPackage = !!form.package
-  const hasHuntType = !!form.hunting_type_id
-  // season is optional now - users fill dates manually
-  // const hasSeason = !!form.season || !!selectedSeasonId.value
-  const hasArea = !!form.area_id
-  const hasAmount = form.amount !== null && form.amount !== undefined && String(form.amount).trim() !== ''
-  const hasCurrency = !!form.currency || form.currency === 0 || typeof form.currency === 'number' || (form.currency && typeof form.currency === 'object')
-  const hasDuration = !!form.duration
-
-  // season removed from required checks; users can select start/end dates manually
-  // require valid start/end dates when both are set
-  const hasDatesValid = hasValidDates.value
-
-  return hasPackage && hasHuntType && hasArea && hasAmount && hasCurrency && hasDuration && hasDatesValid
-})
-const hasFormChanged = computed(() => {
-  if (!props.editMode || !originalFormData.value) return true
-  return JSON.stringify(form) !== JSON.stringify(originalFormData.value) ||
-    JSON.stringify(upgradeFees.value) !== JSON.stringify(originalUpgradeFees.value)
+// Filtered lines based on tab and search
+const filteredLines = computed(() => {
+  const wantedType = tabToType[activeTab.value]
+  const q = search.value.trim().toLowerCase()
+  
+  return form.lines.filter((line) => {
+    const matchTab = line.itemType === wantedType
+    const lineName = getLineName(line).toLowerCase()
+    const lineCode = getLineCode(line).toLowerCase()
+    const matchSearch = !q || lineName.includes(q) || lineCode.includes(q)
+    return matchTab && matchSearch
+  })
 })
 
-// Date validation: start_date must be <= end_date when both are present
-const hasValidDates = computed(() => {
-  if (!form.start_date || !form.end_date) return true // treat missing dates as valid for now
+// Selected line
+const selectedLine = computed(() => {
+  if (!selectedLineKey.value) return null
+  const line = form.lines.find((l) => l._key === selectedLineKey.value)
+  if (!line) return null
+  
+  // Check if the selected line belongs to the current active tab
+  const wantedType = tabToType[activeTab.value]
+  if (line.itemType !== wantedType) return null
+  
+  return line
+})
+
+function normalizeApiList(raw: any) {
+  if (Array.isArray(raw)) return raw
+  if (Array.isArray(raw?.data)) return raw.data
+  if (Array.isArray(raw?.data?.data)) return raw.data.data
+  return []
+}
+
+// Available sales packages (excluding already selected ones)
+const availableSalesPackages = computed(() => {
+  if (!selectedLine.value) return lookups.salesPackages
+  const selectedIds = selectedLine.value.salesPackageIds || []
+  return lookups.salesPackages.filter(pkg => !selectedIds.includes(pkg.id))
+})
+
+function selectLine(key: string) {
+  selectedLineKey.value = key
+  selectedPackageToAdd.value = null
+}
+
+function tabIcon(t: string): string {
+  if (t === "Packages") return "👤"
+  if (t === "Trophy Fees") return "🏆"
+  if (t === "Extras") return "🧾"
+  if (t === "Companion Hunter") return "👥"
+  if (t === "Upgrade Fees") return "⬆️"
+  return "🚐"
+}
+
+function money(v: number): string {
   try {
-    const sd = new Date(form.start_date)
-    const ed = new Date(form.end_date)
+    return new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(v || 0)
+  } catch {
+    return String(v || 0)
+  }
+}
+
+function getLineName(line: any): string {
+  if (line.itemType === 'COMPANION') {
+    const meta = getItemMetaById(line.itemId)
+    return meta.name || 'Companion Hunter'
+  }
+  if (line.source === 'new') {
+    return line.name || 'New Item'
+  }
+  const meta = getItemMetaById(line.itemId)
+  return meta.name || 'Select Item'
+}
+
+function getLineCode(line: any): string {
+  if (line.itemType === 'COMPANION') {
+    const meta = getItemMetaById(line.itemId)
+    return meta.code || 'COMP'
+  }
+  if (line.source === 'new') {
+    return 'NEW'
+  }
+  const meta = getItemMetaById(line.itemId)
+  return meta.code || '�'
+}
+
+function getAreaName(): string {
+  const area = lookups.areas.find(a => a.id === form.areaId)
+  return area?.name || '�'
+}
+
+function getHuntLengthLabel(huntLength: any): string {
+  if (!huntLength) return '�'
+  const label = huntLength.label || ''
+  const days = huntLength.days
+  if (label && days) return `${label} (${days} days)`
+  if (label) return label
+  if (days) return `${days} days`
+  return '�'
+}
+
+function getSeasonName(): string {
+  const season = lookups.seasons.find(s => s.id === form.seasonId)
+  return season?.name || '�'
+}
+
+function getCurrencyCode(): string {
+  const currency = lookups.currencies.find(c => c.id === form.currencyId)
+  return currency?.code || 'USD'
+}
+
+function getHuntingTypeName(id: number | null): string {
+  if (!id) return '�'
+  const ht = lookups.huntingTypes.find(h => h.id === id)
+  return ht?.name || '�'
+}
+
+function getHuntLengthLabelById(id: number | null): string {
+  if (!id) return '�'
+  const hl = lookups.huntLengths.find(h => h.id === id)
+  return getHuntLengthLabel(hl) || '�'
+}
+
+const hasValidDates = computed(() => {
+  if (!form.startDate || !form.endDate) return true
+  try {
+    const sd = new Date(form.startDate)
+    const ed = new Date(form.endDate)
     return sd.getTime() <= ed.getTime()
-  } catch (e) {
+  } catch {
     return false
   }
 })
 
-const multiRowFields = computed<any>(() => [
-  { key: 'species_id', label: 'Species', type: 'select', required: true, options: speciesOptions.value },
-  { key: 'trigger_condition', label: 'Trigger Condition', type: 'text', required: true, placeholder: 'e.g., Trophy size > 9 feet' },
-  { key: 'fee_amount', label: 'Fee Amount', type: 'number', required: true },
-  { key: 'currency_id', label: 'Currency', type: 'select', required: true, options: currencyOptions.value },
-  { key: 'notes', label: 'Notes', type: 'text' },
-])
+const canSubmit = computed(() => {
+  const hasName = !!form.name.trim()
+  const hasArea = !!form.areaId
+  const hasDates = !!form.startDate && !!form.endDate && hasValidDates.value
+  const hasCurrency = !!form.currencyId
+  return hasName && hasArea && hasDates && hasCurrency
+})
 
-// Methods
-const getData = async (fetcher: () => Promise<any>, mapper: (d: any) => any) => {
-  try { return (await fetcher()).data.map(mapper) } catch (e) { console.log(e); return [] }
+function getItemMetaById(itemId: number | null) {
+  if (!itemId) {
+    return { code: '', name: '' }
+  }
+
+  const lists = [
+    lookups.items.packages,
+    lookups.items.trophyFees,
+    lookups.items.extras,
+    lookups.items.upgradeFees,
+  ]
+
+  for (const list of lists) {
+    const item = list.find(i => i.id === itemId)
+    if (item) {
+      return { code: item.code || '', name: item.name || '' }
+    }
+  }
+
+  return { code: '', name: '' }
 }
-const getAreas = async () => {
-  areasOptions.value = await getData(() => quotaStore.getAreaList(), (item: any) => {
-    const location = item.location || {}
-    const locationName = location.name || item.name || item.description || 'N/A'
-    const locationCode = location.code ? ` (${location.code})` : ''
-    return { value: item.id, text: `${locationName}${locationCode}` }
+
+function itemsForType(itemType: string | null) {
+  if (!itemType) return []
+  const mapping: Record<string, Array<{ id: number; code: string; name: string }>> = {
+    PACKAGE: lookups.items.packages,
+    TROPHY: lookups.items.trophyFees,
+    EXTRA: lookups.items.extras,
+    ADJUSTMENT: lookups.items.upgradeFees,
+  }
+  return mapping[itemType] || []
+}
+
+function onTypeChange(line: any) {
+  line.itemId = null
+  line.salesPackageIds = []
+  line.source = line.itemType === 'PACKAGE' ? 'new' : 'existing'
+  line.pricingUnit = line.itemType === 'PACKAGE' ? 'FLAT' : 'PER_ITEM'
+  line.maxDays = line.itemType === 'PACKAGE' ? null : line.maxDays
+  if (!line.itemType) {
+    line.source = 'existing'
+  }
+}
+
+function removePackageFromLine(line: any, pkgId: number) {
+  const index = line.salesPackageIds.indexOf(pkgId)
+  if (index > -1) {
+    line.salesPackageIds.splice(index, 1)
+  }
+}
+
+function addPackageToLine(line: any) {
+  if (!selectedPackageToAdd.value) return
+  
+  if (!line.salesPackageIds) {
+    line.salesPackageIds = []
+  }
+  
+  // Check if package is already added
+  if (!line.salesPackageIds.includes(selectedPackageToAdd.value)) {
+    line.salesPackageIds.push(selectedPackageToAdd.value)
+  }
+  
+  // Reset selection
+  selectedPackageToAdd.value = null
+}
+
+function getPackageName(pkgId: number): string {
+  const pkg = lookups.salesPackages.find(p => p.id === pkgId)
+  return pkg?.name || `Package #${pkgId}`
+}
+
+function addLine() {
+  // Set item type based on current tab
+  const itemType = tabToType[activeTab.value] || null
+  
+  const newKey = crypto.randomUUID()
+  form.lines.unshift({
+    _key: newKey,
+    source: itemType === 'PACKAGE' ? 'new' : 'existing',
+    itemId: null,
+    name: '',
+    description: '',
+    itemType: itemType,
+    huntingTypeId: itemType === 'PACKAGE' ? (lookups.huntingTypes[0]?.id || null) : null,
+    minDays: null,
+    maxDays: null,
+    pricingUnit: itemType === 'PACKAGE' ? 'FLAT' : 'PER_ITEM',
+    amount: 0,
+    salesPackageIds: [],
   })
-}
-const getHuntingTypes = async () => { huntingTypesOptions.value = await getData(() => settingsStore.getHuntingsTypes(), (item: any) => ({ value: item.id, text: item.name })) }
-const getCurrencyList = async () => { currencyOptions.value = await getData(() => settingsStore.getCurrencies(), (item: any) => ({ value: item.id, text: item.name })) }
-// getSeasonList removed - season selection removed from the form
-const getSpeciesItems = async () => { speciesOptions.value = await getData(() => quotaStore.getSpeciesList(), (item: any) => ({ value: item.id, text: item.name })) }
-const getHuntLengthsList = async () => {
-  try {
-    const response = await priceListStore.getHuntLengths()
-    const data = response.data?.data || response.data || []
-    durationsOptions.value = data.filter((item: any) => item.is_active).map((item: any) => ({
-      value: item.id, text: item.label, days: item.days,
-    }))
-  } catch (error) { console.log('Error fetching hunt lengths:', error) }
-}
-const getSalesPackages = async () => { await priceListStore.getSalesPackageList(true) }
-const getQuotaList = async () => {
-  try {
-    const response = await quotaStore.getQuotas(null)
-    const data = response?.data?.data || response?.data || []
-  } catch (error) { console.log(error) }
-}
-
-const populateFormForEdit = (editItem: any) => {
-  if (!editItem) return
-  const priceListType = editItem.price_list_type || editItem
-  form.name = priceListType.name || editItem.name || form.name
-  form.area_id = priceListType.area_id || editItem.area_id || form.area_id
-  if (priceListType.amount) form.amount = String(priceListType.amount).replace('$', '').replace(',', '')
-  const huntLengthId = priceListType.hunt_length_id || editItem.hunt_length_id
-  if (huntLengthId) form.duration = huntLengthId
-  else if (priceListType.duration) {
-    const foundDuration = durationsOptions.value.find((d: any) => d.days === priceListType.duration)
-    form.duration = foundDuration?.value || null
-  }
-  const huntingTypeName = priceListType.hunting_type?.name || editItem.hunting_type
-  if (huntingTypeName) {
-    const foundHuntingType = huntingTypesOptions.value.find((h: any) => h.text === huntingTypeName)
-    form.hunting_type_id = foundHuntingType?.value || null
-  }
-  const startDate = priceListType.price_list?.start_date
-  const endDate = priceListType.price_list?.end_date
-  if (startDate && endDate) {
-    // Populate explicit start_date and end_date fields
-    form.start_date = startDate
-    form.end_date = endDate
-    // Also find and set the matching season object (not required)
-    form.season = seasonsOptions.value.find((s: any) => s.value?.start_at === startDate && s.value?.end_at === endDate)
-    if (!form.season) {
-      const year = new Date(startDate).getFullYear()
-      form.season = seasonsOptions.value.find((s: any) => s.text?.includes(String(year)))
-    }
-    // Note: we no longer use selectedSeasonId as season selection was removed
-  }
-  const currencyName = priceListType.currency?.name
-  if (currencyName) form.currency = currencyOptions.value.find((c: any) => c.text === currencyName)
-  if (!form.currency) form.currency = currencyOptions.value.find((c: any) => c.text === 'USD') || currencyOptions.value[0]
   
-  const companionCosts = editItem.companion_hunter_costs || priceListType.companion_hunter_costs
-  if (companionCosts?.length > 0) {
-    const firstCompanion = companionCosts[0]
-    form.companion_amount = firstCompanion.amount || null
-    if (firstCompanion.hunt_length_id) form.companion_days = firstCompanion.hunt_length_id
-    else if (firstCompanion.days) {
-      const foundDuration = durationsOptions.value.find((d: any) => d.days === firstCompanion.days)
-      form.companion_days = foundDuration?.value || null
-    }
-  } else {
-    form.companion_amount = editItem.companion_amount || null
-    if (editItem.companion_hunt_length_id) form.companion_days = editItem.companion_hunt_length_id
-    else if (editItem.companion_days) {
-      const foundDuration = durationsOptions.value.find((d: any) => d.days === editItem.companion_days)
-      form.companion_days = foundDuration?.value || null
-    }
-  }
-  
-  const observerCosts = editItem.observer_hunter_costs || priceListType.observer_hunter_costs
-  if (observerCosts?.length > 0) {
-    const firstObserver = observerCosts[0]
-    form.observer_amount = firstObserver.amount || null
-    if (firstObserver.hunt_length_id) form.observer_days = firstObserver.hunt_length_id
-    else if (firstObserver.days) {
-      const foundDuration = durationsOptions.value.find((d: any) => d.days === firstObserver.days)
-      form.observer_days = foundDuration?.value || null
-    }
-  } else {
-    form.observer_amount = editItem.observer_amount || null
-    if (editItem.observer_hunt_length_id) form.observer_days = editItem.observer_hunt_length_id
-    else if (editItem.observer_days) {
-      const foundDuration = durationsOptions.value.find((d: any) => d.days === editItem.observer_days)
-      form.observer_days = foundDuration?.value || null
-    }
-  }
-
-  if (editItem.sales_package) form.package = editItem.sales_package.id
-  else if (editItem.packages?.length > 0) form.package = editItem.packages[0].id
-  
-  const upgradeFeesList = editItem.upgrade_fees || priceListType.upgrade_fees
-  if (upgradeFeesList?.length > 0) {
-    upgradeFees.value = upgradeFeesList.map((fee: any, idx: number) => ({
-      _id: fee.id || idx + 1,
-      id: fee.id || null,
-      species_id: fee.species_id ?? fee.species?.id ?? null,
-      trigger_condition: fee.trigger_condition || '',
-      fee_amount: fee.fee_amount ? String(fee.fee_amount) : null,
-      currency_id: fee.currency_id ?? fee.currency?.id ?? null,
-      notes: fee.notes || '',
-    }))
-  }
-  originalFormData.value = JSON.parse(JSON.stringify(form))
-  originalUpgradeFees.value = JSON.parse(JSON.stringify(upgradeFees.value))
+  // Auto-select the new line
+  selectedLineKey.value = newKey
 }
 
-// seasonStart and seasonEnd placeholders (if seasonsOptions contain date ranges, map accordingly)
-// Season helpers removed - users will fill dates manually
-// const seasonStart = computed(() => { ... })
-// const seasonEnd = computed(() => { ... })
-// const onSeasonChange = () => { ... }
-const onChangePackage = () => console.log('Selected package:', form.package)
-const addUpgradeFee = () => {
-  const newId = upgradeFees.value.length ? Math.max(...upgradeFees.value.map((r: any) => r._id || 0)) + 1 : 1
-  upgradeFees.value = [{ _id: newId, species_id: null, trigger_condition: '', fee_amount: null, currency_id: null, notes: '' }, ...upgradeFees.value]
-}
-const removeUpgradeFee = (index: number) => upgradeFees.value.splice(index, 1)
-const _showModal = () => { showModal.value = true }
-const handlePackageSaved = async () => { await getSalesPackages(); showModal.value = false }
-
-const submit = async () => {
-  if (formRef.value && !formRef.value.checkValidity()) { formRef.value.reportValidity(); return }
-  savingPriceList.value = true
-
-  // If creating/editing a Price Structure only, send minimal payload
-  if (props.structureOnly) {
-    try {
-      // Validate dates
-      if (form.start_date && form.end_date) {
-        const sd = new Date(form.start_date)
-        const ed = new Date(form.end_date)
-        if (sd.getTime() > ed.getTime()) {
-          init({ message: 'Start date must be before or equal to End date', color: 'danger' })
-          savingPriceList.value = false
-          return
-        }
-      } else {
-        init({ message: 'Start date and End date are required', color: 'danger' })
-        savingPriceList.value = false
-        return
-      }
-
-      const payload: any = {
-        area_id: form.area_id,
-        start_at: form.start_date,
-        start_date: form.start_date,
-        end_at: form.end_date,
-        end_date: form.end_date,
-        is_active: 1,
-      }
-
-      let response: any
-      if (props.editMode && props.editItem && props.editItem.id) {
-        response = await priceStructuresStore.update(props.editItem.id, payload)
-      } else {
-        response = await priceStructuresStore.create(payload)
-      }
-
-      if (response && (response.status === 201 || response.status === 200)) {
-        init({ message: response.data?.message || 'Price structure saved', color: 'success' })
-        savingPriceList.value = false
-        // Reset minimal fields
-        form.area_id = null
-        form.start_date = null
-        form.end_date = null
-        // Inform parent and go back
-        emit('saved')
-        emit('go-back')
-        emit('goBack')
-      } else {
-        savingPriceList.value = false
-        init({ message: 'Failed to save price structure', color: 'danger' })
-      }
-    } catch (error: any) {
-      savingPriceList.value = false
-      console.error('Structure create error:', error)
-      handleErrors(error.response)
-      init({ message: error.message || 'Failed to save price structure', color: 'danger' })
+function removeLine(key: string) {
+  const index = form.lines.findIndex(line => line._key === key)
+  if (index >= 0) {
+    form.lines.splice(index, 1)
+    // Clear selection if removed line was selected
+    if (selectedLineKey.value === key) {
+      selectedLineKey.value = form.lines[0]?._key || null
     }
+  }
+}
 
+function resetForm() {
+  form.name = ''
+  form.areaId = null
+  form.seasonId = null
+  form.startDate = ''
+  form.endDate = ''
+  form.currencyId = null
+  form.isActive = true
+  form.lines = []
+}
+
+function saveDraft() {
+  emit('saveDraft', structuredClone(form))
+  toast.init({ message: 'Draft saved locally', color: 'info' })
+}
+
+function validateLines() {
+  console.log('Validating lines...', form.lines)
+  
+  // Filter out completely empty lines (lines that haven't been started)
+  const nonEmptyLines = form.lines.filter(line => {
+    if (line.itemType === 'COMPANION') {
+      return !!line.minDays || !!line.amount
+    }
+    return line.name.trim() || line.itemId || (line.salesPackageIds && line.salesPackageIds.length > 0)
+  })
+  
+  console.log('Non-empty lines to validate:', nonEmptyLines)
+  
+  for (const line of nonEmptyLines) {
+    if (!line.itemType) {
+      console.log('Validation failed: No item type for line', line)
+      return 'Please select a type for each line.'
+    }
+    if (line.itemType === 'COMPANION') {
+      if (!line.minDays || line.minDays <= 0) {
+        console.log('Validation failed: No hunt length for COMPANION line', line)
+        return 'Please select a hunt length for each companion hunter line.'
+      }
+      continue
+    }
+    if (line.itemType === 'PACKAGE') {
+      if (!line.name.trim()) {
+        console.log('Validation failed: No name for PACKAGE line', line)
+        return 'Please enter a name for each PACKAGE line.'
+      }
+      if (!line.minDays || line.minDays <= 0) {
+        console.log('Validation failed: No hunt length for PACKAGE line', line)
+        return 'Please enter a hunt length for each PACKAGE line.'
+      }
+      if (!line.huntingTypeId) {
+        console.log('Validation failed: No hunting type for PACKAGE line', line)
+        return 'Please select a hunting type for each PACKAGE line.'
+      }
+      if (!line.salesPackageIds || line.salesPackageIds.length === 0) {
+        console.log('Validation failed: No sales packages for PACKAGE line', line)
+        return 'Please select at least one sales package for each PACKAGE line.'
+      }
+      continue
+    }
+    if (line.source === 'existing' && !line.itemId) {
+      console.log('Validation failed: No item selected for existing line', line)
+      return 'Please select an item for each existing line.'
+    }
+    if (line.source === 'new' && !line.name.trim()) {
+      console.log('Validation failed: No name for new item line', line)
+      return 'Please enter a name for each new item line.'
+    }
+  }
+  console.log('Line validation passed')
+  return null
+}
+
+async function submit() {
+  console.log('Submit button clicked')
+  console.log('canSubmit:', canSubmit.value)
+  console.log('Form data:', form)
+  
+  if (!canSubmit.value) {
+    toast.init({ message: 'Please fill in all required fields', color: 'warning' })
     return
   }
 
-  const validUpgradeFees = upgradeFees.value.filter((fee: any) => fee.species_id && fee.fee_amount && fee.currency_id && fee.trigger_condition).map((fee: any) => ({
-    species_id: fee.species_id,
-    trigger_condition: fee.trigger_condition,
-    fee_amount: parseFloat(String(fee.fee_amount)),
-    currency_id: fee.currency_id,
-    notes: fee.notes || '',
-    ...(fee.id && { id: fee.id }),
-  }))
-  
-  const salesPackageIds = form.package ? [form.package] : []
-  const huntLengthId = form.duration || null
-  const companionHuntLengthId = form.companion_days || null
-  const observerHuntLengthId = form.observer_days || null
-  const currencyId = typeof form.currency === 'object' && form.currency !== null && 'value' in form.currency ? form.currency.value : form.currency
+  const lineError = validateLines()
+  if (lineError) {
+    toast.init({ message: lineError, color: 'warning' })
+    return
+  }
 
-  // Build `items` array: main item from form (upgrade fees are separate entity)
-  const items: any[] = []
-  // Always push main item using form fields
-  items.push({
-    name: form.name,
-    description: '',
-    hunting_type_id: form.hunting_type_id,
-    hunt_length_id: huntLengthId,
-    currency_id: currencyId,
-    amount: form.amount ? parseFloat(String(form.amount).replace(/[^0-9.-]+/g, '')) : null,
-    is_active: 1,
-  })
-
-  const requestdata = {
-      // Required fields per PRICE_STRUCTURE_API.md
-      area_id: form.area_id,
-      start_at: form.start_date,  // API accepts both start_at and start_date
-      start_date: form.start_date,
-      end_at: form.end_date,      // API accepts both end_at and end_date
-      end_date: form.end_date,
-      is_active: 1,
-      // Link to sales packages
-      sales_package_ids: salesPackageIds,
-      // Required items array (min:1)
-      items: items,
-      // Optional: Companion hunter prices
-      companion_hunter_prices: form.companion_amount ? [
-        {
-          hunt_length_id: companionHuntLengthId,
-          currency_id: currencyId,
-          amount: parseFloat(String(form.companion_amount)),
-        },
-      ] : undefined,
-      // Optional: Observer hunter prices
-      observer_hunter_prices: form.observer_amount ? [
-        {
-          hunt_length_id: observerHuntLengthId,
-          currency_id: currencyId,
-          amount: parseFloat(String(form.observer_amount)),
-        },
-      ] : undefined,
-      // Optional: Upgrade fees (separate entity with trigger_condition)
-      upgrade_fees: validUpgradeFees.length > 0 ? validUpgradeFees.map((f: any) => ({
-        species_id: f.species_id,
-        trigger_condition: f.trigger_condition,
-        fee_amount: parseFloat(String(f.fee_amount)),
-        currency_id: f.currency_id,
-        notes: f.notes || '',
-      })) : undefined,
-    }
-
-  console.log('Submitting Price List Payload:', JSON.stringify(requestdata, null, 2))
+  saving.value = true
+  console.log('Saving started...')
 
   try {
-    let response: any
-    const token = localStorage.getItem('token')
-    const baseUrl = import.meta.env.VITE_APP_BASE_URL + import.meta.env.VITE_APP_PRICE_STRUCTURES_URL
-    
-    if (props.editMode && props.editItem) {
-      // Direct axios PUT for update
-      response = await axios.put(`${baseUrl}${props.editItem.id}`, requestdata, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-      })
-      if (response.status === 200) {
-        init({ message: 'Price list updated successfully', color: 'success' })
-        savingPriceList.value = false
-        emit('saved')
-      }
-    } else {
-      // Validate dates before sending POST
-      if (form.start_date && form.end_date) {
-        const sd = new Date(form.start_date)
-        const ed = new Date(form.end_date)
-        if (sd.getTime() > ed.getTime()) {
-          init({ message: 'Start date must be before or equal to End date', color: 'danger' })
-          savingPriceList.value = false
-          return
-        }
-      }
+    const payload: any = {
+      name: form.name,
+      area_id: form.areaId,
+      season_id: form.seasonId,
+      start_date: form.startDate,
+      start_at: form.startDate,
+      end_date: form.endDate,
+      end_at: form.endDate,
+      currency_id: form.currencyId,
+      is_active: form.isActive ? 1 : 0,
+    }
 
-      // Direct axios POST for create
-      console.log('Sending direct POST to:', baseUrl)
-      console.log('Request body:', requestdata)
-      response = await axios.post(baseUrl, requestdata, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-      })
-      console.log('Response status:', response.status)
-      console.log('Response data:', response.data)
-      if (response.status === 201) {
-        init({ message: response.data.message, color: 'success' })
-        // Reset local form state and notify parent immediately so parent can switch view
-        form.package = null; form.hunting_type_id = null; form.season = null; // season removed; users set dates manually
-        form.amount = null; form.currency = null; form.duration = null
-        form.companion_amount = null; form.companion_days = null
-        form.observer_amount = null; form.observer_days = null
-        speciesObjects.value = []; upgradeFees.value = []; savingPriceList.value = false
-        if (formRef.value) formRef.value.reset()
-        // Emit events before showing the modal so the parent can react immediately
-        emit('saved')
-        emit('go-back')
-        emit('goBack')
-        console.log('CreatePricesListForm: emitted saved and go-back events')
-        try {
-          await Swal.fire({
-            title: 'Price list created.',
-            icon: 'success',
-            confirmButtonText: 'OK',
-            customClass: { confirmButton: 'btn btn-primary' },
-            buttonsStyling: false,
-          })
-        } catch (e) {
-          // ignore popup errors
+    // Filter out empty/incomplete lines before sending
+    const itemLines = form.lines.filter(line => {
+      return line.itemType !== 'COMPANION'
+        && (line.name.trim() || line.itemId || (line.salesPackageIds && line.salesPackageIds.length > 0))
+    })
+
+    const companionLines = form.lines.filter(line => {
+      return line.itemType === 'COMPANION' && (!!line.minDays || !!line.amount)
+    })
+
+    if (itemLines.length > 0) {
+      payload.items = itemLines.map(line => {
+        if (line.itemType === 'PACKAGE') {
+          return {
+            item_type: 'PACKAGE',
+            name: line.name,
+            description: line.description || null,
+            hunting_type_id: line.huntingTypeId,
+            hunt_length_id: line.minDays,
+            currency_id: form.currencyId,
+            amount: line.amount,
+            sales_package_ids: line.salesPackageIds || [],
+          }
         }
-      }
+
+        const isExisting = line.source === 'existing'
+        return {
+          item_type: line.itemType,
+          item_id: isExisting ? line.itemId : null,
+          name: isExisting ? null : line.name,
+          description: isExisting ? null : (line.description || null),
+          hunting_type_id: line.huntingTypeId,
+          pricing_unit: line.pricingUnit,
+          currency_id: form.currencyId,
+          amount: line.amount,
+        }
+      })
+    }
+
+    if (companionLines.length > 0) {
+      payload.companion_hunter_prices = companionLines.map(line => ({
+        hunt_length_id: line.minDays,
+        currency_id: form.currencyId,
+        item_id: line.itemId || null,
+        amount: line.amount,
+      }))
+    }
+
+    console.log('Payload to send:', payload)
+
+    let response: any
+    if (props.editMode && props.editItem?.id) {
+      console.log('Updating price structure:', props.editItem.id)
+      response = await priceStructuresStore.update(props.editItem.id, payload)
+    } else {
+      console.log('Creating new price structure')
+      response = await priceStructuresStore.create(payload)
+    }
+
+    console.log('Response received:', response)
+
+    if (response && (response.status === 200 || response.status === 201)) {
+      await Swal.fire({
+        title: props.editMode ? 'Price structure updated!' : 'Price structure created!',
+        icon: 'success',
+        confirmButtonText: 'OK',
+        customClass: { confirmButton: 'btn btn-primary' },
+        buttonsStyling: false,
+      })
+
+      resetForm()
+      emit('saved')
+      emit('goBack')
+      emit('go-back')
+    } else {
+      console.error('Unexpected response status:', response?.status)
+      toast.init({ 
+        message: 'Unexpected response from server', 
+        color: 'warning' 
+      })
     }
   } catch (error: any) {
-    savingPriceList.value = false
-    console.error('API Error full:', error)
-    console.error('API Error response.data:', error.response?.data)
-    console.error('API Error status:', error.response?.status)
-    console.error('API Error headers:', error.response?.headers)
-    handleErrors(error.response)
-    init({ message: error.message, color: 'danger' })
-  }
-}
-
-// Fetch a single price list by id (handles responses with { success, data } or raw data)
-async function fetchPriceListById(id: number) {
-  loadingPriceList.value = true
-  priceListError.value = null
-  const token = localStorage.getItem('token')
-  const base = import.meta.env.VITE_APP_BASE_URL + import.meta.env.VITE_APP_PRICE_STRUCTURES_URL
-  const url = `${base}${id}`
-  
-  // Create abort controller with 10 second timeout
-  const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), 10000)
-  
-  try {
-    console.log('Fetching price list from:', url)
-    const res = await axios.get(url, {
-      signal: controller.signal,
-      headers: { Authorization: token ? `Bearer ${token}` : undefined },
+    console.error('Submit error:', error)
+    console.error('Error response:', error?.response)
+    console.error('Error data:', error?.response?.data)
+    const errors = handleErrors(error)
+    toast.init({ 
+      message: errors?.join(', ') || error?.response?.data?.message || 'Failed to save price structure', 
+      color: 'danger' 
     })
-    clearTimeout(timeoutId)
-    const payload = res.data?.data ?? res.data
-    priceList.value = payload
-    console.log('Successfully fetched price list:', priceList.value)
-    return priceList.value
-  } catch (err: any) {
-    clearTimeout(timeoutId)
-    loadingPriceList.value = false
-    
-    if (err.code === 'ECONNABORTED') {
-      const msg = 'Request timeout (10s) - API server may be unresponsive'
-      console.error('Fetch timeout:', msg)
-      priceListError.value = msg
-    } else {
-      const errMsg = err?.response?.data?.message || err?.message || 'Failed to fetch price list'
-      console.error('Fetch price list error:', err?.response?.data || err?.message)
-      priceListError.value = errMsg
-    }
-    return null
   } finally {
-    loadingPriceList.value = false
+    saving.value = false
+    console.log('Saving completed')
   }
 }
 
-// Watchers & Lifecycle
-watch(() => props.editItem, (newVal) => {
-  if (props.editMode && newVal) {
-    nextTick(() => setTimeout(() => populateFormForEdit(newVal), 100))
+async function fetchAreas() {
+  loadingAreas.value = true
+  try {
+    const response = await huntingAreaStore.getLocations()
+    const data = response.data?.data?.data || response.data?.data || response.data || []
+    lookups.areas = data
+      .filter((item: any) => item.type === 'GAME')
+      .map((item: any) => ({
+        id: item.id,
+        name: item.name + (item.code ? ` (${item.code})` : ''),
+      }))
+  } catch (e) {
+    console.error('Error fetching areas:', e)
+  } finally {
+    loadingAreas.value = false
   }
-}, { immediate: true, deep: true })
+}
+
+async function fetchSeasons() {
+  loadingSeasons.value = true
+  try {
+    const response = await settingsStore.getSeasons(false)
+    const data = response.data || []
+    lookups.seasons = data.map((item: any) => ({
+      id: item.id,
+      name: item.name,
+    }))
+  } catch (e) {
+    console.error('Error fetching seasons:', e)
+  } finally {
+    loadingSeasons.value = false
+  }
+}
+
+async function fetchCurrencies() {
+  loadingCurrencies.value = true
+  try {
+    const response = await settingsStore.getCurrencies()
+    const data = response.data || []
+    lookups.currencies = data.map((item: any) => ({
+      id: item.id,
+      code: item.code || item.name,
+      name: item.name,
+    }))
+  } catch (e) {
+    console.error('Error fetching currencies:', e)
+  } finally {
+    loadingCurrencies.value = false
+  }
+}
+
+async function fetchHuntingTypes() {
+  loadingHuntingTypes.value = true
+  try {
+    const response = await settingsStore.getHuntingsTypes()
+    const data = response.data || []
+    lookups.huntingTypes = data.map((item: any) => ({
+      id: item.id,
+      name: item.name,
+    }))
+  } catch (e) {
+    console.error('Error fetching hunting types:', e)
+  } finally {
+    loadingHuntingTypes.value = false
+  }
+}
+
+async function fetchHuntLengths() {
+  loadingHuntLengths.value = true
+  try {
+    const huntLengthsUrl = `${baseUrl}settings/hunt-lengths/`
+    const response = await axios.get(huntLengthsUrl)
+    const data = response.data?.data || response.data || []
+    lookups.huntLengths = data.map((item: any) => ({
+      id: item.id,
+      label: item.label,
+      days: item.days,
+    }))
+  } catch (e) {
+    console.error('Error fetching hunt lengths:', e)
+  } finally {
+    loadingHuntLengths.value = false
+  }
+}
+
+async function fetchItemsByGroup(name: string) {
+  const url = `${baseUrl}settings/item-groups-items`
+  const response = await axios.get(url, { params: { name, is_active: true } })
+  const data = normalizeApiList(response.data)
+  return data.map((item: any) => ({
+    id: item.id,
+    code: '',
+    name: item.name,
+  }))
+}
+
+async function fetchSalesPackageSets() {
+  const url = `${baseUrl}settings/sales-package-sets/`
+  const response = await axios.get(url)
+  const data = normalizeApiList(response.data)
+  return data.map((item: any) => {
+    const id = item.id ?? item.sales_package_id ?? item.value
+    const name = item.name || item.label || item.description || (id ? `Package #${id}` : '')
+    return {
+      id,
+      code: item.code || '',
+      name,
+    }
+  })
+}
+
+async function fetchSafariExtras() {
+  const itemsUrl = `${baseUrl}settings/items`
+  try {
+    const response = await axios.get(itemsUrl, { params: { subtype: 'SAFARI_EXTRA', is_active: true } })
+    const data = normalizeApiList(response.data)
+    return data.map((item: any) => {
+      const id = item.id
+      const name = item.name || item.description || (id ? `Extra #${id}` : '')
+      return {
+        id,
+        code: item.code || '',
+        name,
+      }
+    })
+  } catch (error) {
+    console.error('Failed to fetch safari extras by subtype, falling back to item group:', error)
+  }
+
+  const url = `${baseUrl}settings/item-groups-items`
+  const response = await axios.get(url, { params: { name: 'Safari Extras', is_active: true } })
+  const data = normalizeApiList(response.data)
+    .filter((item: any) => !item.subtype || item.subtype === 'SAFARI_EXTRA')
+
+  return data.map((item: any) => {
+    const id = item.id
+    const name = item.name || item.description || (id ? `Extra #${id}` : '')
+    return {
+      id,
+      code: item.code || '',
+      name,
+    }
+  })
+}
+
+async function fetchItems() {
+  loadingItems.value = true
+  try {
+    const results = await Promise.allSettled([
+      fetchSalesPackageSets(),
+      fetchItemsByGroup('Trophy Fees'),
+      fetchSafariExtras(),
+      fetchItemsByGroup('Upgrade Fees'),
+    ])
+
+    const [packagesResult, trophyResult, extrasResult, upgradeResult] = results
+
+    if (packagesResult.status === 'fulfilled') {
+      lookups.items.packages = packagesResult.value
+      lookups.salesPackages = packagesResult.value.map((item: any) => ({
+        id: item.id,
+        name: item.name,
+      }))
+    } else {
+      console.error('Failed to fetch sales packages:', packagesResult.reason)
+    }
+
+    if (trophyResult.status === 'fulfilled') {
+      lookups.items.trophyFees = trophyResult.value
+    } else {
+      console.error('Failed to fetch trophy fees:', trophyResult.reason)
+    }
+
+    if (extrasResult.status === 'fulfilled') {
+      lookups.items.extras = extrasResult.value
+    } else {
+      console.error('Failed to fetch safari extras:', extrasResult.reason)
+    }
+
+    if (upgradeResult.status === 'fulfilled') {
+      lookups.items.upgradeFees = upgradeResult.value
+    } else {
+      console.error('Failed to fetch upgrade fees:', upgradeResult.reason)
+    }
+  } catch (e) {
+    console.error('Error fetching items:', e)
+  } finally {
+    loadingItems.value = false
+  }
+}
+
+function populateFormForEdit(editItem: any) {
+  if (!editItem) return
+
+  form.name = editItem.name || ''
+  form.areaId = editItem.location_id || null
+  form.seasonId = editItem.season_id || null
+  form.startDate = editItem.start_date || editItem.start_at || ''
+  form.endDate = editItem.end_date || editItem.end_at || ''
+  form.currencyId = editItem.currency_id || null
+  form.isActive = editItem.is_active === 1 || editItem.is_active === true
+
+  if (editItem.items && Array.isArray(editItem.items)) {
+    form.lines = editItem.items.map((item: any) => ({
+      _key: crypto.randomUUID(),
+      source: item.item_type === 'PACKAGE' ? 'new' : (item.item_id ? 'existing' : 'new'),
+      itemId: item.item_type === 'PACKAGE' ? null : (item.item_id || null),
+      name: item.name || '',
+      description: item.description || '',
+      itemType: item.item_type || null,
+      huntingTypeId: item.hunting_type_id,
+      minDays: item.item_type === 'PACKAGE' ? (item.hunt_length_id ?? item.min_days) : item.min_days,
+      maxDays: item.max_days,
+      pricingUnit: item.pricing_unit || 'FLAT',
+      amount: item.amount || 0,
+      salesPackageIds: Array.isArray(item.sales_packages)
+        ? item.sales_packages.map((sp: any) => sp.id)
+        : (item.sales_package_ids || []),
+    }))
+  }
+
+  if (editItem.companion_hunter_prices && Array.isArray(editItem.companion_hunter_prices)) {
+    const companionLines = editItem.companion_hunter_prices.map((price: any) => ({
+      _key: crypto.randomUUID(),
+      source: 'existing',
+      itemId: price.item_id || null,
+      name: '',
+      description: '',
+      itemType: 'COMPANION',
+      huntingTypeId: null,
+      minDays: price.hunt_length_id || null,
+      maxDays: null,
+      pricingUnit: 'PER_PERSON_PER_DAY',
+      amount: price.amount || 0,
+      salesPackageIds: [],
+    }))
+    form.lines = form.lines.concat(companionLines)
+  }
+}
 
 onMounted(async () => {
-  showModal.value = false
-    await Promise.all([getAreas(), getHuntingTypes(), getQuotaList(), getCurrencyList(), getSalesPackages(), getSpeciesItems(), getHuntLengthsList()])
+  loading.value = true
+  await Promise.all([
+    fetchAreas(),
+    fetchSeasons(),
+    fetchCurrencies(),
+    fetchHuntingTypes(),
+    fetchHuntLengths(),
+    fetchItems(),
+  ])
+
   if (props.editMode && props.editItem) {
     populateFormForEdit(props.editItem)
-    if (props.editItem.id) await fetchPriceListById(props.editItem.id)
   }
+
+  loading.value = false
 })
 </script>
 
 <style scoped>
-.price-list-form-page {
-  background-color: transparent;
+/* Basic look similar to the screenshots: light gray page, soft cards */
+:root {
+  --bg: #f3f5f9;
+  --card: #ffffff;
+  --border: #e5e7ef;
+  --text: #1b2430;
+  --muted: #667085;
+  --blue: #1f6feb;
+  --blue-weak: #e9f1ff;
+  --green: #2e7d32;
+  --shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+}
+
+.ps-page {
+  background: var(--bg);
+  min-height: 100vh;
+  color: var(--text);
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+}
+
+/* Content */
+.content {
+  padding: 18px 18px 26px;
+}
+
+/* Page head */
+.page-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.crumbs {
+  font-size: 12px;
+  color: var(--muted);
+  letter-spacing: 0.3px;
+}
+.crumbs span {
+  font-weight: 700;
+}
+h1 {
+  margin: 8px 0 4px;
+  font-size: 34px;
+}
+.subtitle {
+  margin: 0;
+  color: var(--muted);
+}
+
+.head-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* Grid */
+.grid {
+  display: grid;
+  grid-template-columns: 320px 1fr 320px;
+  gap: 16px;
+  align-items: start;
+}
+
+/* Panels */
+.panel {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.panel-title {
+  padding: 14px 14px;
+  border-bottom: 1px solid var(--border);
+  font-weight: 800;
+  background: #cecef2;
+}
+.panel.center {
+  min-height: 520px;
+}
+
+/* Buttons */
+.btn {
+  border: 1px solid var(--border);
+  background: #fff;
+  border-radius: 12px;
+  padding: 10px 14px;
+  cursor: pointer;
+  font-weight: 700;
+}
+.btn.small {
+  padding: 8px 12px;
+  border-radius: 10px;
+}
+.btn.primary {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: #fff;
+}
+.btn.btn-blue {
+  background: #1f6feb !important;
+  border-color: #1f6feb !important;
+  color: #fff !important;
+}
+.btn.btn-blue:hover:not(:disabled) {
+  background: #1557c7 !important;
+  border-color: #1557c7 !important;
+}
+.btn.success {
+  background: #1b8f4b;
+  border-color: #1b8f4b;
+  color: #fff;
+}
+.btn.ghost {
+  background: #fff;
+}
+.btn.full {
+  width: 100%;
+}
+
+/* Left Form */
+.form {
+  padding: 20px 18px 20px 5px;
+  display: grid;
+  gap: 16px;
+}
+.field {
+  display: grid;
+  gap: 6px;
+}
+.lbl {
+  font-size: 13px;
+  color: #334155;
+  font-weight: 700;
+}
+.req {
+  color: #e11d48;
+}
+input,
+select {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 12px;
+  outline: none;
+  background: #f3ecec;
+}
+.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 6px;
+}
+
+/* Switch */
+.switch {
   position: relative;
+  display: inline-block;
+  width: 52px;
+  height: 28px;
+}
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background-color: #d0d5dd;
+  border-radius: 999px;
+  transition: 0.2s;
+}
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 22px;
+  width: 22px;
+  left: 3px;
+  top: 3px;
+  background-color: white;
+  border-radius: 50%;
+  transition: 0.2s;
+}
+.switch input:checked + .slider {
+  background-color: var(--blue);
+}
+.switch input:checked + .slider:before {
+  transform: translateX(24px);
 }
 
-.form-price-list-container {
+/* Inner Cards */
+.inner-card {
+  margin: 12px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.tabs-card {
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  padding: 12px;
+}
+
+.toolbar-card {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   position: relative;
+  z-index: 2;
+  overflow: visible;
 }
 
-.form-price-list-container .card-body {
-  padding-bottom: 1rem;
+.table-card {
+  padding: 0;
+  margin-bottom: 16px;
 }
 
-.card-header {
-  padding: 0.5rem 1rem;
+/* Center: tabs and search */
+.tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.tab {
+  border: 1px solid var(--border);
+  background: #fff;
+  border-radius: 10px;
+  padding: 8px 14px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  font-size: 13px;
+  color: #475569;
+  transition: all 0.2s ease;
+}
+.tab:hover {
+  background: #e2e8f0;
+  border-color: #cbd5e1;
+}
+.tab.active {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(31, 111, 235, 0.3);
+}
+.tab-icon {
+  font-size: 13px;
 }
 
-.card-body {
-  padding: 1.5rem;
+.search-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--border);
+  background: #f8fafc;
+  border-radius: 10px;
+  padding: 10px 14px;
+}
+.search-row .icon {
+  font-size: 16px;
+  color: var(--muted);
+}
+.search-row input {
+  border: 0;
+  padding: 6px 4px;
+  border-radius: 0;
+  background: transparent;
+  flex: 1;
+  font-size: 14px;
+}
+.search-row input:focus {
+  outline: none;
 }
 
-.form-label {
-  margin-bottom: 0.5rem;
+.rate-lines-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  position: relative;
+  z-index: 1;
+  min-height: 40px;
+}
+
+.rate-lines-head .btn {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.lines-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 1 auto;
+}
+.rate-lines-head h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  color: #1e293b;
+}
+.line-count {
+  background: #e2e8f0;
+  color: #475569;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* Data Table */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.data-table thead {
+  background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+  position: sticky;
+  top: 0;
+}
+
+.data-table th {
+  padding: 14px 12px;
+  text-align: left;
+  font-weight: 800;
+  color: #334155;
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  border-bottom: 2px solid var(--border);
+}
+
+.data-table th.col-item { width: 30%; }
+.data-table th.col-type { width: 18%; }
+.data-table th.col-hunting { width: 18%; }
+.data-table th.col-days { width: 10%; text-align: center; }
+.data-table th.col-action { width: 50px; }
+
+.data-table tbody tr {
+  transition: all 0.15s ease;
+  cursor: pointer;
+}
+
+.data-table tbody tr:hover {
+  background: #f8fafc;
+}
+
+.data-table tbody tr.selected {
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+  border-left: 3px solid var(--blue);
+}
+
+.data-table td {
+  padding: 12px;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: middle;
+}
+
+.data-table .item-col .item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.data-table .item-col .code {
+  font-weight: 800;
+  color: #1e293b;
+  font-size: 13px;
+}
+
+.data-table .item-col .name {
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
+
+.table-select {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  background: #fff;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.table-select:disabled {
+  background: #f1f5f9;
+  color: #94a3b8;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.table-select:hover:not(:disabled) {
+  border-color: var(--blue);
+}
+
+.table-select:focus {
+  outline: none;
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(31, 111, 235, 0.1);
+}
+
+.type-display {
+  padding: 8px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #334155;
+  text-align: center;
+  background: #f8fafc;
+  border-radius: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.detail-display {
+  padding: 8px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+  text-align: left;
+  background: #f8fafc;
+  border-radius: 8px;
+}
+
+.table-input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  background: #fff;
+  transition: all 0.15s ease;
+}
+
+.table-input:hover {
+  border-color: var(--blue);
+}
+
+.table-input:focus {
+  outline: none;
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(31, 111, 235, 0.1);
+}
+
+.action-col {
+  text-align: center;
+}
+
+.remove-btn {
+  width: 32px;
+  height: 32px;
+  border: 1px solid #fecaca;
+  background: #fff;
+  border-radius: 8px;
+  color: #dc2626;
+  font-size: 14px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.remove-btn:hover {
+  background: #fef2f2;
+  border-color: #dc2626;
+  transform: scale(1.05);
+}
+
+/* Empty State */
+.empty-state {
+  padding: 40px 20px;
+  text-align: center;
+}
+
+.empty-icon {
+  font-size: 48px;
+  margin-bottom: 12px;
+  opacity: 0.5;
+}
+
+.empty-text {
+  font-size: 16px;
+  font-weight: 700;
+  color: #475569;
+  margin-bottom: 4px;
+}
+
+.empty-hint {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.empty-state .btn {
+  margin-top: 12px;
+}
+
+.details-card {
+  padding: 0;
+}
+
+.details-head {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  font-weight: 800;
+  background: #fbfbfe;
+}
+
+.details-form {
+  padding: 12px 14px 14px;
+}
+
+.details-card .edit-section {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
+/* Right details */
+.details {
+  padding: 14px;
+}
+.detail-title .big {
+  font-size: 18px;
+  font-weight: 900;
+}
+.detail-title .small {
+  margin-top: 4px;
+}
+.kv {
+  margin-top: 12px;
+}
+.kv .row {
+  display: grid;
+  grid-template-columns: 100px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 0;
+}
+.kv .k {
+  color: var(--muted);
+  font-weight: 700;
+}
+.kv hr {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 10px 0;
+}
+.badge {
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-weight: 900;
+  font-size: 12px;
+  border: 1px solid var(--border);
+}
+.badge.ok {
+  background: #e9f7ef;
+  border-color: #b7e2c5;
+  color: var(--green);
+}
+.badge.off {
+  background: #f2f4f7;
+  color: #475467;
+}
+.muted {
+  color: var(--muted);
+}
+.small {
+  font-size: 12px;
+}
+
+.empty-details {
+  padding: 18px 14px;
+  color: var(--muted);
+}
+
+.bottom-actions {
+  border-top: 1px solid var(--border);
+  padding: 12px 14px 14px;
+  display: grid;
+  gap: 10px;
+}
+
+/* Edit Section in Right Panel */
+.edit-section {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  display: grid;
+  gap: 12px;
+}
+
+/* Source Select - New Item Highlight */
+.source-new {
+  background-color: #f0fdf4 !important;
+  border-color: #22c55e !important;
+  color: #15803d !important;
+  font-weight: 600;
+}
+
+.text-danger {
+  color: #dc2626;
+  font-size: 12px;
+}
+
+/* Package Builder Section */
+.package-builder-section {
+  background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+  border: 1px solid #86efac;
+  border-radius: 10px;
+  padding: 14px;
+  margin-top: 4px;
+}
+
+.sales-packages-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.sales-packages-label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 100%;
+}
+
+.sales-packages-label .lbl {
+  font-size: 13px;
+  color: #166534;
+  font-weight: 600;
+}
+
+.field-hint {
+  font-size: 11px;
+  color: #15803d;
+  margin: 0;
+}
+
+.sales-packages-input {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+}
+
+.package-select {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid #86efac;
+  border-radius: 8px;
+  font-size: 14px;
+  background: #fff;
+}
+
+.add-package-btn {
+  width: 38px;
+  height: 38px;
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 20px !important;
+  font-weight: 700 !important;
+  background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;
+  color: #fff !important;
+  border: none !important;
+  border-radius: 8px !important;
+  cursor: pointer;
+  transition: all 0.2s ease !important;
+}
+
+.add-package-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #047857 0%, #065f46 100%) !important;
+  transform: scale(1.05);
+}
+
+.add-package-btn:disabled {
+  background: #9ca3af !important;
+  cursor: not-allowed;
+}
+
+.selected-packages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+  width: 100%;
+}
+
+.package-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #dcfce7;
+  border: 1px solid #4ade80;
+  color: #166534;
+  padding: 5px 10px;
+  border-radius: 20px;
+  font-size: 12px;
   font-weight: 500;
-  display: block;
 }
 
-.form-group {
-  margin-bottom: 0;
+.remove-pkg-btn {
+  background: none;
+  border: none;
+  color: #166534;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  margin-left: 2px;
+  transition: color 0.2s;
 }
 
-form .row {
-  margin-bottom: 2rem !important;
-  --bs-gutter-x: 3rem !important;
-  margin-left: calc(-1 * var(--bs-gutter-x) * 0.5) !important;
-  margin-right: calc(-1 * var(--bs-gutter-x) * 0.5) !important;
+.remove-pkg-btn:hover {
+  color: #dc2626;
 }
 
-form .row>[class*='col-'] {
-  padding-left: calc(var(--bs-gutter-x) * 0.5) !important;
-  padding-right: calc(var(--bs-gutter-x) * 0.5) !important;
+@media (max-width: 1200px) {
+  .grid {
+    grid-template-columns: 280px 1fr 280px;
+  }
 }
 
-.card.mb-2 {
-  margin-bottom: 0.5rem !important;
+@media (max-width: 1000px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .panel.center {
+    order: -1;
+  }
 }
 </style>

@@ -36,32 +36,46 @@
             <div>
               <span v-for="id in form.additional_sales_package_ids" :key="id" class="badge bg-light text-dark me-2">
                 {{ getSalesPackageName(id) }}
-                <button type="button" class="btn btn-sm btn-link text-danger ms-2 p-0" @click="removeAdditionalPackage(id)">✕</button>
+                <button type="button" class="btn btn-sm btn-link text-danger ms-2 p-0" @click="removeAdditionalPackage(id)">x</button>
               </span>
             </div>
           </div>
 
-          <!-- Second row: Hunt Length | Hunting Type (two per row) -->
-          <div class="col-md-6 col-12">
-            <label class="form-label">Hunt Length</label>
-            <select v-model="form.hunt_length_id" class="form-select" required>
-              <option :value="null">Select Hunt Length</option>
-              <option v-for="h in huntLengths" :key="h.id" :value="h.id">{{ getHuntLengthLabel(h) }}</option>
-            </select>
-          </div>
-
+          <!-- Second row: Hunting Type | Hunt Length -->
           <div class="col-md-6 col-12">
             <label class="form-label">Hunting Type</label>
-            <select v-model="form.hunting_type_id" class="form-select">
+            <select v-model="form.hunting_type_id" class="form-select" required>
               <option :value="null">Select Hunting Type</option>
               <option v-for="ht in huntingTypes" :key="ht.id" :value="ht.id">{{ ht.name || ht.label || ht.text }}</option>
             </select>
           </div>
 
-          <!-- Third row: Currency | Amount (two per row) -->
+          <div class="col-md-6 col-12">
+            <label class="form-label">Hunt Length</label>
+            <select v-model="form.hunt_length_id" class="form-select" required>
+              <option :value="null">Select Hunt Length</option>
+              <option v-for="hl in huntLengths" :key="hl.id" :value="hl.id">{{ getHuntLengthLabel(hl) }}</option>
+            </select>
+          </div>
+
+          <!-- Third row: Pricing Unit | Currency -->
+
+          <div class="col-md-6 col-12">
+            <label class="form-label">Pricing Unit</label>
+            <select v-model="form.pricing_unit" class="form-select" required>
+              <option :value="null">Select Pricing Unit</option>
+              <option value="FLAT">Flat</option>
+              <option value="PER_DAY">Per Day</option>
+              <option value="PER_NIGHT">Per Night</option>
+              <option value="PER_PERSON_PER_DAY">Per Person/Day</option>
+              <option value="PER_ITEM">Per Item</option>
+            </select>
+          </div>
+
+          <!-- Fourth row: Currency | Amount -->
           <div class="col-md-6 col-12">
             <label class="form-label">Currency</label>
-            <select v-model="form.currency_id" class="form-select">
+            <select v-model="form.currency_id" class="form-select" required>
               <option :value="null">Select Currency</option>
               <option v-for="c in currencyOptions" :key="c.value" :value="c.value">{{ c.text }}</option>
             </select>
@@ -90,23 +104,22 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { usePriceStructuresStore } from '@/stores/bushman/price-structures-store'
 import { usePriceListStore } from '@/stores/bushman/price-list-store'
 import { useSettingsStore } from '@/stores/bushman/settings-store'
 import { useToast } from '@/composables/useToast'
+import axios from 'axios'
 
 const route = useRoute()
 const router = useRouter()
 const toast = useToast()
-const store = usePriceStructuresStore()
 const priceListStore = usePriceListStore()
 const settingsStore = useSettingsStore()
 
 const priceStructureId = Number(route.params.id)
 
 const saving = ref(false)
-const huntLengths = ref<any[]>([])
 const huntingTypes = ref<any[]>([])
+const huntLengths = ref<any[]>([])
 const currencyOptions = ref<any[]>([])
 const salesPackageOptions = ref<any[]>([])
 
@@ -116,8 +129,8 @@ const form = ref<any>({
   hunt_length_id: null,
   currency_id: null,
   amount: null,
+  pricing_unit: null,
   description: '',
-  sales_package_id: null,
   additional_sales_package_ids: []
 })
 
@@ -125,20 +138,20 @@ const packagePickerId = ref<number | null>(null)
 
 onMounted(async () => {
   await Promise.all([
-    store.getHuntLengths(),
     settingsStore.getHuntingsTypes(),
     settingsStore.getCurrencies(),
+    priceListStore.getHuntLengths(),
     priceListStore.getSalesPackageList(false)
   ])
-  huntLengths.value = store.huntLengths
   const htRes = await settingsStore.getHuntingsTypes()
   huntingTypes.value = htRes.data?.data || htRes.data || []
+  huntLengths.value = priceListStore.huntLengths || []
   currencyOptions.value = settingsStore.currencies || []
   // Populate sales package options from priceListStore.salesPackages
   salesPackageOptions.value = priceListStore.salesPackages || []
 })
 
-// Helper: render hunt length label without duplicating "days" when label already contains unit
+// Helper: render hunt length label
 const getHuntLengthLabel = (h: any) => {
   const label = h?.label || h?.name || ''
   const days = h?.days || h?.hunt_length_days || null
@@ -147,8 +160,6 @@ const getHuntLengthLabel = (h: any) => {
   if (days) return `${days} days`
   return ''
 }
-
-// Note: hunt length days are shown inside the select label via `getHuntLengthLabel` — no separate days field needed
 
 // Helpers for managing additional packages
 const addPackageFromPicker = () => {
@@ -183,11 +194,15 @@ const getSalesPackageName = (id: number) => {
 
 const cancel = () => {
   router.push({ name: 'sales-price-list', query: { structureId: String(priceStructureId), view: 'items' } })
-} 
+}
 
 const submit = async () => {
   if (!form.value.name || !form.value.amount || !form.value.hunt_length_id) {
-    toast.init({ message: 'Please fill required fields (Name, Amount, Hunt Length)', color: 'warning' })
+    toast.init({ message: 'Please fill required fields (Name, Hunt Length, Amount)', color: 'warning' })
+    return
+  }
+  if (!form.value.hunting_type_id || !form.value.currency_id || !form.value.pricing_unit) {
+    toast.init({ message: 'Please select Hunting Type, Currency, and Pricing Unit', color: 'warning' })
     return
   }
 
@@ -197,18 +212,27 @@ const submit = async () => {
     ? Array.from(new Set(form.value.additional_sales_package_ids.map((n: any) => Number(n)).filter((n: number) => !isNaN(n))))
     : []
 
+  if (!salesPackages.length) {
+    toast.init({ message: 'Please add at least one Sales Package', color: 'warning' })
+    saving.value = false
+    return
+  }
+
   const payload = {
+    price_structure_id: priceStructureId,
     name: form.value.name,
-    hunting_type_id: form.value.hunting_type_id || null,
-    hunt_length_id: form.value.hunt_length_id || null,
-    currency_id: form.value.currency_id || null,
+    hunting_type_id: form.value.hunting_type_id,
+    hunt_length_id: Number(form.value.hunt_length_id),
+    currency_id: form.value.currency_id,
     amount: form.value.amount !== null && form.value.amount !== undefined ? Number(form.value.amount) : null,
+    pricing_unit: form.value.pricing_unit,
     description: form.value.description || '',
     sales_package_ids: salesPackages
   }
 
   try {
-    await store.createItem(priceStructureId, payload)
+    const url = import.meta.env.VITE_APP_BASE_URL + 'settings/price-items'
+    await axios.post(url, payload)
     router.push({
       name: 'sales-price-list',
       query: { structureId: String(priceStructureId), view: 'items', itemCreated: '1' },
@@ -310,7 +334,7 @@ const submit = async () => {
 .price-structure-add-item .badge button:hover {
   color: #a71d2a;
 }
-/* Sticky footer for forms — transparent so inputs float on background */
+/* Sticky footer for forms; transparent so inputs float on background */
 .price-structure-add-item .page-footer {
   position: sticky;
   bottom: 0;

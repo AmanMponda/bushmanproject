@@ -21,6 +21,7 @@ const PriceStructureAddItem = () => import('@/views/bushman/sales/price-structur
 const PriceStructureAddPrice = () => import('@/views/bushman/sales/price-structures/PriceStructureAddPrice.vue');
 const PriceStructureAddUpgradeFee = () => import('@/views/bushman/sales/price-structures/PriceStructureAddUpgradeFee.vue');
 const PriceStructureAddTrophyFee = () => import('@/views/bushman/sales/price-structures/PriceStructureAddTrophyFee.vue');
+const PriceStructureAddSafariExtra = () => import('@/views/bushman/sales/price-structures/PriceStructureAddSafariExtra.vue');
 const ManageQuotasSettings = () => import('@/views/bushman/module-settings/ManageQuota.vue');
 const ManageRegulatoryPackage = () => import('@/views/bushman/module-settings/ManageRegulatoryPackage.vue');
 const ManageSalesPackage = () => import('@/views/bushman/module-settings/ManageSalesPackage.vue');
@@ -158,6 +159,13 @@ const router = createRouter({
       path: "/sales/price-structures/:id/trophy-fees/create",
       name: "price-structure-trophy-fee-create",
       component: PriceStructureAddTrophyFee,
+      meta: { requiresAuth: true }
+    },
+
+    {
+      path: "/sales/price-structures/:id/safari-extras/create",
+      name: "price-structure-safari-extra-create",
+      component: PriceStructureAddSafariExtra,
       meta: { requiresAuth: true }
     },
 

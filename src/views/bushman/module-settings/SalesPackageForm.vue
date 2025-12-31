@@ -159,7 +159,7 @@
                     No licence/area selected. CSV import will accept any species names.
                   </div>
 
-                  <SalesPackageCSVInput :allowed-species-ids="licenceSpeciesIds" @import="handleCsvImport" />
+                  <SalesPackageCSVInput :allowed-species-ids="licenceSpeciesIds" :species-options="speciesOptionsForCsv" @import="handleCsvImport" />
                 </div>
 
                 <!-- Manual Entry Mode -->
@@ -364,6 +364,10 @@ const laodinglicenceAreaSpecies = computed(() => settingsStore.laodinglicenceAre
 // computed
 const licenceSpeciesIds = computed<(string | number)[]>(() =>
   (licenceAreaSpecies.value || []).map((s: any) => s.id).filter((id: any) => id != null),
+)
+
+const speciesOptionsForCsv = computed(() =>
+  (licenceAreaSpecies.value || []).map((s: any) => ({ value: s.id, text: s.name }))
 )
 
 const canSubmit = computed<boolean>(() => {
@@ -587,11 +591,12 @@ async function downloadSpeciesTemplate() {
 
     const rows = data.map((species: any) => {
       const id = species.id || ''
+      const name = species.name || ''
       const quantity = ''
-      return `${escapeCsv(id)},${escapeCsv(quantity)}`
+      return `${escapeCsv(id)},${escapeCsv(name)},${escapeCsv(quantity)}`
     })
 
-    const header = 'Species ID,Quantity'
+    const header = 'Species ID,Species Name,Quantity'
     const csvContent = [header].concat(rows).join('\n')
 
     const filename = 'sales_package_species_template.csv'

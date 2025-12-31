@@ -89,6 +89,7 @@
                     <input type="checkbox" class="form-check-input" :checked="allRowsSelected" @change="toggleAllRows" />
                   </th>
                   <th>Species ID</th>
+                  <th>Species Name</th>
                   <th>Quantity</th>
                   <th v-if="invalidRows.length > 0">Status</th>
                 </tr>
@@ -99,6 +100,10 @@
                     <input type="checkbox" class="form-check-input" v-model="row._selected" :disabled="row._invalid" />
                   </td>
                   <td>{{ row.species_id || '-' }}</td>
+                  <td>
+                    <span v-if="row.species_name" class="fw-semibold">{{ row.species_name }}</span>
+                    <span v-else class="text-muted">-</span>
+                  </td>
                   <td>{{ row.quantity || '0' }}</td>
                   <td v-if="invalidRows.length > 0">
                     <span v-if="row._invalid" class="text-danger small">
@@ -149,17 +154,25 @@ import Swal from 'sweetalert2'
 
 interface CsvRow {
   species_id?: string | number
+  species_name?: string
   quantity: string | number
   _selected?: boolean
   _invalid?: boolean
 }
 
+interface SpeciesOption {
+  value: string | number
+  text: string
+}
+
 const props = withDefaults(
   defineProps<{
     allowedSpeciesIds?: (string | number)[] // List of allowed species IDs from licence
+    speciesOptions?: SpeciesOption[] // Species options for name lookup
   }>(),
   {
     allowedSpeciesIds: () => [],
+    speciesOptions: () => [],
   }
 )
 
@@ -184,6 +197,14 @@ const csvColumnMap = reactive<Record<string, string>>({
 const allowedIdsSet = computed(() => {
   const ids = props.allowedSpeciesIds.map((id) => String(id).trim())
   return new Set(ids)
+})
+
+const speciesIdToName = computed(() => {
+  const map = new Map<string, string>()
+  props.speciesOptions.forEach((opt) => {
+    map.set(String(opt.value), opt.text)
+  })
+  return map
 })
 
 const validRows = computed(() => csvRows.value.filter((r) => !r._invalid))
@@ -338,6 +359,7 @@ function recalculateCsvPreview() {
     .map((row: any) => {
       const speciesId = csvColumnMap.species_id ? String(row[csvColumnMap.species_id] || '').trim() : ''
       const quantity = csvColumnMap.quantity ? String(row[csvColumnMap.quantity] || '').trim() : '0'
+      const speciesName = speciesIdToName.value.get(speciesId) || ''
 
       const hasSpeciesId = speciesId.length > 0
       const isValidId = props.allowedSpeciesIds.length === 0 || allowedIdsSet.value.has(speciesId)
@@ -345,6 +367,7 @@ function recalculateCsvPreview() {
 
       return {
         species_id: speciesId,
+        species_name: speciesName,
         quantity: quantity || '0',
         _selected: isValid,
         _invalid: !hasSpeciesId || !isValidId,

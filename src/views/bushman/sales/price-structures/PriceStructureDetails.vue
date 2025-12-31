@@ -5,10 +5,10 @@
       <div class="header-card" v-if="structure">
         <div class="d-flex justify-content-between align-items-start mb-4">
           <div>
-            <h2 class="structure-title mb-2">{{ structure.area_name || 'Price Structure' }}</h2>
+            <h2 class="structure-title mb-2">{{ structure.location_name || structure.area_name || structure.area?.name || structure.area || 'Price Structure' }}</h2>
             <div class="date-range">
               <i class="fa fa-calendar me-2"></i>
-              <span>{{ formatDateShort(structure.start_date) }} — {{ formatDateShort(structure.end_date) }}</span>
+              <span>{{ formatDateShort(structure.start_date) }} - {{ formatDateShort(structure.end_date) }}</span>
             </div>
           </div>
           <div class="header-actions">
@@ -41,8 +41,16 @@
             @click="activeView = 'prices'"
           >
             <i class="fa fa-users"></i>
-            <span>Observer & Companion</span>
+            <span>Companion Prices</span>
             <span class="badge">{{ filteredPrices.length }}</span>
+          </button>
+          <button 
+            :class="['tab-btn', { active: activeView === 'safari-extras' }]"
+            @click="activeView = 'safari-extras'"
+          >
+            <i class="fa fa-briefcase"></i>
+            <span>Safari Extras</span>
+            <span class="badge">{{ filteredSafariExtras.length }}</span>
           </button>
           <button 
             :class="['tab-btn', { active: activeView === 'trophy-fees' }]"
@@ -86,13 +94,13 @@
 
           <div class="action-buttons">
             <button class="btn-add" @click="goToAddItem" v-if="activeView === 'items'">
-              <i class="fa fa-plus"></i> Add Item
-            </button>
-            <button class="btn-add" @click="openAddObserver" v-if="activeView === 'prices'">
-              <i class="fa fa-plus"></i> Add Observer
+              <i class="fa fa-plus"></i> Add Package
             </button>
             <button class="btn-add" @click="openAddCompanion" v-if="activeView === 'prices'">
               <i class="fa fa-plus"></i> Add Companion
+            </button>
+            <button class="btn-add" @click="goToAddSafariExtra" v-if="activeView === 'safari-extras'">
+              <i class="fa fa-plus"></i> Add Safari Extra
             </button>
             <button class="btn-add" @click="goToAddTrophyFee" v-if="activeView === 'trophy-fees'">
               <i class="fa fa-plus"></i> Add Trophy Fee
@@ -112,6 +120,7 @@
                 <th>Item Name</th>
                 <th>Hunt Length</th>
                 <th>Hunting Type</th>
+                <th>Species Count</th>
                 <th class="text-end">Amount</th>
                 <th class="text-center">Actions</th>
               </tr>
@@ -122,9 +131,10 @@
                   <div class="item-name">{{ item.name }}</div>
                 </td>
                 <td>
-                  <span class="badge-info">{{ item.hunt_length_label }}</span>
+                  <span class="badge-info">{{ item.hunt_length_label || (item.hunt_length_days ? `${item.hunt_length_days} days` : '-') }}</span>
                 </td>
                 <td>{{ item.hunting_type_name }}</td>
+                <td>{{ item.species_count || 0 }}</td>
                 <td class="text-end">
                   <span class="amount">{{ item.currency_symbol }}{{ item.amount }}</span>
                 </td>
@@ -135,7 +145,7 @@
                 </td>
               </tr>
               <tr v-if="filteredItems.length === 0">
-                <td colspan="5" class="empty-state">
+                <td colspan="6" class="empty-state">
                   <i class="fa fa-inbox"></i>
                   <p>No items found</p>
                 </td>
@@ -143,11 +153,10 @@
             </tbody>
           </table>
 
-          <!-- Prices Table -->
+          <!-- Prices Table (Companion Only) -->
           <table v-else-if="activeView === 'prices'" class="modern-table">
             <thead>
               <tr>
-                <th>Type</th>
                 <th>Hunt Length</th>
                 <th class="text-end">Amount</th>
                 <th class="text-center">Actions</th>
@@ -156,13 +165,7 @@
             <tbody>
               <tr v-for="price in filteredPrices" :key="price.uniqueKey">
                 <td>
-                  <span :class="['badge-type', price.type === 'observer' ? 'observer' : 'companion']">
-                    <i :class="['fa', price.type === 'observer' ? 'fa-eye' : 'fa-user-friends']"></i>
-                    {{ price.type === 'observer' ? 'Observer' : 'Companion' }}
-                  </span>
-                </td>
-                <td>
-                  <span class="badge-info">{{ price.hunt_length_label }}</span>
+                  <span class="badge-info">{{ price.hunt_length_label || (price.hunt_length_days ? `${price.hunt_length_days} days` : '') }}</span>
                 </td>
                 <td class="text-end">
                   <span class="amount">{{ price.currency_symbol }}{{ price.amount }}</span>
@@ -170,7 +173,7 @@
                 <td class="text-center">
                   <button 
                     class="btn-icon btn-danger" 
-                    @click="price.type === 'observer' ? deleteObserver(price) : deleteCompanion(price)"
+                    @click="deleteCompanion(price)"
                     title="Delete"
                   >
                     <i class="fa fa-trash"></i>
@@ -178,9 +181,43 @@
                 </td>
               </tr>
               <tr v-if="filteredPrices.length === 0">
+                <td colspan="3" class="empty-state">
+                  <i class="fa fa-inbox"></i>
+                  <p>No companion prices found</p>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <!-- Safari Extras Table -->
+          <table v-else-if="activeView === 'safari-extras'" class="modern-table">
+            <thead>
+              <tr>
+                <th>Extra Name</th>
+                <th>Pricing Unit</th>
+                <th class="text-end">Amount</th>
+                <th class="text-center">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="extra in filteredSafariExtras" :key="extra.id">
+                <td>
+                  <div class="item-name">{{ extra.name }}</div>
+                </td>
+                <td>{{ formatPricingUnit(extra.pricing_unit) }}</td>
+                <td class="text-end">
+                  <span class="amount">{{ extra.currency_symbol }}{{ extra.amount }}</span>
+                </td>
+                <td class="text-center">
+                  <button class="btn-icon btn-danger" @click="deleteSafariExtra(extra)" title="Delete">
+                    <i class="fa fa-trash"></i>
+                  </button>
+                </td>
+              </tr>
+              <tr v-if="filteredSafariExtras.length === 0">
                 <td colspan="4" class="empty-state">
                   <i class="fa fa-inbox"></i>
-                  <p>No prices found</p>
+                  <p>No safari extras found</p>
                 </td>
               </tr>
             </tbody>
@@ -202,9 +239,9 @@
                   <div class="species-name">
                     <i class="fa fa-paw me-2"></i>
                     <div>
-                      <div>{{ fee.species?.name || fee.species_name || `ID: ${fee.species_id}` }}</div>
-                      <small v-if="fee.species?.swahili_name" class="text-muted d-block">
-                        {{ fee.species.swahili_name }}
+                      <div>{{ fee.species?.name || fee.species_name || fee.name || fee.item_name || `ID: ${fee.species_id}` }}</div>
+                      <small v-if="fee.species?.scientific_name || fee.scientific_name || fee.description" class="text-muted d-block">
+                        {{ fee.species?.scientific_name || fee.scientific_name || fee.description }}
                       </small>
                     </div>
                   </div>
@@ -213,10 +250,8 @@
                 <td class="text-end">
                   <div>
                     <span class="amount">{{ fee.currency?.symbol || fee.currency_symbol || '$' }}{{ fee.amount }}</span>
-                    <div v-if="fee.durations && fee.durations.length > 0" class="mt-1">
-                      <small class="text-muted">
-                        Durations: {{ fee.durations.filter((d: any) => d.is_allowed).map((d: any) => d.hunt_length?.label || `${d.hunt_length?.days || d.hunt_length_id} days`).join(', ') || 'All' }}
-                      </small>
+                    <div v-if="fee.durations && fee.durations.length" class="mt-1">
+                      <small class="text-muted">Duration: {{ formatTrophyFeeDurations(fee) }}</small>
                     </div>
                   </div>
                 </td>
@@ -239,8 +274,8 @@
           <table v-else-if="activeView === 'upgrade-fees'" class="modern-table">
             <thead>
               <tr>
-                <th>Species</th>
-                <th>Trigger Condition</th>
+                <th>Item</th>
+                <th>Description</th>
                 <th class="text-end">Fee Amount</th>
                 <th class="text-center">Actions</th>
               </tr>
@@ -250,14 +285,14 @@
                 <td>
                   <div class="species-name">
                     <i class="fa fa-paw me-2"></i>
-                    {{ fee.species_name }}
+                    {{ fee.species_name || fee.name || fee.item_name || 'Upgrade Fee' }}
                   </div>
                 </td>
                 <td>
-                  <span class="condition-badge">{{ fee.trigger_condition }}</span>
+                  <span class="condition-badge">{{ fee.trigger_condition || fee.description || '-' }}</span>
                 </td>
                 <td class="text-end">
-                  <span class="amount">{{ fee.currency_symbol }}{{ fee.fee_amount }}</span>
+                  <span class="amount">{{ fee.currency_symbol || fee.currency?.symbol || '$' }}{{ fee.fee_amount ?? fee.amount }}</span>
                 </td>
                 <td class="text-center">
                   <button class="btn-icon btn-danger" @click="deleteUpgradeFee(fee)" title="Delete">
@@ -289,7 +324,7 @@ import { useToast } from '@/composables/useToast'
 const props = withDefaults(
   defineProps<{ 
     id: number
-    initialView?: 'items' | 'prices' | 'trophy-fees' | 'upgrade-fees' 
+    initialView: 'items' | 'prices' | 'safari-extras' | 'trophy-fees' | 'upgrade-fees' 
   }>(), 
   { 
     id: 0, 
@@ -309,29 +344,33 @@ const toast = useToast()
 const loading = ref(false)
 const downloadingPdf = ref(false)
 const structure = ref<any | null>(null)
-const trophyFees = ref<any[]>([])
-const activeView = ref<'items' | 'prices' | 'trophy-fees' | 'upgrade-fees'>(props.initialView)
+const activeView = ref<'items' | 'prices' | 'safari-extras' | 'trophy-fees' | 'upgrade-fees'>(props.initialView)
 const searchTerm = ref('')
 
+const baseItems = computed(() => structure.value?.items || [])
+
+const safariExtras = computed(() => structure.value?.safari_extras || [])
+
+const trophyFees = computed(() => structure.value?.trophy_fees || [])
+
+const upgradeFees = computed(() => structure.value?.upgrade_fees || [])
+
 const filteredItems = computed(() => {
-  if (!structure.value?.items) return []
-  if (!searchTerm.value) return structure.value.items
+  const items = baseItems.value || []
+  if (!searchTerm.value) return items
   
   const term = searchTerm.value.toLowerCase()
-  return structure.value.items.filter((item: any) =>
+  return items.filter((item: any) =>
     item.name?.toLowerCase().includes(term) ||
     item.hunting_type_name?.toLowerCase().includes(term) ||
-    item.hunt_length_days?.toString().includes(term)
+    item.hunt_length_label?.toLowerCase().includes(term) ||
+    item.hunt_length_days?.toString().includes(term) ||
+    item.species_count?.toString().includes(term)
   )
 })
 
 const filteredPrices = computed(() => {
   const prices = [
-    ...(structure.value?.observer_hunter_prices || []).map((o: any) => ({
-      ...o,
-      type: 'observer',
-      uniqueKey: `obs-${o.id}`
-    })),
     ...(structure.value?.companion_hunter_prices || []).map((c: any) => ({
       ...c,
       type: 'companion',
@@ -343,72 +382,66 @@ const filteredPrices = computed(() => {
   
   const term = searchTerm.value.toLowerCase()
   return prices.filter((p) =>
-    p.type.includes(term) ||
     p.hunt_length_days?.toString().includes(term) ||
     p.amount?.toString().includes(term)
   )
 })
 
-const filteredUpgradeFees = computed(() => {
-  if (!structure.value?.upgrade_fees) return []
-  if (!searchTerm.value) return structure.value.upgrade_fees
-  
+const filteredSafariExtras = computed(() => {
+  const items = safariExtras.value || []
+  if (!searchTerm.value) return items
+
   const term = searchTerm.value.toLowerCase()
-  return structure.value.upgrade_fees.filter((fee: any) =>
-    fee.trigger_condition?.toLowerCase().includes(term) ||
-    fee.species_name?.toLowerCase().includes(term) ||
-    fee.fee_amount?.toString().includes(term)
+  return items.filter((extra: any) =>
+    extra.name?.toLowerCase().includes(term) ||
+    extra.pricing_unit?.toLowerCase().includes(term) ||
+    extra.amount?.toString().includes(term)
   )
 })
 
-const filteredTrophyFees = computed(() => {
-  if (!trophyFees.value) return []
-  if (!searchTerm.value) return trophyFees.value
+const filteredUpgradeFees = computed(() => {
+  const fees = upgradeFees.value || []
+  if (!searchTerm.value) return fees
   
   const term = searchTerm.value.toLowerCase()
-  return trophyFees.value.filter((fee: any) =>
+  return fees.filter((fee: any) =>
+    fee.trigger_condition?.toLowerCase().includes(term) ||
     fee.species_name?.toLowerCase().includes(term) ||
-    fee.area_name?.toLowerCase().includes(term) ||
+    fee.fee_amount?.toString().includes(term) ||
     fee.amount?.toString().includes(term)
   )
 })
 
-const fetchTrophyFees = async () => {
-  try {
-    // Try to get from price structure first (if it includes trophyFees relation)
-    if (structure.value?.trophy_fees && Array.isArray(structure.value.trophy_fees)) {
-      trophyFees.value = structure.value.trophy_fees
-      return
-    }
-    
-    // Fallback: fetch from dedicated endpoint
-    const url = `${import.meta.env.VITE_APP_BASE_URL}settings/trophy-fees?price_structure_id=${props.id}`
-    const response = await fetch(url)
-    if (response.ok) {
-      const data = await response.json()
-      trophyFees.value = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : [])
-    }
-  } catch (error) {
-    console.warn('Failed to load trophy fees:', error)
-    trophyFees.value = []
-  }
-}
+const filteredTrophyFees = computed(() => {
+  const fees = trophyFees.value || []
+  if (!searchTerm.value) return fees
+  
+  const term = searchTerm.value.toLowerCase()
+  return fees.filter((fee: any) =>
+    fee.species?.name?.toLowerCase().includes(term) ||
+    fee.species_name?.toLowerCase().includes(term) ||
+    fee.species?.scientific_name?.toLowerCase().includes(term) ||
+    fee.species_scientific_name?.toLowerCase().includes(term) ||
+    fee.scientific_name?.toLowerCase().includes(term) ||
+    fee.area_name?.toLowerCase().includes(term) ||
+    fee.area?.name?.toLowerCase().includes(term) ||
+    fee.amount?.toString().includes(term)
+  )
+})
 
 const refresh = async () => {
   loading.value = true
   try {
     await store.get(props.id)
     structure.value = store.current
-    // Fetch trophy fees after structure is loaded
-    await fetchTrophyFees()
   } catch (error) {
-    toast?.init({ message: 'Failed to load structure', color: 'danger' })
+    toast.init({ message: 'Failed to load structure', color: 'danger' })
   } finally {
     loading.value = false
   }
 }
 
-const formatDateShort = (isoDate?: string | null) => {
+const formatDateShort = (isoDate: string | null) => {
   if (!isoDate) return ''
   try {
     return new Date(isoDate).toLocaleDateString('en-US', { 
@@ -421,16 +454,27 @@ const formatDateShort = (isoDate?: string | null) => {
   }
 }
 
+const formatPricingUnit = (unit: string | null) => {
+  if (!unit) return ''
+  return unit.replace(/_/g, ' ').toLowerCase().replace(/(^|\\s)\\S/g, (t) => t.toUpperCase())
+}
+
+const formatTrophyFeeDurations = (fee: any) => {
+  const durations = fee?.durations || []
+  if (!durations.length) return ''
+  return durations
+    .map((d: any) => d.hunt_length_label || (d.hunt_length_days ? `${d.hunt_length_days} days` : ''))
+    .filter(Boolean)
+    .join(', ')
+}
+
+
 const goToAddItem = () => {
   router.push({ name: 'price-structure-item-create', params: { id: props.id } })
 }
 
 const openAddCompanion = () => {
   router.push({ name: 'price-structure-companion-create', params: { id: props.id } })
-}
-
-const openAddObserver = () => {
-  router.push({ name: 'price-structure-observer-create', params: { id: props.id } })
 }
 
 const goToAddUpgradeFee = () => {
@@ -441,11 +485,15 @@ const goToAddTrophyFee = () => {
   router.push({ name: 'price-structure-trophy-fee-create', params: { id: props.id } })
 }
 
+const goToAddSafariExtra = () => {
+  router.push({ name: 'price-structure-safari-extra-create', params: { id: props.id } })
+}
+
 const downloadPdf = async () => {
   if (downloadingPdf.value) return
   downloadingPdf.value = true
   try {
-    const url = `http://localhost:8000/api/v1.0/settings/price-structures/${props.id}/pdf`
+    const url = `${import.meta.env.VITE_APP_BASE_URL}settings/price-structures/${props.id}/pdf`
     const response = await fetch(url)
     if (!response.ok) throw new Error('Failed to fetch PDF')
 
@@ -480,9 +528,9 @@ const downloadPdf = async () => {
     link.click()
     link.remove()
     URL.revokeObjectURL(blobUrl)
-    toast?.init({ message: 'PDF downloaded', color: 'success' })
+    toast.init({ message: 'PDF downloaded', color: 'success' })
   } catch (error) {
-    toast?.init({ message: 'Failed to download PDF', color: 'danger' })
+    toast.init({ message: 'Failed to download PDF', color: 'danger' })
   } finally {
     downloadingPdf.value = false
   }
@@ -490,12 +538,12 @@ const downloadPdf = async () => {
 
 const deleteItem = async (item: any) => {
   try {
-    const url = `${import.meta.env.VITE_APP_BASE_URL}settings/price-structures/${props.id}/items/${item.id}`
+    const url = `${import.meta.env.VITE_APP_BASE_URL}settings/price-items/${item.id}`
     await fetch(url, { method: 'DELETE' })
-    toast?.init({ message: 'Item deleted', color: 'success' })
+    toast.init({ message: 'Item deleted', color: 'success' })
     await refresh()
   } catch {
-    toast?.init({ message: 'Failed to delete item', color: 'danger' })
+    toast.init({ message: 'Failed to delete item', color: 'danger' })
   }
 }
 
@@ -503,21 +551,21 @@ const deleteCompanion = async (c: any) => {
   try {
     const url = `${import.meta.env.VITE_APP_BASE_URL}settings/price-structures/${props.id}/companion-hunter-prices/${c.id}`
     await fetch(url, { method: 'DELETE' })
-    toast?.init({ message: 'Companion price deleted', color: 'success' })
+    toast.init({ message: 'Companion price deleted', color: 'success' })
     await refresh()
   } catch {
-    toast?.init({ message: 'Failed to delete companion price', color: 'danger' })
+    toast.init({ message: 'Failed to delete companion price', color: 'danger' })
   }
 }
 
-const deleteObserver = async (o: any) => {
+const deleteSafariExtra = async (extra: any) => {
   try {
-    const url = `${import.meta.env.VITE_APP_BASE_URL}settings/price-structures/${props.id}/observer-hunter-prices/${o.id}`
+    const url = `${import.meta.env.VITE_APP_BASE_URL}settings/price-structure-items/${extra.id}`
     await fetch(url, { method: 'DELETE' })
-    toast?.init({ message: 'Observer price deleted', color: 'success' })
+    toast.init({ message: 'Safari extra deleted', color: 'success' })
     await refresh()
   } catch {
-    toast?.init({ message: 'Failed to delete observer price', color: 'danger' })
+    toast.init({ message: 'Failed to delete safari extra', color: 'danger' })
   }
 }
 
@@ -525,10 +573,10 @@ const deleteUpgradeFee = async (fee: any) => {
   try {
     const url = `${import.meta.env.VITE_APP_BASE_URL}settings/upgrade-fees/${fee.id}`
     await fetch(url, { method: 'DELETE' })
-    toast?.init({ message: 'Upgrade fee deleted', color: 'success' })
+    toast.init({ message: 'Upgrade fee deleted', color: 'success' })
     await refresh()
   } catch {
-    toast?.init({ message: 'Failed to delete upgrade fee', color: 'danger' })
+    toast.init({ message: 'Failed to delete upgrade fee', color: 'danger' })
   }
 }
 
@@ -536,10 +584,10 @@ const deleteTrophyFee = async (fee: any) => {
   try {
     const url = `${import.meta.env.VITE_APP_BASE_URL}settings/trophy-fees/${fee.id}`
     await fetch(url, { method: 'DELETE' })
-    toast?.init({ message: 'Trophy fee deleted', color: 'success' })
+    toast.init({ message: 'Trophy fee deleted', color: 'success' })
     await refresh()
   } catch {
-    toast?.init({ message: 'Failed to delete trophy fee', color: 'danger' })
+    toast.init({ message: 'Failed to delete trophy fee', color: 'danger' })
   }
 }
 

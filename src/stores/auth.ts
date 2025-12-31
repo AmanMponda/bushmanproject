@@ -30,7 +30,8 @@ interface CompaniesIds {
 
 export const useAuthStore = defineStore("auth", {
   state: () => ({
-    permissions: [] = localStorage.getItem('permission') ? JSON.parse(localStorage.getItem('permission')!) : [],
+    // Avoid synchronous localStorage JSON parsing at module init; load in loadUser().
+    permissions: [] as string[],
     user: null as User | null,
     token: null as string | null,
     tokenExpiration: null as number | null,
@@ -99,11 +100,25 @@ export const useAuthStore = defineStore("auth", {
         }
 
         const companiesData = localStorage.getItem("companiesIds");
-        if (companiesData) this.companiesIds = JSON.parse(companiesData);
+        if (companiesData) {
+          try {
+            this.companiesIds = JSON.parse(companiesData);
+          } catch (e) {
+            this.companiesIds = null;
+            localStorage.removeItem("companiesIds");
+          }
+        }
 
         // Load services
         const servicesData = localStorage.getItem("services");
-        if (servicesData) this.services = JSON.parse(servicesData);
+        if (servicesData) {
+          try {
+            this.services = JSON.parse(servicesData);
+          } catch (e) {
+            this.services = [];
+            localStorage.removeItem("services");
+          }
+        }
 
         // Load token and expiration
         const token = localStorage.getItem('token');
@@ -120,6 +135,17 @@ export const useAuthStore = defineStore("auth", {
           } else {
             // Token expired, clear storage
             this.clearAuthData();
+          }
+        }
+
+        // Load permissions last so cleanup doesn't leave stale values
+        const permissionsData = localStorage.getItem('permission');
+        if (permissionsData) {
+          try {
+            this.permissions = JSON.parse(permissionsData);
+          } catch (e) {
+            this.permissions = [];
+            localStorage.removeItem("permission");
           }
         }
       } catch (error) {
@@ -139,7 +165,13 @@ export const useAuthStore = defineStore("auth", {
 
     getServices(): any[] {
       const data = localStorage.getItem('services');
-      return data ? JSON.parse(data) : [];
+      if (!data) return [];
+      try {
+        return JSON.parse(data);
+      } catch (e) {
+        localStorage.removeItem("services");
+        return [];
+      }
     },
 
     clearServices() {  // Fixed typo in method name
@@ -153,7 +185,13 @@ export const useAuthStore = defineStore("auth", {
 
     getPermissions(): any[] {
       const data = localStorage.getItem('permission');
-      return data ? JSON.parse(data) : [];
+      if (!data) return [];
+      try {
+        return JSON.parse(data);
+      } catch (e) {
+        localStorage.removeItem("permission");
+        return [];
+      }
     },
 
     hasPermission(permissionName: string): boolean {

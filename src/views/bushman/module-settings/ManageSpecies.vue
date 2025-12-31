@@ -32,17 +32,10 @@
                   {{ row.name }}
                 </template>
 
-                <template #swahili_name="{ row }">
-                  <span v-if="row.swahili_name" class="text-muted">{{ row.swahili_name }}</span>
-                  <span v-else class="text-muted fst-italic">-</span>
-                </template>
-
-                <template #scientific_name="{ row }">
-                  {{ row.scientific_name }}
-                </template>
-
-                <template #type="{ row }">
-                  {{ row.type }}
+                <template #is_active="{ row }">
+                  <span class="badge" :class="row.is_active ? 'bg-success' : 'bg-secondary'">
+                    {{ row.is_active ? 'Active' : 'Inactive' }}
+                  </span>
                 </template>
 
                 <template #actions="{ row }">
@@ -75,12 +68,11 @@
             </button>
             <div>
               <h5 class="mb-0">{{ currentSpecies.name }}</h5>
-              <small class="text-muted">{{ currentSpecies.scientific_name }}</small>
             </div>
           </div>
           <div class="d-flex align-items-center gap-2">
-            <span class="badge" :class="currentSpecies.type === 'MAIN' ? 'bg-primary' : 'bg-secondary'">
-              {{ currentSpecies.type }}
+            <span class="badge" :class="currentSpecies.is_active ? 'bg-success' : 'bg-secondary'">
+              {{ currentSpecies.is_active ? 'Active' : 'Inactive' }}
             </span>
           </div>
         </div>
@@ -94,21 +86,11 @@
                 <div class="mb-2">
                   <strong>Name:</strong> {{ currentSpecies.name }}
                 </div>
-                <div class="mb-2" v-if="currentSpecies.swahili_name">
-                  <strong>Swahili Name:</strong> 
-                  <span class="text-muted">{{ currentSpecies.swahili_name }}</span>
-                </div>
                 <div class="mb-2">
-                  <strong>Scientific Name:</strong> {{ currentSpecies.scientific_name }}
-                </div>
-                <div class="mb-2">
-                  <strong>Type:</strong>
-                  <span class="badge" :class="currentSpecies.type === 'MAIN' ? 'bg-primary' : 'bg-secondary'">
-                    {{ currentSpecies.type === 'MAIN' ? 'Main Species' : 'Normal Species' }}
+                  <strong>Status:</strong>
+                  <span class="badge" :class="currentSpecies.is_active ? 'bg-success' : 'bg-secondary'">
+                    {{ currentSpecies.is_active ? 'Active' : 'Inactive' }}
                   </span>
-                </div>
-                <div v-if="currentSpecies.description">
-                  <strong>Description:</strong> {{ currentSpecies.description }}
                 </div>
               </div>
             </div>
@@ -230,31 +212,15 @@
             <!-- Edit form (for existing species) -->
             <div v-if="sform.id">
               <div class="row mb-3">
-                <div class="col-md-4">
+                <div class="col-md-6">
                   <label class="form-label">Species Name <span class="text-danger">*</span></label>
                   <input v-model="sform.name" type="text" class="form-control" required />
                 </div>
-                <div class="col-md-4">
-                  <label class="form-label">Swahili Name</label>
-                  <input v-model="sform.swahili_name" type="text" class="form-control" 
-                    placeholder="e.g., Simba, Ndovu, Twiga" />
-                  <small class="text-muted">Local/Swahili name (optional)</small>
-                </div>
-                <div class="col-md-4">
-                  <label class="form-label">Scientific Name <span class="text-danger">*</span></label>
-                  <input v-model="sform.scientific_name" type="text" class="form-control" required />
-                </div>
-              </div>
-              <div class="row mb-3">
-                <div class="col-md-6">
-                  <label class="form-label">Type <span class="text-danger">*</span></label>
-                  <select v-model="sform.type" class="form-select" required>
-                    <option v-for="type in TYPES" :key="type.value" :value="type.value">{{ type.text }}</option>
-                  </select>
-                </div>
-                <div class="col-md-6">
-                  <label class="form-label">Description</label>
-                  <textarea v-model="sform.description" class="form-control" rows="2"></textarea>
+                <div class="col-md-6 d-flex align-items-end">
+                  <div class="form-check form-switch">
+                    <input id="species-active" v-model="sform.is_active" class="form-check-input" type="checkbox" />
+                    <label class="form-check-label" for="species-active">Active</label>
+                  </div>
                 </div>
               </div>
             </div>
@@ -289,9 +255,6 @@
 
             <CSVInput :column-fields="[
               { key: 'name', label: 'Name' },
-              { key: 'swahili_name', label: 'Swahili Name' },
-              { key: 'scientific_name', label: 'Scientific Name' },
-              { key: 'type', label: 'Type' },
             ]" :model-value="items" duplicate-key-field="name" @import="handleCsvImport" />
 
             <!-- Import Progress -->
@@ -397,15 +360,12 @@ const isDragOver = ref(false)
 const sform = reactive({
   id: null as number | null,
   name: '',
-  swahili_name: '',
-  type: 'NORMAL',
-  scientific_name: '',
-  description: '',
+  is_active: true,
 })
 
 // Table-like multi-column input state
 const tableColumns = ref([
-  { _id: 1, name: '', swahili_name: '', scientific_name: '', type: 'NORMAL', description: '' },
+  { _id: 1, name: '', is_active: true },
 ])
 
 // CSV Import State
@@ -430,6 +390,14 @@ const unitForm = reactive({
 const selectedCount = computed(() => selectedIds.value.size)
 
 const hasSelected = (id: number | string) => selectedIds.value.has(id)
+
+function normalizeIsActive(value: any): boolean {
+  if (typeof value === 'boolean') return value
+  if (value == null || value === '') return true
+  const normalized = String(value).trim().toLowerCase()
+  if (['false', '0', 'no', 'n', 'inactive'].includes(normalized)) return false
+  return true
+}
 
 const importProgressPercent = computed(() => {
   return importTotal.value > 0 ? Math.round((importProcessed.value / importTotal.value) * 100) : 0
@@ -582,8 +550,7 @@ function clearCsvFile() {
   csvRawRows.value = []
   csvPreviewData.value = []
   csvColumnMap.name = ''
-  csvColumnMap.scientific_name = ''
-  csvColumnMap.type = ''
+  csvColumnMap.is_active = ''
 }
 
 function closeCsvPreview() {
@@ -596,26 +563,16 @@ function closeImportResults() {
   importResults.value = []
 }
 
-const TYPES = [
-  { value: 'MAIN', text: 'Main Species' },
-  { value: 'NORMAL', text: 'Normal Species' },
-]
-
 const speciesTableFields = computed(() => [
   { key: 'name', label: 'Name', type: 'text', placeholder: 'Species name', required: true, headerStyle: 'width:150px', cellStyle: 'width:150px' },
-  { key: 'swahili_name', label: 'Swahili Name', type: 'text', placeholder: 'Swahili name (optional)', headerStyle: 'width:150px', cellStyle: 'width:150px' },
-  { key: 'scientific_name', label: 'Scientific Name', type: 'text', placeholder: 'Scientific name' },
-  { key: 'type', label: 'Type', type: 'select', required: true, options: TYPES, headerStyle: 'width:150px', cellStyle: 'width:150px' },
-  { key: 'description', label: 'Description', type: 'text', placeholder: 'Description', headerStyle: 'width:200px', cellStyle: 'width:200px' },
+  { key: 'is_active', label: 'Active', type: 'select', required: true, options: [{ value: true, text: 'Active' }, { value: false, text: 'Inactive' }], headerStyle: 'width:120px', cellStyle: 'width:120px' },
 ])
 
 const columns = [
   { key: 'select', label: '', sortable: false, visible: true },
   { key: 'id', label: 'ID', sortable: true, visible: true },
   { key: 'name', label: 'Name', sortable: true, visible: true },
-  { key: 'swahili_name', label: 'Swahili Name', sortable: true, visible: true },
-  { key: 'scientific_name', label: 'Scientific Name', sortable: true, visible: true },
-  { key: 'type', label: 'Type', sortable: true, visible: true },
+  { key: 'is_active', label: 'Status', sortable: true, visible: true },
   { key: 'actions', label: 'Actions', sortable: false, visible: true },
 ]
 
@@ -823,8 +780,8 @@ function exportSpeciesCSV() {
     return
   }
 
-  const headers = ['ID', 'Name', 'Scientific Name', 'Type']
-  const rows = items.value.map((it: any) => [it.id, it.name, it.scientific_name || '', it.type || ''])
+  const headers = ['ID', 'Name', 'Active']
+  const rows = items.value.map((it: any) => [it.id, it.name, it.is_active ? 'true' : 'false'])
 
   const csvContent = [headers, ...rows].map((e) => e.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')
 
@@ -858,19 +815,17 @@ async function handleCsvImport(data: any[]) {
 
   for (const sp of data) {
     try {
+      const isActive = true
       const r = await speciesStore.createSpecies({
         name: sp.name,
-        swahili_name: sp.swahili_name || '',
-        scientific_name: sp.scientific_name || '',
-        type: sp.type || 'NORMAL',
+        is_active: isActive,
       })
       importResults.value.push({ name: sp.name, ok: r.status === 201 || r.status === 200 })
       if (r.status === 201 || r.status === 200) {
         items.value.unshift({
           id: r.data?.id ?? Math.random().toString(36).slice(2),
           name: sp.name,
-          scientific_name: sp.scientific_name,
-          type: sp.type,
+          is_active: isActive,
         })
       }
     } catch (err: any) {
@@ -895,7 +850,7 @@ function showSpecies(row?: any) {
   if (row) {
     // Optionally populate sform for editing if needed
   } else {
-    Object.assign(sform, { id: null, name: '', swahili_name: '', type: '', scientific_name: '', description: '' })
+    Object.assign(sform, { id: null, name: '', is_active: true })
   }
 }
 
@@ -907,10 +862,7 @@ function editSpeciesForm(row: any) {
   Object.assign(sform, {
     id: row.id,
     name: row.name || '',
-    swahili_name: row.swahili_name || '',
-    type: row.type || '',
-    scientific_name: row.scientific_name || '',
-    description: row.description || '',
+    is_active: row.is_active ?? true,
   })
 }
 
@@ -921,9 +873,7 @@ async function onSubmit() {
       // Update existing species (single form mode)
       const requestData = {
         name: sform.name,
-        scientific_name: sform.scientific_name,
-        description: sform.description,
-        type: sform.type,
+        is_active: sform.is_active,
       }
       const response = await speciesStore.updateSpecies(sform.id, requestData)
       if (response.status === 200) {
@@ -945,9 +895,7 @@ async function onSubmit() {
           try {
             const response = await speciesStore.createSpecies({
               name: col.name,
-              swahili_name: col.swahili_name || '',
-              scientific_name: col.scientific_name || '',
-              type: col.type || 'NORMAL',
+              is_active: normalizeIsActive(col.is_active),
             })
             if (response.status === 201 || response.status === 200) {
               results.push({ name: col.name, ok: true })
@@ -977,15 +925,13 @@ async function onSubmit() {
 
         // Reset table columns to initial state
         tableColumns.value = [
-          { _id: 1, name: '', scientific_name: '', type: 'NORMAL', description: '' },
+          { _id: 1, name: '', is_active: true },
         ]
       } else {
         // Single form mode (fallback - shouldn't normally happen since UI shows table when sform.id is null)
         const response = await speciesStore.createSpecies({
           name: sform.name,
-          swahili_name: sform.swahili_name || '',
-          scientific_name: sform.scientific_name,
-          type: sform.type || 'NORMAL',
+          is_active: sform.is_active,
         })
         if (response.status === 201 || response.status === 200) {
           toast.init({ message: response.data.message || 'Species created successfully', color: 'success' })

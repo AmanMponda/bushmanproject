@@ -80,66 +80,71 @@
         </div>
 
         <div class="row g-3">
-          <!-- Map Section -->
-          <div class="col-12">
-            <div class="card">
+          <!-- Map Section (Left) -->
+          <div class="col-lg-4">
+            <div class="card h-100">
               <div class="card-header">
                 <h6 class="fw-bold mb-0"><i class="fa fa-map me-2"></i>Area Map</h6>
               </div>
               <div class="card-body">
-                <div v-if="loadingAreaDetails" class="text-center py-5">
+                <div v-if="loadingAreaDetails" class="text-center py-4">
                   <div class="spinner-border text-primary" role="status"></div>
-                  <p class="mt-2 text-muted">Loading map...</p>
+                  <p class="mt-2 text-muted small">Loading map...</p>
                 </div>
-                <div v-else-if="mapPaths.length === 0 && mapMarkers.length === 0" class="text-center py-5 text-muted">
-                  <i class="fa fa-map fa-3x mb-3"></i>
-                  <p>No coordinates available for this area</p>
+                <div v-else-if="mapPaths.length === 0 && mapMarkers.length === 0" class="text-center py-4 text-muted">
+                  <i class="fa fa-map fa-2x mb-2"></i>
+                  <p class="small">No coordinates available</p>
                 </div>
-                <div v-else style="height: 500px; width: 100%;">
+                <div v-else style="height: 350px; width: 100%;">
                   <div id="leaflet-map" style="width: 100%; height: 100%;"></div>
                 </div> 
               </div>
             </div>
           </div>
 
-          <!-- Information Section -->
-          <div class="col-md-6">
-            <div class="card">
-              <div class="card-header">
-                <h6 class="fw-bold mb-0"><i class="fa fa-info-circle me-2"></i>Area Information</h6>
-              </div>
-              <div class="card-body">
-                <p class="mb-2"><strong>Location:</strong> {{ areaDetails.location?.name || 'N/A' }}</p>
-                <p class="mb-2"><strong>Code:</strong> {{ areaDetails.location?.code || 'N/A' }}</p>
-                <p class="mb-2"><strong>Description:</strong> {{ areaDetails.description || 'No description' }}</p>
-                <p class="mb-2"><strong>Created:</strong> {{ formatDate(areaDetails.created_at) }}</p>
-                <p class="mb-0"><strong>Updated:</strong> {{ formatDate(areaDetails.updated_at) }}</p>
-              </div>
-            </div>
-          </div>
-
-          <!-- Coordinates Section -->
-          <div class="col-md-6">
-            <div class="card">
-              <div class="card-header">
-                <h6 class="fw-bold mb-0"><i class="fa fa-map-marker-alt me-2"></i>Coordinates</h6>
-              </div>
-              <div class="card-body">
-                <div v-if="areaDetails.coordinates && areaDetails.coordinates.length > 0">
-                  <div v-for="(coord, index) in areaDetails.coordinates" :key="index" class="mb-3">
-                    <p class="mb-1"><strong>Type:</strong> {{ coord.coordinates_type }}</p>
-                    <details>
-                      <summary class="text-primary cursor-pointer">View Coordinates JSON</summary>
-                      <pre class="mt-2 p-2 bg-light rounded small">{{ coord.coordinates }}</pre>
-                    </details>
+          <!-- Information & Coordinates Section (Right) -->
+          <div class="col-lg-8">
+            <div class="row g-3">
+              <!-- Information Section -->
+              <div class="col-md-6">
+                <div class="card h-100">
+                  <div class="card-header">
+                    <h6 class="fw-bold mb-0"><i class="fa fa-info-circle me-2"></i>Area Information</h6>
+                  </div>
+                  <div class="card-body">
+                    <p class="mb-2"><strong>Location:</strong> {{ areaDetails.location?.name || 'N/A' }}</p>
+                    <p class="mb-2"><strong>Code:</strong> {{ areaDetails.location?.code || 'N/A' }}</p>
+                    <p class="mb-2"><strong>Description:</strong> {{ areaDetails.description || 'No description' }}</p>
+                    <p class="mb-2"><strong>Created:</strong> {{ formatDate(areaDetails.created_at) }}</p>
+                    <p class="mb-0"><strong>Updated:</strong> {{ formatDate(areaDetails.updated_at) }}</p>
                   </div>
                 </div>
-                <p v-else class="text-muted mb-0">No coordinates available</p>
+              </div>
+
+              <!-- Coordinates Section -->
+              <div class="col-md-6">
+                <div class="card h-100">
+                  <div class="card-header">
+                    <h6 class="fw-bold mb-0"><i class="fa fa-map-marker-alt me-2"></i>Coordinates</h6>
+                  </div>
+                  <div class="card-body" style="max-height: 350px; overflow-y: auto;">
+                    <div v-if="areaDetails.coordinates && areaDetails.coordinates.length > 0">
+                      <div v-for="(coord, index) in areaDetails.coordinates" :key="index" class="mb-3">
+                        <p class="mb-1"><strong>Type:</strong> {{ coord.coordinates_type }}</p>
+                        <details>
+                          <summary class="text-primary cursor-pointer">View Coordinates JSON</summary>
+                          <pre class="mt-2 p-2 bg-light rounded small">{{ coord.coordinates }}</pre>
+                        </details>
+                      </div>
+                    </div>
+                    <p v-else class="text-muted mb-0">No coordinates available</p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
 
-          <!-- Species Management -->
+          <!-- Species Management (Full Width) -->
           <div class="col-12">
             <div class="card">
               <div class="card-header d-flex justify-content-between align-items-center">
@@ -235,13 +240,82 @@
             />
 
             <div v-if="csvImporting" class="mt-3">
-              <div class="d-flex justify-content-between small text-muted mb-1">
-                <span>Importing species...</span>
-                <span>{{ csvImportDone }} / {{ csvImportTotal }}</span>
+              <div class="card border-primary">
+                <div class="card-body">
+                  <div class="d-flex align-items-center gap-3 mb-2">
+                    <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                    <span class="fw-semibold">Importing species...</span>
+                    <span class="text-muted">{{ csvImportDone }} / {{ csvImportTotal }}</span>
+                  </div>
+                  <div class="progress mb-3" style="height: 8px;">
+                    <div
+                      class="progress-bar progress-bar-striped progress-bar-animated"
+                      role="progressbar"
+                      :style="{ width: csvImportPercent + '%' }"
+                    ></div>
+                  </div>
+                  <!-- Real-time success/failure counts -->
+                  <div class="row text-center">
+                    <div class="col">
+                      <h5 class="text-success mb-0">{{ csvImportSuccessCount }}</h5>
+                      <small class="text-muted">Succeeded</small>
+                    </div>
+                    <div class="col">
+                      <h5 class="text-danger mb-0">{{ csvImportFailCount }}</h5>
+                      <small class="text-muted">Failed</small>
+                    </div>
+                    <div class="col">
+                      <h5 class="text-secondary mb-0">{{ csvImportTotal - csvImportDone }}</h5>
+                      <small class="text-muted">Remaining</small>
+                    </div>
+                  </div>
+                  <!-- Current item being processed -->
+                  <div v-if="csvCurrentItem" class="mt-3 pt-3 border-top">
+                    <small class="text-muted">
+                      <i class="fa fa-spinner fa-spin me-1"></i>
+                      Processing: <span class="fw-semibold">{{ csvCurrentItem }}</span>
+                    </small>
+                  </div>
+                </div>
               </div>
-              <div class="progress">
-                <div class="progress-bar" :style="{ width: csvImportPercent + '%' }">
-                  {{ csvImportPercent }}%
+            </div>
+
+            <div v-if="showCsvImportResults && !csvImporting" class="mt-3">
+              <div class="card" :class="csvImportFailCount > 0 ? 'border-warning' : 'border-success'">
+                <div
+                  class="card-header d-flex align-items-center justify-content-between py-2"
+                  :class="csvImportFailCount > 0 ? 'bg-warning bg-opacity-10' : 'bg-success bg-opacity-10'"
+                >
+                  <span class="fw-semibold">
+                    <i class="fa fa-check-circle text-success me-2" v-if="csvImportFailCount === 0"></i>
+                    <i class="fa fa-exclamation-triangle text-warning me-2" v-else></i>
+                    Import Complete
+                  </span>
+                  <button type="button" class="btn btn-sm btn-outline-secondary" @click="closeCsvImportResults">
+                    <i class="fa fa-times"></i>
+                  </button>
+                </div>
+                <div class="card-body">
+                  <div class="row text-center">
+                    <div class="col">
+                      <h4 class="text-success mb-0">{{ csvImportSuccessCount }}</h4>
+                      <small class="text-muted">Imported</small>
+                    </div>
+                    <div class="col" v-if="csvImportFailCount > 0">
+                      <h4 class="text-danger mb-0">{{ csvImportFailCount }}</h4>
+                      <small class="text-muted">Failed</small>
+                    </div>
+                  </div>
+                  <div v-if="csvImportFailCount > 0" class="mt-3">
+                    <p class="small text-muted mb-2">Failed items (first 10):</p>
+                    <ul class="list-group list-group-flush small">
+                      <li v-for="(r, i) in csvImportResults.filter(x => !x.ok).slice(0, 10)" :key="i" class="list-group-item py-1 px-2">
+                        <i class="fa fa-times text-danger me-1"></i>
+                        {{ r.label || r.id || r.name || 'Row ' + (i + 1) }}
+                        <span v-if="r.error" class="text-muted"> - {{ Array.isArray(r.error) ? r.error.join(', ') : r.error }}</span>
+                      </li>
+                    </ul>
+                  </div>
                 </div>
               </div>
             </div>
@@ -468,6 +542,9 @@ const loadingAreaDetails = ref(false)
 const csvImporting = ref(false)
 const csvImportTotal = ref(0)
 const csvImportDone = ref(0)
+const csvImportResults = ref<any[]>([])
+const showCsvImportResults = ref(false)
+const csvCurrentItem = ref<string>('')
 const selectedSpeciesIds = ref<any[]>([])
 const mapCenter = ref({ lat: -2.5, lng: 34.5 }) // Default center for Tanzania
 const mapZoom = ref(10)
@@ -547,6 +624,9 @@ const csvImportPercent = computed(() => {
   return Math.round((csvImportDone.value / csvImportTotal.value) * 100)
 })
 
+const csvImportSuccessCount = computed(() => csvImportResults.value.filter((r: any) => r.ok).length)
+const csvImportFailCount = computed(() => csvImportResults.value.filter((r: any) => !r.ok).length)
+
 // Methods
 function toggleFormAndList() {
   showHuntingAreaList.value = !showHuntingAreaList.value
@@ -555,6 +635,11 @@ function toggleFormAndList() {
     resetForm()
     getAreas()
   }
+}
+
+function closeCsvImportResults() {
+  showCsvImportResults.value = false
+  csvImportResults.value = []
 }
 
 function goBackToList() {
@@ -1047,15 +1132,39 @@ async function handleAreaCsvImport(rows: CsvRow[]) {
     return
   }
 
+  const nameKey = (val: any) => String(val || '').trim().toLowerCase()
+  const speciesNameToId = new Map<string, string>()
+  const speciesIdToName = new Map<string, string>()
+  speciesOptions.value.forEach((opt: any) => {
+    const key = nameKey(opt?.text)
+    if (key && opt?.value !== undefined && opt?.value !== null) {
+      speciesNameToId.set(key, String(opt.value))
+      speciesIdToName.set(String(opt.value), opt.text)
+    }
+  })
+
   const existingIds = new Set(areaSpecies.value.map((s: any) => String(s.specie_id)))
-  const toAdd: string[] = []
+  const toAdd: Array<{ id: string; name: string }> = []
+
+  csvImportResults.value = []
+  showCsvImportResults.value = false
 
   for (const row of rows) {
-    const idStr = String((row as any).specie_id || '').trim()
+    const rawId = (row as any).specie_id ?? (row as any).species_id ?? (row as any).id ?? (row as any).speciesId ?? (row as any).specieId
+    const rawName = (row as any).name ?? (row as any).species_name ?? (row as any).specie_name
+    let idStr = String(rawId || '').trim()
+    let speciesName = String(rawName || '').trim()
+    if (!idStr && rawName) {
+      const matched = speciesNameToId.get(nameKey(rawName))
+      if (matched) idStr = matched
+    }
+    if (!speciesName && idStr) {
+      speciesName = speciesIdToName.get(idStr) || `Species #${idStr}`
+    }
     if (!idStr) continue
     if (existingIds.has(idStr)) continue
-    if (toAdd.includes(idStr)) continue
-    toAdd.push(idStr)
+    if (toAdd.some(item => item.id === idStr)) continue
+    toAdd.push({ id: idStr, name: speciesName })
   }
 
   if (toAdd.length === 0) {
@@ -1066,36 +1175,27 @@ async function handleAreaCsvImport(rows: CsvRow[]) {
   csvImporting.value = true
   csvImportTotal.value = toAdd.length
   csvImportDone.value = 0
+  csvCurrentItem.value = ''
   try {
-    const importErrors: string[] = []
-    for (const specieId of toAdd) {
+    for (const species of toAdd) {
+      csvCurrentItem.value = species.name
       try {
-        await huntingAreaStore.addHuntingAreaSpecies({ hunting_area_id: selectedArea.value.id, specie_id: specieId })
+        const resp = await huntingAreaStore.addHuntingAreaSpecies({ hunting_area_id: selectedArea.value.id, specie_id: species.id })
+        csvImportResults.value.push({ id: species.id, label: species.name, ok: resp?.status === 200 || resp?.status === 201 })
       } catch (error: any) {
-        const errors = handleErrors(error)
-        if (errors.length > 0) {
-          importErrors.push(...errors)
+        const status = error?.response?.status
+        if (status === 409) {
+          csvImportResults.value.push({ id: species.id, label: species.name, ok: true, note: 'Already exists' })
+        } else {
+          const errors = handleErrors(error)
+          csvImportResults.value.push({ id: species.id, label: species.name, ok: false, error: errors })
         }
       } finally {
         csvImportDone.value += 1
       }
     }
     csvUploaded.value = true
-    if (importErrors.length > 0) {
-      await Swal.fire({
-        title: 'Completed with errors',
-        html: importErrors.map((err) => `<div>${err}</div>`).join('') || 'Some species could not be imported.',
-        icon: 'warning',
-        confirmButtonText: 'OK',
-      })
-    } else {
-      await Swal.fire({
-        title: 'Imported',
-        text: `Imported ${toAdd.length} species.`,
-        icon: 'success',
-        confirmButtonText: 'OK',
-      })
-    }
+    showCsvImportResults.value = true
     loadAreaSpecies(selectedArea.value.id)
   } catch (error: any) {
     const errors = handleErrors(error)
@@ -1104,6 +1204,7 @@ async function handleAreaCsvImport(rows: CsvRow[]) {
     csvImporting.value = false
     csvImportTotal.value = 0
     csvImportDone.value = 0
+    csvCurrentItem.value = ''
   }
 }
 

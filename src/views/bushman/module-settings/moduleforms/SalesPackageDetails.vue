@@ -107,7 +107,6 @@
                         <tr>
                           <th>ID</th>
                           <th>Species Name</th>
-                          <th>Scientific Name</th>
                           <th class="text-center">Quantity</th>
                         </tr>
                       </thead>
@@ -115,7 +114,6 @@
                         <tr v-for="species in item.species" :key="species.id">
                           <td>{{ species?.id || 'N/A' }}</td>
                           <td class="fw-semibold">{{ species?.species?.name || 'N/A' }}</td>
-                          <td class="text-muted fst-italic">{{ species?.species?.scientific_name || 'N/A' }}</td>
                           <td class="text-center">
                             <span :class="species?.quantity > 0 ? 'badge bg-success' : 'badge bg-danger'">
                               {{ species?.quantity !== null ? species.quantity : 'N/A' }}

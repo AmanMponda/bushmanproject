@@ -23,6 +23,40 @@ const error = ref("");
 
 const deviceId = ref('');
 
+const computeDeviceId = () => {
+  const uuid = new DeviceUUID.DeviceUUID().get();
+  const fingerprint = JSON.stringify(uuid);
+  return MD5(fingerprint).toString();
+};
+
+const loadDeviceId = () => {
+  try {
+    const cached = localStorage.getItem('device_id');
+    if (cached) {
+      deviceId.value = cached;
+      return;
+    }
+  } catch (e) {
+    // ignore storage access errors
+  }
+
+  const calculate = () => {
+    try {
+      const id = computeDeviceId();
+      deviceId.value = id;
+      localStorage.setItem('device_id', id);
+    } catch (e) {
+      deviceId.value = '';
+    }
+  };
+
+  if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+    window.requestIdleCallback(calculate, { timeout: 1000 });
+  } else {
+    setTimeout(calculate, 0);
+  }
+};
+
 // Loading State
 const loading_spinner = ref(false);
 
@@ -46,6 +80,16 @@ const submitForm = async () => {
   if (!name.value || !password.value) {
     error.value = "Please enter both username and password.";
     return;
+  }
+
+  if (!deviceId.value) {
+    try {
+      const id = computeDeviceId();
+      deviceId.value = id;
+      localStorage.setItem('device_id', id);
+    } catch (e) {
+      deviceId.value = '';
+    }
   }
 
   loading_spinner.value = true;
@@ -85,9 +129,7 @@ onMounted(() => {
   appOption.appHeaderHide = true;
   appOption.appContentClass = "p-0";
 
-  const uuid = new DeviceUUID.DeviceUUID().get();
-  const fingerprint = JSON.stringify(uuid)
-  deviceId.value = MD5(fingerprint).toString()
+  loadDeviceId();
 });
 
 onBeforeUnmount(() => {
