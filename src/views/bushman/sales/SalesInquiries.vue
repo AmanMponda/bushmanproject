@@ -91,16 +91,6 @@
                       <small class="text-muted">
                         {{ selectedInquiryItem?.code || 'Sales Inquiry' }} •
                         {{ selectedInquiryItem?.season?.name || 'N/A' }}
-                        <span
-                          v-if="selectedInquiryItem?.inquiry_type"
-                          :class="
-                            selectedInquiryItem?.inquiry_type === 'standard'
-                              ? 'badge bg-success ms-2'
-                              : 'badge bg-info ms-2'
-                          "
-                        >
-                          {{ selectedInquiryItem?.inquiry_type === 'standard' ? 'Standard' : 'Custom' }}
-                        </span>
                       </small>
                     </div>
                   </div>
@@ -343,9 +333,9 @@ const getSalesInquiryList = async () => {
     if (response.success) {
       const dataArray = Array.isArray(response.data) ? response.data : []
       dataFetched.value = dataArray.map((item: SalesEnquiry) => {
-        const speciesCount = item?.game_preferences?.length || 0
+        const speciesCount = item?.item_preferences?.length || 0
         const areaName = item?.areas?.[0]?.location?.name || 'N/A'
-        const huntingType = item?.pricings?.[0]?.hunting_type || 'N/A'
+        const huntingType = item?.pricings?.[0]?.price_structure_detail?.name || 'N/A'
         const startDate = item?.preference?.preferred_start_date || 'N/A'
         const endDate = item?.preference?.preferred_start_date && item?.preference?.no_of_days
           ? new Date(new Date(item.preference.preferred_start_date).getTime() + item.preference.no_of_days * 24 * 60 * 60 * 1000).toISOString().split('T')[0]

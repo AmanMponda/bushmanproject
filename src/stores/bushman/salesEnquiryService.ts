@@ -13,6 +13,7 @@ import type {
   PricingItem,
   EnquiryFilters,
   EnquiryStatus,
+  PreviewPriceItems,
 } from '@/stores/bushman/salesEnquiry';
 
 const API_BASE = `${import.meta.env.VITE_APP_BASE_URL}sales-enquiries`;
@@ -73,6 +74,15 @@ export const salesEnquiryService = {
    */
   async updateStatus(id: number, status: EnquiryStatus): Promise<ApiResponse<{ id: number; status: EnquiryStatus }>> {
     const response = await axios.patch(`${API_BASE}/${id}/status`, { status });
+    return response.data;
+  },
+
+  /**
+   * Preview price structure items for a package
+   * Returns species, safari extras, trophy fees, and companion costs
+   */
+  async previewPriceItems(priceStructureDetailId: number): Promise<ApiResponse<PreviewPriceItems>> {
+    const response = await axios.get(`${API_BASE}/preview-price-items/${priceStructureDetailId}`);
     return response.data;
   },
 

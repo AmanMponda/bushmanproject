@@ -311,6 +311,56 @@
         </div>
       </div>
     </div>
+
+    <!-- Add Item Modal -->
+    <div v-if="showAddModal" class="modal-overlay" @click.self="closeAddModal">
+      <div class="modal-container">
+        <div class="modal-header">
+          <h3>
+            <span v-if="addModalType === 'package'">Add Package</span>
+            <span v-else-if="addModalType === 'companion'">Add Companion Hunter</span>
+            <span v-else-if="addModalType === 'safari-extra'">Add Safari Extra</span>
+            <span v-else-if="addModalType === 'trophy-fee'">Add Trophy Fee</span>
+            <span v-else-if="addModalType === 'upgrade-fee'">Add Upgrade Fee</span>
+          </h3>
+          <button class="btn-close" @click="closeAddModal">
+            <i class="fa fa-times"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <PriceStructureAddItem 
+            v-if="addModalType === 'package'" 
+            :id="props.id" 
+            @cancel="closeAddModal"
+            @saved="onItemAdded"
+          />
+          <PriceStructureAddPrice 
+            v-if="addModalType === 'companion'" 
+            :id="props.id" 
+            @cancel="closeAddModal"
+            @saved="onItemAdded"
+          />
+          <PriceStructureAddSafariExtra 
+            v-if="addModalType === 'safari-extra'" 
+            :id="props.id" 
+            @cancel="closeAddModal"
+            @saved="onItemAdded"
+          />
+          <PriceStructureAddTrophyFee 
+            v-if="addModalType === 'trophy-fee'" 
+            :id="props.id" 
+            @cancel="closeAddModal"
+            @saved="onItemAdded"
+          />
+          <PriceStructureAddUpgradeFee 
+            v-if="addModalType === 'upgrade-fee'" 
+            :id="props.id" 
+            @cancel="closeAddModal"
+            @saved="onItemAdded"
+          />
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -320,6 +370,11 @@ import { useRouter } from 'vue-router'
 import { usePriceStructuresStore } from '@/stores/bushman/price-structures-store'
 import { useSettingsStore } from '@/stores/bushman/settings-store'
 import { useToast } from '@/composables/useToast'
+import PriceStructureAddItem from './PriceStructureAddItem.vue'
+import PriceStructureAddPrice from './PriceStructureAddPrice.vue'
+import PriceStructureAddSafariExtra from './PriceStructureAddSafariExtra.vue'
+import PriceStructureAddTrophyFee from './PriceStructureAddTrophyFee.vue'
+import PriceStructureAddUpgradeFee from './PriceStructureAddUpgradeFee.vue'
 
 const props = withDefaults(
   defineProps<{ 
@@ -469,24 +524,42 @@ const formatTrophyFeeDurations = (fee: any) => {
 }
 
 
+const showAddModal = ref(false)
+const addModalType = ref('')
+
 const goToAddItem = () => {
-  router.push({ name: 'price-structure-item-create', params: { id: props.id } })
+  addModalType.value = 'package'
+  showAddModal.value = true
 }
 
 const openAddCompanion = () => {
-  router.push({ name: 'price-structure-companion-create', params: { id: props.id } })
+  addModalType.value = 'companion'
+  showAddModal.value = true
 }
 
 const goToAddUpgradeFee = () => {
-  router.push({ name: 'price-structure-upgrade-fee-create', params: { id: props.id } })
+  addModalType.value = 'upgrade-fee'
+  showAddModal.value = true
 }
 
 const goToAddTrophyFee = () => {
-  router.push({ name: 'price-structure-trophy-fee-create', params: { id: props.id } })
+  addModalType.value = 'trophy-fee'
+  showAddModal.value = true
 }
 
 const goToAddSafariExtra = () => {
-  router.push({ name: 'price-structure-safari-extra-create', params: { id: props.id } })
+  addModalType.value = 'safari-extra'
+  showAddModal.value = true
+}
+
+const closeAddModal = () => {
+  showAddModal.value = false
+  addModalType.value = ''
+}
+
+const onItemAdded = async () => {
+  closeAddModal()
+  await refresh()
 }
 
 const downloadPdf = async () => {
@@ -964,4 +1037,69 @@ onMounted(async () => {
     padding: 12px 16px;
   }
 }
+
+/* Modal Styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.modal-container {
+  background: white;
+  border-radius: 16px;
+  max-width: 900px;
+  width: 100%;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.btn-close {
+  background: none;
+  border: none;
+  font-size: 20px;
+  color: #6b7280;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.btn-close:hover {
+  background: #f3f4f6;
+  color: #111827;
+}
+
+.modal-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+}
 </style>
+

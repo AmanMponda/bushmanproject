@@ -16,6 +16,7 @@ export interface ContactType {
 
 export interface Contact {
   id: number;
+  contact_type_id?: number;
   type: string;
   contact: string;
   contactable: boolean;
@@ -26,7 +27,9 @@ export interface Entity {
   id: number;
   full_name: string;
   nick_name?: string;
+  country_id?: number;
   country?: string;
+  nationality_id?: number;
   nationality?: string;
   contacts: Contact[];
 }
@@ -60,10 +63,10 @@ export interface EnquiryArea {
 }
 
 // Game Preference
-export interface GamePreference {
+export interface ItemPreference {
   id: number;
-  species_item_id: number;
-  species_name: string;
+  item_id: number;
+  item_name?: string;
   desired_quantity: number;
   priority: GamePriority;
   notes?: string;
@@ -73,8 +76,7 @@ export interface GamePreference {
 export interface HunterPreference {
   id: number;
   prev_experience?: string;
-  no_of_hunters: number;
-  no_of_observers: number;
+  no_of_participants?: number;
   preferred_start_date?: string;
   no_of_days?: number;
   budget_min?: number;
@@ -147,7 +149,7 @@ export interface SalesEnquiry {
   season?: Season;
   user?: User;
   areas?: EnquiryArea[];
-  game_preferences?: GamePreference[];
+  item_preferences?: ItemPreference[];
   preference?: HunterPreference;
   pricings?: Pricing[];
   pricing_summary?: PricingSummary;
@@ -183,8 +185,8 @@ export interface AreaInput {
   location_id: number;
 }
 
-export interface GamePreferenceInput {
-  species_item_id: number;
+export interface ItemPreferenceInput {
+  item_id: number;
   desired_quantity?: number;
   priority?: GamePriority;
   notes?: string;
@@ -192,8 +194,7 @@ export interface GamePreferenceInput {
 
 export interface HunterPreferenceInput {
   prev_experience?: string;
-  no_of_hunters?: number;
-  no_of_observers?: number;
+  no_of_participants?: number;
   preferred_start_date?: string;
   no_of_days?: number;
   budget_min?: number;
@@ -212,7 +213,7 @@ export interface CreateEnquiryInput {
   status?: EnquiryStatus;
   remarks?: string;
   areas?: AreaInput[];
-  game_preferences?: GamePreferenceInput[];
+  item_preferences?: ItemPreferenceInput[];
   preference?: HunterPreferenceInput;
 }
 
@@ -226,7 +227,7 @@ export interface UpdateEnquiryInput {
   status?: EnquiryStatus;
   remarks?: string;
   areas?: AreaInput[];
-  game_preferences?: GamePreferenceInput[];
+  item_preferences?: ItemPreferenceInput[];
   preference?: HunterPreferenceInput;
 }
 
@@ -269,4 +270,56 @@ export interface EnquiryFilters {
   date_from?: string;
   date_to?: string;
   search?: string;
+}
+
+// Preview Price Items Response Types
+export interface PreviewPriceStructureDetail {
+  id: number;
+  name: string;
+  hunt_length_days: number;
+  amount: string;
+  currency_code: string;
+  hunting_type: string;
+  location: string;
+}
+
+export interface PreviewSpeciesItem {
+  item_id: number;
+  item_name: string;
+  quantity: number;
+  notes?: string;
+}
+
+export interface PreviewSafariExtra {
+  id: number;
+  safari_extra_id: number;
+  name: string;
+  description?: string;
+  amount: string;
+  charges_per: string;
+  currency_code: string;
+}
+
+export interface PreviewTrophyFee {
+  id: number;
+  species_id: number;
+  species_name: string;
+  sequence_order: number;
+  amount: string;
+  currency_code: string;
+}
+
+export interface PreviewCompanionCost {
+  id: number;
+  amount: string;
+  currency_code: string;
+  description?: string;
+}
+
+export interface PreviewPriceItems {
+  price_structure_detail: PreviewPriceStructureDetail;
+  species: PreviewSpeciesItem[];
+  safari_extras: PreviewSafariExtra[];
+  trophy_fees: PreviewTrophyFee[];
+  companion_costs: PreviewCompanionCost[];
 }

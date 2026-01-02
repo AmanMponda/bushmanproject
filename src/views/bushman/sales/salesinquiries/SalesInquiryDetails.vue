@@ -36,26 +36,26 @@
             <div class="card border-success">
               <div class="card-body text-center">
                 <i class="fa fa-user fa-2x text-success mb-2"></i>
-                <div class="h4 mb-0">{{ item?.preference?.no_of_hunters || 0 }}</div>
-                <small class="text-muted">Hunters</small>
+                <div class="h4 mb-0">{{ item?.preference?.no_of_participants || 0 }}</div>
+                <small class="text-muted">Participants</small>
               </div>
             </div>
           </div>
           <div class="col-md-3">
             <div class="card border-warning">
               <div class="card-body text-center">
-                <i class="fa fa-users fa-2x text-warning mb-2"></i>
-                <div class="h4 mb-0">{{ (item?.preference?.no_of_hunters || 0) + (item?.preference?.no_of_observers || 0) }}</div>
-                <small class="text-muted">Total People</small>
+                <i class="fa fa-dollar-sign fa-2x text-warning mb-2"></i>
+                <div class="h4 mb-0">{{ item?.preference?.budget_min ? formatCurrency(item.preference.budget_min) : 'N/A' }}</div>
+                <small class="text-muted">Budget Min</small>
               </div>
             </div>
           </div>
           <div class="col-md-3">
             <div class="card border-info">
               <div class="card-body text-center">
-                <i class="fa fa-eye fa-2x text-info mb-2"></i>
-                <div class="h4 mb-0">{{ item?.preference?.no_of_observers || 0 }}</div>
-                <small class="text-muted">Observers</small>
+                <i class="fa fa-dollar-sign fa-2x text-info mb-2"></i>
+                <div class="h4 mb-0">{{ item?.preference?.budget_max ? formatCurrency(item.preference.budget_max) : 'N/A' }}</div>
+                <small class="text-muted">Budget Max</small>
               </div>
             </div>
           </div>
@@ -77,11 +77,11 @@
               </div>
               <div class="col-md-4">
                 <strong>Nationality:</strong>
-                <div>{{ safeString(item?.entity?.nationality?.name) }}</div>
+                <div>{{ safeString(item?.entity?.nationality) }}</div>
               </div>
               <div class="col-md-4">
                 <strong>Country:</strong>
-                <div>{{ safeString(item?.entity?.country?.name) }}</div>
+                <div>{{ safeString(item?.entity?.country) }}</div>
               </div>
             </div>
             <div v-if="safeArray(item?.entity?.contacts).length > 0" class="mt-3">
@@ -90,7 +90,7 @@
                 <div v-for="(contact, index) in safeArray(item?.entity?.contacts)" :key="index" class="col-md-4">
                   <div class="card bg-light">
                     <div class="card-body p-2">
-                      <i :class="'fa fa-' + getContactIcon(contact.contact_type?.name)" class="me-2"></i>
+                      <i :class="'fa fa-' + getContactIcon(contact.type || contact.contact_type_id)" class="me-2"></i>
                       <span>{{ contact.contact }}</span>
                     </div>
                   </div>
@@ -264,7 +264,7 @@
       <div id="species" class="tab-pane fade" :class="{ 'show active': activeTab === 'species' }">
         <div class="card">
           <div class="card-body">
-            <div v-if="safeArray(item?.game_preferences).length > 0">
+            <div v-if="safeArray(item?.item_preferences).length > 0">
               <div class="table-responsive">
                 <table class="table table-hover">
                   <thead>
@@ -276,8 +276,8 @@
                     </tr>
                   </thead>
                   <tbody>
-                    <tr v-for="(pref, index) in item?.game_preferences" :key="index">
-                      <td class="fw-semibold">{{ pref.species_name || 'N/A' }}</td>
+                    <tr v-for="(pref, index) in item?.item_preferences" :key="index">
+                      <td class="fw-semibold">{{ pref.item_name || 'N/A' }}</td>
                       <td>
                         <span :class="pref.priority === 'MUST_HAVE' ? 'badge bg-danger' : 'badge bg-info'">
                           {{ pref.priority === 'MUST_HAVE' ? 'Must Have' : 'Nice to Have' }}
@@ -524,10 +524,10 @@ const tabs = computed(() => {
     })
   }
 
-  if (props.item?.game_preferences && props.item.game_preferences.length > 0) {
+  if (props.item?.item_preferences && props.item.item_preferences.length > 0) {
     tabList.push({
       key: 'species',
-      label: `Species (${props.item.game_preferences.length})`,
+      label: `Species (${props.item.item_preferences.length})`,
       icon: 'fa fa-paw',
     })
   }
@@ -696,14 +696,21 @@ const formatCurrency = (amount: any) => {
   }).format(parseFloat(amount) || 0)
 }
 
-const getContactIcon = (contactType: string) => {
-  const icons: any = {
+const getContactIcon = (contactType?: string | number) => {
+  const icons: Record<string, string> = {
     email: 'envelope',
     phone_number: 'phone',
     phone: 'phone',
     address: 'home',
   }
-  return icons[contactType] || 'info'
+  if (typeof contactType === 'number') {
+    if (contactType === 1) return 'envelope'
+    if (contactType === 2) return 'phone'
+    if (contactType === 3) return 'home'
+  }
+  if (!contactType) return 'info'
+  const normalized = String(contactType).toLowerCase()
+  return icons[normalized] || 'info'
 }
 
 const safeArray = (arr: any) => {

@@ -29,24 +29,6 @@
         </div>
       </div>
 
-      <!-- Progress Indicator -->
-      <div class="progress-steps">
-        <div class="step" :class="{ completed: form.name && form.areaId && form.currencyId }">
-          <div class="step-number">1</div>
-          <div class="step-label">Basic Info</div>
-        </div>
-        <div class="step-connector" :class="{ active: form.name && form.areaId && form.currencyId }"></div>
-        <div class="step" :class="{ completed: form.lines.length > 0 }">
-          <div class="step-number">2</div>
-          <div class="step-label">Configure Rates</div>
-        </div>
-        <div class="step-connector" :class="{ active: form.lines.length > 0 }"></div>
-        <div class="step" :class="{ completed: canSubmit && form.lines.length > 0 }">
-          <div class="step-number">3</div>
-          <div class="step-label">Review & Save</div>
-        </div>
-      </div>
-
       <!-- 3-column layout -->
       <section class="grid">
         <!-- LEFT: Create Price Structure Form -->
@@ -181,73 +163,154 @@
             </div>
           </div>
 
-          <!-- Search & Actions Card -->
-          <div class="inner-card toolbar-card">
-            <div class="search-row">
-              <span class="search-icon">🔍</span>
-              <input v-model="search" placeholder="Search items by name or code..." />
-              <button v-if="search" class="clear-search" @click="search = ''">✕</button>
+          <!-- Sales Package Selection (for Packages tab) -->
+          <div class="inner-card package-selection-card" v-if="activeTab === 'Packages'">
+            <div class="package-selection-header">
+              <span class="selection-icon">📦</span>
+              <div>
+                <h3>Select Sales Packages</h3>
+                <p class="selection-hint">Click on packages to add them to your rate configuration</p>
+              </div>
             </div>
-            <div class="rate-lines-head">
+            <div class="package-buttons">
+              <button
+                v-for="pkg in lookups.items.packages"
+                :key="pkg.id"
+                type="button"
+                class="package-btn"
+                @click="addPackageAsLine(pkg)"
+                :title="'Add ' + pkg.name"
+              >
+                <span class="pkg-icon">📦</span>
+                <span class="pkg-info">
+                  <span class="pkg-code">{{ pkg.code }}</span>
+                  <span class="pkg-name">{{ pkg.name }}</span>
+                </span>
+                <span class="add-icon">+</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Rate Lines Table -->
+          <div class="inner-card table-card">
+            <div class="table-header">
               <div class="lines-info">
                 <h3>Rate Lines</h3>
                 <span class="line-count">
                   <span class="count-number">{{ filteredLines.length }}</span> items
                 </span>
               </div>
-              <button class="btn btn-add" type="button" @click="addLine">
-                <span class="btn-icon">+</span> Add {{ activeTab === 'Companion Hunter' ? 'Rate' : 'Line' }}
+              <button 
+                v-if="activeTab !== 'Packages'" 
+                class="btn btn-sm btn-primary" 
+                type="button" 
+                @click="addLine"
+              >
+                <i class="fa fa-plus me-1"></i> Add {{ activeTab === 'Companion Hunter' ? 'Rate' : 'Line' }}
               </button>
             </div>
-          </div>
 
-          <!-- Table Card -->
-          <div class="inner-card table-card">
-            <table class="data-table" v-if="filteredLines.length > 0">
-              <thead>
-                <tr>
-                  <th class="col-item">Item</th>
-                  <th class="col-type">Type</th>
-                  <th class="col-hunting">Hunting</th>
-                  <th class="col-days" v-if="activeTab === 'Packages' || activeTab === 'Companion Hunter'">Hunt Length</th>
-                  <th class="col-action"></th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr
-                  v-for="(line, idx) in filteredLines"
-                  :key="line._key"
-                  class="data-row"
-                  :class="{ selected: selectedLineKey === line._key }"
-                  @click="selectLine(line._key)"
-                >
-                  <td class="item-col">
-                    <div class="item-info">
-                      <span class="code">{{ getLineCode(line) }}</span>
-                      <span class="name">{{ getLineName(line) }}</span>
-                    </div>
-                  </td>
-
-                  <td>
-                    <div class="type-badge" :class="getTypeBadgeClass(line.itemType)">{{ line.itemType || '—' }}</div>
-                  </td>
-
-                  <td>
-                    <div class="detail-display">{{ getHuntingTypeName(line.huntingTypeId) }}</div>
-                  </td>
-
-                  <td v-if="activeTab === 'Packages' || activeTab === 'Companion Hunter'">
-                    <div class="detail-display">{{ getHuntLengthLabelById(line.minDays) }}</div>
-                  </td>
-
-                  <td class="action-col">
-                    <button class="remove-btn" type="button" @click.stop="removeLine(line._key)" title="Remove line">
-                      <span>✕</span>
-                    </button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+            <div class="table-responsive" v-if="filteredLines.length > 0">
+              <table class="rates-table">
+                <thead>
+                  <tr>
+                    <th v-if="activeTab !== 'Companion Hunter'" style="width: 30%">{{ activeTab === 'Packages' ? 'Package Name' : 'Item Name' }}</th>
+                    <th v-if="activeTab === 'Packages'" style="width: 20%">Hunting Type</th>
+                    <th v-if="activeTab === 'Packages' || activeTab === 'Companion Hunter'" style="width: 15%">Hunt Length</th>
+                    <th v-if="activeTab === 'Extras'" style="width: 15%">Pricing Unit</th>
+                    <th style="width: 20%">Amount</th>
+                    <th v-if="activeTab === 'Packages'" style="width: 10%" class="text-center">Custom Name</th>
+                    <th style="width: 5%" class="text-center">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(line, idx) in filteredLines" :key="line._key" class="rate-row">
+                    <!-- Item/Package Name Column (not for Companion Hunter) -->
+                    <td v-if="activeTab !== 'Companion Hunter'">
+                      <div class="name-cell">
+                        <!-- Packages: custom name or package name -->
+                        <input
+                          v-if="activeTab === 'Packages' && line.customNameEnabled"
+                          v-model="line.name"
+                          type="text"
+                          class="form-control form-control-sm"
+                          placeholder="Enter custom name"
+                        />
+                        <div v-else-if="activeTab === 'Packages'" class="name-display">
+                          <span class="name-text">{{ line.name || getPackageName(line.salesPackageIds?.[0]) || '—' }}</span>
+                        </div>
+                        <!-- Extras: select from existing items -->
+                        <select
+                          v-else
+                          v-model="line.itemId"
+                          class="form-select form-select-sm"
+                          @change="onItemSelected(line)"
+                        >
+                          <option :value="null">Select item...</option>
+                          <option v-for="item in itemsForType(line.itemType)" :key="item.id" :value="item.id">
+                            {{ item.code ? `${item.code} - ` : '' }}{{ item.name }}
+                          </option>
+                        </select>
+                      </div>
+                    </td>
+                    <td v-if="activeTab === 'Packages'">
+                      <select
+                        v-model="line.huntingTypeId"
+                        class="form-select form-select-sm"
+                        :disabled="loadingHuntingTypes"
+                      >
+                        <option :value="null">Select type...</option>
+                        <option v-for="h in lookups.huntingTypes" :key="h.id" :value="h.id">{{ h.name }}</option>
+                      </select>
+                    </td>
+                    <td v-if="activeTab === 'Packages' || activeTab === 'Companion Hunter'">
+                      <select
+                        v-model.number="line.minDays"
+                        class="form-select form-select-sm"
+                        :disabled="loadingHuntLengths"
+                      >
+                        <option :value="null">Select length...</option>
+                        <option v-for="hl in lookups.huntLengths" :key="hl.id" :value="hl.id">{{ getHuntLengthLabel(hl) }}</option>
+                      </select>
+                    </td>
+                    <td v-if="activeTab === 'Extras'">
+                      <select
+                        v-model="line.pricingUnit"
+                        class="form-select form-select-sm"
+                      >
+                        <option value="FLAT">Flat</option>
+                        <option value="PER_DAY">Per Day</option>
+                        <option value="PER_NIGHT">Per Night</option>
+                        <option value="PER_PERSON_PER_DAY">Per Person Per Day</option>
+                        <option value="PER_ITEM">Per Item</option>
+                      </select>
+                    </td>
+                    <td>
+                      <div class="amount-input-group">
+                        <span class="input-group-text">{{ getCurrencyCode() }}</span>
+                        <CurrencyInput v-model="line.amount" :currency="getCurrencyCode()" />
+                      </div>
+                    </td>
+                    <td v-if="activeTab === 'Packages'" class="text-center">
+                      <label class="custom-name-toggle">
+                        <input type="checkbox" v-model="line.customNameEnabled" />
+                        <span class="toggle-indicator" :title="line.customNameEnabled ? 'Using custom name' : 'Using package name'">✏️</span>
+                      </label>
+                    </td>
+                    <td class="text-center">
+                      <button
+                        type="button"
+                        class="btn btn-sm btn-outline-danger"
+                        @click="removeLine(line._key)"
+                        title="Remove"
+                      >
+                        <i class="fa fa-trash"></i>
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
 
             <div v-if="filteredLines.length === 0" class="empty-state">
               <div class="empty-illustration">
@@ -256,234 +319,16 @@
               </div>
               <div class="empty-content">
                 <div class="empty-text">No {{ activeTab.toLowerCase() }} added yet</div>
-                <div class="empty-hint">Click the button below to add your first {{ activeTab === 'Companion Hunter' ? 'companion rate' : 'item' }}</div>
-                <button class="btn btn-add" type="button" @click="addLine">
+                <div class="empty-hint" v-if="activeTab === 'Packages'">Select sales packages above to start configuring rates</div>
+                <div class="empty-hint" v-else>Click "Add {{ activeTab === 'Companion Hunter' ? 'Rate' : 'Line' }}" to create your first rate line</div>
+                <button v-if="activeTab !== 'Packages'" class="btn btn-add" type="button" @click="addLine">
                   <span class="btn-icon">+</span> Add {{ activeTab === 'Companion Hunter' ? 'Rate' : 'Line' }}
                 </button>
               </div>
             </div>
           </div>
 
-          <!-- Line Details Card -->
-          <div class="inner-card details-card" v-if="selectedLine">
-            <div class="details-head">
-              <span class="details-icon">✏️</span>
-              Edit Line Details
-            </div>
-            <div class="details-form">
-              <div class="edit-section">
-                <label class="field" v-if="selectedLine.itemType && selectedLine.itemType !== 'PACKAGE' && selectedLine.itemType !== 'COMPANION'">
-                  <span class="lbl">Source</span>
-                  <div class="input-wrapper">
-                    <select v-model="selectedLine.source" :class="{'source-new': selectedLine.source === 'new'}">
-                      <option value="existing">Existing Item</option>
-                      <option value="new">New Item (Create New)</option>
-                    </select>
-                  </div>
-                </label>
-
-                <!-- For existing source: show Item selector -->
-                <label class="field" v-if="selectedLine.source === 'existing' && selectedLine.itemType !== 'PACKAGE' && selectedLine.itemType !== 'COMPANION'">
-                  <span class="lbl">Item <span class="req">*</span></span>
-                  <div class="input-wrapper">
-                    <select v-model="selectedLine.itemId" :disabled="!selectedLine.itemType">
-                      <option :value="null" disabled>Select item</option>
-                      <option v-for="i in itemsForType(selectedLine.itemType)" :key="i.id" :value="i.id">
-                        {{ i.code ? `${i.code} - ` : '' }}{{ i.name }}
-                      </option>
-                    </select>
-                  </div>
-                </label>
-
-                <!-- For new source: show Item Name input -->
-                <label class="field" v-else-if="selectedLine.source === 'new' && selectedLine.itemType !== 'COMPANION'">
-                  <span class="lbl">{{ selectedLine.itemType === 'PACKAGE' ? 'Package Name' : 'Item Name' }} <span class="req">*</span></span>
-                  <div class="input-wrapper">
-                    <input v-model.trim="selectedLine.name" :placeholder="selectedLine.itemType === 'PACKAGE' ? 'e.g., 7 Day Buffalo Hunt' : 'New item name'" :disabled="!selectedLine.itemType" />
-                  </div>
-                </label>
-
-                <label class="field" v-if="selectedLine.itemType === 'PACKAGE'">
-                  <span class="lbl">Hunting Type <span class="req">*</span></span>
-                  <div class="input-wrapper">
-                    <select v-model="selectedLine.huntingTypeId" :disabled="loadingHuntingTypes">
-                      <option :value="null" disabled>Select hunting type</option>
-                      <option v-for="h in lookups.huntingTypes" :key="h.id" :value="h.id">{{ h.name }}</option>
-                    </select>
-                  </div>
-                </label>
-
-                <label class="field" v-if="selectedLine.itemType === 'PACKAGE' || selectedLine.itemType === 'COMPANION'">
-                  <span class="lbl">Hunt Length <span class="req">*</span></span>
-                  <div class="input-wrapper">
-                    <select v-model.number="selectedLine.minDays" :disabled="loadingHuntLengths">
-                      <option :value="null" disabled>Select hunt length</option>
-                      <option v-for="hl in lookups.huntLengths" :key="hl.id" :value="hl.id">{{ getHuntLengthLabel(hl) }}</option>
-                    </select>
-                  </div>
-                </label>
-
-                <!-- Sales Packages for PACKAGE items -->
-                <div class="package-builder-section" v-if="selectedLine.itemType === 'PACKAGE'">
-                  <div class="package-section-header">
-                    <span class="package-icon">📦</span>
-                    <span class="package-title">Sales Packages</span>
-                  </div>
-                  <div class="sales-packages-row">
-                    <div class="sales-packages-label">
-                      <span class="lbl">Select Packages <span class="req">*</span></span>
-                      <small class="field-hint">Choose one or more sales packages to include</small>
-                    </div>
-                    <div class="sales-packages-input">
-                      <select v-model="selectedPackageToAdd" class="package-select">
-                        <option :value="null" disabled>Select a package to add...</option>
-                        <option v-for="pkg in availableSalesPackages" :key="pkg.id" :value="pkg.id">
-                          {{ pkg.name }}
-                        </option>
-                      </select>
-                      <button 
-                        type="button" 
-                        class="add-package-btn" 
-                        @click="addPackageToLine(selectedLine)" 
-                        :disabled="!selectedPackageToAdd"
-                        title="Add package"
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
-                  <div class="selected-packages" v-if="selectedLine.salesPackageIds && selectedLine.salesPackageIds.length > 0">
-                    <div v-for="pkgId in selectedLine.salesPackageIds" :key="pkgId" class="package-tag">
-                      <span class="package-tag-icon">📦</span>
-                      <span>{{ getPackageName(pkgId) }}</span>
-                      <button type="button" class="remove-pkg-btn" @click="removePackageFromLine(selectedLine, pkgId)">&times;</button>
-                    </div>
-                  </div>
-                  <div v-else class="no-packages-hint">
-                    No packages selected yet
-                  </div>
-                </div>
-
-                <!-- Description for new items -->
-                <label class="field" v-if="selectedLine.source === 'new' && selectedLine.itemType !== 'COMPANION'">
-                  <span class="lbl">Description</span>
-                  <div class="input-wrapper">
-                    <input v-model.trim="selectedLine.description" placeholder="Optional description" />
-                  </div>
-                </label>
-
-                <label class="field" v-if="selectedLine.itemType !== 'PACKAGE' && selectedLine.itemType !== 'COMPANION'">
-                  <span class="lbl">Pricing Unit</span>
-                  <div class="input-wrapper">
-                    <select v-model="selectedLine.pricingUnit">
-                      <option value="FLAT">FLAT</option>
-                      <option value="PER_DAY">PER_DAY</option>
-                      <option value="PER_NIGHT">PER_NIGHT</option>
-                      <option value="PER_PERSON_PER_DAY">PER_PERSON_PER_DAY</option>
-                      <option value="PER_ITEM">PER_ITEM</option>
-                    </select>
-                  </div>
-                </label>
-
-                <label class="field amount-field">
-                  <span class="lbl">Amount <span class="currency-hint">({{ getCurrencyCode() }})</span></span>
-                  <div class="input-wrapper amount-wrapper">
-                    <span class="currency-symbol">{{ getCurrencyCode() }}</span>
-                    <input v-model.number="selectedLine.amount" type="number" min="0" step="0.01" class="amount-input" />
-                  </div>
-                </label>
-              </div>
-            </div>
-          </div>
         </section>
-
-        <!-- RIGHT: Preview Panel -->
-        <aside class="panel right-panel">
-          <div class="panel-header preview-header">
-            <div class="panel-icon">👁️</div>
-            <div class="panel-title-text">
-              <h3>Preview</h3>
-              <p>Review your configuration</p>
-            </div>
-          </div>
-
-          <div v-if="selectedLine" class="preview-content">
-            <div class="preview-item-header">
-              <div class="preview-icon-wrapper">
-                <span class="preview-type-icon">{{ getTypeIcon(selectedLine.itemType) }}</span>
-              </div>
-              <div class="preview-item-info">
-                <div class="preview-name">{{ getLineName(selectedLine) }}</div>
-                <div class="preview-code">{{ getLineCode(selectedLine) }}</div>
-              </div>
-              <span class="status-badge" :class="form.isActive ? 'active' : 'inactive'">
-                {{ form.isActive ? 'Active' : 'Inactive' }}
-              </span>
-            </div>
-
-            <div class="preview-details">
-              <div class="preview-section">
-                <div class="preview-section-title">
-                  <span class="section-dot"></span>
-                  Location & Season
-                </div>
-                <div class="preview-row">
-                  <span class="preview-label">Area</span>
-                  <span class="preview-value">{{ getAreaName() }}</span>
-                </div>
-                <div class="preview-row">
-                  <span class="preview-label">Season</span>
-                  <span class="preview-value">{{ getSeasonName() }}</span>
-                </div>
-              </div>
-
-              <div class="preview-section" v-if="selectedLine.huntingTypeId || selectedLine.minDays">
-                <div class="preview-section-title">
-                  <span class="section-dot"></span>
-                  Hunt Details
-                </div>
-                <div class="preview-row" v-if="selectedLine.huntingTypeId">
-                  <span class="preview-label">Hunting Type</span>
-                  <span class="preview-value">{{ getHuntingTypeName(selectedLine.huntingTypeId) }}</span>
-                </div>
-                <div class="preview-row" v-if="selectedLine.minDays">
-                  <span class="preview-label">Hunt Length</span>
-                  <span class="preview-value">{{ getHuntLengthLabelById(selectedLine.minDays) }}</span>
-                </div>
-              </div>
-
-              <div class="preview-section pricing-section">
-                <div class="preview-section-title">
-                  <span class="section-dot"></span>
-                  Pricing
-                </div>
-                <div class="preview-row" v-if="selectedLine.pricingUnit">
-                  <span class="preview-label">Unit</span>
-                  <span class="preview-value unit-badge">{{ selectedLine.pricingUnit }}</span>
-                </div>
-                <div class="preview-price">
-                  <span class="price-currency">{{ getCurrencyCode() }}</span>
-                  <span class="price-amount">{{ money(selectedLine.amount) }}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div v-else class="empty-preview">
-            <div class="empty-preview-icon">👆</div>
-            <div class="empty-preview-text">Select a line</div>
-            <div class="empty-preview-hint">Click on a rate line to preview its details here</div>
-          </div>
-
-          <div class="bottom-actions">
-            <button class="btn ghost full" type="button" @click="saveDraft" :disabled="saving">
-              <span class="btn-icon">💾</span> Save Draft
-            </button>
-            <button class="btn success full" type="button" @click="submit" :disabled="saving || !canSubmit">
-              <span class="btn-icon">✓</span> Save &amp; Activate
-            </button>
-          </div>
-        </aside>
       </section>
     </main>
   </div>
@@ -491,13 +336,15 @@
 
 <script setup lang="ts">
 import axios from 'axios'
-import { reactive, ref, computed, onMounted } from 'vue'
+import { reactive, ref, computed, onMounted, onUnmounted } from 'vue'
 import { useToast } from '@/composables/useToast'
 import { useHuntingAreaStore } from '@/stores/bushman/hunting-story'
 import { useSettingsStore } from '@/stores/bushman/settings-store'
 import { usePriceStructuresStore } from '@/stores/bushman/price-structures-store'
+import { useAppOptionStore } from '@/stores/app-option'
 import handleErrors from '@/stores/bushman/errorHandler'
 import Swal from 'sweetalert2'
+import CurrencyInput from '@/components/CurrencyInput.vue'
 
 const props = withDefaults(defineProps<{ 
   editMode?: boolean
@@ -520,6 +367,7 @@ const emit = defineEmits<{
 const huntingAreaStore = useHuntingAreaStore()
 const settingsStore = useSettingsStore()
 const priceStructuresStore = usePriceStructuresStore()
+const appOptionStore = useAppOptionStore()
 const toast = useToast()
 
 const baseUrl = import.meta.env.VITE_APP_BASE_URL
@@ -635,7 +483,7 @@ function selectLine(key: string) {
 }
 
 function tabIcon(t: string): string {
-  if (t === "Packages") return "�"
+  if (t === "Packages") return "📦"
   if (t === "Trophy Fees") return "🏆"
   if (t === "Extras") return "🎯"
   if (t === "Companion Hunter") return "👥"
@@ -686,6 +534,7 @@ function money(v: number): string {
     return String(v || 0)
   }
 }
+
 
 function getLineName(line: any): string {
   if (line.itemType === 'COMPANION') {
@@ -791,6 +640,7 @@ function getItemMetaById(itemId: number | null) {
 
 function itemsForType(itemType: string | null) {
   if (!itemType) return []
+  
   const mapping: Record<string, Array<{ id: number; code: string; name: string }>> = {
     PACKAGE: lookups.items.packages,
     TROPHY: lookups.items.trophyFees,
@@ -839,6 +689,17 @@ function getPackageName(pkgId: number): string {
   return pkg?.name || `Package #${pkgId}`
 }
 
+function onItemSelected(line: any) {
+  if (line.itemId) {
+    const item = itemsForType(line.itemType).find((i: any) => i.id === line.itemId)
+    if (item) {
+      line.name = item.name
+    }
+  } else {
+    line.name = ''
+  }
+}
+
 function addLine() {
   // Set item type based on current tab
   const itemType = tabToType[activeTab.value] || null
@@ -857,10 +718,32 @@ function addLine() {
     pricingUnit: itemType === 'PACKAGE' ? 'FLAT' : 'PER_ITEM',
     amount: 0,
     salesPackageIds: [],
+    customNameEnabled: false,
   })
   
   // Auto-select the new line
   selectedLineKey.value = newKey
+}
+
+function addPackageAsLine(pkg: any) {
+  const newKey = crypto.randomUUID()
+  form.lines.unshift({
+    _key: newKey,
+    source: 'new',
+    itemId: null,
+    name: pkg.name, // Auto-fill with package name
+    description: '',
+    itemType: 'PACKAGE',
+    huntingTypeId: lookups.huntingTypes[0]?.id || null,
+    minDays: null,
+    maxDays: null,
+    pricingUnit: 'FLAT',
+    amount: 0,
+    salesPackageIds: [pkg.id], // Auto-add the selected package
+    customNameEnabled: false, // By default use the package name
+  })
+  
+  toast.init({ message: `Added ${pkg.name}`, color: 'success' })
 }
 
 function removeLine(key: string) {
@@ -990,7 +873,7 @@ async function submit() {
     })
 
     if (itemLines.length > 0) {
-      payload.items = itemLines.map(line => {
+      const mappedItems = itemLines.map(line => {
         if (line.itemType === 'PACKAGE') {
           return {
             item_type: 'PACKAGE',
@@ -1016,6 +899,21 @@ async function submit() {
           amount: line.amount,
         }
       })
+
+      // Remove duplicate packages based on sales_package_ids, hunting_type_id, and hunt_length_id
+      const uniqueItems = mappedItems.filter((item, index, self) => {
+        if (item.item_type !== 'PACKAGE') return true
+        
+        // For packages, check if there's a duplicate before this index
+        return index === self.findIndex(i => 
+          i.item_type === 'PACKAGE' &&
+          JSON.stringify(i.sales_package_ids?.sort()) === JSON.stringify(item.sales_package_ids?.sort()) &&
+          i.hunting_type_id === item.hunting_type_id &&
+          i.hunt_length_id === item.hunt_length_id
+        )
+      })
+
+      payload.items = uniqueItems
     }
 
     if (companionLines.length > 0) {
@@ -1315,7 +1213,14 @@ function populateFormForEdit(editItem: any) {
   }
 }
 
+// Store original sidebar state
+const originalSidebarState = ref(false)
+
 onMounted(async () => {
+  // Save original sidebar state and collapse it
+  originalSidebarState.value = appOptionStore.appSidebarMinified
+  appOptionStore.appSidebarMinified = true
+
   loading.value = true
   await Promise.all([
     fetchAreas(),
@@ -1331,6 +1236,11 @@ onMounted(async () => {
   }
 
   loading.value = false
+})
+
+// Restore sidebar state when leaving the page
+onUnmounted(() => {
+  appOptionStore.appSidebarMinified = originalSidebarState.value
 })
 </script>
 
@@ -1364,7 +1274,7 @@ onMounted(async () => {
   background: var(--bg);
   min-height: 100vh;
   color: var(--text);
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
 }
 
 /* Content */
@@ -1500,7 +1410,7 @@ h1 {
 /* Grid Layout */
 .grid {
   display: grid;
-  grid-template-columns: 340px 1fr 340px;
+  grid-template-columns: 340px 1fr;
   gap: 20px;
   align-items: start;
 }
@@ -1754,6 +1664,11 @@ h1 {
   gap: 12px;
 }
 
+.date-row .field {
+  min-width: 0;
+  margin-bottom: 0;
+}
+
 .toggle-row {
   display: flex;
   align-items: center;
@@ -1845,7 +1760,8 @@ h1 {
 
 .table-card {
   padding: 0;
-  max-height: 300px;
+  min-height: 500px;
+  max-height: 600px;
   overflow-y: auto;
   background: #ffffff;
 }
@@ -1886,6 +1802,8 @@ h1 {
 
 .tab-icon {
   font-size: 14px;
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji", sans-serif;
+  line-height: 1;
 }
 
 .tab-text {
@@ -1904,6 +1822,233 @@ h1 {
 .tab.active .tab-count {
   background: rgba(255, 255, 255, 0.3);
   color: white;
+}
+
+/* Package Selection Card */
+.package-selection-card {
+  background: #ffffff;
+  padding: 20px;
+  border: 1px solid #e2e8f0;
+}
+
+.package-selection-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.selection-icon {
+  font-size: 24px;
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji", sans-serif;
+  line-height: 1;
+}
+
+.package-selection-header h3 {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0;
+}
+
+.selection-hint {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.package-buttons {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 12px;
+}
+
+.package-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: #f8fafc;
+  border: 2px solid #e2e8f0;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+  position: relative;
+}
+
+.package-btn:hover {
+  background: #f0f9ff;
+  border-color: #2563eb;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);
+}
+
+.package-btn .pkg-icon {
+  font-size: 20px;
+  flex-shrink: 0;
+  line-height: 1;
+  font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif;
+}
+
+.package-btn .pkg-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.package-btn .pkg-code {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--primary);
+  text-transform: uppercase;
+}
+
+.package-btn .pkg-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.package-btn .add-icon {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--primary);
+  flex-shrink: 0;
+}
+
+/* Rate Table Styles */
+.table-header {
+  padding: 16px 20px;
+  border-bottom: 2px solid #e2e8f0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.table-responsive {
+  overflow-x: auto;
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.rates-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.rates-table thead {
+  background: #f8fafc;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.rates-table thead th {
+  padding: 12px;
+  text-align: left;
+  font-weight: 700;
+  font-size: 12px;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.rates-table tbody tr {
+  border-bottom: 1px solid #f1f5f9;
+  transition: background 0.15s ease;
+}
+
+.rates-table tbody tr:hover {
+  background: #f8fafc;
+}
+
+.rates-table tbody td {
+  padding: 12px;
+  vertical-align: middle;
+}
+
+.name-cell {
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+}
+
+.name-display {
+  padding: 6px 0;
+}
+
+.name-text {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.amount-input-group {
+  display: flex;
+  align-items: center;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.amount-input-group .input-group-text {
+  background: #f8fafc;
+  border: none;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.amount-input-group input {
+  border: none;
+  flex: 1;
+  padding: 6px 10px;
+  font-size: 14px;
+}
+
+.amount-input-group input:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+.custom-name-toggle {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  margin: 0;
+}
+
+.custom-name-toggle input[type="checkbox"] {
+  display: none;
+}
+
+.custom-name-toggle .toggle-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background: #f1f5f9;
+  color: #94a3b8;
+  font-size: 16px;
+  transition: all 0.2s ease;
+}
+
+.custom-name-toggle input:checked + .toggle-indicator {
+  background: #dbeafe;
+  color: #2563eb;
+}
+
+.custom-name-toggle:hover .toggle-indicator {
+  background: #e2e8f0;
 }
 
 /* Search Row */
@@ -2618,13 +2763,13 @@ h1 {
 /* Responsive */
 @media (max-width: 1400px) {
   .grid {
-    grid-template-columns: 300px 1fr 300px;
+    grid-template-columns: 300px 1fr;
   }
 }
 
 @media (max-width: 1200px) {
   .grid {
-    grid-template-columns: 280px 1fr 280px;
+    grid-template-columns: 280px 1fr;
     gap: 16px;
   }
   
