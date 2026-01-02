@@ -270,6 +270,73 @@ const router = createRouter({
       component: ManageSpeciesSettings,
       meta: { requiresAuth: true }
     },
+
+    // Operations routes (placeholders)
+    {
+      path: "/operations/hunting-license",
+      name: "hunting-license",
+      component: ComingSoon,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/operations/game",
+      name: "game",
+      component: ComingSoon,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/operations/game-requitions",
+      name: "game-requisitions",
+      component: ComingSoon,
+      meta: { requiresAuth: true }
+    },
+
+    // Sales routes (placeholders)
+    {
+      path: "/sales/sales-contracts",
+      name: "sales-contracts",
+      component: ComingSoon,
+      meta: { requiresAuth: true }
+    },
+
+    // Other main sections (placeholders)
+    {
+      path: "/accounts",
+      name: "accounts-main",
+      component: ComingSoon,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/procurement",
+      name: "procurement-main",
+      component: ComingSoon,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/hr",
+      name: "hr-main",
+      component: ComingSoon,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/reports",
+      name: "reports-main",
+      component: ComingSoon,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/settings",
+      name: "settings-main",
+      component: ComingSoon,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/preferences",
+      name: "preferences-main",
+      component: ComingSoon,
+      meta: { requiresAuth: true }
+    },
+
     {
       path: "/:pathMatch(.*)*",
       redirect: "/"

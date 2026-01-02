@@ -27,7 +27,7 @@
             <div class="card border-primary">
               <div class="card-body text-center">
                 <i class="fa fa-calendar fa-2x text-primary mb-2"></i>
-                <div class="h4 mb-0">{{ item?.formatted_preferences?.no_of_days || 'N/A' }}</div>
+                <div class="h4 mb-0">{{ item?.preference?.no_of_days || 'N/A' }}</div>
                 <small class="text-muted">Days Duration</small>
               </div>
             </div>
@@ -36,7 +36,7 @@
             <div class="card border-success">
               <div class="card-body text-center">
                 <i class="fa fa-user fa-2x text-success mb-2"></i>
-                <div class="h4 mb-0">{{ item?.formatted_preferences?.no_of_hunters || 0 }}</div>
+                <div class="h4 mb-0">{{ item?.preference?.no_of_hunters || 0 }}</div>
                 <small class="text-muted">Hunters</small>
               </div>
             </div>
@@ -45,8 +45,8 @@
             <div class="card border-warning">
               <div class="card-body text-center">
                 <i class="fa fa-users fa-2x text-warning mb-2"></i>
-                <div class="h4 mb-0">{{ item?.formatted_preferences?.no_of_companions || 0 }}</div>
-                <small class="text-muted">Companions</small>
+                <div class="h4 mb-0">{{ (item?.preference?.no_of_hunters || 0) + (item?.preference?.no_of_observers || 0) }}</div>
+                <small class="text-muted">Total People</small>
               </div>
             </div>
           </div>
@@ -54,7 +54,7 @@
             <div class="card border-info">
               <div class="card-body text-center">
                 <i class="fa fa-eye fa-2x text-info mb-2"></i>
-                <div class="h4 mb-0">{{ item?.formatted_preferences?.no_of_observers || 0 }}</div>
+                <div class="h4 mb-0">{{ item?.preference?.no_of_observers || 0 }}</div>
                 <small class="text-muted">Observers</small>
               </div>
             </div>
@@ -112,19 +112,28 @@
             <div class="row">
               <div class="col-md-3 mb-3">
                 <strong>Preferred Date:</strong>
-                <div>{{ formatDate(item?.formatted_preferences?.preferred_date) }}</div>
-              </div>
-              <div class="col-md-3 mb-3">
-                <strong>Start Date:</strong>
-                <div>{{ formatDate(item?.formatted_preferences?.start_date) }}</div>
-              </div>
-              <div class="col-md-3 mb-3">
-                <strong>End Date:</strong>
-                <div>{{ formatDate(item?.formatted_preferences?.end_date) }}</div>
+                <div>{{ formatDate(item?.preference?.preferred_start_date) }}</div>
               </div>
               <div class="col-md-3 mb-3">
                 <strong>Duration:</strong>
-                <div>{{ item?.formatted_preferences?.no_of_days || 'N/A' }} days</div>
+                <div>{{ item?.preference?.no_of_days || 'N/A' }} days</div>
+              </div>
+              <div class="col-md-3 mb-3">
+                <strong>Budget Range:</strong>
+                <div>
+                  {{ item?.preference?.budget_min ? formatCurrency(item.preference.budget_min) : 'N/A' }} - 
+                  {{ item?.preference?.budget_max ? formatCurrency(item.preference.budget_max) : 'N/A' }}
+                </div>
+              </div>
+              <div class="col-md-3 mb-3">
+                <strong>Previous Experience:</strong>
+                <div>{{ item?.preference?.prev_experience || 'N/A' }}</div>
+              </div>
+            </div>
+            <div v-if="item?.preference?.special_requests" class="row mt-3">
+              <div class="col-12">
+                <strong>Special Requests:</strong>
+                <p class="text-muted mt-2">{{ item.preference.special_requests }}</p>
               </div>
             </div>
           </div>
@@ -135,13 +144,20 @@
           <div class="card-body">
             <h6 class="card-title">Important Information</h6>
             <p class="text-muted small mb-0">
-              Inquiry Type:
-              <span class="badge" :class="item?.inquiry_type === 'standard' ? 'bg-success' : 'bg-info'">
-                {{ item?.inquiry_type === 'standard' ? 'Standard Package' : 'Custom Package' }}
+              Status:
+              <span class="badge" :class="{
+                'bg-success': item?.status === 'NEW',
+                'bg-primary': item?.status === 'IN_PROGRESS',
+                'bg-info': item?.status === 'QUOTED',
+                'bg-secondary': item?.status === 'CLOSED'
+              }">
+                {{ item?.status || 'N/A' }}
               </span>
               <span class="badge bg-primary ms-2">Season: {{ item?.season?.name || 'N/A' }}</span>
+              <span v-if="item?.user" class="badge bg-secondary ms-2">Agent: {{ item.user.full_name }}</span>
             </p>
-            <p class="text-muted small mt-2 mb-0">Created: {{ formatDate(item?.create_date) }}</p>
+            <p class="text-muted small mt-2 mb-0">Created: {{ formatDate(item?.created_at) }}</p>
+            <p v-if="item?.remarks" class="text-muted small mt-2 mb-0">Remarks: {{ item.remarks }}</p>
           </div>
         </div>
       </div>
@@ -248,25 +264,31 @@
       <div id="species" class="tab-pane fade" :class="{ 'show active': activeTab === 'species' }">
         <div class="card">
           <div class="card-body">
-            <div v-if="safeArray(item?.species).length > 0">
+            <div v-if="safeArray(item?.game_preferences).length > 0">
               <div class="table-responsive">
                 <table class="table table-hover">
                   <thead>
                     <tr>
                       <th>Species</th>
-                      <th>Scientific Name</th>
-                      <th class="text-center">Quantity</th>
+                      <th>Priority</th>
+                      <th class="text-center">Desired Quantity</th>
+                      <th>Notes</th>
                     </tr>
                   </thead>
                   <tbody>
-                    <tr v-for="(s, index) in item?.species" :key="index">
-                      <td class="fw-semibold">{{ s.species?.name || 'N/A' }}</td>
-                      <td class="text-muted fst-italic">{{ s.species?.scientific_name || 'N/A' }}</td>
-                      <td class="text-center">
-                        <span :class="s.quantity > 0 ? 'badge bg-success' : 'badge bg-danger'">
-                          {{ s.quantity || 0 }}
+                    <tr v-for="(pref, index) in item?.game_preferences" :key="index">
+                      <td class="fw-semibold">{{ pref.species_name || 'N/A' }}</td>
+                      <td>
+                        <span :class="pref.priority === 'MUST_HAVE' ? 'badge bg-danger' : 'badge bg-info'">
+                          {{ pref.priority === 'MUST_HAVE' ? 'Must Have' : 'Nice to Have' }}
                         </span>
                       </td>
+                      <td class="text-center">
+                        <span :class="pref.desired_quantity > 0 ? 'badge bg-success' : 'badge bg-secondary'">
+                          {{ pref.desired_quantity || 0 }}
+                        </span>
+                      </td>
+                      <td class="text-muted">{{ pref.notes || 'N/A' }}</td>
                     </tr>
                   </tbody>
                 </table>
@@ -445,191 +467,259 @@
           <p class="text-muted">No extras, accommodations, or charters for this inquiry</p>
         </div>
       </div>
+
+      <!-- Quotations Tab -->
+      <div id="quotations" class="tab-pane fade" :class="{ 'show active': activeTab === 'quotations' }">
+        <QuotationSection 
+          :enquiry-id="item?.id" 
+          :initial-pricings="item?.pricings"
+          @update="onPricingUpdate"
+        />
+      </div>
     </div>
   </div>
 </template>
 
-<script lang="ts">
-import { defineComponent, ref } from 'vue'
-import { useSalesInquiriesStore } from '../../../../stores/bushman/sales-store'
-import { mapState, mapActions } from 'pinia'
+<script setup lang="ts">
+import { ref, computed, onMounted } from 'vue'
+import { salesEnquiryService } from '@/stores/bushman/salesEnquiryService'
+import type { SalesEnquiry } from '@/stores/bushman/salesEnquiry'
 import { useToast } from '@/composables/useToast'
+import QuotationSection from './QuotationSection.vue'
 
-export default defineComponent({
-  name: 'SalesInquiryDetails',
-  props: {
-    item: {
-      type: Object,
-      required: true,
+interface Props {
+  item: SalesEnquiry
+}
+
+const props = defineProps<Props>()
+const emit = defineEmits<{
+  goBack: []
+  refresh: []
+}>()
+
+const { init: notify } = useToast()
+const activeTab = ref('overview')
+
+// Data from API calls
+const observers = ref<any[]>([])
+const companions = ref<any[]>([])
+const clientSafariExtras = ref<any[]>([])
+const accommodations = ref<any[]>([])
+const chartersPrices = ref<any[]>([])
+
+const tabs = computed(() => {
+  const tabList = [
+    {
+      key: 'overview',
+      label: 'Overview',
+      icon: 'fa fa-info-circle',
     },
-  },
-  emits: ['go-back'],
-  setup() {
-    const { init: notify } = useToast()
-    const activeTab = ref('overview')
-    return { notify, activeTab }
-  },
-  computed: {
-    ...mapState(useSalesInquiriesStore, [
-      'observers',
-      'companions',
-      'clientSafariExtras',
-      'accommodations',
-      'chartersPrices',
-    ]),
-    tabs() {
-      const tabList = [
-        {
-          key: 'overview',
-          label: 'Overview',
-          icon: 'fa fa-info-circle',
-        },
-      ]
+  ]
 
-      if (this.item?.package_details || this.item?.custom_details) {
-        tabList.push({
-          key: 'package',
-          label: 'Package',
-          icon: 'fa fa-box',
-        })
+  if (props.item?.package_details || props.item?.custom_details) {
+    tabList.push({
+      key: 'package',
+      label: 'Package',
+      icon: 'fa fa-box',
+    })
+  }
+
+  if (props.item?.game_preferences && props.item.game_preferences.length > 0) {
+    tabList.push({
+      key: 'species',
+      label: `Species (${props.item.game_preferences.length})`,
+      icon: 'fa fa-paw',
+    })
+  }
+
+  const hasPeople = (observers.value && observers.value.length > 0) || (companions.value && companions.value.length > 0)
+  if (hasPeople) {
+    const totalPeople = (observers.value?.length || 0) + (companions.value?.length || 0)
+    tabList.push({
+      key: 'people',
+      label: `People (${totalPeople})`,
+      icon: 'fa fa-users',
+    })
+  }
+
+  const hasExtras =
+    (clientSafariExtras.value && clientSafariExtras.value.length > 0) ||
+    (accommodations.value && accommodations.value.length > 0) ||
+    (chartersPrices.value && chartersPrices.value.length > 0)
+  if (hasExtras) {
+    const totalExtras =
+      (clientSafariExtras.value?.length || 0) +
+      (accommodations.value?.length || 0) +
+      (chartersPrices.value?.length || 0)
+    tabList.push({
+      key: 'extras',
+      label: `Extras (${totalExtras})`,
+      icon: 'fa fa-plus-circle',
+    })
+  }
+
+  // Quotations tab - always visible
+  const pricingsCount = props.item?.pricings?.length || 0
+  tabList.push({
+    key: 'quotations',
+    label: pricingsCount > 0 ? `Quotations (${pricingsCount})` : 'Quotations',
+    icon: 'fa fa-file-invoice-dollar',
+  })
+
+  return tabList
+})
+
+const onTabClick = (tab: any) => {
+  activeTab.value = tab.key
+  if (tab.action) {
+    tab.action()
+  }
+}
+
+const onPricingUpdate = () => {
+  // Emit event to parent to refresh the enquiry data
+  emit('refresh')
+}
+
+// TODO: These methods need to be implemented in the service or store
+// For now, keeping as empty arrays until backend endpoints are ready
+const getObservers = async (enquiryId: number) => {
+  try {
+    // When backend endpoint is ready: 
+    // const response = await salesEnquiryService.getObservers(enquiryId)
+    // observers.value = response.data
+    observers.value = []
+  } catch (error) {
+    console.error('Error fetching observers:', error)
+  }
+}
+
+const getCompanions = async (enquiryId: number) => {
+  try {
+    // When backend endpoint is ready:
+    // const response = await salesEnquiryService.getCompanions(enquiryId)
+    // companions.value = response.data
+    companions.value = []
+  } catch (error) {
+    console.error('Error fetching companions:', error)
+  }
+}
+
+const getClienSafariExtras = async (enquiryId: number) => {
+  try {
+    // When backend endpoint is ready:
+    // const response = await salesEnquiryService.getSafariExtras(enquiryId)
+    // clientSafariExtras.value = response.data
+    clientSafariExtras.value = []
+  } catch (error) {
+    console.error('Error fetching safari extras:', error)
+  }
+}
+
+const getAccommodation = async (enquiryId: number) => {
+  try {
+    // When backend endpoint is ready:
+    // const response = await salesEnquiryService.getAccommodations(enquiryId)
+    // accommodations.value = response.data
+    accommodations.value = []
+  } catch (error) {
+    console.error('Error fetching accommodations:', error)
+  }
+}
+
+const getChartersPrice = async (enquiryId: number) => {
+  try {
+    // When backend endpoint is ready:
+    // const response = await salesEnquiryService.getCharters(enquiryId)
+    // chartersPrices.value = response.data
+    chartersPrices.value = []
+  } catch (error) {
+    console.error('Error fetching charter prices:', error)
+  }
+}
+
+const downloadInquiryPdf = async () => {
+  const inquiryId = props.item?.id
+  if (!inquiryId) return
+
+  try {
+    const response = await fetch(`${import.meta.env.VITE_APP_BASE_URL}sales/sales-inquiries/${inquiryId}/pdf`, {
+      headers: { 'Content-Type': 'application/json' },
+    })
+    const data = await response.json()
+
+    if (data.success && data.pdf) {
+      const byteCharacters = atob(data.pdf)
+      const byteNumbers = new Array(byteCharacters.length)
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i)
       }
+      const byteArray = new Uint8Array(byteNumbers)
+      const blob = new Blob([byteArray], { type: 'application/pdf' })
 
-      if (this.item?.species && this.item.species.length > 0) {
-        tabList.push({
-          key: 'species',
-          label: `Species (${this.item.species.length})`,
-          icon: 'fa fa-paw',
-        })
-      }
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `inquiry-${props.item?.code || inquiryId}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
 
-      const hasPeople = (this.observers && this.observers.length > 0) || (this.companions && this.companions.length > 0)
-      if (hasPeople) {
-        const totalPeople = (this.observers?.length || 0) + (this.companions?.length || 0)
-        tabList.push({
-          key: 'people',
-          label: `People (${totalPeople})`,
-          icon: 'fa fa-users',
-        })
-      }
+      notify({
+        message: 'PDF downloaded successfully',
+        color: 'success',
+      })
+    } else {
+      notify({
+        message: 'Failed to generate PDF',
+        color: 'danger',
+      })
+    }
+  } catch (error) {
+    console.error('Error downloading PDF:', error)
+    notify({
+      message: 'Error downloading PDF',
+      color: 'danger',
+    })
+  }
+}
 
-      const hasExtras =
-        (this.clientSafariExtras && this.clientSafariExtras.length > 0) ||
-        (this.accommodations && this.accommodations.length > 0) ||
-        (this.chartersPrices && this.chartersPrices.length > 0)
-      if (hasExtras) {
-        const totalExtras =
-          (this.clientSafariExtras?.length || 0) +
-          (this.accommodations?.length || 0) +
-          (this.chartersPrices?.length || 0)
-        tabList.push({
-          key: 'extras',
-          label: `Extras (${totalExtras})`,
-          icon: 'fa fa-plus-circle',
-        })
-      }
+const formatDate = (dateString: string | number | Date | undefined) => {
+  return dateString ? new Date(dateString).toLocaleDateString() : 'Not provided'
+}
 
-      return tabList
-    },
-  },
-  mounted() {
-    this.getObservers(this.item.id)
-    this.getCompanions(this.item.id)
-    this.getClienSafariExtras(this.item.id)
-    this.getAccommodation(this.item.id)
-    this.getChartersPrice(this.item.id)
-  },
-  methods: {
-    ...mapActions(useSalesInquiriesStore, [
-      'getObservers',
-      'getCompanions',
-      'getClienSafariExtras',
-      'getAccommodation',
-      'getChartersPrice',
-    ]),
+const formatCurrency = (amount: any) => {
+  return new Intl.NumberFormat('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(parseFloat(amount) || 0)
+}
 
-    onTabClick(tab: any) {
-      this.activeTab = tab.key
-      if (tab.action) {
-        tab.action()
-      }
-    },
+const getContactIcon = (contactType: string) => {
+  const icons: any = {
+    email: 'envelope',
+    phone_number: 'phone',
+    phone: 'phone',
+    address: 'home',
+  }
+  return icons[contactType] || 'info'
+}
 
-    async downloadInquiryPdf() {
-      const inquiryId = this.item?.id
-      if (!inquiryId) return
+const safeArray = (arr: any) => {
+  return arr || []
+}
 
-      try {
-        const response = await fetch(`${import.meta.env.VITE_APP_BASE_URL}sales/sales-inquiries/${inquiryId}/pdf`, {
-          headers: { 'Content-Type': 'application/json' },
-        })
-        const data = await response.json()
+const safeString = (str: any, fallback = 'Not provided') => {
+  return str || fallback
+}
 
-        if (data.success && data.pdf) {
-          const byteCharacters = atob(data.pdf)
-          const byteNumbers = new Array(byteCharacters.length)
-          for (let i = 0; i < byteCharacters.length; i++) {
-            byteNumbers[i] = byteCharacters.charCodeAt(i)
-          }
-          const byteArray = new Uint8Array(byteNumbers)
-          const blob = new Blob([byteArray], { type: 'application/pdf' })
-
-          const url = window.URL.createObjectURL(blob)
-          const link = document.createElement('a')
-          link.href = url
-          link.download = `inquiry-${this.item?.code || inquiryId}.pdf`
-          document.body.appendChild(link)
-          link.click()
-          document.body.removeChild(link)
-          window.URL.revokeObjectURL(url)
-
-          this.notify({
-            message: 'PDF downloaded successfully',
-            color: 'success',
-          })
-        } else {
-          this.notify({
-            message: 'Failed to generate PDF',
-            color: 'danger',
-          })
-        }
-      } catch (error) {
-        console.error('Error downloading PDF:', error)
-        this.notify({
-          message: 'Error downloading PDF',
-          color: 'danger',
-        })
-      }
-    },
-
-    formatDate(dateString: string | number | Date) {
-      return dateString ? new Date(dateString).toLocaleDateString() : 'Not provided'
-    },
-
-    formatCurrency(amount: any) {
-      return new Intl.NumberFormat('en-US', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }).format(parseFloat(amount) || 0)
-    },
-
-    getContactIcon(contactType: string) {
-      const icons: any = {
-        email: 'envelope',
-        phone_number: 'phone',
-        phone: 'phone',
-        address: 'home',
-      }
-      return icons[contactType] || 'info'
-    },
-
-    safeArray(arr: any) {
-      return arr || []
-    },
-
-    safeString(str: any, fallback = 'Not provided') {
-      return str || fallback
-    },
-  },
+onMounted(() => {
+  getObservers(props.item.id)
+  getCompanions(props.item.id)
+  getClienSafariExtras(props.item.id)
+  getAccommodation(props.item.id)
+  getChartersPrice(props.item.id)
 })
 </script>
 

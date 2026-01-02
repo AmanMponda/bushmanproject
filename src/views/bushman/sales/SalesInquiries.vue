@@ -116,7 +116,7 @@
                 </div>
 
                 <!-- Content -->
-                <SalesInquiryDetails :item="selectedInquiryItem" @goBack="handleGoBack" />
+                <SalesInquiryDetails :item="selectedInquiryItem" @goBack="handleGoBack" @refresh="refreshSelectedInquiry" />
               </div>
             </div>
           </div>
@@ -138,7 +138,8 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import axios from 'axios'
 import { useToast } from '@/composables/useToast'
-import { useSalesInquiriesStore } from '@/stores/bushman/sales-store'
+import { salesEnquiryService } from '@/stores/bushman/salesEnquiryService'
+import type { SalesEnquiry, EnquiryFilters } from '@/stores/bushman/salesEnquiry'
 import { useSettingsStore } from '@/stores/bushman/settings-store'
 import SalesInquiryDetails from './salesinquiries/SalesInquiryDetails.vue'
 import SalesInquiryWizard from './salesinquiries/SalesInquiryWizard.vue'
@@ -147,13 +148,12 @@ import Swal from 'sweetalert2'
 
 
 const { init } = useToast()
-const salesStore = useSalesInquiriesStore()
 const settingsStore = useSettingsStore()
 
 // UI State
 const showAddSalesInquiriesForm = ref(false)
 const showDetailsPage = ref(false)
-const selectedInquiryItem = ref<any>(null)
+const selectedInquiryItem = ref<SalesEnquiry | null>(null)
 const editingRow = ref<any>(null)
 
 // Table State
@@ -258,6 +258,21 @@ const viewInquiries = (row: any) => {
   selectedInquiryItem.value = row.selfitem || row
 }
 
+const refreshSelectedInquiry = async () => {
+  // Refresh the selected inquiry data when pricings are updated
+  if (selectedInquiryItem.value?.id) {
+    try {
+      const response = await salesEnquiryService.get(selectedInquiryItem.value.id)
+      if (response.success && response.data) {
+        // Update the selected item with fresh data
+        selectedInquiryItem.value = response.data
+      }
+    } catch (error) {
+      console.error('Error refreshing inquiry:', error)
+    }
+  }
+}
+
 const editInquiry = (row: any) => {
   editingRow.value = row
   showAddSalesInquiriesForm.value = true
@@ -283,13 +298,13 @@ const confirmDeleteInquiry = (row: any) => {
 const deleteInquiry = async (row: any) => {
   deleting.value = true
   try {
-    const response: any = await salesStore.deleteSalesInquiry(row.id)
+    const response = await salesEnquiryService.delete(row.id)
 
-    if (response.status === 200 || response.status === 204) {
+    if (response.success) {
       // Show success alert
       Swal.fire({
         title: 'Deleted!',
-        text: 'Inquiry deleted successfully',
+        text: response.message || 'Inquiry deleted successfully',
         icon: 'success'
       })
 
@@ -316,18 +331,25 @@ const handleFiltersUpdate = (filters: any) => {
 const getSalesInquiryList = async () => {
   loading.value = true
   try {
-    const response: any = await salesStore.getSalesInquiries('', '')
-    if (response.status === 200) {
-      const dataArray = Array.isArray(response.data) ? response.data : response.data.data || []
-      dataFetched.value = dataArray.map((item: any) => {
-        const speciesCount = item?.inquiry_species?.length || item?.species?.length || 0
-        const refPriceList = item?.reference_price_list
-        const priceListData = item?.price_lists?.[0]?.price_list?.price_list_type
-        const amount = refPriceList?.amount || priceListData?.amount || '0.00'
-        const currencySymbol = priceListData?.currency?.symbol || '$'
-        const areaName =
-          refPriceList?.area_name || item?.inquiry_areas?.[0]?.area_name || item?.areas?.[0]?.area?.name || 'N/A'
-        const huntingType = refPriceList?.hunting_type_name || priceListData?.hunting_type?.name || 'N/A'
+    // Build filters from table filters
+    const filters: EnquiryFilters = {
+      search: tableFilters.search || undefined,
+      season_id: tableFilters.season_id ? Number(tableFilters.season_id) : undefined,
+      date_from: tableFilters.date_from || undefined,
+      date_to: tableFilters.date_to || undefined,
+    }
+
+    const response = await salesEnquiryService.list(filters)
+    if (response.success) {
+      const dataArray = Array.isArray(response.data) ? response.data : []
+      dataFetched.value = dataArray.map((item: SalesEnquiry) => {
+        const speciesCount = item?.game_preferences?.length || 0
+        const areaName = item?.areas?.[0]?.location?.name || 'N/A'
+        const huntingType = item?.pricings?.[0]?.hunting_type || 'N/A'
+        const startDate = item?.preference?.preferred_start_date || 'N/A'
+        const endDate = item?.preference?.preferred_start_date && item?.preference?.no_of_days
+          ? new Date(new Date(item.preference.preferred_start_date).getTime() + item.preference.no_of_days * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+          : 'N/A'
 
         return {
           id: item.id,
@@ -335,17 +357,17 @@ const getSalesInquiryList = async () => {
           name: item?.entity?.full_name || 'N/A',
           area: areaName,
           hunting_type: huntingType,
-          price: `${currencySymbol}${parseFloat(amount).toFixed(2)}`,
-          start_date: item?.formatted_preferences?.start_date || 'N/A',
-          end_date: item?.formatted_preferences?.end_date || 'N/A',
+          start_date: startDate,
+          end_date: endDate,
           season: item?.season?.name || 'N/A',
           species_count: speciesCount,
-          status: item?.status || 'PENDING',
+          status: item?.status || 'NEW',
         }
       })
     }
   } catch (error) {
     console.error('Error fetching sales inquiries:', error)
+    init({ message: 'Failed to fetch sales inquiries', color: 'danger' })
   } finally {
     loading.value = false
   }

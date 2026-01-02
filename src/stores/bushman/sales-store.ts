@@ -722,5 +722,150 @@ export const useSalesInquiriesStore = defineStore('sales_inquiries', {
         return response
       }
     },
+
+    // ============ Pricing/Quotation Methods ============
+
+    /**
+     * Add pricing to an enquiry
+     */
+    async addPricing(enquiryId: number, payload: any) {
+      const url = `${import.meta.env.VITE_APP_BASE_URL}sales-enquiries/${enquiryId}/pricing`
+      const config = {
+        method: 'post',
+        maxBodyLength: Infinity,
+        url: url,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        data: JSON.stringify(payload),
+      }
+      const response = await axios.request(config)
+      return response
+    },
+
+    /**
+     * Update pricing
+     */
+    async updatePricing(pricingId: number, payload: any) {
+      const url = `${import.meta.env.VITE_APP_BASE_URL}sales-enquiries/pricing/${pricingId}`
+      const config = {
+        method: 'put',
+        maxBodyLength: Infinity,
+        url: url,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        data: JSON.stringify(payload),
+      }
+      const response = await axios.request(config)
+      return response
+    },
+
+    /**
+     * Delete pricing
+     */
+    async deletePricing(pricingId: number) {
+      const url = `${import.meta.env.VITE_APP_BASE_URL}sales-enquiries/pricing/${pricingId}`
+      const config = {
+        method: 'delete',
+        maxBodyLength: Infinity,
+        url: url,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+      const response = await axios.request(config)
+      return response
+    },
+
+    /**
+     * Lock pricing (change status to LOCKED)
+     */
+    async lockPricing(pricingId: number) {
+      const url = `${import.meta.env.VITE_APP_BASE_URL}sales-enquiries/pricing/${pricingId}`
+      const config = {
+        method: 'patch',
+        maxBodyLength: Infinity,
+        url: url,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        data: JSON.stringify({ status: 'LOCKED' }),
+      }
+      const response = await axios.request(config)
+      return response
+    },
+
+    // ============ Pricing Item Methods ============
+
+    /**
+     * Add pricing item
+     */
+    async addPricingItem(pricingId: number, payload: any) {
+      const url = `${import.meta.env.VITE_APP_BASE_URL}sales-enquiries/pricing/${pricingId}/items`
+      const config = {
+        method: 'post',
+        maxBodyLength: Infinity,
+        url: url,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        data: JSON.stringify(payload),
+      }
+      const response = await axios.request(config)
+      return response
+    },
+
+    /**
+     * Update pricing item
+     */
+    async updatePricingItem(itemId: number, payload: any) {
+      const url = `${import.meta.env.VITE_APP_BASE_URL}pricing-items/${itemId}`
+      const config = {
+        method: 'put',
+        maxBodyLength: Infinity,
+        url: url,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        data: JSON.stringify(payload),
+      }
+      const response = await axios.request(config)
+      return response
+    },
+
+    /**
+     * Delete pricing item
+     */
+    async deletePricingItem(itemId: number) {
+      const url = `${import.meta.env.VITE_APP_BASE_URL}pricing-items/${itemId}`
+      const config = {
+        method: 'delete',
+        maxBodyLength: Infinity,
+        url: url,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+      const response = await axios.request(config)
+      return response
+    },
+
+    /**
+     * Get pricings for an enquiry
+     */
+    async getEnquiryPricings(enquiryId: number) {
+      const url = `${import.meta.env.VITE_APP_BASE_URL}sales-enquiries/${enquiryId}`
+      const config = {
+        method: 'get',
+        maxBodyLength: Infinity,
+        url: url,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+      const response = await axios.request(config)
+      return response
+    },
   },
 })

@@ -4,84 +4,165 @@
     <main class="content">
       <!-- Page Title Row -->
       <div class="page-head">
-        <div>
-          <div class="crumbs">SALES / <span>PRICE STRUCTURES</span></div>
+        <div class="page-head-left">
+          <div class="crumbs">
+            <span class="crumb-icon">📊</span>
+            SALES / <span>PRICE STRUCTURES</span>
+          </div>
           <h1>{{ editMode ? 'Edit Price Structure' : 'Create Price Structure' }}</h1>
-          <p class="subtitle">Rate card for a specific area + season + currency.</p>
+          <p class="subtitle">Configure your rate card for a specific area, season, and currency combination.</p>
         </div>
 
         <div class="head-actions">
-          <button class="btn ghost" type="button" @click="$emit('goBack')">← Back</button>
-          <button class="btn ghost" type="button" @click="resetForm">⟲ Reset</button>
-          <button class="btn ghost" type="button" @click="saveDraft" :disabled="saving">💾 Save Draft</button>
-          <button class="btn primary" type="button" @click="submit" :disabled="saving || !canSubmit">
-            💾 Save &amp; Activate
+          <button class="btn ghost" type="button" @click="$emit('goBack')">
+            <span class="btn-icon">←</span> Back
           </button>
+          <button class="btn ghost" type="button" @click="resetForm">
+            <span class="btn-icon">⟲</span> Reset
+          </button>
+          <button class="btn secondary" type="button" @click="saveDraft" :disabled="saving">
+            <span class="btn-icon">💾</span> Save Draft
+          </button>
+          <button class="btn primary" type="button" @click="submit" :disabled="saving || !canSubmit">
+            <span class="btn-icon">✓</span> Save &amp; Activate
+          </button>
+        </div>
+      </div>
+
+      <!-- Progress Indicator -->
+      <div class="progress-steps">
+        <div class="step" :class="{ completed: form.name && form.areaId && form.currencyId }">
+          <div class="step-number">1</div>
+          <div class="step-label">Basic Info</div>
+        </div>
+        <div class="step-connector" :class="{ active: form.name && form.areaId && form.currencyId }"></div>
+        <div class="step" :class="{ completed: form.lines.length > 0 }">
+          <div class="step-number">2</div>
+          <div class="step-label">Configure Rates</div>
+        </div>
+        <div class="step-connector" :class="{ active: form.lines.length > 0 }"></div>
+        <div class="step" :class="{ completed: canSubmit && form.lines.length > 0 }">
+          <div class="step-number">3</div>
+          <div class="step-label">Review & Save</div>
         </div>
       </div>
 
       <!-- 3-column layout -->
       <section class="grid">
         <!-- LEFT: Create Price Structure Form -->
-        <aside class="panel">
-          <div class="panel-title">{{ editMode ? 'Edit Price Structure' : 'Create Price Structure' }}</div>
+        <aside class="panel left-panel">
+          <div class="panel-header">
+            <div class="panel-icon">📝</div>
+            <div class="panel-title-text">
+              <h3>{{ editMode ? 'Edit Details' : 'Price Structure Details' }}</h3>
+              <p>Fill in the basic information</p>
+            </div>
+          </div>
 
           <div class="form">
-            <label class="field">
-              <span class="lbl">Name <span class="req">*</span></span>
-              <input v-model.trim="form.name" />
-            </label>
-
-            <label class="field">
-              <span class="lbl">Area <span class="req">*</span></span>
-              <select v-model="form.areaId" :disabled="loadingAreas">
-                <option :value="null" disabled>Select area</option>
-                <option v-for="a in lookups.areas" :key="a.id" :value="a.id">{{ a.name }}</option>
-              </select>
-            </label>
-
-            <label class="field">
-              <span class="lbl">Season</span>
-              <select v-model="form.seasonId" :disabled="loadingSeasons">
-                <option :value="null">None</option>
-                <option v-for="s in lookups.seasons" :key="s.id" :value="s.id">{{ s.name }}</option>
-              </select>
-            </label>
-
-            <label class="field">
-              <span class="lbl">Start Date <span class="req">*</span></span>
-              <input v-model="form.startDate" type="date" />
-            </label>
-
-            <label class="field">
-              <span class="lbl">End Date <span class="req">*</span></span>
-              <input v-model="form.endDate" type="date" />
-              <small v-if="form.startDate && form.endDate && !hasValidDates" class="text-danger">
-                Start date must be before or equal to End date.
-              </small>
-            </label>
-
-            <label class="field">
-              <span class="lbl">Currency <span class="req">*</span></span>
-              <select v-model="form.currencyId" :disabled="loadingCurrencies">
-                <option :value="null" disabled>Select currency</option>
-                <option v-for="c in lookups.currencies" :key="c.id" :value="c.id">{{ c.code }}</option>
-              </select>
-            </label>
-
-            <div class="toggle-row">
-              <span class="lbl">Active</span>
-              <label class="switch">
-                <input type="checkbox" v-model="form.isActive" />
-                <span class="slider"></span>
+            <div class="form-section">
+              <div class="section-title">
+                <span class="section-icon">🏷️</span>
+                Identification
+              </div>
+              
+              <label class="field">
+                <span class="lbl">Structure Name <span class="req">*</span></span>
+                <div class="input-wrapper">
+                  <span class="input-icon">📋</span>
+                  <input v-model.trim="form.name" placeholder="e.g., Price structures 2026" />
+                </div>
               </label>
+
+              <label class="field">
+                <span class="lbl">Hunting Area <span class="req">*</span></span>
+                <div class="input-wrapper">
+                  <span class="input-icon">🗺️</span>
+                  <select v-model="form.areaId" :disabled="loadingAreas">
+                    <option :value="null" disabled>Select hunting area...</option>
+                    <option v-for="a in lookups.areas" :key="a.id" :value="a.id">{{ a.name }}</option>
+                  </select>
+                </div>
+              </label>
+
+              <label class="field">
+                <span class="lbl">Season</span>
+                <div class="input-wrapper">
+                  <span class="input-icon">🌿</span>
+                  <select v-model="form.seasonId" :disabled="loadingSeasons">
+                    <option :value="null">No specific season</option>
+                    <option v-for="s in lookups.seasons" :key="s.id" :value="s.id">{{ s.name }}</option>
+                  </select>
+                </div>
+              </label>
+            </div>
+
+            <div class="form-section">
+              <div class="section-title">
+                <span class="section-icon">📅</span>
+                Validity Period
+              </div>
+              
+              <div class="date-row">
+                <label class="field">
+                  <span class="lbl">Start Date <span class="req">*</span></span>
+                  <div class="input-wrapper">
+                    <input v-model="form.startDate" type="date" />
+                  </div>
+                </label>
+
+                <label class="field">
+                  <span class="lbl">End Date <span class="req">*</span></span>
+                  <div class="input-wrapper">
+                    <input v-model="form.endDate" type="date" />
+                  </div>
+                </label>
+              </div>
+              <small v-if="form.startDate && form.endDate && !hasValidDates" class="text-danger">
+                ⚠️ Start date must be before or equal to End date.
+              </small>
+            </div>
+
+            <div class="form-section">
+              <div class="section-title">
+                <span class="section-icon">💰</span>
+                Currency & Status
+              </div>
+              
+              <label class="field">
+                <span class="lbl">Currency <span class="req">*</span></span>
+                <div class="input-wrapper">
+                  <span class="input-icon">💵</span>
+                  <select v-model="form.currencyId" :disabled="loadingCurrencies">
+                    <option :value="null" disabled>Select currency...</option>
+                    <option v-for="c in lookups.currencies" :key="c.id" :value="c.id">{{ c.code }}</option>
+                  </select>
+                </div>
+              </label>
+
+              <div class="toggle-row">
+                <div class="toggle-info">
+                  <span class="lbl">Active Status</span>
+                  <span class="toggle-hint">{{ form.isActive ? 'This price structure is active' : 'This price structure is inactive' }}</span>
+                </div>
+                <label class="switch">
+                  <input type="checkbox" v-model="form.isActive" />
+                  <span class="slider"></span>
+                </label>
+              </div>
             </div>
           </div>
         </aside>
 
         <!-- CENTER: Price Map + Rate Lines -->
-        <section class="panel center">
-          <div class="panel-title">Price Map</div>
+        <section class="panel center-panel">
+          <div class="panel-header center-header">
+            <div class="panel-icon">💼</div>
+            <div class="panel-title-text">
+              <h3>Price Configuration</h3>
+              <p>Set up packages, extras, and companion rates</p>
+            </div>
+          </div>
 
           <!-- Tabs Card -->
           <div class="inner-card tabs-card">
@@ -94,7 +175,8 @@
                 @click="activeTab = t"
               >
                 <span class="tab-icon">{{ tabIcon(t) }}</span>
-                {{ t }}
+                <span class="tab-text">{{ t }}</span>
+                <span class="tab-count" v-if="getTabCount(t) > 0">{{ getTabCount(t) }}</span>
               </button>
             </div>
           </div>
@@ -102,21 +184,26 @@
           <!-- Search & Actions Card -->
           <div class="inner-card toolbar-card">
             <div class="search-row">
-              <span class="icon">🔎</span>
-              <input v-model="search" placeholder="Search item name/code..." />
+              <span class="search-icon">🔍</span>
+              <input v-model="search" placeholder="Search items by name or code..." />
+              <button v-if="search" class="clear-search" @click="search = ''">✕</button>
             </div>
             <div class="rate-lines-head">
               <div class="lines-info">
                 <h3>Rate Lines</h3>
-                <span class="line-count">{{ filteredLines.length }} items</span>
+                <span class="line-count">
+                  <span class="count-number">{{ filteredLines.length }}</span> items
+                </span>
               </div>
-              <button class="btn btn-blue small" type="button" @click="addLine">+ Add line</button>
+              <button class="btn btn-add" type="button" @click="addLine">
+                <span class="btn-icon">+</span> Add {{ activeTab === 'Companion Hunter' ? 'Rate' : 'Line' }}
+              </button>
             </div>
           </div>
 
           <!-- Table Card -->
           <div class="inner-card table-card">
-            <table class="data-table">
+            <table class="data-table" v-if="filteredLines.length > 0">
               <thead>
                 <tr>
                   <th class="col-item">Item</th>
@@ -142,7 +229,7 @@
                   </td>
 
                   <td>
-                    <div class="type-display">{{ line.itemType || '�' }}</div>
+                    <div class="type-badge" :class="getTypeBadgeClass(line.itemType)">{{ line.itemType || '—' }}</div>
                   </td>
 
                   <td>
@@ -163,68 +250,93 @@
             </table>
 
             <div v-if="filteredLines.length === 0" class="empty-state">
-              <div class="empty-icon">📋</div>
-              <div class="empty-text">No lines found</div>
-              <div class="empty-hint">Click "Add line" to create a new rate line</div>
-              <button class="btn primary small" type="button" @click="addLine">+ Add line</button>
+              <div class="empty-illustration">
+                <div class="empty-icon">{{ getEmptyIcon() }}</div>
+                <div class="empty-circles"></div>
+              </div>
+              <div class="empty-content">
+                <div class="empty-text">No {{ activeTab.toLowerCase() }} added yet</div>
+                <div class="empty-hint">Click the button below to add your first {{ activeTab === 'Companion Hunter' ? 'companion rate' : 'item' }}</div>
+                <button class="btn btn-add" type="button" @click="addLine">
+                  <span class="btn-icon">+</span> Add {{ activeTab === 'Companion Hunter' ? 'Rate' : 'Line' }}
+                </button>
+              </div>
             </div>
           </div>
 
-          <div class="inner-card details-card">
-            <div class="details-head">Line Details</div>
-            <div v-if="selectedLine" class="details-form">
+          <!-- Line Details Card -->
+          <div class="inner-card details-card" v-if="selectedLine">
+            <div class="details-head">
+              <span class="details-icon">✏️</span>
+              Edit Line Details
+            </div>
+            <div class="details-form">
               <div class="edit-section">
                 <label class="field" v-if="selectedLine.itemType && selectedLine.itemType !== 'PACKAGE' && selectedLine.itemType !== 'COMPANION'">
                   <span class="lbl">Source</span>
-                  <select v-model="selectedLine.source" :class="{'source-new': selectedLine.source === 'new'}">
-                    <option value="existing">Existing Item</option>
-                    <option value="new">New Item (Create New)</option>
-                  </select>
+                  <div class="input-wrapper">
+                    <select v-model="selectedLine.source" :class="{'source-new': selectedLine.source === 'new'}">
+                      <option value="existing">Existing Item</option>
+                      <option value="new">New Item (Create New)</option>
+                    </select>
+                  </div>
                 </label>
 
                 <!-- For existing source: show Item selector -->
                 <label class="field" v-if="selectedLine.source === 'existing' && selectedLine.itemType !== 'PACKAGE' && selectedLine.itemType !== 'COMPANION'">
                   <span class="lbl">Item <span class="req">*</span></span>
-                  <select v-model="selectedLine.itemId" :disabled="!selectedLine.itemType">
-                    <option :value="null" disabled>Select item</option>
-                    <option v-for="i in itemsForType(selectedLine.itemType)" :key="i.id" :value="i.id">
-                      {{ i.code ? `${i.code} - ` : '' }}{{ i.name }}
-                    </option>
-                  </select>
+                  <div class="input-wrapper">
+                    <select v-model="selectedLine.itemId" :disabled="!selectedLine.itemType">
+                      <option :value="null" disabled>Select item</option>
+                      <option v-for="i in itemsForType(selectedLine.itemType)" :key="i.id" :value="i.id">
+                        {{ i.code ? `${i.code} - ` : '' }}{{ i.name }}
+                      </option>
+                    </select>
+                  </div>
                 </label>
 
                 <!-- For new source: show Item Name input -->
                 <label class="field" v-else-if="selectedLine.source === 'new' && selectedLine.itemType !== 'COMPANION'">
                   <span class="lbl">{{ selectedLine.itemType === 'PACKAGE' ? 'Package Name' : 'Item Name' }} <span class="req">*</span></span>
-                  <input v-model.trim="selectedLine.name" :placeholder="selectedLine.itemType === 'PACKAGE' ? 'e.g., 7 Day Buffalo Hunt' : 'New item name'" :disabled="!selectedLine.itemType" />
+                  <div class="input-wrapper">
+                    <input v-model.trim="selectedLine.name" :placeholder="selectedLine.itemType === 'PACKAGE' ? 'e.g., 7 Day Buffalo Hunt' : 'New item name'" :disabled="!selectedLine.itemType" />
+                  </div>
                 </label>
 
                 <label class="field" v-if="selectedLine.itemType === 'PACKAGE'">
                   <span class="lbl">Hunting Type <span class="req">*</span></span>
-                  <select v-model="selectedLine.huntingTypeId" :disabled="loadingHuntingTypes">
-                    <option :value="null" disabled>Select hunting type</option>
-                    <option v-for="h in lookups.huntingTypes" :key="h.id" :value="h.id">{{ h.name }}</option>
-                  </select>
+                  <div class="input-wrapper">
+                    <select v-model="selectedLine.huntingTypeId" :disabled="loadingHuntingTypes">
+                      <option :value="null" disabled>Select hunting type</option>
+                      <option v-for="h in lookups.huntingTypes" :key="h.id" :value="h.id">{{ h.name }}</option>
+                    </select>
+                  </div>
                 </label>
 
                 <label class="field" v-if="selectedLine.itemType === 'PACKAGE' || selectedLine.itemType === 'COMPANION'">
                   <span class="lbl">Hunt Length <span class="req">*</span></span>
-                  <select v-model.number="selectedLine.minDays" :disabled="loadingHuntLengths">
-                    <option :value="null" disabled>Select hunt length</option>
-                    <option v-for="hl in lookups.huntLengths" :key="hl.id" :value="hl.id">{{ getHuntLengthLabel(hl) }}</option>
-                  </select>
+                  <div class="input-wrapper">
+                    <select v-model.number="selectedLine.minDays" :disabled="loadingHuntLengths">
+                      <option :value="null" disabled>Select hunt length</option>
+                      <option v-for="hl in lookups.huntLengths" :key="hl.id" :value="hl.id">{{ getHuntLengthLabel(hl) }}</option>
+                    </select>
+                  </div>
                 </label>
 
                 <!-- Sales Packages for PACKAGE items -->
                 <div class="package-builder-section" v-if="selectedLine.itemType === 'PACKAGE'">
+                  <div class="package-section-header">
+                    <span class="package-icon">📦</span>
+                    <span class="package-title">Sales Packages</span>
+                  </div>
                   <div class="sales-packages-row">
                     <div class="sales-packages-label">
-                      <span class="lbl">Sales Packages <span class="req">*</span></span>
-                      <small class="field-hint">Select one or more sales packages.</small>
+                      <span class="lbl">Select Packages <span class="req">*</span></span>
+                      <small class="field-hint">Choose one or more sales packages to include</small>
                     </div>
                     <div class="sales-packages-input">
                       <select v-model="selectedPackageToAdd" class="package-select">
-                        <option :value="null" disabled>Select a package</option>
+                        <option :value="null" disabled>Select a package to add...</option>
                         <option v-for="pkg in availableSalesPackages" :key="pkg.id" :value="pkg.id">
                           {{ pkg.name }}
                         </option>
@@ -242,92 +354,134 @@
                   </div>
                   <div class="selected-packages" v-if="selectedLine.salesPackageIds && selectedLine.salesPackageIds.length > 0">
                     <div v-for="pkgId in selectedLine.salesPackageIds" :key="pkgId" class="package-tag">
+                      <span class="package-tag-icon">📦</span>
                       <span>{{ getPackageName(pkgId) }}</span>
                       <button type="button" class="remove-pkg-btn" @click="removePackageFromLine(selectedLine, pkgId)">&times;</button>
                     </div>
+                  </div>
+                  <div v-else class="no-packages-hint">
+                    No packages selected yet
                   </div>
                 </div>
 
                 <!-- Description for new items -->
                 <label class="field" v-if="selectedLine.source === 'new' && selectedLine.itemType !== 'COMPANION'">
                   <span class="lbl">Description</span>
-                  <input v-model.trim="selectedLine.description" placeholder="Optional description" />
+                  <div class="input-wrapper">
+                    <input v-model.trim="selectedLine.description" placeholder="Optional description" />
+                  </div>
                 </label>
 
                 <label class="field" v-if="selectedLine.itemType !== 'PACKAGE' && selectedLine.itemType !== 'COMPANION'">
                   <span class="lbl">Pricing Unit</span>
-                  <select v-model="selectedLine.pricingUnit">
-                    <option value="FLAT">FLAT</option>
-                    <option value="PER_DAY">PER_DAY</option>
-                    <option value="PER_NIGHT">PER_NIGHT</option>
-                    <option value="PER_PERSON_PER_DAY">PER_PERSON_PER_DAY</option>
-                    <option value="PER_ITEM">PER_ITEM</option>
-                  </select>
+                  <div class="input-wrapper">
+                    <select v-model="selectedLine.pricingUnit">
+                      <option value="FLAT">FLAT</option>
+                      <option value="PER_DAY">PER_DAY</option>
+                      <option value="PER_NIGHT">PER_NIGHT</option>
+                      <option value="PER_PERSON_PER_DAY">PER_PERSON_PER_DAY</option>
+                      <option value="PER_ITEM">PER_ITEM</option>
+                    </select>
+                  </div>
                 </label>
 
-                <label class="field">
-                  <span class="lbl">Amount</span>
-                  <input v-model.number="selectedLine.amount" type="number" min="0" step="0.01" />
+                <label class="field amount-field">
+                  <span class="lbl">Amount <span class="currency-hint">({{ getCurrencyCode() }})</span></span>
+                  <div class="input-wrapper amount-wrapper">
+                    <span class="currency-symbol">{{ getCurrencyCode() }}</span>
+                    <input v-model.number="selectedLine.amount" type="number" min="0" step="0.01" class="amount-input" />
+                  </div>
                 </label>
               </div>
-            </div>
-            <div v-else class="empty-details">
-              Select a line from "Rate Lines" to view details.
             </div>
           </div>
         </section>
 
-        <!-- RIGHT: Line Details -->
-        <aside class="panel">
-          <div class="panel-title">Line Details</div>
-
-          <div v-if="selectedLine" class="details">
-            <div class="detail-title">
-              <div class="big">{{ getLineName(selectedLine) }}</div>
-              <div class="small muted">{{ getLineCode(selectedLine) }}</div>
+        <!-- RIGHT: Preview Panel -->
+        <aside class="panel right-panel">
+          <div class="panel-header preview-header">
+            <div class="panel-icon">👁️</div>
+            <div class="panel-title-text">
+              <h3>Preview</h3>
+              <p>Review your configuration</p>
             </div>
-
-            <div class="kv">
-              <div class="row">
-                <span class="k">Area:</span>
-                <span class="v">{{ getAreaName() }}</span>
-                <span class="badge" :class="form.isActive ? 'ok' : 'off'">
-                  {{ form.isActive ? 'Active' : 'Inactive' }}
-                </span>
-              </div>
-
-              <div class="row">
-                <span class="k">Season:</span>
-                <span class="v">{{ getSeasonName() }}</span>
-              </div>
-
-              <div class="row">
-                <span class="k">Hunting Type:</span>
-                <span class="v">{{ getHuntingTypeName(selectedLine.huntingTypeId) }}</span>
-              </div>
-
-              <hr />
-
-              <div class="row">
-                <span class="k">Pricing Unit:</span>
-                <span class="v">{{ selectedLine.pricingUnit }}</span>
-              </div>
-
-              <div class="row">
-                <span class="k">Amount:</span>
-                <span class="v"><b>{{ money(selectedLine.amount) }}</b> {{ getCurrencyCode() }}</span>
-              </div>
-            </div>
-
           </div>
 
-          <div v-else class="empty-details">
-            Select a line from "Rate Lines" to view details.
+          <div v-if="selectedLine" class="preview-content">
+            <div class="preview-item-header">
+              <div class="preview-icon-wrapper">
+                <span class="preview-type-icon">{{ getTypeIcon(selectedLine.itemType) }}</span>
+              </div>
+              <div class="preview-item-info">
+                <div class="preview-name">{{ getLineName(selectedLine) }}</div>
+                <div class="preview-code">{{ getLineCode(selectedLine) }}</div>
+              </div>
+              <span class="status-badge" :class="form.isActive ? 'active' : 'inactive'">
+                {{ form.isActive ? 'Active' : 'Inactive' }}
+              </span>
+            </div>
+
+            <div class="preview-details">
+              <div class="preview-section">
+                <div class="preview-section-title">
+                  <span class="section-dot"></span>
+                  Location & Season
+                </div>
+                <div class="preview-row">
+                  <span class="preview-label">Area</span>
+                  <span class="preview-value">{{ getAreaName() }}</span>
+                </div>
+                <div class="preview-row">
+                  <span class="preview-label">Season</span>
+                  <span class="preview-value">{{ getSeasonName() }}</span>
+                </div>
+              </div>
+
+              <div class="preview-section" v-if="selectedLine.huntingTypeId || selectedLine.minDays">
+                <div class="preview-section-title">
+                  <span class="section-dot"></span>
+                  Hunt Details
+                </div>
+                <div class="preview-row" v-if="selectedLine.huntingTypeId">
+                  <span class="preview-label">Hunting Type</span>
+                  <span class="preview-value">{{ getHuntingTypeName(selectedLine.huntingTypeId) }}</span>
+                </div>
+                <div class="preview-row" v-if="selectedLine.minDays">
+                  <span class="preview-label">Hunt Length</span>
+                  <span class="preview-value">{{ getHuntLengthLabelById(selectedLine.minDays) }}</span>
+                </div>
+              </div>
+
+              <div class="preview-section pricing-section">
+                <div class="preview-section-title">
+                  <span class="section-dot"></span>
+                  Pricing
+                </div>
+                <div class="preview-row" v-if="selectedLine.pricingUnit">
+                  <span class="preview-label">Unit</span>
+                  <span class="preview-value unit-badge">{{ selectedLine.pricingUnit }}</span>
+                </div>
+                <div class="preview-price">
+                  <span class="price-currency">{{ getCurrencyCode() }}</span>
+                  <span class="price-amount">{{ money(selectedLine.amount) }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div v-else class="empty-preview">
+            <div class="empty-preview-icon">👆</div>
+            <div class="empty-preview-text">Select a line</div>
+            <div class="empty-preview-hint">Click on a rate line to preview its details here</div>
           </div>
 
           <div class="bottom-actions">
-            <button class="btn ghost full" type="button" @click="saveDraft" :disabled="saving">Save Draft</button>
-            <button class="btn success full" type="button" @click="submit" :disabled="saving || !canSubmit">💾 Save &amp; Activate</button>
+            <button class="btn ghost full" type="button" @click="saveDraft" :disabled="saving">
+              <span class="btn-icon">💾</span> Save Draft
+            </button>
+            <button class="btn success full" type="button" @click="submit" :disabled="saving || !canSubmit">
+              <span class="btn-icon">✓</span> Save &amp; Activate
+            </button>
           </div>
         </aside>
       </section>
@@ -481,12 +635,48 @@ function selectLine(key: string) {
 }
 
 function tabIcon(t: string): string {
-  if (t === "Packages") return "👤"
+  if (t === "Packages") return "�"
   if (t === "Trophy Fees") return "🏆"
-  if (t === "Extras") return "🧾"
+  if (t === "Extras") return "🎯"
   if (t === "Companion Hunter") return "👥"
   if (t === "Upgrade Fees") return "⬆️"
   return "🚐"
+}
+
+function getTabCount(tab: string): number {
+  const wantedType = tabToType[tab]
+  return form.lines.filter(line => line.itemType === wantedType).length
+}
+
+function getTypeBadgeClass(itemType: string | null): string {
+  if (!itemType) return ''
+  const classes: Record<string, string> = {
+    'PACKAGE': 'type-package',
+    'TROPHY': 'type-trophy',
+    'EXTRA': 'type-extra',
+    'COMPANION': 'type-companion',
+    'ADJUSTMENT': 'type-adjustment'
+  }
+  return classes[itemType] || ''
+}
+
+function getTypeIcon(itemType: string | null): string {
+  if (!itemType) return '📋'
+  const icons: Record<string, string> = {
+    'PACKAGE': '📦',
+    'TROPHY': '🏆',
+    'EXTRA': '🎯',
+    'COMPANION': '👥',
+    'ADJUSTMENT': '⬆️'
+  }
+  return icons[itemType] || '📋'
+}
+
+function getEmptyIcon(): string {
+  if (activeTab.value === 'Packages') return '📦'
+  if (activeTab.value === 'Extras') return '🎯'
+  if (activeTab.value === 'Companion Hunter') return '👥'
+  return '📋'
 }
 
 function money(v: number): string {
@@ -1145,55 +1335,91 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-/* Basic look similar to the screenshots: light gray page, soft cards */
+/* Modern Design System Variables */
 :root {
-  --bg: #f3f5f9;
+  --bg: #f5f7fa;
+  --bg-secondary: #e8ecf0;
   --card: #ffffff;
-  --border: #e5e7ef;
-  --text: #1b2430;
-  --muted: #667085;
-  --blue: #1f6feb;
-  --blue-weak: #e9f1ff;
-  --green: #2e7d32;
-  --shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+  --border: #e2e8f0;
+  --border-light: #f1f5f9;
+  --text: #0f172a;
+  --text-secondary: #475569;
+  --muted: #94a3b8;
+  --primary: #2563eb;
+  --primary-dark: #1e40af;
+  --primary-light: #dbeafe;
+  --success: #059669;
+  --success-light: #d1fae5;
+  --warning: #d97706;
+  --danger: #dc2626;
+  --purple: #7c3aed;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --radius: 12px;
+  --radius-lg: 16px;
 }
 
 .ps-page {
   background: var(--bg);
   min-height: 100vh;
   color: var(--text);
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
 /* Content */
 .content {
-  padding: 18px 18px 26px;
+  padding: 20px 24px 32px;
+  max-width: 1800px;
+  margin: 0 auto;
 }
 
-/* Page head */
+/* Page Head */
 .page-head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 18px;
-  margin-bottom: 14px;
+  gap: 24px;
+  margin-bottom: 20px;
   flex-wrap: wrap;
 }
-.crumbs {
-  font-size: 12px;
-  color: var(--muted);
-  letter-spacing: 0.3px;
+
+.page-head-left {
+  flex: 1;
 }
+
+.crumbs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #64748b;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
 .crumbs span {
   font-weight: 700;
+  color: var(--primary);
 }
+
+.crumb-icon {
+  font-size: 14px;
+}
+
 h1 {
-  margin: 8px 0 4px;
-  font-size: 34px;
+  margin: 10px 0 6px;
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--text);
+  letter-spacing: -0.5px;
 }
+
 .subtitle {
   margin: 0;
-  color: var(--muted);
+  color: var(--text-secondary);
+  font-size: 14px;
 }
 
 .head-actions {
@@ -1202,264 +1428,570 @@ h1 {
   flex-wrap: wrap;
 }
 
-/* Grid */
+/* Progress Steps */
+.progress-steps {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  margin-bottom: 24px;
+  padding: 16px 24px;
+  background: var(--card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  border-radius: 30px;
+  transition: all 0.3s ease;
+}
+
+.step.completed {
+  background: var(--primary-light);
+}
+
+.step.completed .step-number {
+  background: var(--primary);
+  color: white;
+}
+
+.step-number {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--border);
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 13px;
+  transition: all 0.3s ease;
+}
+
+.step-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.step.completed .step-label {
+  color: var(--primary);
+}
+
+.step-connector {
+  width: 60px;
+  height: 3px;
+  background: var(--border);
+  border-radius: 2px;
+  margin: 0 8px;
+  transition: all 0.3s ease;
+}
+
+.step-connector.active {
+  background: linear-gradient(90deg, var(--primary) 0%, var(--primary-light) 100%);
+}
+
+/* Grid Layout */
 .grid {
   display: grid;
-  grid-template-columns: 320px 1fr 320px;
-  gap: 16px;
+  grid-template-columns: 340px 1fr 340px;
+  gap: 20px;
   align-items: start;
 }
 
-/* Panels */
+/* Panel Base Styles */
 .panel {
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow);
   overflow: hidden;
 }
-.panel-title {
-  padding: 14px 14px;
-  border-bottom: 1px solid var(--border);
-  font-weight: 800;
-  background: #cecef2;
-}
-.panel.center {
-  min-height: 520px;
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 20px;
+  background: #f8fafc;
+  border-bottom: 2px solid var(--border);
 }
 
-/* Buttons */
-.btn {
-  border: 1px solid var(--border);
-  background: #fff;
+.panel-icon {
+  width: 44px;
+  height: 44px;
   border-radius: 12px;
-  padding: 10px 14px;
-  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+}
+
+.left-panel .panel-icon {
+  background: #dbeafe;
+  border: 2px solid #3b82f6;
+}
+
+.center-panel .panel-icon {
+  background: #d1fae5;
+  border: 2px solid #10b981;
+}
+
+.right-panel .panel-icon {
+  background: #fef3c7;
+  border: 2px solid #f59e0b;
+}
+
+.panel-title-text h3 {
+  margin: 0;
+  font-size: 16px;
   font-weight: 700;
+  color: #0f172a;
 }
-.btn.small {
-  padding: 8px 12px;
+
+.panel-title-text p {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.center-panel {
+  min-height: 600px;
+}
+
+/* Buttons - All Blue Theme */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid var(--primary);
+  background: var(--card);
   border-radius: 10px;
+  padding: 10px 16px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 13px;
+  transition: all 0.2s ease;
+  color: var(--primary);
 }
+
+.btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow);
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-icon {
+  font-size: 14px;
+}
+
 .btn.primary {
-  background: var(--blue);
-  border-color: var(--blue);
-  color: #fff;
+  background: #2563eb;
+  border-color: #1e40af;
+  color: white;
+  font-weight: 600;
 }
-.btn.btn-blue {
-  background: #1f6feb !important;
-  border-color: #1f6feb !important;
-  color: #fff !important;
+
+.btn.primary:hover:not(:disabled) {
+  background: #1e40af;
 }
-.btn.btn-blue:hover:not(:disabled) {
-  background: #1557c7 !important;
-  border-color: #1557c7 !important;
+
+.btn.secondary {
+  background: #dbeafe;
+  border-color: #2563eb;
+  color: #1e40af;
 }
-.btn.success {
-  background: #1b8f4b;
-  border-color: #1b8f4b;
-  color: #fff;
+
+.btn.secondary:hover:not(:disabled) {
+  background: #bfdbfe;
 }
+
 .btn.ghost {
-  background: #fff;
+  background: #ffffff;
+  border-color: #2563eb;
+  color: #2563eb;
 }
+
+.btn.ghost:hover:not(:disabled) {
+  background: #eff6ff;
+}
+
+.btn.success {
+  background: #2563eb;
+  border-color: #1e40af;
+  color: white;
+}
+
+.btn.success:hover:not(:disabled) {
+  background: #1e40af;
+}
+
 .btn.full {
   width: 100%;
 }
 
-/* Left Form */
+.btn-add {
+  background: #2563eb;
+  border-color: #1e40af;
+  color: white;
+  padding: 10px 18px;
+  font-weight: 600;
+}
+
+.btn-add:hover:not(:disabled) {
+  background: #1e40af;
+}
+
+/* Left Panel Form */
 .form {
-  padding: 20px 18px 20px 5px;
-  display: grid;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
   gap: 16px;
+  background: #fafbfc;
 }
-.field {
-  display: grid;
-  gap: 6px;
+
+.form-section {
+  background: #ffffff;
+  border-radius: var(--radius);
+  padding: 18px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
 }
-.lbl {
-  font-size: 13px;
-  color: #334155;
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
   font-weight: 700;
+  color: #1e40af;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #dbeafe;
 }
+
+.section-icon {
+  font-size: 14px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.field:last-child {
+  margin-bottom: 0;
+}
+
+.lbl {
+  font-size: 12px;
+  color: #0f172a;
+  font-weight: 600;
+}
+
 .req {
-  color: #e11d48;
+  color: var(--danger);
 }
-input,
-select {
-  border: 1px solid var(--border);
-  border-radius: 12px;
+
+.input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input-icon {
+  position: absolute;
+  left: 12px;
+  font-size: 14px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.input-wrapper input,
+.input-wrapper select {
+  width: 100%;
+  border: 2px solid #e2e8f0;
+  border-radius: 10px;
   padding: 10px 12px;
+  padding-left: 38px;
+  font-size: 13px;
+  background: #ffffff;
+  color: #0f172a;
+  transition: all 0.2s ease;
   outline: none;
-  background: #f3ecec;
 }
+
+.input-wrapper input:focus,
+.input-wrapper select:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px #dbeafe;
+  background: #ffffff;
+}
+
+.input-wrapper input[type="date"] {
+  padding-left: 12px;
+}
+
+.date-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
 .toggle-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-top: 6px;
+  padding: 14px;
+  background: #f8fafc;
+  border-radius: 10px;
+  border: 2px solid #e2e8f0;
+}
+
+.toggle-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.toggle-hint {
+  font-size: 11px;
+  color: var(--text-secondary);
 }
 
 /* Switch */
 .switch {
   position: relative;
   display: inline-block;
-  width: 52px;
-  height: 28px;
+  width: 48px;
+  height: 26px;
 }
+
 .switch input {
   opacity: 0;
   width: 0;
   height: 0;
 }
+
 .slider {
   position: absolute;
   cursor: pointer;
   inset: 0;
-  background-color: #d0d5dd;
-  border-radius: 999px;
-  transition: 0.2s;
+  background-color: var(--border);
+  border-radius: 26px;
+  transition: 0.3s;
 }
+
 .slider:before {
   position: absolute;
   content: "";
-  height: 22px;
-  width: 22px;
+  height: 20px;
+  width: 20px;
   left: 3px;
   top: 3px;
   background-color: white;
   border-radius: 50%;
-  transition: 0.2s;
+  transition: 0.3s;
+  box-shadow: var(--shadow-sm);
 }
+
 .switch input:checked + .slider {
-  background-color: var(--blue);
+  background: #2563eb;
 }
+
 .switch input:checked + .slider:before {
-  transform: translateX(24px);
+  transform: translateX(22px);
 }
 
 /* Inner Cards */
 .inner-card {
-  margin: 12px;
-  background: #fff;
+  margin: 14px;
+  background: var(--card);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius);
   overflow: hidden;
+  box-shadow: var(--shadow-sm);
 }
 
 .tabs-card {
-  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-  padding: 12px;
+  background: #ffffff;
+  padding: 14px;
+  border: 1px solid #e2e8f0;
 }
 
 .toolbar-card {
-  padding: 12px;
+  padding: 14px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  position: relative;
-  z-index: 2;
-  overflow: visible;
+  gap: 14px;
+  background: #ffffff;
 }
 
 .table-card {
   padding: 0;
-  margin-bottom: 16px;
+  max-height: 300px;
+  overflow-y: auto;
+  background: #ffffff;
 }
 
-/* Center: tabs and search */
+/* Tabs */
 .tabs {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
 }
+
 .tab {
-  border: 1px solid var(--border);
-  background: #fff;
+  border: 2px solid #e2e8f0;
+  background: #ffffff;
   border-radius: 10px;
-  padding: 8px 14px;
+  padding: 10px 16px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-weight: 700;
+  gap: 8px;
+  font-weight: 600;
   font-size: 13px;
   color: #475569;
   transition: all 0.2s ease;
 }
+
 .tab:hover {
-  background: #e2e8f0;
-  border-color: #cbd5e1;
-}
-.tab.active {
-  background: var(--blue);
-  border-color: var(--blue);
-  color: #fff;
-  box-shadow: 0 2px 8px rgba(31, 111, 235, 0.3);
-}
-.tab-icon {
-  font-size: 13px;
+  background: #f8fafc;
+  border-color: #2563eb;
 }
 
+.tab.active {
+  background: #2563eb;
+  border-color: #1e40af;
+  color: white;
+  box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.3);
+}
+
+.tab-icon {
+  font-size: 14px;
+}
+
+.tab-text {
+  font-weight: 600;
+}
+
+.tab-count {
+  background: #dbeafe;
+  color: #1e40af;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.tab.active .tab-count {
+  background: rgba(255, 255, 255, 0.3);
+  color: white;
+}
+
+/* Search Row */
 .search-row {
   display: flex;
   align-items: center;
   gap: 10px;
-  border: 1px solid var(--border);
-  background: #f8fafc;
+  border: 2px solid #e2e8f0;
+  background: #ffffff;
   border-radius: 10px;
   padding: 10px 14px;
+  transition: all 0.2s ease;
 }
-.search-row .icon {
+
+.search-row:focus-within {
+  border-color: #2563eb;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px #dbeafe;
+}
+
+.search-icon {
   font-size: 16px;
-  color: var(--muted);
+  color: var(--text-secondary);
 }
+
 .search-row input {
   border: 0;
-  padding: 6px 4px;
-  border-radius: 0;
+  padding: 4px;
   background: transparent;
   flex: 1;
-  font-size: 14px;
-}
-.search-row input:focus {
+  font-size: 13px;
   outline: none;
 }
 
+.clear-search {
+  background: var(--border);
+  border: none;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 10px;
+  color: var(--text-secondary);
+  transition: all 0.2s ease;
+}
+
+.clear-search:hover {
+  background: var(--danger);
+  color: white;
+}
+
+/* Rate Lines Header */
 .rate-lines-head {
   display: flex;
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
-  gap: 10px;
-  position: relative;
-  z-index: 1;
-  min-height: 40px;
+  gap: 12px;
 }
 
-.rate-lines-head .btn {
-  flex-shrink: 0;
-  white-space: nowrap;
-}
 .lines-info {
   display: flex;
   align-items: center;
-  gap: 10px;
-  flex: 0 1 auto;
+  gap: 12px;
 }
+
 .rate-lines-head h3 {
   margin: 0;
-  font-size: 16px;
-  font-weight: 800;
-  color: #1e293b;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
 }
+
 .line-count {
-  background: #e2e8f0;
-  color: #475569;
-  padding: 4px 10px;
+  background: #dbeafe;
+  color: #1e40af;
+  padding: 4px 12px;
   border-radius: 20px;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 700;
+  border: 1px solid #93c5fd;
+}
+
+.count-number {
+  font-weight: 800;
 }
 
 /* Data Table */
@@ -1470,26 +2002,27 @@ select {
 }
 
 .data-table thead {
-  background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+  background: #f8fafc;
   position: sticky;
   top: 0;
+  z-index: 10;
 }
 
 .data-table th {
-  padding: 14px 12px;
+  padding: 12px 14px;
   text-align: left;
-  font-weight: 800;
-  color: #334155;
+  font-weight: 700;
+  color: var(--text-secondary);
   text-transform: uppercase;
-  font-size: 11px;
+  font-size: 10px;
   letter-spacing: 0.5px;
   border-bottom: 2px solid var(--border);
 }
 
-.data-table th.col-item { width: 30%; }
-.data-table th.col-type { width: 18%; }
-.data-table th.col-hunting { width: 18%; }
-.data-table th.col-days { width: 10%; text-align: center; }
+.data-table th.col-item { width: 35%; }
+.data-table th.col-type { width: 15%; }
+.data-table th.col-hunting { width: 20%; }
+.data-table th.col-days { width: 15%; text-align: center; }
 .data-table th.col-action { width: 50px; }
 
 .data-table tbody tr {
@@ -1498,113 +2031,91 @@ select {
 }
 
 .data-table tbody tr:hover {
-  background: #f8fafc;
+  background: var(--border-light);
 }
 
 .data-table tbody tr.selected {
-  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
-  border-left: 3px solid var(--blue);
+  background: #dbeafe;
+  border-left: 4px solid #2563eb;
 }
 
 .data-table td {
-  padding: 12px;
-  border-bottom: 1px solid #f1f5f9;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border-light);
   vertical-align: middle;
 }
 
 .data-table .item-col .item-info {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
 }
 
 .data-table .item-col .code {
-  font-weight: 800;
-  color: #1e293b;
+  font-weight: 700;
+  color: var(--text);
   font-size: 13px;
 }
 
 .data-table .item-col .name {
-  color: var(--muted);
+  color: var(--text-secondary);
   font-size: 11px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 200px;
+  max-width: 180px;
 }
 
-.table-select {
-  width: 100%;
-  padding: 8px 10px;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  font-size: 12px;
-  font-weight: 600;
-  background: #fff;
-  color: #334155;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.table-select:disabled {
-  background: #f1f5f9;
-  color: #94a3b8;
-  cursor: not-allowed;
-  opacity: 0.7;
-}
-
-.table-select:hover:not(:disabled) {
-  border-color: var(--blue);
-}
-
-.table-select:focus {
-  outline: none;
-  border-color: var(--blue);
-  box-shadow: 0 0 0 3px rgba(31, 111, 235, 0.1);
-}
-
-.type-display {
-  padding: 8px 10px;
-  font-size: 12px;
+/* Type Badges */
+.type-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  font-size: 10px;
   font-weight: 700;
-  color: #334155;
-  text-align: center;
-  background: #f8fafc;
-  border-radius: 8px;
   text-transform: uppercase;
   letter-spacing: 0.3px;
+  border-radius: 6px;
+  text-align: center;
+}
+
+.type-badge.type-package {
+  background: #dbeafe;
+  color: #1e40af;
+  border: 1px solid #93c5fd;
+}
+
+.type-badge.type-trophy {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fcd34d;
+}
+
+.type-badge.type-extra {
+  background: #d1fae5;
+  color: #065f46;
+  border: 1px solid #6ee7b7;
+}
+
+.type-badge.type-companion {
+  background: #f3e8ff;
+  color: #6b21a8;
+  border: 1px solid #d8b4fe;
+}
+
+.type-badge.type-adjustment {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fca5a5;
 }
 
 .detail-display {
-  padding: 8px 10px;
+  padding: 6px 10px;
   font-size: 12px;
   font-weight: 600;
   color: #475569;
-  text-align: left;
   background: #f8fafc;
-  border-radius: 8px;
-}
-
-.table-input {
-  width: 100%;
-  padding: 8px 10px;
+  border-radius: 6px;
   border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 600;
-  text-align: center;
-  background: #fff;
-  transition: all 0.15s ease;
-}
-
-.table-input:hover {
-  border-color: var(--blue);
-}
-
-.table-input:focus {
-  outline: none;
-  border-color: var(--blue);
-  box-shadow: 0 0 0 3px rgba(31, 111, 235, 0.1);
 }
 
 .action-col {
@@ -1612,18 +2123,18 @@ select {
 }
 
 .remove-btn {
-  width: 32px;
-  height: 32px;
-  border: 1px solid #fecaca;
-  background: #fff;
+  width: 30px;
+  height: 30px;
+  border: 2px solid #fecaca;
+  background: #ffffff;
   border-radius: 8px;
   color: #dc2626;
-  font-size: 14px;
+  font-size: 12px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.15s ease;
+  transition: all 0.2s ease;
 }
 
 .remove-btn:hover {
@@ -1634,215 +2145,191 @@ select {
 
 /* Empty State */
 .empty-state {
-  padding: 40px 20px;
+  padding: 48px 24px;
   text-align: center;
+  background: #fafbfc;
+}
+
+.empty-illustration {
+  position: relative;
+  margin-bottom: 20px;
 }
 
 .empty-icon {
-  font-size: 48px;
-  margin-bottom: 12px;
-  opacity: 0.5;
+  font-size: 56px;
+  opacity: 0.8;
+}
+
+.empty-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
 }
 
 .empty-text {
   font-size: 16px;
   font-weight: 700;
-  color: #475569;
-  margin-bottom: 4px;
+  color: var(--text);
 }
 
 .empty-hint {
   font-size: 13px;
-  color: var(--muted);
+  color: var(--text-secondary);
+  margin-bottom: 8px;
 }
 
-.empty-state .btn {
-  margin-top: 12px;
-}
-
+/* Details Card */
 .details-card {
   padding: 0;
+  border: 2px solid #2563eb;
+  background: #ffffff;
+  box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);
 }
 
 .details-head {
-  padding: 12px 14px;
-  border-bottom: 1px solid var(--border);
-  font-weight: 800;
-  background: #fbfbfe;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 16px;
+  border-bottom: 2px solid #e2e8f0;
+  font-weight: 700;
+  font-size: 14px;
+  background: #eff6ff;
+  color: #1e40af;
+}
+
+.details-icon {
+  font-size: 14px;
 }
 
 .details-form {
-  padding: 12px 14px 14px;
+  padding: 18px;
+  background: #ffffff;
 }
 
-.details-card .edit-section {
-  margin-top: 0;
-  padding-top: 0;
-  border-top: 0;
-}
-
-/* Right details */
-.details {
-  padding: 14px;
-}
-.detail-title .big {
-  font-size: 18px;
-  font-weight: 900;
-}
-.detail-title .small {
-  margin-top: 4px;
-}
-.kv {
-  margin-top: 12px;
-}
-.kv .row {
-  display: grid;
-  grid-template-columns: 100px 1fr auto;
-  gap: 10px;
-  align-items: center;
-  padding: 8px 0;
-}
-.kv .k {
-  color: var(--muted);
-  font-weight: 700;
-}
-.kv hr {
-  border: 0;
-  border-top: 1px solid var(--border);
-  margin: 10px 0;
-}
-.badge {
-  padding: 6px 10px;
-  border-radius: 999px;
-  font-weight: 900;
-  font-size: 12px;
-  border: 1px solid var(--border);
-}
-.badge.ok {
-  background: #e9f7ef;
-  border-color: #b7e2c5;
-  color: var(--green);
-}
-.badge.off {
-  background: #f2f4f7;
-  color: #475467;
-}
-.muted {
-  color: var(--muted);
-}
-.small {
-  font-size: 12px;
-}
-
-.empty-details {
-  padding: 18px 14px;
-  color: var(--muted);
-}
-
-.bottom-actions {
-  border-top: 1px solid var(--border);
-  padding: 12px 14px 14px;
-  display: grid;
-  gap: 10px;
-}
-
-/* Edit Section in Right Panel */
 .edit-section {
-  margin-top: 16px;
-  padding-top: 16px;
-  border-top: 1px solid var(--border);
   display: grid;
-  gap: 12px;
+  gap: 16px;
 }
 
-/* Source Select - New Item Highlight */
-.source-new {
-  background-color: #f0fdf4 !important;
-  border-color: #22c55e !important;
-  color: #15803d !important;
-  font-weight: 600;
+/* Amount Field */
+.amount-field .currency-hint {
+  font-weight: 400;
+  color: var(--text-secondary);
+  font-size: 11px;
 }
 
-.text-danger {
-  color: #dc2626;
+.amount-wrapper {
+  position: relative;
+}
+
+.currency-symbol {
+  position: absolute;
+  left: 12px;
+  font-weight: 700;
+  color: var(--primary);
   font-size: 12px;
+}
+
+.amount-input {
+  padding-left: 50px !important;
+  font-weight: 700;
+  font-size: 16px !important;
+  background: #f8fafc;
 }
 
 /* Package Builder Section */
 .package-builder-section {
-  background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
-  border: 1px solid #86efac;
-  border-radius: 10px;
-  padding: 14px;
-  margin-top: 4px;
+  background: #ffffff;
+  border: 2px solid #2563eb;
+  border-radius: 12px;
+  padding: 18px;
+  box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.15);
+}
+
+.package-section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #dbeafe;
+}
+
+.package-icon {
+  font-size: 18px;
+}
+
+.package-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1e40af;
 }
 
 .sales-packages-row {
   display: flex;
-  gap: 12px;
-  align-items: flex-start;
-  flex-wrap: wrap;
-}
-
-.sales-packages-label {
-  display: flex;
   flex-direction: column;
-  gap: 2px;
-  min-width: 100%;
+  gap: 12px;
 }
 
 .sales-packages-label .lbl {
-  font-size: 13px;
-  color: #166534;
+  color: var(--primary-dark);
+  font-size: 12px;
   font-weight: 600;
 }
 
 .field-hint {
   font-size: 11px;
-  color: #15803d;
-  margin: 0;
+  color: var(--text-secondary);
 }
 
 .sales-packages-input {
   display: flex;
-  gap: 8px;
+  gap: 10px;
   align-items: center;
-  width: 100%;
 }
 
 .package-select {
   flex: 1;
   padding: 10px 12px;
-  border: 1px solid #86efac;
+  border: 1px solid var(--border);
   border-radius: 8px;
-  font-size: 14px;
-  background: #fff;
+  font-size: 13px;
+  background: #f8fafc;
+}
+
+.package-select:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-light);
+  outline: none;
 }
 
 .add-package-btn {
-  width: 38px;
-  height: 38px;
-  padding: 0 !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  font-size: 20px !important;
-  font-weight: 700 !important;
-  background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;
-  color: #fff !important;
-  border: none !important;
-  border-radius: 8px !important;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: 700;
+  background: #2563eb;
+  color: white;
+  border: 2px solid #1e40af;
+  border-radius: 10px;
   cursor: pointer;
-  transition: all 0.2s ease !important;
+  transition: all 0.2s ease;
 }
 
 .add-package-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, #047857 0%, #065f46 100%) !important;
+  background: #1e40af;
   transform: scale(1.05);
 }
 
 .add-package-btn:disabled {
-  background: #9ca3af !important;
+  background: #cbd5e1;
+  border-color: #94a3b8;
   cursor: not-allowed;
 }
 
@@ -1850,32 +2337,36 @@ select {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: 10px;
-  width: 100%;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--border);
 }
 
 .package-tag {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: #dcfce7;
-  border: 1px solid #4ade80;
-  color: #166534;
-  padding: 5px 10px;
+  background: #dbeafe;
+  border: 2px solid #3b82f6;
+  color: #1e40af;
+  padding: 8px 14px;
   border-radius: 20px;
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 600;
+}
+
+.package-tag-icon {
+  font-size: 12px;
 }
 
 .remove-pkg-btn {
   background: none;
   border: none;
-  color: #166534;
+  color: #1e40af;
   font-size: 16px;
-  line-height: 1;
   cursor: pointer;
   padding: 0;
-  margin-left: 2px;
+  margin-left: 4px;
   transition: color 0.2s;
 }
 
@@ -1883,9 +2374,262 @@ select {
   color: #dc2626;
 }
 
+.no-packages-hint {
+  margin-top: 14px;
+  padding: 12px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-style: italic;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px dashed var(--border);
+  text-align: center;
+}
+
+/* Right Panel - Preview */
+.preview-content {
+  padding: 20px;
+  background: #fafbfc;
+}
+
+.preview-item-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 16px;
+  background: #ffffff;
+  border-radius: 12px;
+  border: 2px solid #e2e8f0;
+  margin-bottom: 16px;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+}
+
+.preview-icon-wrapper {
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+  background: #dbeafe;
+  border: 2px solid #2563eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  flex-shrink: 0;
+}
+
+.preview-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.preview-name {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 4px;
+  word-break: break-word;
+}
+
+.preview-code {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-family: monospace;
+  background: #f1f5f9;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.status-badge {
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.status-badge.active {
+  background: #d1fae5;
+  color: #065f46;
+  border: 2px solid #10b981;
+}
+
+.status-badge.inactive {
+  background: #f1f5f9;
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+
+.preview-details {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.preview-section {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 16px;
+  border: 2px solid #e2e8f0;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+}
+
+.preview-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #1e40af;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #dbeafe;
+}
+
+.section-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--primary);
+}
+
+.preview-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.preview-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.preview-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.preview-value {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.unit-badge {
+  background: #f1f5f9;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 10px;
+  text-transform: uppercase;
+  font-weight: 600;
+  border: 1px solid var(--border);
+}
+
+.pricing-section {
+  background: #eff6ff;
+  border: 2px solid #2563eb;
+}
+
+.pricing-section .preview-section-title {
+  color: #1e40af;
+  border-bottom-color: #bfdbfe;
+}
+
+.preview-price {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 2px solid #bfdbfe;
+}
+
+.price-currency {
+  font-size: 16px;
+  font-weight: 700;
+  color: #2563eb;
+}
+
+.price-amount {
+  font-size: 32px;
+  font-weight: 800;
+  color: #1e40af;
+  letter-spacing: -1px;
+}
+
+/* Empty Preview */
+.empty-preview {
+  padding: 60px 24px;
+  text-align: center;
+  background: #fafbfc;
+}
+
+.empty-preview-icon {
+  font-size: 56px;
+  margin-bottom: 20px;
+  opacity: 0.7;
+}
+
+.empty-preview-text {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+.empty-preview-hint {
+  font-size: 13px;
+  color: var(--text-secondary);
+  max-width: 200px;
+  margin: 0 auto;
+  line-height: 1.5;
+}
+
+/* Bottom Actions */
+.bottom-actions {
+  border-top: 2px solid #e2e8f0;
+  padding: 18px 20px;
+  display: grid;
+  gap: 12px;
+  background: #ffffff;
+}
+
+/* Text Utilities */
+.text-danger {
+  color: var(--danger);
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+/* Source Select */
+.source-new {
+  background-color: #f0fdf4 !important;
+  border-color: var(--success) !important;
+  color: #15803d !important;
+}
+
+/* Responsive */
+@media (max-width: 1400px) {
+  .grid {
+    grid-template-columns: 300px 1fr 300px;
+  }
+}
+
 @media (max-width: 1200px) {
   .grid {
     grid-template-columns: 280px 1fr 280px;
+    gap: 16px;
+  }
+  
+  .progress-steps {
+    display: none;
   }
 }
 
@@ -1894,8 +2638,12 @@ select {
     grid-template-columns: 1fr;
   }
   
-  .panel.center {
+  .center-panel {
     order: -1;
+  }
+  
+  .content {
+    padding: 16px;
   }
 }
 </style>
