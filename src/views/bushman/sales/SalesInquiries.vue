@@ -30,29 +30,31 @@
                   :custom-filters="customFilters"
                   @update:filters="handleFiltersUpdate"
                 >
+                  <template #code="{ row }">
+                    <strong>{{ (row as any).code }}</strong>
+                  </template>
+                  <template #date="{ row }">
+                    {{ formatDate((row as any).date) }}
+                  </template>
                   <template #client_name="{ row }">
-                    {{ (row as any).name }}
+                    {{ (row as any).client_name }}
                   </template>
-                  <template #area="{ row }">
-                    {{ (row as any).area }}
-                  </template>
-                  <template #hunting_type="{ row }">
-                    {{ (row as any).hunting_type }}
+                  <template #participants="{ row }">
+                    {{ (row as any).participants }}
                   </template>
                   <template #start_date="{ row }">
                     {{ formatDate((row as any).start_date) }}
                   </template>
-                  <template #end_date="{ row }">
-                    {{ formatDate((row as any).end_date) }}
+                  <template #days="{ row }">
+                    {{ (row as any).days }}
                   </template>
                   <template #season="{ row }">
                     {{ (row as any).season || 'N/A' }}
                   </template>
-                  <template #species_count="{ row }">
-                    {{ (row as any).species_count || 0 }}
-                  </template>
                   <template #status="{ row }">
-                    {{ (row as any).status }}
+                    <span :class="getStatusClass((row as any).status)">
+                      {{ (row as any).status }}
+                    </span>
                   </template>
                   <template #actions="{ row }">
                     <div class="d-flex gap-1">
@@ -152,13 +154,13 @@ const loading = ref(false)
 const seasonsOptions = ref<any[]>([])
 
 const columns = [
-  { key: 'client_name', label: 'Client Name', sortable: true, visible: true },
-  { key: 'area', label: 'Area', sortable: true, visible: true },
-  { key: 'hunting_type', label: 'Hunting Type', sortable: true, visible: true },
+  { key: 'code', label: 'Enquiry Code', sortable: true, visible: true },
+  { key: 'date', label: 'Date', sortable: true, visible: true },
+  { key: 'client_name', label: 'Client', sortable: true, visible: true },
+  { key: 'participants', label: 'Participants', sortable: true, visible: true },
   { key: 'start_date', label: 'Start Date', sortable: true, visible: true },
-  { key: 'end_date', label: 'End Date', sortable: true, visible: true },
+  { key: 'days', label: 'Days', sortable: true, visible: true },
   { key: 'season', label: 'Season', sortable: true, visible: true },
-  { key: 'species_count', label: 'Species', sortable: true, visible: true },
   { key: 'status', label: 'Status', sortable: true, visible: true },
   { key: 'actions', label: 'Actions', sortable: false, visible: true },
 ] as any[]
@@ -237,10 +239,26 @@ const formatDate = (dateString: string | any): string => {
   try {
     const date = new Date(dateString)
     if (isNaN(date.getTime())) return 'N/A'
-    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
   } catch {
     return 'N/A'
   }
+}
+
+const formatCurrency = (amount: number): string => {
+  if (!amount || amount === 0) return 'TZS 0'
+  return `TZS ${amount.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+}
+
+const getStatusClass = (status: string): string => {
+  const statusMap: Record<string, string> = {
+    'NEW': 'badge bg-primary',
+    'IN_PROGRESS': 'badge bg-warning text-dark',
+    'COMPLETED': 'badge bg-success',
+    'CANCELLED': 'badge bg-danger',
+    'DRAFT': 'badge bg-secondary'
+  }
+  return statusMap[status] || 'badge bg-secondary'
 }
 
 const viewInquiries = (row: any) => {
@@ -333,25 +351,18 @@ const getSalesInquiryList = async () => {
     if (response.success) {
       const dataArray = Array.isArray(response.data) ? response.data : []
       dataFetched.value = dataArray.map((item: SalesEnquiry) => {
-        const speciesCount = item?.item_preferences?.length || 0
-        const areaName = item?.areas?.[0]?.location?.name || 'N/A'
-        const huntingType = item?.pricings?.[0]?.price_structure_detail?.name || 'N/A'
-        const startDate = item?.preference?.preferred_start_date || 'N/A'
-        const endDate = item?.preference?.preferred_start_date && item?.preference?.no_of_days
-          ? new Date(new Date(item.preference.preferred_start_date).getTime() + item.preference.no_of_days * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-          : 'N/A'
-
         return {
           id: item.id,
           selfitem: item,
-          name: item?.entity?.full_name || 'N/A',
-          area: areaName,
-          hunting_type: huntingType,
-          start_date: startDate,
-          end_date: endDate,
-          season: item?.season?.name || 'N/A',
-          species_count: speciesCount,
+          code: item?.code || 'N/A',
+          date: item?.date || 'N/A',
+          client_name: item?.entity?.full_name || 'N/A',
           status: item?.status || 'NEW',
+          participants: item?.preference?.no_of_participants || 0,
+          start_date: item?.preference?.preferred_start_date || 'N/A',
+          days: item?.preference?.no_of_days || 0,
+          total_amount: item?.pricing_summary?.total_amount || 0,
+          season: item?.season?.name || 'N/A',
         }
       })
     }
@@ -384,7 +395,7 @@ const getSeasonList = async () => {
 
 const downloadAllInquiriesPdf = async () => {
   try {
-    const response = await axios.get(`${import.meta.env.VITE_APP_BASE_URL}sales/sales-inquiries-pdf`, {
+    const response = await axios.get(`${import.meta.env.VITE_APP_BASE_URL}sales-enquiries/pdf`, {
       headers: { 'Content-Type': 'application/json' },
     })
 

@@ -2,9 +2,12 @@ import { createApp } from 'vue';
 import { createPinia } from 'pinia';
 import { Vue3ProgressPlugin } from '@marcoschulte/vue3-progress';
 import { PerfectScrollbarPlugin } from 'vue3-perfect-scrollbar';
+import Vueform from '@vueform/vueform';
+import vueformConfig from '../vueform.config';
 import mitt from 'mitt';
 import 'vue3-perfect-scrollbar/style.css';
 import '@marcoschulte/vue3-progress/dist/index.css';
+import '@vueform/vueform/dist/vueform.css';
 import '@fortawesome/fontawesome-free/scss/fontawesome.scss';
 import '@fortawesome/fontawesome-free/scss/regular.scss';
 import '@fortawesome/fontawesome-free/scss/solid.scss';
@@ -41,6 +44,7 @@ window.Swal = Swal;
 
 app.use(pinia);
 app.use(router);
+app.use(Vueform, vueformConfig);
 app.use(Vue3ProgressPlugin);
 app.use(PerfectScrollbarPlugin);
 
