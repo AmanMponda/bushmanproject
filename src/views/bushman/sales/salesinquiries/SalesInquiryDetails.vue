@@ -643,7 +643,7 @@ const downloadInquiryPdf = async () => {
   if (!inquiryId) return
 
   try {
-    const response = await fetch(`${import.meta.env.VITE_APP_BASE_URL}sales/sales-inquiries/${inquiryId}/pdf`, {
+    const response = await fetch(`${import.meta.env.VITE_APP_BASE_URL}sales-enquiries/${inquiryId}/pdf`, {
       headers: { 'Content-Type': 'application/json' },
     })
     const data = await response.json()

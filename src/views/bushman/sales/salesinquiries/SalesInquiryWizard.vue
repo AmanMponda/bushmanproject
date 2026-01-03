@@ -1,352 +1,536 @@
-<template>
-  <div class="form-wizard-container">
-    <!-- Form Wizard -->
-    <div class="card sales-inquiry-wizard">
-      <div class="card-header bg-transparent ">
+﻿<template>
+  <div class="sales-inquiry-wizard-container">
+    <!-- Header -->
+    <div class="card mb-3">
+      <div class="card-header bg-transparent">
         <div class="d-flex justify-content-between align-items-center">
           <div class="d-flex align-items-center gap-2">
             <i class="fa fa-edit text-primary fs-4"></i>
             <h2 class="h4 mb-0">{{ isEditMode ? 'Edit Enquiry' : 'Create New Enquiry' }}</h2>
           </div>
-          <div class="d-flex align-items-center gap-2">
-            <span class="badge bg-primary">{{ `Step ${currentStep + 1} of ${wizardSteps.length}` }}</span>
-            <span class="text-muted d-none d-md-inline">{{ wizardSteps[currentStep].label }}</span>
-          </div>
         </div>
       </div>
+    </div>
 
-      <div class="card-body">
-        <!-- Progress Bar -->
-        <div class="progress mb-4" style="height: 8px">
-          <div class="progress-bar bg-primary" role="progressbar"
-            :style="{ width: `${((currentStep + 1) / wizardSteps.length) * 100}%` }"></div>
-        </div>
+    <!-- Vueform Wizard -->
+    <Vueform
+      ref="vueformRef"
+      :endpoint="false"
+      :display-errors="false"
+      :columns="{ container: 12, label: 12, wrapper: 12 }"
+      @submit="handleSubmit"
+    >
+      <!-- Wizard Steps -->
+      <template #empty>
+        <FormSteps>
+          <FormStep 
+            name="customer" 
+            label="Customer Info"
+            :elements="['customerSection', 'basicInfoSection', 'contactInfoSection']"
+            :labels="{ next: 'Next Step' }"
+          />
+          <FormStep 
+            name="package" 
+            label="Package & Schedule"
+            :elements="['seasonPackageSection', 'huntScheduleSection', 'huntPartySection', 'speciesSection']"
+            :labels="{ previous: 'Back', next: 'Next Step' }"
+          />
+          <FormStep 
+            name="extras" 
+            label="Safari Extras"
+            :elements="['safariExtrasSection', 'trophyFeesSection', 'companionCostsSection']"
+            :labels="{ previous: 'Back', next: 'Review' }"
+          />
+          <FormStep 
+            name="review" 
+            label="Review & Submit"
+            :elements="['reviewSection']"
+            :labels="{ previous: 'Back', finish: saving ? 'Saving...' : 'Submit Enquiry' }"
+            @activate="syncFormData"
+          />
+        </FormSteps>
 
-        <!-- Circle Wizard Stepper -->
-        <div class="nav-wizards-container">
-          <nav class="nav nav-wizards-3 mb-4">
-            <div v-for="(step, index) in wizardSteps" :key="index" class="nav-item col">
-              <a class="nav-link" :class="{
-                completed: currentStep > index || (index === 0 && isStep1Complete) || (index === 1 && isStep2Complete) || (index === 2 && isStep3Complete),
-                active: currentStep === index,
-                disabled: currentStep < index
-              }" href="#" @click.prevent="goToStep(index)">
-                <div class="nav-dot">
-                  <i class="fa" :class="{
-                    'fa-user': index === 0,
-                    'fa-calendar': index === 1,
-                    'fa-hiking': index === 2,
-                    'fa-check-circle': index === 3,
-                  }"></i>
-                </div>
-                <div class="nav-title">{{ step.label }}</div>
-                <i v-if="(index === 0 && isStep1Complete) || (index === 1 && isStep2Complete) || (index === 2 && isStep3Complete)"
-                  class="fa fa-check-circle text-success position-absolute" style="top: 5px; right: 10px;"></i>
-              </a>
+        <!-- Step 1: Customer Information -->
+        <GroupElement name="customerSection">
+          <template #label>
+            <div class="d-flex align-items-center gap-2 mb-2">
+              <i class="fa fa-user text-primary"></i>
+              <h5 class="mb-0">Customer Selection</h5>
             </div>
-          </nav>
-        </div>
-
-        <form ref="formRef">
-          <!-- Step 1: Customer Information -->
-          <div v-show="currentStep === 0">
-            <!-- Customer Selection Section -->
-            <div class="card mb-1">
-              <div class="card-header bg-light">
-                <div class="d-flex align-items-center gap-2">
-                  <i class="fa fa-user text-primary"></i>
-                  <h5 class="mb-0">Customer Selection</h5>
-                  <i v-if="customerType" class="fa fa-check-circle text-success ms-auto"></i>
-                </div>
-              </div>
-              <div class="card-body bg-transparent">
-                <div class="alert alert-info">
-                  <strong>New or Existing Customer?</strong><br />
-                  Select an existing customer to auto-fill their information, or choose "New Customer" to enter details
-                  manually.
-                </div>
-
-                <div class="row mb-3">
-                  <div class="col-md-6">
-                    <div class="form-check">
-                      <input id="customerTypeNew" v-model="customerType" class="form-check-input" type="radio"
-                        name="customerType" value="new" />
-                      <label class="form-check-label" for="customerTypeNew"> New Customer </label>
-                    </div>
-                  </div>
-                  <div class="col-md-6">
-                    <div class="form-check">
-                      <input id="customerTypeExisting" v-model="customerType" class="form-check-input" type="radio"
-                        name="customerType" value="existing" />
-                      <label class="form-check-label" for="customerTypeExisting"> Existing Customer </label>
-                    </div>
-                  </div>
-                </div>
-
-                <div v-if="customerType === 'existing'" class="mb-3">
-                  <label class="form-label">Select Customer</label>
-                  <select v-model="selectedExistingCustomer" class="form-select"
-                    @change="populateFormFromCustomer(selectedExistingCustomer)">
-                    <option value="">Search and select an existing customer</option>
-                    <option v-for="customer in existingCustomersOptions" :key="customer.value" :value="customer">
-                      {{ customer.text }} - {{ customer.selfItem?.email || 'N/A' }} •
-                      {{ customer.selfItem?.country || 'N/A' }}
-                    </option>
-                  </select>
-                </div>
-              </div>
+          </template>
+          
+          <StaticElement name="customerAlert">
+            <div class="alert alert-info mb-3">
+              <strong>New or Existing Customer?</strong><br />
+              Select an existing customer to auto-fill their information, or choose "New Customer" to enter details manually.
             </div>
+          </StaticElement>
 
-            <!-- Basic Information Section -->
-            <div class="card mb-4">
-              <div class="card-header bg-light">
-                <div class="d-flex align-items-center gap-2">
-                  <i class="fa fa-user text-primary"></i>
-                  <h5 class="mb-0">Basic Information</h5>
-                  <i v-if="form.full_name && form.country && form.nationality"
-                    class="fa fa-check-circle text-success ms-auto"></i>
-                </div>
-              </div>
+          <RadiogroupElement
+            name="customerType"
+            :default="'new'"
+            :items="[
+              { value: 'new', label: 'New Customer' },
+              { value: 'existing', label: 'Existing Customer' }
+            ]"
+            view="tabs"
+            @change="onCustomerTypeChange"
+          />
+
+          <SelectElement
+            v-show="customerType === 'existing'"
+            name="existingCustomer"
+            label="Select Customer"
+            placeholder="Search and select an existing customer"
+            :items="existingCustomerItems"
+            :search="true"
+            :native="false"
+            :object="true"
+            :columns="{ container: 12 }"
+            :loading="loadingCustomers"
+            @select="onExistingCustomerSelect"
+          />
+        </GroupElement>
+
+        <GroupElement name="basicInfoSection">
+          <template #label>
+            <div class="d-flex align-items-center gap-2 mb-2 mt-3">
+              <i class="fa fa-id-card text-primary"></i>
+              <h5 class="mb-0">Basic Information</h5>
+            </div>
+          </template>
+
+          <TextElement
+            name="full_name"
+            label="Full Name"
+            placeholder="Enter full name"
+            :columns="{ container: 6 }"
+            rules="required"
+          />
+
+          <SelectElement
+            name="country"
+            label="Country"
+            placeholder="Select Country"
+            :items="countryItems"
+            :search="true"
+            :native="false"
+            :columns="{ container: 6 }"
+            rules="required"
+          />
+
+          <SelectElement
+            name="nationality"
+            label="Nationality"
+            placeholder="Select Nationality"
+            :items="nationalityItems"
+            :search="true"
+            :native="false"
+            :columns="{ container: 6 }"
+            rules="required"
+          />
+        </GroupElement>
+
+        <GroupElement name="contactInfoSection">
+          <template #label>
+            <div class="d-flex align-items-center gap-2 mb-2 mt-3">
+              <i class="fa fa-envelope text-primary"></i>
+              <h5 class="mb-0">Contact Information</h5>
+            </div>
+          </template>
+
+          <TextElement
+            name="email"
+            label="Email"
+            input-type="email"
+            placeholder="Enter email address"
+            :columns="{ container: 6 }"
+            rules="required|email"
+          />
+
+          <TextElement
+            name="phone"
+            label="Primary Phone"
+            placeholder="e.g., +971501234567"
+            :columns="{ container: 6 }"
+            rules="required"
+          />
+
+          <TextElement
+            name="phone_additional"
+            label="Additional Phone"
+            placeholder="e.g., +971501234567 (Optional)"
+            :columns="{ container: 6 }"
+          />
+
+          <TextElement
+            name="address"
+            label="Address"
+            placeholder="Enter address"
+            :columns="{ container: 6 }"
+            rules="required"
+          />
+        </GroupElement>
+
+        <!-- Step 2: Season, Package, Dates & Species -->
+        <GroupElement name="seasonPackageSection">
+          <template #label>
+            <div class="d-flex align-items-center gap-2 mb-2">
+              <i class="fa fa-calendar text-primary"></i>
+              <h5 class="mb-0">Season & Package</h5>
+            </div>
+          </template>
+
+          <SelectElement
+            name="season"
+            label="Season"
+            placeholder="Select Season"
+            :items="seasonItems"
+            :search="true"
+            :native="false"
+            :columns="{ container: 6 }"
+            rules="required"
+            @change="onSeasonChange"
+          />
+
+          <SelectElement
+            name="priceListId"
+            label="Hunting Package"
+            placeholder="Select a Hunting Package"
+            :items="packageItems"
+            :search="true"
+            :native="false"
+            :columns="{ container: 6 }"
+            :disabled="!form.season || loadingPackageItems"
+            :loading="loadingPackageItems"
+            @change="onPackageChange"
+          />
+
+          <StaticElement name="packageDetails" :conditions="[['priceListId', '!=', null]]">
+            <div v-if="selectedPackageDetail" class="card bg-primary bg-opacity-10 border-primary mt-3">
               <div class="card-body">
-                <div class="row">
-                  <div class="col-md-4 mb-3">
-                    <label class="form-label">Full name <span class="text-danger">*</span></label>
-                    <input v-model="form.full_name" type="text" class="form-control" placeholder="Enter your Full name"
-                      required />
-                  </div>
-                  <div class="col-md-4 mb-3">
-                    <label class="form-label">Country <span class="text-danger">*</span></label>
-                    <select v-model="form.country" class="form-select" required>
-                      <option value="">Select Country</option>
-                      <option v-for="country in countries" :key="country.value" :value="country">{{ country.text }}
-                      </option>
-                    </select>
-                  </div>
-                  <div class="col-md-4 mb-3">
-                    <label class="form-label">Client Nationality <span class="text-danger">*</span></label>
-                    <select v-model="form.nationality" class="form-select" required>
-                      <option value="">Select Client nationality</option>
-                      <option v-for="nat in nationality" :key="nat.value" :value="nat">{{ nat.text }}</option>
-                    </select>
+                <div class="d-flex align-items-start gap-3">
+                  <i class="fa fa-box-open text-primary fs-3"></i>
+                  <div class="flex-grow-1">
+                    <h6 class="fw-bold text-primary mb-3">Selected Package Details</h6>
+                    <div class="row g-3 small">
+                      <div class="col-md-6">
+                        <div class="d-flex justify-content-between">
+                          <span class="text-muted">Package Name:</span>
+                          <span class="fw-bold">{{ selectedPackageDetail.price_structure_detail?.name || 'N/A' }}</span>
+                        </div>
+                      </div>
+                      <div class="col-md-6">
+                        <div class="d-flex justify-content-between">
+                          <span class="text-muted">Location:</span>
+                          <span class="fw-medium">{{ selectedPackageDetail.price_structure?.location_name || 'N/A' }}</span>
+                        </div>
+                      </div>
+                      <div class="col-md-3">
+                        <div class="d-flex justify-content-between">
+                          <span class="text-muted">Hunting Type:</span>
+                          <span class="fw-medium">{{ selectedPackageDetail.price_structure_detail?.hunting_type || 'N/A' }}</span>
+                        </div>
+                      </div>
+                      <div class="col-md-3">
+                        <div class="d-flex justify-content-between">
+                          <span class="text-muted">Duration:</span>
+                          <span class="fw-medium">{{ selectedPackageDetail.price_structure_detail?.hunt_length || 'N/A' }}</span>
+                        </div>
+                      </div>
+                      <div class="col-md-3">
+                        <div class="d-flex justify-content-between">
+                          <span class="text-muted">Package Cost:</span>
+                          <span class="fw-bold text-primary">{{ selectedPackageDetail.price_structure_detail?.currency_code || '$' }} {{ parseFloat(selectedPackageDetail.price_structure_detail?.amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</span>
+                        </div>
+                      </div>
+                      <div class="col-md-3">
+                        <div class="d-flex justify-content-between">
+                          <span class="text-muted">Species Included:</span>
+                          <span class="fw-medium badge bg-info">{{ selectedPackageDetail.summary?.species_count || 0 }} species</span>
+                        </div>
+                      </div>
+                      <div v-if="selectedPackageDetail.summary?.safari_extras_count > 0" class="col-md-4">
+                        <div class="d-flex justify-content-between">
+                          <span class="text-muted">Safari Extras:</span>
+                          <span class="fw-medium badge bg-secondary">{{ selectedPackageDetail.summary?.safari_extras_count || 0 }}</span>
+                        </div>
+                      </div>
+                      <div v-if="selectedPackageDetail.summary?.companion_costs_count > 0" class="col-md-4">
+                        <div class="d-flex justify-content-between">
+                          <span class="text-muted">Companion Costs:</span>
+                          <span class="fw-medium badge bg-success">{{ selectedPackageDetail.summary?.companion_costs_count || 0 }}</span>
+                        </div>
+                      </div>
+                      <div v-if="selectedPackageDetail.summary?.trophy_fees_count > 0" class="col-md-4">
+                        <div class="d-flex justify-content-between">
+                          <span class="text-muted">Trophy Fees:</span>
+                          <span class="fw-medium badge bg-warning">{{ selectedPackageDetail.summary?.trophy_fees_count || 0 }}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Species Preview -->
+                    <div v-if="selectedPackageDetail.species && selectedPackageDetail.species.length > 0" class="mt-3 pt-3 border-top">
+                      <h6 class="text-primary mb-2 small"><i class="fa fa-paw me-1"></i>Included Species</h6>
+                      <div class="d-flex flex-wrap gap-1">
+                        <span v-for="species in selectedPackageDetail.species.slice(0, 10)" :key="species.id" class="badge bg-secondary">
+                          {{ species.item_name }} ({{ species.quantity }})
+                        </span>
+                        <span v-if="selectedPackageDetail.species.length > 10" class="badge bg-info">
+                          +{{ selectedPackageDetail.species.length - 10 }} more
+                        </span>
+                      </div>
+                    </div>
+
+                    <!-- Safari Extras Preview -->
+                    <div v-if="selectedPackageDetail.safari_extras && selectedPackageDetail.safari_extras.length > 0" class="mt-2">
+                      <h6 class="text-primary mb-2 small"><i class="fa fa-hiking me-1"></i>Safari Extras ({{ selectedPackageDetail.safari_extras.length }})</h6>
+                      <div class="d-flex flex-wrap gap-2">
+                        <div v-for="extra in selectedPackageDetail.safari_extras" :key="extra.id" class="badge bg-info text-start py-2 px-3">
+                          <div class="fw-bold">{{ extra.item_name || extra.description || 'Safari Extra' }}</div>
+                          <div class="small">{{ extra.currency_code || '$' }} {{ parseFloat(extra.amount || 0).toFixed(2) }} <span v-if="extra.pricing_unit" class="text-white-50">/ {{ extra.pricing_unit.replace(/_/g, ' ').toLowerCase() }}</span></div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
+            <div v-else-if="selectedPackageInfo" class="alert alert-info mb-0 mt-2 py-2">
+              <div class="row g-2 small">
+                <div class="col-6 col-md-3">
+                  <strong>Area:</strong> {{ selectedPackageInfo.area || 'N/A' }}
+                </div>
+                <div class="col-6 col-md-3">
+                  <strong>Hunting Type:</strong> {{ selectedPackageInfo.huntingType || 'N/A' }}
+                </div>
+                <div class="col-6 col-md-3">
+                  <strong>Duration:</strong> {{ selectedPackageInfo.duration || 0 }} days
+                </div>
+                <div class="col-6 col-md-3">
+                  <strong>Base Amount:</strong> {{ selectedPackageInfo.amount || 'N/A' }}
+                </div>
+              </div>
+            </div>
+          </StaticElement>
+        </GroupElement>
 
-            <!-- Contact Information Section -->
-            <div class="card mb-4">
-              <div class="card-header bg-light">
+        <GroupElement name="huntScheduleSection">
+          <template #label>
+            <div class="d-flex align-items-center gap-2 mb-2 mt-3">
+              <i class="fa fa-calendar-alt text-primary"></i>
+              <h5 class="mb-0">Hunt Schedule</h5>
+            </div>
+          </template>
+
+          <DateElement
+            name="start_date"
+            label="Start Date"
+            :columns="{ container: 6 }"
+            rules="required"
+            :disabled="!form.season"
+            display-format="MMMM D, YYYY"
+            @change="onStartDateChange"
+          />
+
+          <TextElement
+            name="no_of_days"
+            label="Number of Days"
+            input-type="number"
+            placeholder="e.g., 10"
+            :columns="{ container: 6 }"
+            rules="required|numeric|min:1"
+            @change="onDaysChange"
+          />
+
+          <StaticElement name="huntPeriodInfo">
+            <div v-if="form.start_date && form.no_of_days > 0" class="alert alert-info mt-2 mb-0 py-2">
+              <i class="fa fa-info-circle me-2"></i>
+              <strong>Hunt Period:</strong> {{ formatDate(form.start_date) }} to {{ formatDate(calculatedEndDate) }}
+              <span class="ms-2">({{ form.no_of_days }} days)</span>
+            </div>
+          </StaticElement>
+
+          <!-- Companion Cost Preview -->
+          <StaticElement name="companionCostPreview">
+            <div v-if="companionCosts.length > 0 && form.no_of_participants > 0 && form.no_of_days > 0" class="card bg-success bg-opacity-10 border-success mt-3">
+              <div class="card-body py-2">
+                <div class="row align-items-center">
+                  <div class="col-md-8">
+                    <small class="text-muted d-block"><i class="fa fa-users me-1"></i>Estimated Companion Costs</small>
+                    <div class="d-flex align-items-center gap-2 mt-1">
+                      <span class="small">{{ companionCosts[0]?.currency_code || '$' }} {{ parseFloat(companionCosts[0]?.amount || 0).toFixed(2) }}/day</span>
+                      <span class="text-muted">×</span>
+                      <span class="small">{{ form.no_of_days }} days</span>
+                      <span class="text-muted">×</span>
+                      <span class="small">{{ form.no_of_participants }} participants</span>
+                    </div>
+                  </div>
+                  <div class="col-md-4 text-end">
+                    <div class="fw-bold text-success fs-5">
+                      {{ companionCosts[0]?.currency_code || '$' }} {{ totalCompanionCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </StaticElement>
+
+          <StaticElement name="dateConflictWarning">
+            <div v-if="dateConflictWarning" class="alert alert-warning mt-2 mb-0 py-2">
+              <i class="fa fa-exclamation-triangle me-2"></i>
+              <strong>Date Conflict Detected:</strong> {{ dateConflictWarning }}
+            </div>
+          </StaticElement>
+
+          <StaticElement name="bookedDatesDisplay">
+            <div v-if="bookedDatesForSelectedSeason.length > 0" class="mt-2">
+              <small class="text-muted d-block mb-1">
+                <i class="fa fa-calendar-times me-1"></i>Already Booked Dates:
+              </small>
+              <div class="d-flex flex-wrap gap-1">
+                <span v-for="(booking, index) in bookedDatesForSelectedSeason" :key="index" class="badge bg-danger">
+                  {{ formatBookingDateRange(booking) }} - {{ booking.client_name }}
+                </span>
+              </div>
+            </div>
+          </StaticElement>
+        </GroupElement>
+
+        <GroupElement name="huntPartySection">
+          <template #label>
+            <div class="d-flex align-items-center gap-2 mb-2 mt-3">
+              <i class="fa fa-users text-primary"></i>
+              <h5 class="mb-0">Hunt Party Details</h5>
+            </div>
+          </template>
+
+          <SelectElement
+            name="area"
+            label="Hunting Area"
+            placeholder="Select Area"
+            :items="areaItems"
+            :search="true"
+            :native="false"
+            :columns="{ container: 6 }"
+            rules="required"
+          />
+
+          <TextElement
+            name="no_of_participants"
+            label="Number of Participants"
+            input-type="number"
+            placeholder="e.g., 2"
+            :default="1"
+            :columns="{ container: 6 }"
+            rules="required|numeric|min:1"
+            @change="onParticipantsChange"
+          />
+
+          <TextElement
+            name="prev_experience"
+            label="Previous Experience"
+            placeholder="Describe your hunting experience..."
+            :columns="{ container: 6 }"
+          />
+
+          <TextareaElement
+            name="special_requests"
+            label="Special Requests"
+            placeholder="Any special requests or requirements..."
+            :rows="2"
+            :columns="{ container: 12 }"
+          />
+        </GroupElement>
+
+        <GroupElement name="speciesSection">
+          <template #label>
+            <div class="d-flex align-items-center gap-2 mb-2 mt-3">
+              <i class="fa fa-paw text-primary"></i>
+              <h5 class="mb-0">Species Selection</h5>
+            </div>
+          </template>
+
+          <SelectElement
+            name="selectedSpecies"
+            label="Species"
+            placeholder="Select Species"
+            :items="speciesItems"
+            :search="true"
+            :native="false"
+            :columns="{ container: 5 }"
+          />
+
+          <TextElement
+            name="speciesQuantity"
+            label="Quantity"
+            input-type="number"
+            placeholder="Qty"
+            :default="1"
+            :columns="{ container: 3 }"
+          />
+
+          <StaticElement name="addSpeciesBtn" :columns="{ container: 4 }">
+            <div style="margin-top: 1.75rem;">
+              <button type="button" class="btn btn-primary w-100" @click="addSpeciesToList">
+                <i class="fa fa-plus me-1"></i> Add Species
+              </button>
+            </div>
+          </StaticElement>
+
+          <StaticElement name="speciesList">
+            <hr class="my-3" />
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <strong class="small">Selected Species ({{ speciesObjects.length }})</strong>
+              <small class="text-muted">Click priority badge to toggle</small>
+            </div>
+            <div v-if="speciesObjects.length > 0" class="list-group">
+              <div v-for="(s, index) in speciesObjects" :key="index"
+                class="list-group-item d-flex justify-content-between align-items-center">
                 <div class="d-flex align-items-center gap-2">
-                  <i class="fa fa-envelope text-primary"></i>
-                  <h5 class="mb-0">Contact Information</h5>
-                  <i v-if="form.email && form.phone && form.address"
-                    class="fa fa-check-circle text-success ms-auto"></i>
+                  <strong>{{ s.name }}</strong>
+                  <span v-if="s.fromPackage" class="badge bg-info">from Package</span>
+                  <span 
+                    class="badge cursor-pointer" 
+                    :class="s.priority === 'MUST_HAVE' ? 'bg-danger' : 'bg-secondary'"
+                    @click="togglePriority(index)"
+                    :title="s.priority === 'MUST_HAVE' ? 'Click to change to Nice to Have' : 'Click to change to Must Have'"
+                    style="cursor: pointer;">
+                    {{ s.priority === 'MUST_HAVE' ? 'MUST HAVE' : 'NICE TO HAVE' }}
+                  </span>
                 </div>
-              </div>
-              <div class="card-body">
-                <div class="row">
-                  <div class="col-md-6 mb-3">
-                    <label class="form-label">Email <span class="text-danger">*</span></label>
-                    <input v-model="form.email" type="email" class="form-control" placeholder="Enter your email"
-                      required />
-                  </div>
-                  <div class="col-md-6 mb-3">
-                    <label class="form-label">Primary Phone <span class="text-danger">*</span></label>
-                    <input v-model="form.phone" type="text" class="form-control" placeholder="eg: +971501234567"
-                      required />
-                  </div>
-                  <div class="col-md-6 mb-3">
-                    <label class="form-label">Additional Phone</label>
-                    <input v-model="form.phone_additional" type="text" class="form-control"
-                      placeholder="eg: +971501234567 (Optional)" />
-                  </div>
-                  <div class="col-md-6 mb-3">
-                    <label class="form-label">Address <span class="text-danger">*</span></label>
-                    <input v-model="form.address" type="text" class="form-control" maxlength="30"
-                      placeholder="Enter your address" required />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Step 2: Season, Package, Dates & Hunt Party -->
-          <div v-show="currentStep === 1">
-            <!-- Season & Package Section - Optimized Layout -->
-            <div class="card mb-3">
-              <div class="card-header bg-light py-2">
                 <div class="d-flex align-items-center gap-2">
-                  <i class="fa fa-calendar text-primary"></i>
-                  <h5 class="mb-0">Season & Package</h5>
-                  <i v-if="form.season && form.priceListId" class="fa fa-check-circle text-success ms-auto"></i>
-                </div>
-              </div>
-              <div class="card-body py-3">
-                <div class="row g-3">
-                  <div class="col-md-6">
-                    <label class="form-label small text-uppercase fw-bold text-muted mb-1">Season</label>
-                    <select v-model="form.season" class="form-select" required @change="onSeasonSelected(form.season)">
-                      <option value="">Select Season</option>
-                      <option v-for="season in seasonsOptions" :key="season.value" :value="season">
-                        {{ season.text }}
-                        <template v-if="season.selfItem"> - {{ formatDateRange(season.selfItem.start_at,
-                          season.selfItem.end_at) }} </template>
-                      </option>
-                    </select>
-                  </div>
-                  <div class="col-md-6">
-                    <label class="form-label small text-uppercase fw-bold text-muted mb-1">Hunting Package</label>
-                    <select v-model="form.priceListId" class="form-select"
-                      :disabled="!form.season || filteredPackagesOptions.length === 0 || loadingPackageItems" required
-                      @change="populateFormFromPackage()">
-                      <option value="">Select a Hunting Package</option>
-                      <option v-for="pkg in filteredPackagesOptions" :key="pkg.value" :value="pkg">
-                        {{ pkg.text }}
-                        <template v-if="pkg.selfItem">
-                          - {{ pkg.selfItem?.price_structure?.location_name || 'N/A' }} •
-                          {{ pkg.selfItem?.hunting_type_name || 'N/A' }} • {{ pkg.selfItem?.hunt_length_days || 0 }} days •
-                          {{ pkg.selfItem?.currency_symbol || '$' }}{{ pkg.selfItem?.amount || '0' }}
-                        </template>
-                      </option>
-                    </select>
-                    <div v-if="loadingPackageItems" class="text-primary small mt-1">
-                      <span class="spinner-border spinner-border-sm me-1" role="status"></span>
-                      Loading package items...
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Package Details - Compact Display -->
-                <div v-if="form.priceListId && form.priceListId.selfItem" class="alert alert-info mb-0 mt-3 py-2">
-                  <div class="row g-2 small">
-                    <div class="col-6 col-md-3">
-                      <strong>Area:</strong>
-                      {{ form.priceListId.selfItem?.price_structure?.location_name || 'N/A' }}
-                    </div>
-                    <div class="col-6 col-md-3">
-                      <strong>Hunting Type:</strong>
-                      {{ form.priceListId.selfItem?.hunting_type_name || 'N/A' }}
-                    </div>
-                    <div class="col-6 col-md-3">
-                      <strong>Duration:</strong>
-                      {{ form.priceListId.selfItem?.hunt_length_days || 0 }} days
-                    </div>
-                    <div class="col-6 col-md-3">
-                      <strong>Base Amount:</strong>
-                      {{ form.priceListId.selfItem?.currency_symbol || '$' }}{{ form.priceListId.selfItem?.amount || 'N/A' }}
-                    </div>
-                  </div>
+                  <button type="button" class="btn btn-sm btn-outline-primary" :disabled="s.quantity <= 1"
+                    @click="decrementQuantity(index)">
+                    <i class="fa fa-minus"></i>
+                  </button>
+                  <span class="badge bg-primary" style="min-width: 30px">{{ s.quantity }}</span>
+                  <button type="button" class="btn btn-sm btn-outline-primary" @click="incrementQuantity(index)">
+                    <i class="fa fa-plus"></i>
+                  </button>
+                  <button type="button" class="btn btn-sm btn-outline-danger ms-2"
+                    @click="deleteFromStorage(index)">
+                    <i class="fa fa-trash"></i>
+                  </button>
                 </div>
               </div>
             </div>
-
-            <!-- Hunt Dates Section - Simplified -->
-            <div class="card mb-3">
-              <div class="card-header bg-light py-2">
-                <div class="d-flex align-items-center gap-2">
-                  <i class="fa fa-calendar-alt text-primary"></i>
-                  <h5 class="mb-0">Hunt Schedule</h5>
-                  <i v-if="form.start_date && form.no_of_days > 0"
-                    class="fa fa-check-circle text-success ms-auto"></i>
-                </div>
-              </div>
-              <div class="card-body py-3">
-                <div class="row g-3">
-                  <div class="col-md-6">
-                    <label class="form-label small text-uppercase fw-bold text-muted mb-1">Start Date <span class="text-danger">*</span></label>
-                    <input v-model="form.start_date" type="date" class="form-control" :disabled="!form.season" required
-                      @change="onStartDateChange" />
-                  </div>
-                  <div class="col-md-6">
-                    <label class="form-label small text-uppercase fw-bold text-muted mb-1">Number of Days <span class="text-danger">*</span></label>
-                    <input v-model.number="form.no_of_days" type="number" class="form-control" min="1" required
-                      placeholder="e.g., 10" @input="onDaysChange" />
-                  </div>
-                </div>
-
-                <!-- Calculated Info -->
-                <div v-if="form.start_date && form.no_of_days > 0"
-                  class="alert alert-info mt-3 mb-0 py-2">
-                  <i class="fa fa-info-circle me-2"></i>
-                  <strong>Hunt Period:</strong> {{ formatDate(form.start_date) }} to {{ formatDate(calculatedEndDate) }}
-                  <span class="ms-2">({{ form.no_of_days }} days)</span>
-                </div>
-                
-                <div v-if="dateConflictWarning" class="alert alert-warning mt-2 mb-0 py-2">
-                  <i class="fa fa-exclamation-triangle me-2"></i>
-                  <strong>Date Conflict Detected:</strong> {{ dateConflictWarning }}
-                </div>
-                
-                <div v-if="bookedDatesForSelectedSeason.length > 0" class="mt-2">
-                  <small class="text-muted d-block mb-1">
-                    <i class="fa fa-calendar-times me-1"></i>Already Booked Dates:
-                  </small>
-                  <div class="d-flex flex-wrap gap-1">
-                    <span v-for="(booking, index) in bookedDatesForSelectedSeason" :key="index" class="badge bg-danger">
-                      {{ formatBookingDateRange(booking) }} - {{ booking.client_name }}
-                    </span>
-                  </div>
-                </div>
-              </div>
+            <div v-else class="alert alert-secondary mb-0">
+              No species selected yet. Add species using the form above or select a package.
             </div>
+          </StaticElement>
 
-            <!-- Hunt Party Details - Optimized Compact Layout -->
-            <div class="card mb-3">
-              <div class="card-header bg-light py-2">
-                <div class="d-flex align-items-center gap-2">
-                  <i class="fa fa-users text-primary"></i>
-                  <h5 class="mb-0">Hunt Party Details</h5>
-                  <i v-if="huntDuration > 0 && form.no_of_hunters" class="fa fa-check-circle text-success ms-auto"></i>
-                </div>
-              </div>
-              <div class="card-body py-3">
-                <div class="row g-3">
-                  <div class="col-md-6">
-                    <label class="form-label small text-uppercase fw-bold text-muted mb-1">Hunting Area</label>
-                    <select v-model="form.area" class="form-select" required>
-                      <option value="">Select Area</option>
-                      <option v-for="area in areasOptions" :key="area.value" :value="area">{{ area.text }}</option>
-                    </select>
-                  </div>
-                  <div class="col-md-6">
-                    <label class="form-label small text-uppercase fw-bold text-muted mb-1">Number of Participants <span class="text-danger">*</span></label>
-                    <input v-model="form.no_of_participants" type="number" class="form-control" min="1" required placeholder="e.g., 2" />
-                  </div>
-                </div>
-
-                <!-- Additional Preference Fields -->
-                <div class="row g-3 mt-2">
-                  <div class="col-md-6">
-                    <label class="form-label small text-uppercase fw-bold text-muted mb-1">Previous Experience</label>
-                    <select v-model="form.prev_experience" class="form-select">
-                      <option value="">Select Experience Level</option>
-                      <option value="Beginner">Beginner</option>
-                      <option value="Intermediate">Intermediate</option>
-                      <option value="Expert">Expert</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div class="row g-3 mt-2">
-                  <div class="col-12">
-                    <label class="form-label small text-uppercase fw-bold text-muted mb-1">Special Requests</label>
-                    <textarea v-model="form.special_requests" class="form-control" rows="2"
-                      placeholder="Any special requests or requirements..." ></textarea>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Upgrade Fees Section -->
-            <div v-if="form.priceListId?.selfItem?.upgrade_fees && form.priceListId.selfItem.upgrade_fees.length > 0"
-              class="card mb-3">
+          <!-- Upgrade Fees Display -->
+          <StaticElement name="upgradeFees">
+            <div v-if="selectedUpgradeFees.length > 0" class="card mt-3 bg-warning bg-opacity-10">
               <div class="card-header bg-light py-2">
                 <div class="d-flex align-items-center gap-2">
                   <i class="fa fa-arrow-up text-warning"></i>
-                  <h5 class="mb-0">Upgrade Fees</h5>
+                  <h6 class="mb-0">Upgrade Fees</h6>
                 </div>
               </div>
-              <div class="card-body bg-warning bg-opacity-10">
+              <div class="card-body">
                 <div class="table-responsive">
                   <table class="table table-hover table-sm mb-0">
                     <thead>
@@ -356,160 +540,106 @@
                       </tr>
                     </thead>
                     <tbody>
-                      <tr v-for="fee in form.priceListId.selfItem.upgrade_fees" :key="fee.id">
+                      <tr v-for="fee in selectedUpgradeFees" :key="fee.id">
                         <td class="fw-medium">{{ fee.species_name || fee.species?.name || 'Unknown' }}</td>
-                        <td class="text-end fw-semibold text-warning">
-                          {{
-                            fee.currency_symbol ||
-                            form.priceListId.selfItem.price_list_type?.currency?.symbol ||
-                            '$'
-                          }}{{ fee.amount }}
-                        </td>
+                        <td class="text-end fw-semibold text-warning">{{ fee.currency_symbol || '$' }}{{ fee.amount }}</td>
                       </tr>
                     </tbody>
                   </table>
                 </div>
               </div>
             </div>
+          </StaticElement>
+        </GroupElement>
 
-            <!-- Species Selection Section - Optimized -->
-            <div class="card mb-3">
-              <div class="card-header bg-light py-2">
-                <div class="d-flex align-items-center gap-2">
-                  <i class="fa fa-paw text-primary"></i>
-                  <h5 class="mb-0">Species Selection</h5>
-                </div>
+        <!-- Step 3: Safari Extras & Trophy Fees -->
+        <GroupElement name="safariExtrasSection">
+          <template #label>
+            <div class="d-flex align-items-center gap-2 mb-2">
+              <i class="fa fa-hiking text-primary fs-4"></i>
+              <h5 class="mb-0 fw-bold">Safari Extras</h5>
+            </div>
+          </template>
+
+          <StaticElement name="safariExtrasList">
+            <div v-if="selectedSafariExtras.length === 0" class="alert alert-secondary border-start border-4" role="alert">
+              <h6 class="alert-heading">No Safari Extras Selected</h6>
+              <p class="mb-0">Safari extras will be populated when you select a package. You can also add them manually later.</p>
+            </div>
+
+            <template v-else>
+              <div class="alert alert-info border-start border-4" role="alert">
+                <h6 class="alert-heading">Customize Safari Extras ({{ selectedSafariExtras.length }} selected)</h6>
+                <p class="mb-0">Remove any safari extras that your client does not require by clicking the remove button.</p>
               </div>
-              <div class="card-body py-3">
-                <div class="row g-2 mb-3">
-                  <div class="col-md-5">
-                    <label class="form-label small text-uppercase fw-bold text-muted mb-1">Species</label>
-                    <select v-model="form.species" class="form-select">
-                      <option value="">Select Species</option>
-                      <option v-for="species in speciesOptions" :key="species.value" :value="species">
-                        {{ species.text }}
-                      </option>
-                    </select>
-                  </div>
-                  <div class="col-md-3">
-                    <label class="form-label small text-uppercase fw-bold text-muted mb-1">Quantity</label>
-                    <input v-model="form.quantity" type="number" class="form-control" min="1" max="100"
-                      placeholder="Qty" />
-                  </div>
-                  <div class="col-md-4 d-flex align-items-end">
-                    <button type="button" class="btn btn-primary w-100" @click="addNewSpeciesItemToStorage()">
-                      <i class="fa fa-plus me-1"></i> Add Species
-                    </button>
-                  </div>
-                </div>
 
-                <hr />
-
-                <div class="mt-3">
-                  <div class="d-flex justify-content-between align-items-center mb-2">
-                    <strong class="small">Selected Species ({{ speciesObjects.length }})</strong>
-                    <small class="text-muted">Click priority badge to toggle</small>
-                  </div>
-                  <div v-if="speciesObjects.length > 0" class="list-group">
-                    <div v-for="(s, index) in speciesObjects" :key="index"
-                      class="list-group-item d-flex justify-content-between align-items-center">
-                      <div class="d-flex align-items-center gap-2">
-                        <strong>{{ s.name }}</strong>
-                        <span v-if="s.fromPackage" class="badge bg-info">from Package</span>
-                        <span 
-                          class="badge cursor-pointer" 
-                          :class="s.priority === 'MUST_HAVE' ? 'bg-danger' : 'bg-secondary'"
-                          @click="togglePriority(index)"
-                          :title="s.priority === 'MUST_HAVE' ? 'Click to change to Nice to Have' : 'Click to change to Must Have'"
-                          style="cursor: pointer;">
-                          {{ s.priority === 'MUST_HAVE' ? 'MUST HAVE' : 'NICE TO HAVE' }}
-                        </span>
+              <div class="card mb-3 bg-light">
+                <div class="card-body">
+                  <div class="d-flex flex-column gap-3">
+                    <div v-for="(extra, index) in selectedSafariExtras" :key="extra.id"
+                      class="p-3 border rounded bg-white d-flex justify-content-between align-items-center">
+                      <div class="d-flex align-items-center gap-3">
+                        <div class="fw-semibold text-capitalize">{{ extra.name }}</div>
+                        <span v-if="extra.fromPackage" class="badge bg-info">FROM PACKAGE</span>
+                        <small class="text-muted">{{ extra.description }}</small>
+                        <span v-if="extra.charges_per" class="badge bg-secondary">{{ extra.charges_per }}</span>
                       </div>
                       <div class="d-flex align-items-center gap-2">
-                        <button type="button" class="btn btn-sm btn-outline-primary" :disabled="s.quantity <= 1"
-                          @click="decrementQuantity(index)">
-                          <i class="fa fa-minus"></i>
-                        </button>
-                        <span class="badge bg-primary" style="min-width: 30px">{{ s.quantity }}</span>
-                        <button type="button" class="btn btn-sm btn-outline-primary" @click="incrementQuantity(index)">
-                          <i class="fa fa-plus"></i>
-                        </button>
-                        <button type="button" class="btn btn-sm btn-outline-danger ms-2"
-                          @click="deleteFromStorage(index)">
+                        <small class="text-muted me-3">{{ extra.currency_code || 'USD' }} {{ extra.amount }}</small>
+                        <button type="button" class="btn btn-sm btn-outline-danger" title="Remove this safari extra"
+                          @click="removeSafariExtra(index)">
                           <i class="fa fa-trash"></i>
                         </button>
                       </div>
                     </div>
                   </div>
-                  <div v-else class="alert alert-secondary mb-0">No species selected yet. Add species using the form
-                    above or select
-                    a package.</div>
                 </div>
               </div>
-            </div>
-          </div>
+            </template>
+          </StaticElement>
 
-          <!-- Step 3: Safari Extras & Trophy Fees -->
-          <div v-show="currentStep === 2" class="animate-fade-in">
-            <!-- Safari Extras Section -->
-            <div class="mb-4">
-              <div class="d-flex align-items-center gap-2 mb-3">
-                <i class="fa fa-hiking text-primary fs-4"></i>
-                <h3 class="h5 mb-0 fw-bold">Safari Extras</h3>
-              </div>
-
-              <div v-if="selectedSafariExtras.length === 0" class="alert alert-secondary border-start border-4"
-                role="alert">
-                <h6 class="alert-heading">No Safari Extras Selected</h6>
-                <p class="mb-0">Safari extras will be populated when you select a package. You can also add them
-                  manually later.
-                </p>
-              </div>
-
-              <template v-else>
-                <div class="alert alert-info border-start border-4" role="alert">
-                  <h6 class="alert-heading">Customize Safari Extras ({{ selectedSafariExtras.length }} selected)</h6>
-                  <p class="mb-0">Remove any safari extras that your client does not require by clicking the remove
-                    button.</p>
+          <StaticElement name="budgetSection">
+            <div class="card mt-3">
+              <div class="card-header bg-light">
+                <div class="d-flex align-items-center gap-2">
+                  <i class="fa fa-dollar-sign text-primary"></i>
+                  <h6 class="mb-0">Budget Information</h6>
                 </div>
-
-                <div class="card mb-3 bg-light">
-                  <div class="card-body">
-                    <div class="d-flex flex-column gap-3">
-                      <div v-for="(extra, index) in selectedSafariExtras" :key="extra.id"
-                        class="p-3 border rounded bg-white d-flex justify-content-between align-items-center">
-                        <div class="d-flex align-items-center gap-3">
-                          <div class="fw-semibold text-capitalize">{{ extra.name }}</div>
-                          <span v-if="extra.fromPackage" class="badge bg-info">FROM PACKAGE</span>
-                          <small class="text-muted">{{ extra.description }}</small>
-                          <span v-if="extra.charges_per" class="badge bg-secondary">{{ extra.charges_per }}</span>
-                        </div>
-
-                        <div class="d-flex align-items-center gap-2">
-                          <small class="text-muted me-3">{{ extra.currency_code || 'USD' }} {{ extra.amount }}</small>
-                          <button type="button" class="btn btn-sm btn-outline-danger" title="Remove this safari extra"
-                            @click="removeSafariExtra(index)">
-                            <i class="fa fa-trash"></i>
-                          </button>
-                        </div>
-                      </div>
-                    </div>
+              </div>
+              <div class="card-body">
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label for="budget-min" class="form-label">Budget Minimum (USD)</label>
+                    <input id="budget-min" v-model="form.budget_min" type="number" class="form-control" min="0" placeholder="e.g., 5000" />
+                    <small class="text-muted">Enter the minimum budget for this hunt</small>
+                  </div>
+                  <div class="col-md-6">
+                    <label for="budget-max" class="form-label">Budget Maximum (USD)</label>
+                    <input id="budget-max" v-model="form.budget_max" type="number" class="form-control" min="0" placeholder="e.g., 15000" />
+                    <small class="text-muted">Enter the maximum budget for this hunt</small>
                   </div>
                 </div>
-              </template>
-            </div>
-
-            <!-- Trophy Fees Section -->
-            <div v-if="trophyFees.length > 0" class="mb-4">
-              <div class="d-flex align-items-center gap-2 mb-3">
-                <i class="fa fa-trophy text-warning fs-4"></i>
-                <h3 class="h5 mb-0 fw-bold">Trophy Fees</h3>
+                <div v-if="form.budget_min && form.budget_max" class="alert alert-info mt-3 mb-0">
+                  <i class="fa fa-info-circle me-2"></i>
+                  <strong>Budget Range:</strong> ${{ form.budget_min.toLocaleString() }} - ${{ form.budget_max.toLocaleString() }}
+                </div>
               </div>
+            </div>
+          </StaticElement>
+        </GroupElement>
 
+        <GroupElement name="trophyFeesSection">
+          <template #label>
+            <div v-if="trophyFees.length > 0" class="d-flex align-items-center gap-2 mb-2 mt-3">
+              <i class="fa fa-trophy text-warning fs-4"></i>
+              <h5 class="mb-0 fw-bold">Trophy Fees</h5>
+            </div>
+          </template>
+
+          <StaticElement name="trophyFeesList">
+            <template v-if="trophyFees.length > 0">
               <div class="alert alert-warning border-start border-4" role="alert">
-                <h6 class="alert-heading">
-                  Trophy Fees ({{ trophyFees.length }} items)
-                </h6>
+                <h6 class="alert-heading">Trophy Fees ({{ trophyFees.length }} items)</h6>
                 <p class="mb-0">These are per-animal fees charged when the animal is harvested. Fees may vary by sequence (1st, 2nd animal, etc.).</p>
               </div>
 
@@ -530,370 +660,6 @@
                           <td class="text-center">
                             <span class="badge bg-primary">{{ getSequenceLabel(fee.sequence_order) }}</span>
                           </td>
-                          <td class="text-end fw-semibold">
-                            {{ fee.currency_code || 'USD' }} {{ fee.amount.toLocaleString() }}
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Per Participant Costs Section -->
-            <div v-if="companionCosts.length > 0" class="mb-4">
-              <div class="d-flex align-items-center gap-2 mb-3">
-                <i class="fa fa-users text-info fs-4"></i>
-                <h3 class="h5 mb-0 fw-bold">Per Participant Daily Rates</h3>
-              </div>
-
-              <div class="alert alert-info border-start border-4" role="alert">
-                <h6 class="alert-heading">Daily Rates for Participants</h6>
-                <p class="mb-0">These are daily rates per participant. Total cost = Rate × Days × Number of Participants.</p>
-              </div>
-
-              <div class="card mb-3 bg-light">
-                <div class="card-body">
-                  <div v-for="(cost, index) in companionCosts" :key="`companion-${cost.id}-${index}`"
-                    class="d-flex justify-content-between align-items-center p-3 border rounded bg-white mb-2">
-                    <div>
-                      <div class="fw-semibold">{{ cost.description }}</div>
-                      <small class="text-muted">Per participant per day</small>
-                    </div>
-                    <div class="text-end">
-                      <div class="fw-bold fs-5">{{ cost.currency_code || 'USD' }} {{ cost.amount.toLocaleString() }}</div>
-                      <div v-if="form.no_of_participants > 0 && huntDuration > 0" class="small text-success">
-                        Estimated: {{ cost.currency_code || 'USD' }} {{ (cost.amount * form.no_of_participants * huntDuration).toLocaleString() }}
-                        <br><small class="text-muted">({{ form.no_of_participants }} participants × {{ huntDuration }} days)</small>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Quotation Creation Section -->
-            <div class="mb-4">
-              <div class="d-flex align-items-center gap-2 mb-3">
-                <i class="fa fa-file-invoice text-primary fs-4"></i>
-                <h3 class="h5 mb-0 fw-bold">Quotation</h3>
-              </div>
-
-              <div class="card">
-                <div class="card-body">
-                  <div class="d-flex align-items-center justify-content-between mb-3">
-                    <div>
-                      <h6 class="fw-semibold mb-1">Create Quotation for this Inquiry?</h6>
-                      <p class="text-muted small mb-0">Enable this option to generate a quotation with payment
-                        installments for
-                        the client.</p>
-                    </div>
-                    <div class="form-check form-switch">
-                      <input v-model="createQuotation" class="form-check-input" type="checkbox" role="switch"
-                        id="createQuotationSwitch" style="width: 3rem; height: 1.5rem;">
-                      <label class="form-check-label" for="createQuotationSwitch"></label>
-                    </div>
-                  </div>
-
-                  <template v-if="createQuotation">
-                    <hr class="my-3" />
-
-                    <div class="row g-3 mb-3">
-                      <div class="col-md-6">
-                        <label class="form-label small text-uppercase fw-bold text-muted mb-1">Confirmation Date</label>
-                        <input v-model="quotationForm.confirmation_date" type="date" class="form-control"
-                          placeholder="Select confirmation date" />
-                      </div>
-                      <div class="col-md-6">
-                        <label class="form-label small text-uppercase fw-bold text-muted mb-1">Hunting License
-                          (Optional)</label>
-                        <input v-model="quotationForm.hunting_license" type="text" class="form-control"
-                          placeholder="Enter license number" />
-                      </div>
-                    </div>
-
-                    <div class="mb-3">
-                      <label class="form-label small text-uppercase fw-bold text-muted mb-1">Remarks (Optional)</label>
-                      <textarea v-model="quotationForm.remarks" class="form-control" rows="2"
-                        placeholder="Add any additional notes or remarks..."></textarea>
-                    </div>
-
-                    <div class="mb-3">
-                      <div class="d-flex align-items-center justify-content-between mb-3">
-                        <label class="form-label small text-uppercase fw-bold text-muted mb-0">Payment
-                          Installments</label>
-                        <button type="button" class="btn btn-sm btn-secondary" @click="addQuotationInstallment">
-                          <i class="fa fa-plus me-1"></i> Add Installment
-                        </button>
-                      </div>
-
-                      <div v-if="quotationForm.installments.length === 0"
-                        class="alert alert-warning border-start border-4" role="alert">
-                        <h6 class="alert-heading">Required</h6>
-                        <p class="mb-0">At least one payment installment is required to create a quotation.</p>
-                      </div>
-
-                      <div v-for="(installment, index) in quotationForm.installments" :key="index"
-                        class="card mb-3 bg-light">
-                        <div class="card-body">
-                          <div class="d-flex justify-content-between align-items-start mb-3">
-                            <span class="fw-semibold">Installment {{ index + 1 }}</span>
-                            <button type="button" class="btn btn-sm btn-outline-danger"
-                              @click="removeQuotationInstallment(index)">
-                              <i class="fa fa-trash"></i>
-                            </button>
-                          </div>
-                          <div class="row g-3">
-                            <div class="col-md-3">
-                              <label class="form-label small">Description</label>
-                              <input v-model="installment.narration" type="text" class="form-control"
-                                placeholder="e.g., Deposit Due upon booking" />
-                            </div>
-                            <div class="col-md-3">
-                              <label class="form-label small">Amount (USD)</label>
-                              <input v-model="installment.amount_due" type="number" class="form-control"
-                                placeholder="5000" />
-                            </div>
-                            <div class="col-md-3">
-                              <label class="form-label small">Due Type</label>
-                              <select v-model="installment.due_days_type" class="form-select">
-                                <option value="">Select when due</option>
-                                <option v-for="opt in dueDaysTypeOptions" :key="opt.value" :value="opt.value">{{
-                                  opt.text }}</option>
-                              </select>
-                            </div>
-                            <div class="col-md-3">
-                              <label class="form-label small">{{ installment.due_days_type === 'before_arrival' ? 'Days Before Arrival' : 'Due Days' }}</label>
-                              <input v-model="installment.due_days" type="number" class="form-control"
-                                placeholder="e.g., 90" :disabled="installment.due_days_type === 'upon_booking'" />
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div v-if="quotationForm.installments.length > 0" class="card bg-primary text-white">
-                        <div class="card-body py-3">
-                          <div class="d-flex justify-content-between align-items-center">
-                            <span class="fs-5 fw-semibold">TOTAL</span>
-                            <span class="fs-3 fw-bold">${{ quotationTotalAmount.toLocaleString() }}</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </template>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Step 4: Review & Submit -->
-          <div v-show="currentStep === 3" class="animate-fade-in">
-            <div class="mb-4">
-              <div class="d-flex align-items-center gap-2 mb-3">
-                <i class="fa fa-clipboard-check text-primary fs-4"></i>
-                <h3 class="h5 mb-0 fw-bold">Review Your Enquiry</h3>
-              </div>
-
-              <div class="alert alert-info border-start border-4" role="alert">
-                <h6 class="alert-heading">Please Review</h6>
-                <p class="mb-0">Review all the information below before submitting your enquiry.</p>
-              </div>
-
-              <!-- Customer Summary -->
-              <div class="card mb-3">
-                <div class="card-header bg-light">
-                  <div class="d-flex align-items-center gap-2">
-                    <i class="fa fa-user text-primary"></i>
-                    <h6 class="mb-0">Customer Information</h6>
-                  </div>
-                </div>
-                <div class="card-body">
-                  <div class="row g-3 small">
-                    <div class="col-md-4"><span class="text-muted">Full Name:</span><span class="ms-2 fw-medium">{{
-                      form.full_name
-                        || 'N/A' }}</span></div>
-                    <div class="col-md-4"><span class="text-muted">Country:</span><span class="ms-2 fw-medium">{{
-                      form.country?.text || 'N/A' }}</span></div>
-                    <div class="col-md-4"><span class="text-muted">Nationality:</span><span class="ms-2 fw-medium">{{
-                      form.nationality?.text || 'N/A' }}</span></div>
-                    <div class="col-md-4"><span class="text-muted">Email:</span><span class="ms-2 fw-medium">{{
-                        form.email ||
-                        'N/A' }}</span></div>
-                    <div class="col-md-4"><span class="text-muted">Primary Phone:</span><span class="ms-2 fw-medium">{{
-                        form.phone
-                        || 'N/A' }}</span></div>
-                    <div class="col-md-4"><span class="text-muted">Additional Phone:</span><span
-                        class="ms-2 fw-medium">{{
-                          form.phone_additional || 'N/A' }}</span></div>
-                    <div class="col-12"><span class="text-muted">Address:</span><span class="ms-2 fw-medium">{{
-                      form.address ||
-                        'N/A' }}</span></div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Season & Package Summary -->
-              <div class="card mb-3">
-                <div class="card-header bg-light">
-                  <div class="d-flex align-items-center gap-2">
-                    <i class="fa fa-box text-primary"></i>
-                    <h6 class="mb-0">Season & Package</h6>
-                  </div>
-                </div>
-                <div class="card-body">
-                  <div class="row g-3 small">
-                    <div class="col-md-6"><span class="text-muted">Season:</span><span class="ms-2 fw-medium">{{
-                      form.season?.text
-                        || 'N/A' }}</span></div>
-                    <div class="col-md-6"><span class="text-muted">Package:</span><span class="ms-2 fw-medium">{{
-                      form.priceListId?.text || 'No package selected' }}</span></div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Schedule Summary -->
-              <div class="card mb-3">
-                <div class="card-header bg-light">
-                  <div class="d-flex align-items-center gap-2">
-                    <i class="fa fa-calendar text-primary"></i>
-                    <h6 class="mb-0">Schedule & Hunt Party</h6>
-                  </div>
-                </div>
-                <div class="card-body">
-                  <div class="row g-3 small mb-3">
-                    <div class="col-md-4"><span class="text-muted">Start Date:</span><span class="ms-2 fw-medium">{{
-                      formatReviewDate(form.start_date) }}</span></div>
-                    <div class="col-md-4"><span class="text-muted">Days:</span><span class="ms-2 fw-medium">{{ form.no_of_days || 'N/A' }}</span></div>
-                    <div class="col-md-4"><span class="text-muted">End Date:</span><span class="ms-2 fw-medium text-info">{{
-                        formatReviewDate(calculatedEndDate) }}</span></div>
-                  </div>
-                  <hr class="my-2" />
-                  <div class="row g-3 small">
-                    <div class="col-md-4"><span class="text-muted">Hunting Area:</span><span
-                        class="ms-2 fw-medium">{{
-                          form.area?.text || 'N/A' }}</span></div>
-                    <div class="col-md-4"><span class="text-muted">Days:</span><span class="ms-2 fw-medium">{{ huntDuration || 'N/A' }}</span></div>
-                    <div class="col-md-4"><span class="text-muted">Participants:</span><span class="ms-2 fw-medium">{{
-                      form.no_of_participants || 1 }}</span></div>
-                  </div>
-                  <hr class="my-2" />
-                  <div class="row g-3 small">
-                    <div class="col-md-3"><span class="text-muted">Experience:</span><span class="ms-2 fw-medium">{{
-                      form.prev_experience || 'N/A' }}</span></div>
-                    <div class="col-md-9"></div>
-                  </div>
-                  <div v-if="form.special_requests" class="row g-3 small mt-1">
-                    <div class="col-12"><span class="text-muted">Special Requests:</span><span class="ms-2 fw-medium">{{
-                      form.special_requests }}</span></div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Enquiry Remarks -->
-              <div class="card mb-3">
-                <div class="card-header bg-light">
-                  <div class="d-flex align-items-center gap-2">
-                    <i class="fa fa-comment text-primary"></i>
-                    <h6 class="mb-0">Enquiry Remarks</h6>
-                  </div>
-                </div>
-                <div class="card-body">
-                  <textarea v-model="form.remarks" class="form-control" rows="3"
-                    placeholder="Add any additional remarks or notes for this enquiry (optional)..."></textarea>
-                </div>
-              </div>
-
-              <!-- Budget Information -->
-              <div class="card mb-3">
-                <div class="card-header bg-light">
-                  <div class="d-flex align-items-center gap-2">
-                    <i class="fa fa-dollar-sign text-primary"></i>
-                    <h6 class="mb-0">Budget Information</h6>
-                  </div>
-                </div>
-                <div class="card-body">
-                  <div class="row g-3">
-                    <div class="col-md-6">
-                      <label class="form-label">Budget Minimum (USD)</label>
-                      <input v-model="form.budget_min" type="number" class="form-control" min="0" 
-                        placeholder="e.g., 5000" />
-                      <small class="text-muted">Enter the minimum budget for this hunt</small>
-                    </div>
-                    <div class="col-md-6">
-                      <label class="form-label">Budget Maximum (USD)</label>
-                      <input v-model="form.budget_max" type="number" class="form-control" min="0" 
-                        placeholder="e.g., 15000" />
-                      <small class="text-muted">Enter the maximum budget for this hunt</small>
-                    </div>
-                  </div>
-                  <div v-if="form.budget_min && form.budget_max" class="alert alert-info mt-3 mb-0">
-                    <i class="fa fa-info-circle me-2"></i>
-                    <strong>Budget Range:</strong> ${{ form.budget_min.toLocaleString() }} - ${{ form.budget_max.toLocaleString() }}
-                  </div>
-                </div>
-              </div>
-
-              <!-- Species Summary -->
-              <div class="card mb-3">
-                <div class="card-header bg-light">
-                  <div class="d-flex align-items-center gap-2">
-                    <i class="fa fa-paw text-primary"></i>
-                    <h6 class="mb-0">Selected Species ({{ speciesObjects.length }})</h6>
-                  </div>
-                </div>
-                <div class="card-body">
-                  <div v-if="speciesObjects.length > 0" class="d-flex flex-wrap gap-2">
-                    <span v-for="(s, index) in speciesObjects" :key="index" class="badge"
-                      :class="s.fromPackage ? 'bg-info' : 'bg-primary'">
-                      {{ s.name }} (x{{ s.quantity }})
-                    </span>
-                  </div>
-                  <span v-else class="text-muted">No species selected</span>
-                </div>
-              </div>
-
-              <!-- Safari Extras Summary -->
-              <div v-if="selectedSafariExtras.length > 0" class="card mb-3">
-                <div class="card-header bg-light">
-                  <div class="d-flex align-items-center gap-2">
-                    <i class="fa fa-hiking text-primary"></i>
-                    <h6 class="mb-0">Safari Extras ({{ selectedSafariExtras.length }})</h6>
-                  </div>
-                </div>
-                <div class="card-body">
-                  <div class="d-flex flex-wrap gap-2">
-                    <span v-for="extra in selectedSafariExtras" :key="extra.id" class="badge bg-success">
-                      {{ extra.name }} - {{ extra.currency_code || 'USD' }} {{ extra.amount }}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Trophy Fees Summary -->
-              <div v-if="trophyFees.length > 0" class="card mb-3">
-                <div class="card-header bg-light">
-                  <div class="d-flex align-items-center gap-2">
-                    <i class="fa fa-trophy text-warning"></i>
-                    <h6 class="mb-0">Trophy Fees ({{ trophyFees.length }})</h6>
-                  </div>
-                </div>
-                <div class="card-body">
-                  <div class="table-responsive">
-                    <table class="table table-hover table-sm mb-0">
-                      <thead>
-                        <tr>
-                          <th class="text-start">Species</th>
-                          <th class="text-center">Sequence</th>
-                          <th class="text-end">Fee</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr v-for="(fee, index) in trophyFees" :key="`trophy-review-${fee.id}-${index}`">
-                          <td class="fw-medium">{{ fee.species_name || 'Unknown' }}</td>
-                          <td class="text-center">
-                            <span class="badge bg-primary">{{ getSequenceLabel(fee.sequence_order) }}</span>
-                          </td>
                           <td class="text-end fw-semibold">{{ fee.currency_code || 'USD' }} {{ fee.amount.toLocaleString() }}</td>
                         </tr>
                       </tbody>
@@ -901,56 +667,313 @@
                   </div>
                 </div>
               </div>
+            </template>
+          </StaticElement>
+        </GroupElement>
 
-              <!-- Per Participant Costs Summary -->
-              <div v-if="companionCosts.length > 0 && form.no_of_participants > 0" class="card mb-3">
-                <div class="card-header bg-light">
-                  <div class="d-flex align-items-center gap-2">
-                    <i class="fa fa-users text-info"></i>
-                    <h6 class="mb-0">Per Participant Daily Rate</h6>
-                  </div>
-                </div>
+        <GroupElement name="companionCostsSection">
+          <template #label>
+            <div v-if="companionCosts.length > 0" class="d-flex align-items-center gap-2 mb-2 mt-3">
+              <i class="fa fa-users text-info fs-4"></i>
+              <h5 class="mb-0 fw-bold">Companion Costs</h5>
+            </div>
+          </template>
+
+          <StaticElement name="companionCostsList">
+            <template v-if="companionCosts.length > 0">
+              <div class="alert alert-info border-start border-4" role="alert">
+                <h6 class="alert-heading">Companion Cost Calculation</h6>
+                <p class="mb-0">Cost per participant per day. Total cost = Rate × Days × Number of Participants.</p>
+              </div>
+
+              <div class="card mb-3 bg-light">
                 <div class="card-body">
-                  <div v-for="cost in companionCosts" :key="cost.id" class="d-flex justify-content-between align-items-center">
-                    <div>
-                      <span class="text-muted">{{ cost.description }}</span>
-                      <span class="ms-2 fw-medium">{{ cost.currency_code || 'USD' }} {{ cost.amount.toLocaleString() }}/day/participant</span>
+                  <div v-for="(cost, index) in companionCosts" :key="`companion-${cost.id}-${index}`"
+                    class="mb-3">
+                    <div class="d-flex justify-content-between align-items-center p-3 border rounded bg-white mb-2">
+                      <div>
+                        <div class="fw-semibold">{{ cost.description }}</div>
+                        <small class="text-muted">Per participant per day</small>
+                      </div>
+                      <div class="text-end">
+                        <div class="fw-bold fs-5">{{ cost.currency_code || 'USD' }} {{ parseFloat(cost.amount).toFixed(2) }}</div>
+                        <small class="text-muted">per day</small>
+                      </div>
                     </div>
-                    <div class="fw-bold text-info">
-                      Est: {{ cost.currency_code || 'USD' }} {{ (cost.amount * form.no_of_participants * (huntDuration || 1)).toLocaleString() }}
+
+                    <!-- Calculation Breakdown -->
+                    <div v-if="form.no_of_participants > 0 && huntDuration > 0" class="card bg-success bg-opacity-10 border-success">
+                      <div class="card-body">
+                        <div class="row g-3 align-items-center">
+                          <div class="col-md-8">
+                            <div class="d-flex align-items-center gap-3">
+                              <div class="text-center">
+                                <div class="text-muted small">Rate/Day</div>
+                                <div class="fw-bold">{{ cost.currency_code }} {{ parseFloat(cost.amount).toFixed(2) }}</div>
+                              </div>
+                              <span class="text-muted">×</span>
+                              <div class="text-center">
+                                <div class="text-muted small">Days</div>
+                                <div class="fw-bold">{{ huntDuration }}</div>
+                              </div>
+                              <span class="text-muted">×</span>
+                              <div class="text-center">
+                                <div class="text-muted small">Participants</div>
+                                <div class="fw-bold">{{ form.no_of_participants }}</div>
+                              </div>
+                              <span class="text-muted">=</span>
+                            </div>
+                          </div>
+                          <div class="col-md-4">
+                            <div class="text-end">
+                              <div class="text-muted small">Total Companion Cost</div>
+                              <div class="fw-bold fs-4 text-success">{{ cost.currency_code }} {{ (parseFloat(cost.amount) * form.no_of_participants * huntDuration).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}</div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Info message when no participants -->
+                    <div v-else class="alert alert-warning mb-0">
+                      <i class="fa fa-info-circle me-2"></i>
+                      <small>Enter number of participants and hunt duration to see total cost calculation</small>
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
-          </div>
-        </form>
-      </div>
-    </div>
+            </template>
+          </StaticElement>
+        </GroupElement>
 
-    <!-- Floating Sticky Footer Navigation -->
-    <div class="floating-footer-wrapper">
-      <div class="floating-footer bg-white border-top shadow-lg">
-        <div class="d-flex justify-content-between align-items-center py-3 px-4">
-          <div>
-            <button v-if="currentStep > 0" type="button" class="btn btn-primary" @click="previousStep">
-              Back
+        <!-- Step 4: Review & Submit -->
+        <GroupElement name="reviewSection">
+          <template #label>
+            <div class="d-flex align-items-center gap-2 mb-2">
+              <i class="fa fa-clipboard-check text-primary fs-4"></i>
+              <h5 class="mb-0 fw-bold">Review Your Enquiry</h5>
+            </div>
+          </template>
+
+          <StaticElement name="reviewContent">
+            <div class="alert alert-info border-start border-4" role="alert">
+              <h6 class="alert-heading">Please Review</h6>
+              <p class="mb-0">Review all the information below before submitting your enquiry.</p>
+            </div>
+
+            <!-- Customer Summary -->
+            <div class="card mb-3">
+              <div class="card-header bg-light">
+                <div class="d-flex align-items-center gap-2">
+                  <i class="fa fa-user text-primary"></i>
+                  <h6 class="mb-0">Customer Information</h6>
+                </div>
+              </div>
+              <div class="card-body">
+                <div class="row g-3 small">
+                  <div class="col-md-4"><span class="text-muted">Full Name:</span><span class="ms-2 fw-medium">{{ form.full_name || 'N/A' }}</span></div>
+                  <div class="col-md-4"><span class="text-muted">Country:</span><span class="ms-2 fw-medium">{{ getItemLabel(countryItems, form.country) }}</span></div>
+                  <div class="col-md-4"><span class="text-muted">Nationality:</span><span class="ms-2 fw-medium">{{ getItemLabel(nationalityItems, form.nationality) }}</span></div>
+                  <div class="col-md-4"><span class="text-muted">Email:</span><span class="ms-2 fw-medium">{{ form.email || 'N/A' }}</span></div>
+                  <div class="col-md-4"><span class="text-muted">Primary Phone:</span><span class="ms-2 fw-medium">{{ form.phone || 'N/A' }}</span></div>
+                  <div class="col-md-4"><span class="text-muted">Additional Phone:</span><span class="ms-2 fw-medium">{{ form.phone_additional || 'N/A' }}</span></div>
+                  <div class="col-12"><span class="text-muted">Address:</span><span class="ms-2 fw-medium">{{ form.address || 'N/A' }}</span></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Season & Package Summary -->
+            <div class="card mb-3">
+              <div class="card-header bg-light">
+                <div class="d-flex align-items-center gap-2">
+                  <i class="fa fa-box text-primary"></i>
+                  <h6 class="mb-0">Season & Package</h6>
+                </div>
+              </div>
+              <div class="card-body">
+                <div class="row g-3 small">
+                  <div class="col-md-6"><span class="text-muted">Season:</span><span class="ms-2 fw-medium">{{ getItemLabel(seasonItems, form.season) }}</span></div>
+                  <div class="col-md-6"><span class="text-muted">Package:</span><span class="ms-2 fw-medium">{{ getItemLabel(packageItems, form.priceListId) || 'No package selected' }}</span></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Schedule Summary -->
+            <div class="card mb-3">
+              <div class="card-header bg-light">
+                <div class="d-flex align-items-center gap-2">
+                  <i class="fa fa-calendar text-primary"></i>
+                  <h6 class="mb-0">Schedule & Hunt Party</h6>
+                </div>
+              </div>
+              <div class="card-body">
+                <div class="row g-3 small mb-3">
+                  <div class="col-md-4"><span class="text-muted">Start Date:</span><span class="ms-2 fw-medium">{{ formatReviewDate(form.start_date) }}</span></div>
+                  <div class="col-md-4"><span class="text-muted">Days:</span><span class="ms-2 fw-medium">{{ form.no_of_days || 'N/A' }}</span></div>
+                  <div class="col-md-4"><span class="text-muted">End Date:</span><span class="ms-2 fw-medium text-info">{{ formatReviewDate(calculatedEndDate) }}</span></div>
+                </div>
+                <hr class="my-2" />
+                <div class="row g-3 small">
+                  <div class="col-md-4"><span class="text-muted">Hunting Area:</span><span class="ms-2 fw-medium">{{ getItemLabel(areaItems, form.area) }}</span></div>
+                  <div class="col-md-4"><span class="text-muted">Days:</span><span class="ms-2 fw-medium">{{ huntDuration || 'N/A' }}</span></div>
+                  <div class="col-md-4"><span class="text-muted">Participants:</span><span class="ms-2 fw-medium">{{ form.no_of_participants || 1 }}</span></div>
+                </div>
+                <hr class="my-2" />
+                <div class="row g-3 small">
+                  <div class="col-md-3"><span class="text-muted">Experience:</span><span class="ms-2 fw-medium">{{ form.prev_experience || 'N/A' }}</span></div>
+                </div>
+                <div v-if="form.special_requests" class="row g-3 small mt-1">
+                  <div class="col-12"><span class="text-muted">Special Requests:</span><span class="ms-2 fw-medium">{{ form.special_requests }}</span></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Enquiry Remarks -->
+            <div class="card mb-3">
+              <div class="card-header bg-light">
+                <div class="d-flex align-items-center gap-2">
+                  <i class="fa fa-comment text-primary"></i>
+                  <h6 class="mb-0">Enquiry Remarks</h6>
+                </div>
+              </div>
+              <div class="card-body">
+                <textarea v-model="form.remarks" class="form-control" rows="3"
+                  placeholder="Add any additional remarks or notes for this enquiry (optional)..."></textarea>
+              </div>
+            </div>
+
+            <!-- Species Summary -->
+            <div class="card mb-3">
+              <div class="card-header bg-light">
+                <div class="d-flex align-items-center gap-2">
+                  <i class="fa fa-paw text-primary"></i>
+                  <h6 class="mb-0">Selected Species ({{ speciesObjects.length }})</h6>
+                </div>
+              </div>
+              <div class="card-body">
+                <div v-if="speciesObjects.length > 0" class="d-flex flex-wrap gap-2">
+                  <span v-for="(s, index) in speciesObjects" :key="index" class="badge" :class="s.fromPackage ? 'bg-info' : 'bg-primary'">
+                    {{ s.name }} (x{{ s.quantity }})
+                  </span>
+                </div>
+                <span v-else class="text-muted">No species selected</span>
+              </div>
+            </div>
+
+            <!-- Safari Extras Summary -->
+            <div v-if="selectedSafariExtras.length > 0" class="card mb-3">
+              <div class="card-header bg-light">
+                <div class="d-flex align-items-center gap-2">
+                  <i class="fa fa-hiking text-primary"></i>
+                  <h6 class="mb-0">Safari Extras ({{ selectedSafariExtras.length }})</h6>
+                </div>
+              </div>
+              <div class="card-body">
+                <div class="d-flex flex-wrap gap-2">
+                  <div v-for="extra in selectedSafariExtras" :key="extra.id" class="badge bg-success text-start py-2 px-3">
+                    <div class="fw-bold">{{ extra.name || 'Safari Extra' }}</div>
+                    <div class="small">{{ extra.currency_code || 'USD' }} {{ parseFloat(extra.amount || 0).toFixed(2) }}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Trophy Fees Summary -->
+            <div v-if="trophyFees.length > 0" class="card mb-3">
+              <div class="card-header bg-light">
+                <div class="d-flex align-items-center gap-2">
+                  <i class="fa fa-trophy text-warning"></i>
+                  <h6 class="mb-0">Trophy Fees ({{ trophyFees.length }})</h6>
+                </div>
+              </div>
+              <div class="card-body">
+                <div class="table-responsive">
+                  <table class="table table-hover table-sm mb-0">
+                    <thead>
+                      <tr>
+                        <th class="text-start">Species</th>
+                        <th class="text-center">Sequence</th>
+                        <th class="text-end">Fee</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="(fee, index) in trophyFees" :key="`trophy-review-${fee.id}-${index}`">
+                        <td class="fw-medium">{{ fee.species_name || 'Unknown' }}</td>
+                        <td class="text-center">
+                          <span class="badge bg-primary">{{ getSequenceLabel(fee.sequence_order) }}</span>
+                        </td>
+                        <td class="text-end fw-semibold">{{ fee.currency_code || 'USD' }} {{ fee.amount.toLocaleString() }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <!-- Per Participant Costs Summary -->
+            <div v-if="companionCosts.length > 0 && form.no_of_participants > 0" class="card mb-3">
+              <div class="card-header bg-light">
+                <div class="d-flex align-items-center gap-2">
+                  <i class="fa fa-users text-info"></i>
+                  <h6 class="mb-0">Per Participant Daily Rate</h6>
+                </div>
+              </div>
+              <div class="card-body">
+                <div v-for="cost in companionCosts" :key="cost.id" class="d-flex justify-content-between align-items-center">
+                  <div>
+                    <span class="text-muted">{{ cost.description }}</span>
+                    <span class="ms-2 fw-medium">{{ cost.currency_code || 'USD' }} {{ cost.amount.toLocaleString() }}/day/participant</span>
+                  </div>
+                  <div class="fw-bold text-info">
+                    Est: {{ cost.currency_code || 'USD' }} {{ (cost.amount * form.no_of_participants * (huntDuration || 1)).toLocaleString() }}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </StaticElement>
+        </GroupElement>
+
+        <!-- Wizard Navigation Controls -->
+        <FormStepsControls>
+          <template #previous="{ previous, isDisabled }">
+            <button 
+              type="button" 
+              class="btn btn-outline-secondary me-2"
+              :disabled="isDisabled"
+              @click="previous"
+            >
+              <i class="fa fa-arrow-left me-1"></i> Back
             </button>
-          </div>
-          <div class="text-muted d-none d-sm-inline">Step {{ currentStep + 1 }} of {{ wizardSteps.length }}</div>
-          <div class="d-flex gap-2">
-            <button type="button" class="btn btn-outline-secondary" @click="cancelWizard">Cancel</button>
-            <button v-if="currentStep < wizardSteps.length - 1" type="button" class="btn btn-primary"
-              :disabled="!canProceedToNextStep" @click="nextStep">
-              Next
+          </template>
+          <template #next="{ next, isDisabled }">
+            <button 
+              type="button" 
+              class="btn btn-primary"
+              :disabled="isDisabled"
+              @click="next"
+            >
+              Next Step <i class="fa fa-arrow-right ms-1"></i>
             </button>
-            <button v-else type="button" class="btn btn-primary" :disabled="!isValidForm || saving" @click="submit()">
-              <span v-if="saving" class="spinner-border spinner-border-sm me-2" role="status"></span>
-              Finish
+          </template>
+          <template #finish="{ finish, isDisabled }">
+            <button 
+              type="button" 
+              class="btn btn-success"
+              :disabled="isDisabled || saving"
+              @click="finish"
+            >
+              <i class="fa fa-check me-1"></i> {{ saving ? 'Saving...' : 'Submit Enquiry' }}
             </button>
-          </div>
-        </div>
-      </div>
+          </template>
+        </FormStepsControls>
+      </template>
+    </Vueform>
+
+    <!-- Cancel Button -->
+    <div class="mt-3 text-end">
+      <button type="button" class="btn btn-outline-secondary" @click="cancelWizard">
+        <i class="fa fa-times me-1"></i> Cancel
+      </button>
     </div>
   </div>
 </template>
@@ -958,9 +981,8 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import axios from 'axios'
+import Swal from 'sweetalert2'
 import handleErrors from '@/stores/bushman/errorHandler'
-import { validators } from '@/stores/bushman/utils'
-import { useForm } from '@/composables/useForm'
 import { useToast } from '@/composables/useToast'
 import { salesEnquiryService } from '@/stores/bushman/salesEnquiryService'
 import { useSettingsStore } from '@/stores/bushman/settings-store'
@@ -970,27 +992,16 @@ import { useAuthStore } from '@/stores/auth'
 const props = defineProps<{ editRow?: any | null }>()
 const emit = defineEmits<{ (e: 'cancel'): void; (e: 'saved'): void }>()
 
-const formRef = ref<HTMLFormElement | null>(null)
-const contactFormRef = ref<HTMLFormElement | null>(null)
-
-const { isValid: isValidForm, validate: validateForm, resetValidation: resetValidationForm, reset: resetForm } =
-  useForm()
-const {
-  isValid: isValidContactForm,
-  validate: validateContactForm,
-  resetValidation: resetValidationContactForm,
-  reset: resetContactForm,
-} = useForm()
-
+const vueformRef = ref<any>(null)
 const { init } = useToast()
 
+// Form state - reactive object that syncs with Vueform
 const form = reactive({
   id: null as any,
   full_name: '',
   nick_name: '',
   country: null as any,
   nationality: null as any,
-  category: null as any,
   email: '',
   phone: '',
   phone_additional: '',
@@ -1006,7 +1017,6 @@ const form = reactive({
   area: null as any,
   season: null as any,
   start_date: null as any,
-  // Additional fields for backend preference
   remarks: '',
   prev_experience: '',
   budget_min: null as number | null,
@@ -1015,29 +1025,22 @@ const form = reactive({
   special_requests: '',
 })
 
-const contactForm = reactive({
-  id: null as any,
-  client_id: null as any,
-  contact: '',
-  contact_type: null as any,
-  contactable: false,
-})
-
+// Data sources
 const countries = ref<any[]>([])
 const nationality = ref<any[]>([])
-const contactsTypes = ref<any[]>([])
-
 const speciesOptions = ref<any[]>([])
 const speciesObjects = ref<any[]>([])
 const areasOptions = ref<any[]>([])
 const seasonsOptions = ref<any[]>([])
 const packagesOptions = ref<any[]>([])
+const existingCustomersOptions = ref<any[]>([])
 
 const saving = ref(false)
+const loadingPackageItems = ref(false)
+const loadingCustomers = ref(false)
 
 const seasonMinDate = ref<Date | null>(null)
 const seasonMaxDate = ref<Date | null>(null)
-
 const bookedDates = ref<Array<{ start_date: string; end_date: string; client_name: string; area_id: number }>>([])
 const loadingBookedDates = ref(false)
 const dateConflictWarning = ref('')
@@ -1047,21 +1050,10 @@ const editingInquiryId = ref<number | null>(null)
 
 const customerType = ref<'new' | 'existing'>('new')
 const selectedExistingCustomer = ref<any>(null)
-const existingCustomersOptions = ref<any[]>([])
-const loadingCustomers = ref(false)
-
-const currentStep = ref(0)
-const wizardSteps = [
-  { label: 'Personal Info' },
-  { label: 'Season, Package, Dates & Species' },
-  { label: 'Safari Extras & Trophy Fees' },
-  { label: 'Review' },
-]
 
 const selectedSafariExtras = ref<any[]>([])
 const trophyFees = ref<any[]>([])
 const companionCosts = ref<any[]>([])
-const loadingPackageItems = ref(false)
 const selectedPackageDetail = ref<any>(null)
 
 const createQuotation = ref(false)
@@ -1085,12 +1077,248 @@ const priceListStore = usePriceListStore()
 const salesPackagesSpecies = computed(() => settingsStore.salesPackagesSpecies)
 const huntLengths = ref<any[]>([])
 
+// Computed items for Vueform select elements
+const countryItems = computed(() => 
+  countries.value.map((c: any) => ({ value: c.value, label: c.text }))
+)
+
+const nationalityItems = computed(() => 
+  nationality.value.map((n: any) => ({ value: n.value, label: n.text }))
+)
+
+const seasonItems = computed(() => 
+  seasonsOptions.value.map((s: any) => ({ 
+    value: s.value, 
+    label: s.selfItem ? `${s.text} - ${formatDateRange(s.selfItem.start_at, s.selfItem.end_at)}` : s.text,
+    selfItem: s.selfItem
+  }))
+)
+
+const packageItems = computed(() => 
+  packagesOptions.value.map((pkg: any) => ({
+    value: pkg.value,
+    label: pkg.selfItem 
+      ? `${pkg.text} - ${pkg.selfItem?.price_structure?.location_name || 'N/A'} • ${pkg.selfItem?.hunting_type_name || 'N/A'} • ${pkg.selfItem?.hunt_length_days || 0} days • ${pkg.selfItem?.currency_symbol || '$'}${pkg.selfItem?.amount || '0'}`
+      : pkg.text,
+    selfItem: pkg.selfItem
+  }))
+)
+
+const areaItems = computed(() => 
+  areasOptions.value.map((a: any) => ({ value: a.value, label: a.text }))
+)
+
+const speciesItems = computed(() => 
+  speciesOptions.value.map((s: any) => ({ value: s.value, label: s.text }))
+)
+
+const existingCustomerItems = computed(() => 
+  existingCustomersOptions.value.map((c: any) => ({ 
+    value: c.value, 
+    label: `${c.text} - ${c.selfItem?.email || 'N/A'} • ${c.selfItem?.country || 'N/A'}`,
+    selfItem: c.selfItem
+  }))
+)
+
+const selectedPackageInfo = computed(() => {
+  if (!form.priceListId) return null
+  const pkg = packagesOptions.value.find((p: any) => p.value === form.priceListId)
+  if (!pkg?.selfItem) return null
+  return {
+    area: pkg.selfItem?.price_structure?.location_name || 'N/A',
+    huntingType: pkg.selfItem?.hunting_type_name || 'N/A',
+    duration: pkg.selfItem?.hunt_length_days || 0,
+    amount: `${pkg.selfItem?.currency_symbol || '$'}${pkg.selfItem?.amount || 'N/A'}`
+  }
+})
+
+const selectedUpgradeFees = computed(() => {
+  if (!form.priceListId) return []
+  const pkg = packagesOptions.value.find((p: any) => p.value === form.priceListId)
+  return pkg?.selfItem?.upgrade_fees || []
+})
+
 const bookedDatesForSelectedSeason = computed(() => bookedDates.value)
+
 const currentUserId = computed(() => {
   const rawId = authStore.user?.id
   const parsed = rawId ? Number(rawId) : null
   return Number.isFinite(parsed) ? parsed : null
 })
+
+const huntDuration = computed(() => form.no_of_days || 0)
+
+const calculatedEndDate = computed(() => {
+  if (!form.start_date || !form.no_of_days) return null
+  const start = new Date(form.start_date)
+  const end = new Date(start)
+  end.setDate(start.getDate() + Number(form.no_of_days) - 1)
+  return end.toISOString().split('T')[0]
+})
+
+const quotationTotalAmount = computed(() =>
+  quotationForm.installments.reduce((sum, inst) => sum + (Number(inst.amount_due) || 0), 0),
+)
+
+const totalCompanionCost = computed(() => {
+  if (companionCosts.value.length === 0) return 0
+  const rate = parseFloat(companionCosts.value[0]?.amount || 0)
+  const days = Number(form.no_of_days) || 0
+  const participants = Number(form.no_of_participants) || 0
+  return rate * days * participants
+})
+
+// Helper function to get label from items array
+const getItemLabel = (items: any[], value: any) => {
+  if (!value) return 'N/A'
+  const item = items.find((i: any) => i.value === value)
+  return item?.label || 'N/A'
+}
+
+// Event handlers for Vueform
+const onCustomerTypeChange = (newValue: string) => {
+  customerType.value = newValue as 'new' | 'existing'
+  selectedExistingCustomer.value = null
+  clearCustomerInformation()
+}
+
+const onExistingCustomerSelect = (option: any) => {
+  if (!option) {
+    clearCustomerInformation()
+    return
+  }
+  // With object=true and @select, we get the full option object
+  // Find the original customer data using the value
+  const customer = existingCustomersOptions.value.find((c: any) => c.value === option.value)
+  if (customer) {
+    selectedExistingCustomer.value = customer.value
+    populateFormFromCustomer(customer)
+  }
+}
+
+const onSeasonChange = async (value: any) => {
+  form.season = value
+  dateConflictWarning.value = ''
+  form.start_date = null
+  form.no_of_days = 0
+
+  if (!value) {
+    seasonMinDate.value = null
+    seasonMaxDate.value = null
+    bookedDates.value = []
+    return
+  }
+
+  const season = seasonsOptions.value.find((s: any) => s.value === value)
+  if (season?.selfItem) {
+    if (season.selfItem.start_at) seasonMinDate.value = new Date(season.selfItem.start_at)
+    if (season.selfItem.end_at) seasonMaxDate.value = new Date(season.selfItem.end_at)
+  }
+
+  await fetchBookedDates(value)
+}
+
+const onPackageChange = async (value: any) => {
+  form.priceListId = value
+  await populateFormFromPackage()
+}
+
+const onStartDateChange = (newValue: any) => {
+  form.start_date = newValue || ''
+  checkBookedDateConflict()
+}
+
+const onDaysChange = (newValue: any) => {
+  form.no_of_days = Number(newValue) || 0
+  checkBookedDateConflict()
+}
+
+const onParticipantsChange = (newValue: any) => {
+  form.no_of_participants = Number(newValue) || 1
+}
+
+// Sync Vueform data with local form state
+const syncFormData = () => {
+  if (!vueformRef.value) return
+  const data = vueformRef.value.data
+  
+  form.full_name = data.full_name || ''
+  form.nick_name = data.nick_name || ''
+  form.country = data.country || null
+  form.nationality = data.nationality || null
+  form.email = data.email || ''
+  form.phone = data.phone || ''
+  form.phone_additional = data.phone_additional || ''
+  form.address = data.address || ''
+  form.season = data.season || null
+  form.priceListId = data.priceListId || null
+  form.start_date = data.start_date || null
+  form.no_of_days = Number(data.no_of_days) || 0
+  form.area = data.area || null
+  form.no_of_participants = Number(data.no_of_participants) || 1
+  form.prev_experience = data.prev_experience || ''
+  form.special_requests = data.special_requests || ''
+  createQuotation.value = data.createQuotation || false
+}
+
+// Handle form submission from Vueform
+const handleSubmit = async (formData: any, form$: any) => {
+  syncFormData()
+  await submit()
+}
+
+// Add species to list
+const addSpeciesToList = () => {
+  if (!vueformRef.value) return
+  const data = vueformRef.value.data
+  const selectedSpecies = data.selectedSpecies
+  const quantity = Number(data.speciesQuantity) || 1
+
+  if (!selectedSpecies) {
+    init({ message: 'Please select a species.', color: 'warning' })
+    return
+  }
+
+  if (quantity <= 0) {
+    init({ message: 'Quantity must be greater than zero.', color: 'warning' })
+    return
+  }
+
+  const exists = speciesObjects.value.some((species: { species_id: any }) => species.species_id === selectedSpecies)
+  if (!exists) {
+    const speciesOption = speciesOptions.value.find((s: any) => s.value === selectedSpecies)
+    speciesObjects.value.push({
+      species_id: selectedSpecies,
+      name: speciesOption?.text || 'Unknown',
+      quantity: quantity,
+      priority: 'NICE_TO_HAVE',
+      notes: '',
+      fromPackage: false,
+    })
+    // Reset selection
+    vueformRef.value.update({ selectedSpecies: null, speciesQuantity: 1 })
+  } else {
+    init({ message: 'This species is already added. Update the quantity instead.', color: 'warning' })
+  }
+}
+
+const contactForm = reactive({
+  id: null as any,
+  client_id: null as any,
+  contact: '',
+  contact_type: null as any,
+  contactable: false,
+})
+
+const contactsTypes = ref<any[]>([])
+
+const currentStep = ref(0)
+const wizardSteps = [
+  { label: 'Personal Info' },
+  { label: 'Season, Package, Dates & Species' },
+  { label: 'Safari Extras & Trophy Fees' },
+  { label: 'Review' },
+]
 
 const isStep1Complete = computed(
   () => !!(form.full_name && form.country && form.nationality && form.email && form.phone && form.address),
@@ -1136,29 +1364,11 @@ const canProceedToNextStep = computed(() => {
 })
 
 const filteredPackagesOptions = computed(() => {
-  if (!form.season?.value) return []
-  // Return all packages when a season is selected
+  if (!form.season) return []
   return packagesOptions.value
 })
 
 const speciesList = computed(() => salesPackagesSpecies.value)
-
-const huntDuration = computed(() => {
-  // Use the no_of_days directly from form
-  return form.no_of_days || 0
-})
-
-const calculatedEndDate = computed(() => {
-  if (!form.start_date || !form.no_of_days) return null
-  const start = new Date(form.start_date)
-  const end = new Date(start)
-  end.setDate(start.getDate() + form.no_of_days - 1)
-  return end.toISOString().split('T')[0]
-})
-
-const quotationTotalAmount = computed(() =>
-  quotationForm.installments.reduce((sum, inst) => sum + (Number(inst.amount_due) || 0), 0),
-)
 
 const resetQuotationForm = () => {
   createQuotation.value = false
@@ -1177,6 +1387,18 @@ const clearCustomerInformation = () => {
   form.address = ''
   form.country = null
   form.nationality = null
+  // Also update Vueform if available
+  if (vueformRef.value) {
+    vueformRef.value.update({
+      full_name: '',
+      email: '',
+      phone: '',
+      phone_additional: '',
+      address: '',
+      country: null,
+      nationality: null
+    })
+  }
 }
 
 const resetEditMode = () => {
@@ -1191,13 +1413,16 @@ const resetEditMode = () => {
   customerType.value = 'new'
   selectedExistingCustomer.value = null
   currentStep.value = 0
-  // Reset additional preference fields
   form.remarks = ''
   form.prev_experience = ''
   form.budget_min = null
   form.budget_max = null
   form.payment_method_id = null
   form.special_requests = ''
+  // Reset Vueform
+  if (vueformRef.value) {
+    vueformRef.value.reset()
+  }
 }
 
 const cancelWizard = () => {
@@ -1443,22 +1668,48 @@ const populateFormFromCustomer = (customer: any) => {
   form.phone = entity.phone || ''
   form.address = entity.address || ''
 
+  let countryValue = null
   const countryId = entity.country_id
   if (countryId) {
     const countryOption = countries.value.find((c: any) => c.value === countryId)
-    if (countryOption) form.country = countryOption
+    if (countryOption) {
+      form.country = countryOption.value
+      countryValue = countryOption.value
+    }
   } else if (entity.country) {
     const countryOption = countries.value.find((c: any) => c.text === entity.country)
-    if (countryOption) form.country = countryOption
+    if (countryOption) {
+      form.country = countryOption.value
+      countryValue = countryOption.value
+    }
   }
 
+  let nationalityValue = null
   const nationalityId = entity.nationality_id
   if (nationalityId) {
     const nationalityOption = nationality.value.find((n: any) => n.value === nationalityId)
-    if (nationalityOption) form.nationality = nationalityOption
+    if (nationalityOption) {
+      form.nationality = nationalityOption.value
+      nationalityValue = nationalityOption.value
+    }
   } else if (entity.nationality) {
     const nationalityOption = nationality.value.find((n: any) => n.text === entity.nationality)
-    if (nationalityOption) form.nationality = nationalityOption
+    if (nationalityOption) {
+      form.nationality = nationalityOption.value
+      nationalityValue = nationalityOption.value
+    }
+  }
+
+  // Update Vueform with new values
+  if (vueformRef.value) {
+    vueformRef.value.update({
+      full_name: form.full_name,
+      email: form.email,
+      phone: form.phone,
+      address: form.address,
+      country: countryValue,
+      nationality: nationalityValue
+    })
   }
 }
 
@@ -1539,18 +1790,14 @@ const checkBookedDateConflict = () => {
   }
 }
 
-const onStartDateChange = () => {
-  checkBookedDateConflict()
-}
-
-const onDaysChange = () => {
-  checkBookedDateConflict()
-}
-
 const populateFormFromPackage = async () => {
-  if (!form.priceListId?.selfItem) return
-  const pkg = form.priceListId.selfItem
-  const priceStructureDetailId = form.priceListId.value
+  if (!form.priceListId) return
+  
+  const pkg = packagesOptions.value.find((p: any) => p.value === form.priceListId)
+  if (!pkg?.selfItem) return
+  
+  const pkgData = pkg.selfItem
+  const priceStructureDetailId = form.priceListId
 
   // Reset all package-related data
   speciesObjects.value = []
@@ -1560,16 +1807,26 @@ const populateFormFromPackage = async () => {
   selectedPackageDetail.value = null
 
   // Get area from price_structure.location_name
-  const areaName = pkg?.price_structure?.location_name
+  const areaName = pkgData?.price_structure?.location_name
   if (areaName) {
     const areaOption = areasOptions.value.find((a: any) => a.text === areaName)
-    if (areaOption) form.area = areaOption
+    if (areaOption) {
+      form.area = areaOption.value
+      // Also update Vueform
+      if (vueformRef.value) {
+        vueformRef.value.update({ area: areaOption.value })
+      }
+    }
   }
 
   // Get duration from hunt_length_days (optional, doesn't force it)
-  const duration = pkg?.hunt_length_days || pkg?.regulatory_package?.duration
+  const duration = pkgData?.hunt_length_days || pkgData?.regulatory_package?.duration
   if (duration && !form.no_of_days) {
     form.no_of_days = Number(duration)
+    // Also update Vueform
+    if (vueformRef.value) {
+      vueformRef.value.update({ no_of_days: duration })
+    }
   }
 
   // Fetch items from preview endpoint
@@ -1580,8 +1837,8 @@ const populateFormFromPackage = async () => {
       if (response.success && response.data) {
         const data = response.data
 
-        // Store package detail info
-        selectedPackageDetail.value = data.price_structure_detail
+        // Store full package detail info for preview
+        selectedPackageDetail.value = data
 
         // Populate species (item_preferences)
         if (Array.isArray(data.species)) {
@@ -1603,10 +1860,10 @@ const populateFormFromPackage = async () => {
             selectedSafariExtras.value.push({
               id: extra.id,
               safari_extra_id: extra.safari_extra_id,
-              name: extra.name,
+              name: extra.item_name || extra.name || extra.description || 'Safari Extra',
               description: extra.description || '',
               amount: parseFloat(extra.amount) || 0,
-              charges_per: extra.charges_per,
+              charges_per: extra.pricing_unit || extra.charges_per,
               currency_code: extra.currency_code,
               fromPackage: true,
             })
@@ -1787,13 +2044,9 @@ const removeQuotationInstallment = (index: number) => {
 
 const submit = async () => {
   saving.value = true
-
-  const ok = validateForm() && validateContactForm()
-  if (!ok) {
-    init({ message: 'Please fix validation errors.', color: 'warning' })
-    saving.value = false
-    return
-  }
+  
+  // Sync form data from Vueform
+  syncFormData()
 
   if (!form.full_name || !form.country || !form.nationality || !form.email) {
     init({ message: 'Please fill in all required fields (Name, Country, Nationality, Email).', color: 'warning' })
@@ -1836,12 +2089,12 @@ const submit = async () => {
     // Core enquiry fields
     date: form.start_date || new Date().toISOString().split('T')[0],
     user_id: 1, // Hardcoded to user ID 1
-    season_id: form.season?.value || null,
+    season_id: form.season || null,
     status: isEditMode.value ? undefined : 'NEW', // Only set status on create
     remarks: form.remarks || null,
     
     // Areas - backend expects array of { location_id }
-    areas: form.area ? [{ location_id: form.area.value }] : [],
+    areas: form.area ? [{ location_id: form.area }] : [],
     
     // Item preferences (game preferences) - backend expects item_id, not species_item_id
     item_preferences: speciesObjects.value.map((item: any) => ({
@@ -1865,8 +2118,8 @@ const submit = async () => {
   }
 
   // Either use existing entity_id OR create new client
-  if (customerType.value === 'existing' && selectedExistingCustomer.value?.value) {
-    requestdata.entity_id = selectedExistingCustomer.value.value
+  if (customerType.value === 'existing' && selectedExistingCustomer.value) {
+    requestdata.entity_id = selectedExistingCustomer.value
   } else {
     // Create new client with contacts
     // Backend expects: contact_type_id 1=email, 2=phone, 3=address
@@ -1888,8 +2141,8 @@ const submit = async () => {
     requestdata.client = {
       full_name: form.full_name,
       nick_name: form.nick_name || null,
-      country_id: form.country?.value || null,
-      nationality_id: form.nationality?.value || null,
+      country_id: form.country || null,
+      nationality_id: form.nationality || null,
       contacts,
     }
   }
@@ -1899,20 +2152,34 @@ const submit = async () => {
     if (isEditMode.value && editingInquiryId.value) {
       response = await salesEnquiryService.update(editingInquiryId.value, requestdata)
       if (response.success) {
-        init({ message: 'Sales inquiry updated successfully', color: 'success' })
-        resetEditMode()
-        resetValidationForm()
-        resetValidationContactForm()
-        emit('saved')
+        saving.value = false
+        Swal.fire({
+          title: 'Updated!',
+          text: 'Sales enquiry updated successfully',
+          icon: 'success',
+          confirmButtonText: 'OK',
+          confirmButtonColor: '#28a745'
+        }).then(() => {
+          resetEditMode()
+          emit('saved')
+        })
+        return
       }
     } else {
       response = await salesEnquiryService.create(requestdata)
       if (response.success) {
-        init({ message: response.message || 'Sales inquiry created successfully', color: 'success' })
-        resetEditMode()
-        resetValidationForm()
-        resetValidationContactForm()
-        emit('saved')
+        saving.value = false
+        Swal.fire({
+          title: 'Success!',
+          text: response.message || 'Sales enquiry created successfully',
+          icon: 'success',
+          confirmButtonText: 'OK',
+          confirmButtonColor: '#28a745'
+        }).then(() => {
+          resetEditMode()
+          emit('saved')
+        })
+        return
       }
     }
   } catch (error: any) {
@@ -1949,19 +2216,19 @@ const loadInquiryForEdit = (rowData: any) => {
   const countryId = item.entity?.country_id
   if (countryId) {
     const countryOption = countries.value.find((c: any) => c.value === countryId)
-    if (countryOption) form.country = countryOption
+    if (countryOption) form.country = countryOption.value
   } else if (item.entity?.country) {
     const countryOption = countries.value.find((c: any) => c.text === item.entity.country)
-    if (countryOption) form.country = countryOption
+    if (countryOption) form.country = countryOption.value
   }
 
   const nationalityId = item.entity?.nationality_id
   if (nationalityId) {
     const nationalityOption = nationality.value.find((n: any) => n.value === nationalityId)
-    if (nationalityOption) form.nationality = nationalityOption
+    if (nationalityOption) form.nationality = nationalityOption.value
   } else if (item.entity?.nationality) {
     const nationalityOption = nationality.value.find((n: any) => n.text === item.entity.nationality)
-    if (nationalityOption) form.nationality = nationalityOption
+    if (nationalityOption) form.nationality = nationalityOption.value
   }
 
   // Load contacts from entity (contact_type_id: 1=email, 2=phone, 3=address)
@@ -2013,16 +2280,16 @@ const loadInquiryForEdit = (rowData: any) => {
   const locationName = item.areas?.[0]?.location?.name
   if (locationId) {
     const areaOption = areasOptions.value.find((a: any) => a.value === locationId)
-    if (areaOption) form.area = areaOption
+    if (areaOption) form.area = areaOption.value
   } else if (locationName) {
     const areaOption = areasOptions.value.find((a: any) => a.text === locationName)
-    if (areaOption) form.area = areaOption
+    if (areaOption) form.area = areaOption.value
   }
 
   // Load season
   if (item.season) {
     const seasonOption = seasonsOptions.value.find((s: any) => s.value === item.season.id || s.text === item.season.name)
-    if (seasonOption) form.season = seasonOption
+    if (seasonOption) form.season = seasonOption.value
   }
 
   form.priceListId = null
@@ -2048,11 +2315,30 @@ const loadInquiryForEdit = (rowData: any) => {
   // Set customer type to existing since we're editing
   customerType.value = 'existing'
   if (item.entity_id) {
-    selectedExistingCustomer.value = {
-      value: item.entity_id,
-      text: item.entity?.full_name || 'Unknown',
-      selfItem: item.entity,
-    }
+    selectedExistingCustomer.value = item.entity_id
+  }
+
+  // Update Vueform with loaded values
+  if (vueformRef.value) {
+    vueformRef.value.update({
+      customerType: 'existing',
+      existingCustomer: item.entity_id,
+      full_name: form.full_name,
+      country: form.country,
+      nationality: form.nationality,
+      email: form.email,
+      phone: form.phone,
+      phone_additional: form.phone_additional,
+      address: form.address,
+      season: form.season,
+      priceListId: form.priceListId,
+      start_date: form.start_date,
+      no_of_days: form.no_of_days,
+      area: form.area,
+      no_of_participants: form.no_of_participants,
+      prev_experience: form.prev_experience,
+      special_requests: form.special_requests
+    })
   }
 
   init({ message: 'Loaded inquiry data for editing', color: 'info' })
@@ -2071,8 +2357,6 @@ watch(
   () => props.editRow,
   (row) => {
     resetEditMode()
-    resetValidationForm()
-    resetValidationContactForm()
     if (row) loadInquiryForEdit(row)
   },
   { immediate: true },
