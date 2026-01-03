@@ -159,7 +159,7 @@
                   <div class="col-md-6">
                     <div class="mb-2">
                       <small class="text-muted d-block">Duration</small>
-                      <strong>{{ calculateDuration(selectedEvent.start, selectedEvent.end) }} days</strong>
+                      <strong>{{ selectedEventDuration }} days</strong>
                     </div>
                   </div>
                   <div class="col-md-6">
@@ -340,8 +340,8 @@ import { useCalendarStore } from '@/stores/bushman/calenda-store'
 interface CalendarEvent extends EventInput {
   id: string
   title: string
-  start: string | Date
-  end?: string | Date
+  start: string | Date | undefined
+  end?: string | Date | undefined
   allDay?: boolean
   backgroundColor?: string
   textColor?: string
@@ -444,6 +444,11 @@ const selectedEventStatus = computed(() => {
   return statusMap[status] || status
 })
 
+const selectedEventDuration = computed(() => {
+  if (!selectedEvent.value?.start || !selectedEvent.value?.end) return 0
+  return calculateDuration(selectedEvent.value.start, selectedEvent.value.end)
+})
+
 // Methods
 function downloadCalendar() {
   const calendarData = generateICalendarData()
@@ -504,7 +509,7 @@ function formatEventDate(date: string | Date | undefined): string {
   }
 }
 
-function calculateDuration(start: string | Date | undefined, end: string | Date | undefined): number {
+function calculateDuration(start: string | Date | null | undefined, end: string | Date | null | undefined): number {
   if (!start || !end) return 0
   try {
     const startDate = new Date(start as string)
@@ -544,8 +549,8 @@ function handleEventClick(clickInfo: EventClickArg) {
   selectedEvent.value = {
     id: clickInfo.event.id,
     title: clickInfo.event.title,
-    start: clickInfo.event.start,
-    end: clickInfo.event.end || clickInfo.event.start,
+    start: clickInfo.event.start || undefined,
+    end: clickInfo.event.end || clickInfo.event.start || undefined,
     extendedProps: clickInfo.event.extendedProps,
   }
   showModal.value = true
@@ -987,68 +992,85 @@ onMounted(() => {
   :deep(.fc-multimonth-singlecol) {
     display: grid !important;
     grid-template-columns: repeat(3, 1fr) !important;
-    gap: 16px !important;
+    gap: 32px !important;
+    padding: 20px !important;
+    row-gap: 32px !important;
   }
   
   :deep(.fc-multimonth-month) {
-    border: 1px solid #dee2e6;
-    border-radius: 8px;
+    border: 1px solid #e9ecef;
+    border-radius: 12px;
     margin: 0 !important;
     background: white;
     overflow: hidden;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
-    transition: box-shadow 0.2s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
   }
   
   :deep(.fc-multimonth-month:hover) {
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.12);
+    transform: translateY(-4px);
+    border-color: #dee2e6;
   }
   
   :deep(.fc-multimonth-header) {
-    background: linear-gradient(135deg, #0d6efd, #0a58ca);
+    background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);
     padding: 0;
+    flex-shrink: 0;
   }
   
   :deep(.fc-multimonth-title) {
     background: transparent;
     color: white;
-    font-weight: 600;
-    padding: 12px;
-    font-size: 0.9rem;
+    font-weight: 700;
+    padding: 14px 12px;
+    font-size: 0.95rem;
     text-align: center;
+    letter-spacing: 0.3px;
   }
   
   :deep(.fc-multimonth-daygrid) {
-    padding: 6px;
+    padding: 8px;
+    flex-grow: 1;
   }
   
   :deep(.fc-multimonth-daygrid-table) {
-    font-size: 0.75rem;
+    font-size: 0.8rem;
   }
   
   :deep(.fc-multimonth .fc-daygrid-day-frame) {
-    min-height: 36px;
-    padding: 3px;
+    min-height: 42px;
+    padding: 4px;
   }
   
   :deep(.fc-multimonth .fc-daygrid-day-number) {
-    font-size: 0.75rem;
-    padding: 3px 5px;
+    font-size: 0.8rem;
+    padding: 4px 6px;
+    font-weight: 500;
   }
   
   :deep(.fc-multimonth .fc-daygrid-day-events) {
-    margin-top: 2px;
+    margin-top: 3px;
   }
   
   :deep(.fc-multimonth .fc-event) {
-    font-size: 0.65rem;
-    padding: 2px 4px;
-    margin: 1px 2px;
+    font-size: 0.7rem;
+    padding: 2px 5px;
+    margin: 2px 3px;
+    border-radius: 4px;
+    font-weight: 500;
+    word-break: break-word;
   }
   
   :deep(.fc-multimonth .fc-col-header-cell) {
-    font-size: 0.7rem;
-    padding: 6px 0;
+    font-size: 0.75rem;
+    padding: 8px 0;
+    font-weight: 600;
+    background-color: #f1f3f5;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
   }
   
   :deep(.fc-more-link) {
@@ -1056,11 +1078,24 @@ onMounted(() => {
     color: #0d6efd;
     font-weight: 600;
     text-decoration: none;
+    background: transparent;
+    padding: 2px 4px;
+    border-radius: 3px;
+    transition: all 0.2s ease;
   }
   
   :deep(.fc-more-link:hover) {
-    color: #0a58ca;
-    text-decoration: underline;
+    color: #fff;
+    background-color: #0d6efd;
+    text-decoration: none;
+  }
+  
+  :deep(.fc-multimonth .fc-day-other) {
+    background-color: #fafbfc;
+  }
+  
+  :deep(.fc-multimonth .fc-day-today) {
+    background-color: rgba(13, 110, 253, 0.15) !important;
   }
   
   /* Modal Styles */
@@ -1071,6 +1106,8 @@ onMounted(() => {
   @media (max-width: 1200px) {
     :deep(.fc-multimonth-singlecol) {
       grid-template-columns: repeat(2, 1fr) !important;
+      gap: 28px !important;
+      row-gap: 28px !important;
     }
   }
   
@@ -1081,6 +1118,9 @@ onMounted(() => {
   
     :deep(.fc-multimonth-singlecol) {
       grid-template-columns: 1fr !important;
+      gap: 24px !important;
+      row-gap: 24px !important;
+      padding: 12px !important;
     }
   
     :deep(.fc-toolbar) {

@@ -762,7 +762,7 @@ const columns = [
   { key: 'name', label: 'Name', sortable: true, visible: true },
   { key: 'start_date', label: 'Start Date', sortable: true, visible: true },
   { key: 'end_date', label: 'End Date', sortable: true, visible: true },
-  { key: 'species_count', label: 'Species Count', sortable: true, visible: true },
+  { key: 'species_count', label: 'Species ', sortable: true, visible: true },
   { key: 'actions', label: 'Actions', sortable: false, visible: true },
 ]
 

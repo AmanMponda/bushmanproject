@@ -58,7 +58,7 @@
 
 <!-- Area Details View with Map -->
 <template v-else-if="showAreaDetails && areaDetails">
-      <div class="p-2">
+      <div class="p-2" style="overflow-y: auto; height: 100%; flex: 1;">
         <div class="d-flex justify-content-between align-items-center mb-3">
           <div>
             <h3 class="fw-bold mb-1">{{ areaDetails.location?.name || 'Hunting Area' }}</h3>
@@ -387,105 +387,104 @@
 
 <!-- Create/Edit Form -->
 <template v-else>
-  <div class="p-2">
-    <h3 class="fw-bold mb-3">{{ editMode ? 'Edit Hunting Area' : 'Create New Location & Hunting Area' }}</h3>
+  <div class="p-2 form-full-height">
+    <h3 class="fw-bold mb-1" style="font-size: 1rem;">{{ editMode ? 'Edit Hunting Area' : 'Create New Location & Hunting Area' }}</h3>
 
-    <form @submit.prevent="onAreaSubmit" class="row">
-      <div class="col-lg-8 col-md-12">
-        <div class="card">
-          <div class="card-body">
-            <!-- Edit Mode: Select existing location -->
-            <template v-if="editMode">
-              <div class="mb-3">
-                <label class="form-label">Location <span class="text-danger">*</span></label>
-                <select v-model="areaForm.location_id" class="form-select" required>
-                  <option :value="null" disabled>Select a location</option>
-                  <option v-for="loc in locationOptions" :key="loc.value" :value="loc.value">
-                    {{ loc.text }}
-                  </option>
-                </select>
-              </div>
-
-              <div class="mb-3">
-                <label class="form-label">Hunting Area Description</label>
-                <textarea v-model="areaForm.description" class="form-control" rows="3"
-                  placeholder="Optional "></textarea>
-              </div>
-            </template>
-
-            <!-- Create Mode: Fill location and hunting area details -->
-            <template v-else>
-              <div class="mb-3">
-                <label class="form-label">Location Name <span class="text-danger">*</span></label>
-                <input v-model="areaForm.location_name" type="text" class="form-control" placeholder="e.g., Maswa"
-                  required />
-              </div>
-
-              <div class="mb-3">
-                <label class="form-label">Location Code <span class="text-danger">*</span></label>
-                <input v-model="areaForm.location_code" type="text" class="form-control" placeholder="e.g, MS"
-                  required />
-              </div>
-
-              <div class="mb-3">
-                <label class="form-label">Hunting Area Description</label>
-                <textarea v-model="areaForm.description" class="form-control" rows="3"
-                  placeholder="Optional"></textarea>
-                <div class="form-text">description for hunting area</div>
-              </div>
-
-              <hr class="my-4" />
-
-              <h6 class="fw-bold mb-3">Geo-Location</h6>
-
-              <div class="mb-3">
-                <label class="form-label">Coordinates Type <span class="text-danger">*</span></label>
-                <select v-model="areaForm.coordinates_type" class="form-select" required>
-                  <option value="POINT">POINT</option>
-                  <option value="POLYGON">POLYGON</option>
-                  <option value="LINESTRING">LINESTRING</option>
-                </select>
-              </div>
-
-              <!-- POINT coordinates: Use lat/lng inputs -->
-              <template v-if="areaForm.coordinates_type === 'POINT'">
-                <div class="row">
-                  <div class="col-md-6 mb-3">
-                    <label class="form-label">Latitude <span class="text-danger">*</span></label>
-                    <input v-model="areaForm.coordinate_lat" type="number" step="any" min="-90" max="90"
-                      class="form-control" placeholder="e.g. -3.56789" required />
-                    <div class="form-text">Range: -90 to 90</div>
-                  </div>
-                  <div class="col-md-6 mb-3">
-                    <label class="form-label">Longitude <span class="text-danger">*</span></label>
-                    <input v-model="areaForm.coordinate_lng" type="number" step="any" min="-180" max="180"
-                      class="form-control" placeholder="e.g. 35.12345" required />
-                    <div class="form-text">Range: -180 to 180</div>
-                  </div>
-                </div>
-              </template>
-
-              <!-- POLYGON or LINESTRING: Use JSON input -->
-              <template v-else>
-                <div class="mb-3">
-                  <label class="form-label">Coordinates (JSON) <span class="text-danger">*</span></label>
-                  <textarea v-model="areaForm.coordinates" class="form-control font-monospace" rows="6"
-                    placeholder='e.g., {"type":"Polygon","coordinates":[[[35.10,-3.56],[35.12,-3.58],[35.14,-3.57],[35.10,-3.56]]]}'
-                    required></textarea>
-                  <div class="form-text">
-                    Enter valid GeoJSON format. For {{ areaForm.coordinates_type }}, provide coordinates as JSON string.
-                  </div>
-                </div>
-              </template>
-            </template>
-
-            <div class="d-flex gap-2 mt-4">
-              <button type="submit" class="btn btn-primary" :disabled="saving || !isAreaFormValid">
-                <span v-if="saving" class="spinner-border spinner-border-sm me-1"></span>
-                {{ editMode ? 'Update' : 'Create' }}
-              </button>
-              <button type="button" class="btn btn-secondary" @click="cancelEdit">Cancel</button>
+    <form @submit.prevent="onAreaSubmit" class="w-100">
+      <div class="card h-100">
+        <div class="card-body p-2 form-content-scroll">
+          <!-- Edit Mode: Select existing location -->
+          <template v-if="editMode">
+            <div class="mb-1">
+              <label class="form-label mb-1" style="font-size: 0.8rem;">Location <span class="text-danger">*</span></label>
+              <select v-model="areaForm.location_id" class="form-select form-select-sm" required>
+                <option :value="null" disabled>Select a location</option>
+                <option v-for="loc in locationOptions" :key="loc.value" :value="loc.value">
+                  {{ loc.text }}
+                </option>
+              </select>
             </div>
+
+            <div class="mb-1">
+              <label class="form-label mb-1" style="font-size: 0.8rem;">Hunting Area Description</label>
+              <textarea v-model="areaForm.description" class="form-control form-control-sm" rows="1"
+                placeholder="Optional "></textarea>
+            </div>
+          </template>
+
+          <!-- Create Mode: Fill location and hunting area details -->
+          <template v-else>
+            <div class="row g-1">
+              <div class="col-md-6">
+                <label class="form-label mb-1" style="font-size: 0.8rem;">Location Name <span class="text-danger">*</span></label>
+                <input v-model="areaForm.location_name" type="text" class="form-control form-control-sm" placeholder="e.g., Maswa"
+                  required />
+              </div>
+              <div class="col-md-6">
+                <label class="form-label mb-1" style="font-size: 0.8rem;">Location Code <span class="text-danger">*</span></label>
+                <input v-model="areaForm.location_code" type="text" class="form-control form-control-sm" placeholder="e.g, MS"
+                  required />
+              </div>
+            </div>
+
+            <div class="mb-1 mt-1">
+              <label class="form-label mb-1" style="font-size: 0.8rem;">Hunting Area Description</label>
+              <textarea v-model="areaForm.description" class="form-control form-control-sm" rows="1"
+                placeholder="Optional"></textarea>
+              <small class="form-text d-block" style="font-size: 0.7rem; margin-top: 0.25rem;">description for hunting area</small>
+            </div>
+
+            <hr class="my-1" />
+
+            <h6 class="fw-bold mb-1" style="font-size: 0.9rem;">Geo-Location</h6>
+
+            <div class="mb-1">
+              <label class="form-label mb-1" style="font-size: 0.8rem;">Coordinates Type <span class="text-danger">*</span></label>
+              <select v-model="areaForm.coordinates_type" class="form-select form-select-sm" required>
+                <option value="POINT">POINT</option>
+                <option value="POLYGON">POLYGON</option>
+                <option value="LINESTRING">LINESTRING</option>
+              </select>
+            </div>
+
+            <!-- POINT coordinates: Use lat/lng inputs -->
+            <template v-if="areaForm.coordinates_type === 'POINT'">
+              <div class="row g-1">
+                <div class="col-md-6">
+                  <label class="form-label mb-1" style="font-size: 0.8rem;">Latitude <span class="text-danger">*</span></label>
+                  <input v-model="areaForm.coordinate_lat" type="number" step="any" min="-90" max="90"
+                    class="form-control form-control-sm" placeholder="e.g. -3.56789" required />
+                  <small class="form-text d-block mt-1">Range: -90 to 90</small>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label mb-1" style="font-size: 0.8rem;">Longitude <span class="text-danger">*</span></label>
+                  <input v-model="areaForm.coordinate_lng" type="number" step="any" min="-180" max="180"
+                    class="form-control form-control-sm" placeholder="e.g. 35.12345" required />
+                  <small class="form-text d-block mt-1">Range: -180 to 180</small>
+                </div>
+              </div>
+            </template>
+
+            <!-- POLYGON or LINESTRING: Use JSON input -->
+            <template v-else>
+              <div class="mb-1 mt-1">
+                <label class="form-label mb-1" style="font-size: 0.8rem;">Coordinates (JSON) <span class="text-danger">*</span></label>
+                <textarea v-model="areaForm.coordinates" class="form-control form-control-sm font-monospace" rows="2"
+                  placeholder='e.g., {"type":"Polygon","coordinates":[[[35.10,-3.56],[35.12,-3.58],[35.14,-3.57],[35.10,-3.56]]]}'
+                  required></textarea>
+                <small class="form-text d-block mt-1">
+                  Enter valid GeoJSON format. For {{ areaForm.coordinates_type }}, provide coordinates as JSON string.
+                </small>
+              </div>
+            </template>
+          </template>
+
+          <div class="d-flex gap-2 mt-1">
+            <button type="submit" class="btn btn-primary btn-sm" :disabled="saving || !isAreaFormValid">
+              <span v-if="saving" class="spinner-border spinner-border-sm me-1"></span>
+              {{ editMode ? 'Update' : 'Create' }}
+            </button>
+            <button type="button" class="btn btn-secondary btn-sm" @click="cancelEdit">Cancel</button>
           </div>
         </div>
       </div>
@@ -1426,8 +1425,92 @@ onMounted(() => {
 <style lang="scss" scoped>
 .area-settings-page {
   padding: 0;
-  min-height: 600px;
+  height: 100vh;
   width: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.form-full-height {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+  padding: 10px 10px 10px 10px !important;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.form-content-scroll {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.form-control-sm,
+.form-select-sm {
+  font-size: 0.9rem;
+  padding: 0.5rem 0.65rem;
+  height: auto;
+  min-height: 36px;
+}
+
+.form-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #495057;
+}
+
+.form-text {
+  font-size: 0.75rem;
+  color: #6c757d;
+}
+
+.mb-2 {
+  margin-bottom: 0.75rem !important;
+}
+
+.mb-1 {
+  margin-bottom: 0.4rem !important;
+}
+
+.mt-2 {
+  margin-top: 0.75rem !important;
+}
+
+.mt-1 {
+  margin-top: 0.4rem !important;
+}
+
+.mt-3 {
+  margin-top: 0.75rem !important;
+}
+
+hr.my-1 {
+  margin-top: 0.75rem !important;
+  margin-bottom: 0.75rem !important;
+}
+
+hr.my-2 {
+  margin-top: 0.75rem !important;
+  margin-bottom: 0.75rem !important;
+}
+
+h6.fw-bold {
+  font-size: 1rem;
+  margin-bottom: 1rem !important;
+}
+
+.btn-sm {
+  font-size: 0.875rem;
+  padding: 0.35rem 0.75rem;
 }
 
 .layout-top-spacing {
@@ -1443,6 +1526,9 @@ onMounted(() => {
   font-weight: 600;
   font-size: 0.875rem;
   margin-bottom: 0 !important;
+  padding: 0.5rem 0.75rem;
+  background: transparent;
+  flex-shrink: 0;
 
   .breadcrumb-item {
     text-transform: uppercase !important;

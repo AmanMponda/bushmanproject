@@ -395,7 +395,7 @@ export const useQuotaStore = defineStore('quota', {
       }
     },
 
-    // Export quota-species as PDF (returns base64)
+    // Export quota-species as PDF (returns blob)
     async exportQuotaSpeciesPdf(quota_id: any, area_id: any, species_id: any) {
       let url = import.meta.env.VITE_APP_BASE_URL + 'reportings/quota-hunting-area-species/pdf'
 
@@ -418,9 +418,7 @@ export const useQuotaStore = defineStore('quota', {
       const config = {
         method: 'get',
         url: url,
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        responseType: 'blob' as const,
       }
 
       try {

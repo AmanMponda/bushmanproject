@@ -37,6 +37,7 @@
     "@picmo/renderer-twemoji": "^5.8.5",
     "@popperjs/core": "^2.11.8",
     "@sipec/vue3-tags-input": "^3.0.4",
+    "@types/leaflet": "^1.9.21",
     "@vuepic/vue-datepicker": "^11.0.2",
     "@vueup/vue-quill": "^1.2.0",
     "apexcharts": "^4.5.0",

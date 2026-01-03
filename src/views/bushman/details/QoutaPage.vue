@@ -312,10 +312,11 @@ const getAllSpeces = async () => {
       }
 
       if (Array.isArray(detailedDataArray)) {
+        console.log('Sample detailed data item:', detailedDataArray[0]) // Debug log
         detailedData.value = detailedDataArray.map((item: any) => ({
           id: item.id || 0,
           name: item.name || item.species_name || item.species?.name || 'N/A',
-          area: item.area || item.huntingArea?.name || item.area_name || 'N/A',
+          area: item.area || item.huntingArea?.name || item.huntingArea?.area_name || item.area_name || item.hunting_area || item.region || 'N/A',
           scientific_name: item.scientific_name || item.species?.scientific_name || 'N/A',
           no_of_species: item.no_of_species || item.quantity || 0,
           provision_sales: item.provision_sales || item.provision_quantity || 0,
@@ -391,6 +392,61 @@ const getAreas = async () => {
       })),
     ]
   } catch { }
+}
+
+const downloadPDF = async () => {
+  if (downloading.value) return
+  downloading.value = true
+  try {
+    // Call backend API to generate and download PDF
+    const response = await quotaStore.exportQuotaSpeciesPdf(
+      quota.value,
+      area.value,
+      species.value
+    )
+    
+    // Extract the data - could be Blob or already decoded
+    let blobData: Blob | null = null
+    
+    if (response.data instanceof Blob) {
+      blobData = response.data
+    } else if (typeof response.data === 'string') {
+      // If it's a string, convert to Blob
+      blobData = new Blob([response.data], { type: 'application/pdf' })
+    } else if (response.data && typeof response.data === 'object') {
+      // If it's an object, try to extract the PDF content
+      const jsonData = response.data as any
+      let pdfContent = jsonData.data || jsonData.pdf || jsonData.base64 || ''
+      
+      if (pdfContent) {
+        // Assume it's base64, convert to Blob
+        const binaryString = atob(pdfContent)
+        const bytes = new Uint8Array(binaryString.length)
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i)
+        }
+        blobData = new Blob([bytes], { type: 'application/pdf' })
+      }
+    }
+    
+    // Download the blob
+    if (blobData) {
+      const url = URL.createObjectURL(blobData)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `quota-report-${Date.now()}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(url)
+    } else {
+      console.warn('Could not extract PDF data from response')
+    }
+  } catch (error: any) {
+    console.error('Error downloading PDF:', error)
+  } finally {
+    downloading.value = false
+  }
 }
 
 onMounted(async () => {

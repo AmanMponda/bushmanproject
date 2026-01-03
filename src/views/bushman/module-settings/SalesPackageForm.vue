@@ -176,6 +176,7 @@
                           <tr>
                             <th>Name</th>
                             <th class="text-center">Quantity</th>
+                            <th class="text-center">Actions</th>
                           </tr>
                         </thead>
 
@@ -212,6 +213,16 @@
                                   <i class="fa fa-plus"></i>
                                 </button>
                               </div>
+                            </td>
+                            <td class="text-center">
+                              <button
+                                type="button"
+                                class="btn btn-outline-danger btn-sm"
+                                title="Remove species"
+                                @click="removeSpecies(item.id)"
+                              >
+                                <i class="fa fa-trash"></i>
+                              </button>
                             </td>
                           </tr>
                         </tbody>
@@ -426,6 +437,35 @@ function decreaseQuantity(id: any) {
     item.quantity--
     onChange(id, item.quantity)
   }
+}
+
+function removeSpecies(id: any) {
+  const item = (licenceAreaSpecies.value || []).find((x: any) => x.id === id)
+  if (!item) return
+
+  Swal.fire({
+    title: 'Are you sure?',
+    text: `Do you want to delete "${item.name}"? This action cannot be undone!`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#d33',
+    cancelButtonColor: '#6c757d',
+    confirmButtonText: 'Yes, delete it!',
+    cancelButtonText: 'Cancel',
+    customClass: {
+      confirmButton: 'btn btn-danger',
+      cancelButton: 'btn btn-secondary',
+    },
+    buttonsStyling: false,
+  }).then((result) => {
+    if (result.isConfirmed) {
+      const index = (licenceAreaSpecies.value || []).findIndex((x: any) => x.id === id)
+      if (index !== -1) {
+        licenceAreaSpecies.value?.splice(index, 1)
+        delete originalQuantities[id]
+      }
+    }
+  })
 }
 
 function onChange(id: any, newValue: any) {
