@@ -42,6 +42,9 @@ const SalesInquiryDetails = () => import('@/views/bushman/sales/salesinquiries/S
 const CreateQuotation = () => import('@/views/bushman/sales/salesinquiries/CreateQuotation.vue');
 const Managesalesconfirmation = () => import('@/views/bushman/sales/SalesConfirmationProposals.vue');
 const PipelineItemView = () => import('@/views/bushman/sales/sales-pipeline/PipelineItemView.vue');
+const OrdersList = () => import('@/views/orders/OrderList.vue');
+const OrderForm = () => import('@/views/orders/OrderForm.vue');
+const OrderDetails = () => import('@/views/orders/OrderDetails.vue');
 // const LoginPage = () => import('@/views/auth/PageLogin.vue');
 // const CompanyDashboard = () => import('@/views/auth/CompanyDashboard.vue');
 // const ComingSoon = () => import('@/views/auth/ComingSoon.vue');
@@ -208,6 +211,32 @@ const router = createRouter({
       name: "pipeline-item-view",
       component: PipelineItemView,
       meta: { requiresAuth: true }
+    },
+    {
+      path: "/orders",
+      name: "orders",
+      component: OrdersList,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/orders/create",
+      name: "orders-create",
+      component: OrderForm,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/orders/:id",
+      name: "orders-view",
+      component: OrderDetails,
+      meta: { requiresAuth: true },
+      props: (route) => ({ id: Number(route.params.id) })
+    },
+    {
+      path: "/orders/:id/edit",
+      name: "orders-edit",
+      component: OrderForm,
+      meta: { requiresAuth: true },
+      props: (route) => ({ id: Number(route.params.id) })
     },
 
     {

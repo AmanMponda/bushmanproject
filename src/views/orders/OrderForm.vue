@@ -1,0 +1,1902 @@
+<template>
+  <div class="page-wrapper">
+    <!-- Page Header -->
+    <div class="page-header">
+      <div class="row align-items-center">
+        <div class="col">
+          <h3 class="page-title">{{ isEdit ? 'Edit Order' : 'Create Order' }}</h3>
+        </div>
+        <div class="col-auto">
+          <button @click="goBack" class="btn btn-secondary">
+            <i class="fas fa-chevron-left me-2"></i>Back
+          </button>
+          <button @click="resetForm" class="btn btn-outline-secondary ms-2">
+            <i class="fas fa-redo me-2"></i>Reset
+          </button>
+          <button @click="submit" :disabled="saving" class="btn btn-primary ms-2">
+            <i v-if="!saving" class="fas fa-save me-2"></i>
+            <span v-if="saving" class="spinner-border spinner-border-sm me-2"></span>
+            {{ saving ? 'Saving...' : 'Save Order' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab Navigation -->
+    <div class="card">
+      <div class="card-header">
+        <div class="nav nav-tabs card-header-tabs" role="tablist">
+          <a
+            @click="activeTab = 1"
+            :class="['nav-link', { active: activeTab === 1 }]"
+            href="#"
+            data-bs-toggle="tab"
+            role="tab"
+          >
+            <i class="fas fa-info-circle me-2"></i>Order Details
+          </a>
+          <a
+            @click="activeTab = 2"
+            :class="['nav-link', { active: activeTab === 2 }]"
+            href="#"
+            data-bs-toggle="tab"
+            role="tab"
+          >
+            <i class="fas fa-list me-2"></i>Items & Parties
+          </a>
+          <a
+            @click="activeTab = 3"
+            :class="['nav-link', { active: activeTab === 3 }]"
+            href="#"
+            data-bs-toggle="tab"
+            role="tab"
+          >
+            <i class="fas fa-cog me-2"></i>Logistics & More
+          </a>
+          <a
+            @click="activeTab = 4"
+            :class="['nav-link', { active: activeTab === 4 }]"
+            href="#"
+            data-bs-toggle="tab"
+            role="tab"
+          >
+            <i class="fas fa-credit-card me-2"></i>Payment Plan
+          </a>
+        </div>
+      </div>
+
+      <div class="card-body">
+        <!-- TAB 1: ORDER DETAILS -->
+        <div v-show="activeTab === 1">
+          <!-- FIXED 2A: Source Quotation & Enquiry Info Banner -->
+          <div v-if="form.enquiryId && form.quotationId" class="alert alert-info mb-4 d-flex align-items-center justify-content-between">
+            <div>
+              <i class="fas fa-link me-2"></i>
+              <strong>Order Source:</strong>
+              <span class="ms-2">
+                Enquiry: <span class="badge bg-secondary">{{ form.enquiryId }}</span>
+                Quotation: <span class="badge bg-primary">{{ form.quotationId }}</span>
+              </span>
+            </div>
+            <button 
+              v-if="isEdit"
+              @click="goToSourceQuotation" 
+              class="btn btn-sm btn-outline-info"
+            >
+              <i class="fas fa-arrow-left me-1"></i>View Source
+            </button>
+          </div>
+
+          <!-- SECTION 1: BASIC ORDER INFORMATION -->
+          <div class="mb-4">
+            <h6 class="text-muted text-uppercase fw-bold mb-3" style="letter-spacing: 0.5px;">
+              <i class="fas fa-file-alt me-2"></i>Basic Information
+            </h6>
+            <div class="row g-3">
+              <div class="col-lg-3 col-md-6">
+                <label class="form-label fw-500">Order Number <span class="text-danger">*</span></label>
+                <input
+                  v-model="form.orderNumber"
+                  type="text"
+                  class="form-control"
+                  placeholder="Auto-generated"
+                  disabled
+                />
+                <small class="text-muted d-block mt-1">System generated on save</small>
+              </div>
+              <div class="col-lg-3 col-md-6">
+                <label class="form-label fw-500">Order Type <span class="text-danger">*</span></label>
+                <select v-model="form.orderType" class="form-select" required>
+                  <option value="">-- Select Type --</option>
+                  <option v-for="type in orderTypes" :key="type.id" :value="type.id">
+                    {{ type.name }}
+                  </option>
+                </select>
+              </div>
+              <div class="col-lg-3 col-md-6">
+                <label class="form-label fw-500">Status <span class="text-danger">*</span></label>
+                <select v-model="form.status" class="form-select" required>
+                  <option value="">-- Select Status --</option>
+                  <option v-for="status in orderStatuses" :key="status.id" :value="status.id">
+                    {{ status.name }}
+                  </option>
+                </select>
+              </div>
+              <div class="col-lg-3 col-md-6">
+                <label class="form-label fw-500">Order Date <span class="text-danger">*</span></label>
+                <input v-model="form.orderDate" type="date" class="form-control" required />
+              </div>
+              <div class="col-lg-3 col-md-6">
+                <label class="form-label fw-500">Expected Date</label>
+                <input v-model="form.expectedDate" type="date" class="form-control" />
+                <small class="text-muted d-block mt-1">Expected delivery/completion date</small>
+              </div>
+            </div>
+          </div>
+
+          <hr class="my-4" />
+          
+          <!-- SECTION 1B: PAYMENT & REFERENCE -->
+          <div class="mb-4">
+            <h6 class="text-muted text-uppercase fw-bold mb-3" style="letter-spacing: 0.5px;">
+              <i class="fas fa-receipt me-2"></i>Payment & Reference
+            </h6>
+            <div class="row g-3">
+              <div class="col-lg-3 col-md-6">
+                <label class="form-label fw-500">Payment Method</label>
+                <select v-model="form.paymentMethod" class="form-select">
+                  <option value="">-- Select Method --</option>
+                  <option value="CASH">Cash</option>
+                  <option value="BANK_TRANSFER">Bank Transfer</option>
+                  <option value="CHEQUE">Cheque</option>
+                  <option value="CREDIT_CARD">Credit Card</option>
+                  <option value="OTHER">Other</option>
+                </select>
+              </div>
+              <div class="col-lg-3 col-md-6">
+                <label class="form-label fw-500">Reference Number</label>
+                <input v-model="form.reference" type="text" class="form-control" placeholder="External reference (PO, etc.)" />
+              </div>
+              <div class="col-lg-6">
+                <label class="form-label fw-500">Remarks</label>
+                <input v-model="form.remarks" type="text" class="form-control" placeholder="Additional notes..." />
+              </div>
+            </div>
+          </div>
+
+          <hr class="my-4" />
+
+          <!-- SECTION 2: FINANCIAL DETAILS -->
+          <div class="mb-4">
+            <h6 class="text-muted text-uppercase fw-bold mb-3" style="letter-spacing: 0.5px;">
+              <i class="fas fa-dollar-sign me-2"></i>Financial Information
+            </h6>
+            <div class="row g-3">
+              <div class="col-lg-3 col-md-6">
+                <label class="form-label fw-500">Currency <span class="text-danger">*</span></label>
+                <select v-model="form.currency" class="form-select" required @change="console.log('Currency selected:', form.currency)">
+                  <option value="">-- Select Currency --</option>
+                  <option v-for="curr in currencies" :key="curr.id" :value="curr.id">
+                    {{ curr.label || `${curr.symbol} - ${curr.name}` }}
+                  </option>
+                </select>
+                <small v-if="currencies.length === 0" class="text-muted">Loading currencies...</small>
+              </div>
+              <div class="col-lg-3 col-md-6">
+                <label class="form-label fw-500">Exchange Rate</label>
+                <input
+                  v-model.number="form.exchangeRate"
+                  type="number"
+                  class="form-control"
+                  placeholder="1.0"
+                  step="0.01"
+                />
+              </div>
+              <div class="col-lg-3 col-md-6">
+                <label class="form-label fw-500">VAT (%)</label>
+                <input
+                  v-model.number="form.vat"
+                  type="number"
+                  class="form-control"
+                  placeholder="0"
+                  step="0.01"
+                />
+              </div>
+              <div class="col-lg-3 col-md-6">
+                <label class="form-label fw-500">Additional Expenses</label>
+                <input
+                  v-model.number="form.expenses"
+                  type="number"
+                  class="form-control"
+                  placeholder="0"
+                  step="0.01"
+                />
+              </div>
+            </div>
+          </div>
+
+          <hr class="my-4" />
+
+          <hr class="my-4" />
+
+          <!-- SECTION 3: REFERENCES & LINKS -->
+          <div class="mb-4">
+            <h6 class="text-muted text-uppercase fw-bold mb-3" style="letter-spacing: 0.5px;">
+              <i class="fas fa-link me-2"></i>Enquiry & Quotation Links
+            </h6>
+            <div class="row g-3">
+              <div class="col-lg-6">
+                <label class="form-label fw-500">Sales Enquiry <span class="badge bg-info ms-2">Optional</span></label>
+                <select v-model="form.enquiryId" @change="onEnquiryChange" class="form-select">
+                  <option value="">-- Select Enquiry --</option>
+                  <option v-for="enq in enquiries" :key="enq.id" :value="enq.id">
+                    {{ enq.code }} - {{ enq.entity?.full_name || 'N/A' }}
+                  </option>
+                </select>
+                <small class="text-muted d-block mt-1">Link this order to a customer enquiry</small>
+              </div>
+              <div class="col-lg-6">
+                <label class="form-label fw-500">Quotation / Pricing <span class="badge bg-info ms-2">Optional</span></label>
+                <select v-model="form.quotationId" class="form-select">
+                  <option value="">-- Select Quotation --</option>
+                  <option v-for="quote in filteredQuotations" :key="quote.id" :value="quote.id">
+                    {{ quote.code || quote.name || `Quote #${quote.id}` }}
+                  </option>
+                </select>
+                <small class="text-muted d-block mt-1">Link approved quotation/pricing</small>
+              </div>
+            </div>
+          </div>
+
+          <hr class="my-4" />
+
+          <!-- SECTION 4: NOTES -->
+          <div class="mb-4">
+            <h6 class="text-muted text-uppercase fw-bold mb-3" style="letter-spacing: 0.5px;">
+              <i class="fas fa-sticky-note me-2"></i>Notes
+            </h6>
+            <div class="mt-3">
+              <label class="form-label fw-500">Order Notes / Description</label>
+              <textarea v-model="form.notes" class="form-control" rows="3" placeholder="Add any relevant notes or description for this order..."></textarea>
+            </div>
+
+            <!-- Tab Navigation Buttons -->
+            <div class="d-flex justify-content-between mt-4 pt-3 border-top">
+              <button disabled class="btn btn-secondary" title="First tab">
+                <i class="fas fa-chevron-left me-2"></i>Previous
+              </button>
+              <button @click="activeTab = 2" class="btn btn-primary">
+                Next<i class="fas fa-chevron-right ms-2"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 2: ITEMS & PARTIES -->
+        <div v-show="activeTab === 2">
+          <!-- Items Section -->
+          <div class="mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h5 class="mb-0">
+                <i class="fas fa-box me-2"></i>Order Items
+              </h5>
+              <button
+                v-if="!showItemForm"
+                @click="showItemForm = true"
+                class="btn btn-sm btn-primary"
+              >
+                <i class="fas fa-plus me-1"></i>Add Item
+              </button>
+            </div>
+
+            <div class="table-responsive">
+              <table class="table table-hover mb-0" style="font-size: 0.9rem;">
+                <thead class="table-light">
+                  <tr>
+                    <th style="width: 18%">Item Name</th>
+                    <th style="width: 8%">Category</th>
+                    <th style="width: 8%">Qty</th>
+                    <th style="width: 8%">Rate</th>
+                    <th style="width: 8%">Discount</th>
+                    <th style="width: 8%">Tax</th>
+                    <th style="width: 8%">Est?</th>
+                    <th style="width: 8%">Opt?</th>
+                    <th style="width: 12%">Total</th>
+                    <th style="width: 6%">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <!-- Add Item Form Row -->
+                  <tr v-if="showItemForm" class="table-active">
+                    <td>
+                      <input
+                        v-model="newItem.name"
+                        type="text"
+                        class="form-control form-control-sm"
+                        placeholder="Item name"
+                        required
+                      />
+                    </td>
+                    <td>
+                      <select v-model="newItem.category" class="form-select form-select-sm">
+                        <option value="">-- Select --</option>
+                        <option
+                          v-for="cat in itemCategories"
+                          :key="cat.id || cat.value"
+                          :value="cat.id || cat.value"
+                        >
+                          {{ cat.name || cat.label }}
+                        </option>
+                      </select>
+                    </td>
+                    <td>
+                      <input
+                        v-model.number="newItem.quantity"
+                        type="number"
+                        class="form-control form-control-sm"
+                        placeholder="1"
+                        min="1"
+                      />
+                    </td>
+                    <td>
+                      <input
+                        v-model.number="newItem.rate"
+                        type="number"
+                        class="form-control form-control-sm"
+                        placeholder="0"
+                        step="0.01"
+                        required
+                      />
+                    </td>
+                    <td>
+                      <div class="input-group input-group-sm">
+                        <input
+                          v-model.number="newItem.discountAmount"
+                          type="number"
+                          class="form-control form-control-sm"
+                          placeholder="0"
+                          step="0.01"
+                        />
+                        <select v-model="newItem.discountMethod" class="form-select form-select-sm" style="max-width: 50px;">
+                          <option value="AMOUNT">$</option>
+                          <option value="PERCENTAGE">%</option>
+                        </select>
+                      </div>
+                    </td>
+                    <td>
+                      <select v-model="newItem.taxMethod" class="form-select form-select-sm">
+                        <option value="EXCLUSIVE">Exclusive</option>
+                        <option value="INCLUSIVE">Inclusive</option>
+                      </select>
+                    </td>
+                    <td class="text-center">
+                      <input
+                        v-model="newItem.isEstimate"
+                        type="checkbox"
+                        class="form-check-input"
+                      />
+                    </td>
+                    <td class="text-center">
+                      <input
+                        v-model="newItem.isOptional"
+                        type="checkbox"
+                        class="form-check-input"
+                      />
+                    </td>
+                    <td class="fw-bold text-right">
+                      {{ formatCurrency(newItem.quantity * newItem.rate - (newItem.discountAmount || 0)) }}
+                    </td>
+                    <td>
+                      <button
+                        @click="addItem"
+                        class="btn btn-sm btn-success me-1"
+                        title="Save"
+                      >
+                        <i class="fas fa-check"></i>
+                      </button>
+                      <button
+                        @click="cancelItemForm"
+                        class="btn btn-sm btn-secondary"
+                        title="Cancel"
+                      >
+                        <i class="fas fa-times"></i>
+                      </button>
+                    </td>
+                  </tr>
+
+                  <!-- Items List -->
+                  <tr v-if="form.items.length === 0 && !showItemForm">
+                    <td colspan="10" class="text-center text-muted py-3">
+                      No items added. Click "Add Item" to create one.
+                    </td>
+                  </tr>
+                  <tr v-for="(item, idx) in form.items" :key="idx" class="small">
+                    <td>{{ item.name }}</td>
+                    <td>{{ item.category }}</td>
+                    <td>{{ item.quantity }}</td>
+                    <td>{{ formatCurrency(item.rate) }}</td>
+                    <td>
+                      <span v-if="item.discountAmount">
+                        {{ formatCurrency(item.discountAmount) }} <span class="text-muted small">{{ item.discountMethod === 'PERCENTAGE' ? '%' : '' }}</span>
+                      </span>
+                      <span v-else class="text-muted">-</span>
+                    </td>
+                    <td>
+                      <span class="badge" :class="item.taxMethod === 'INCLUSIVE' ? 'bg-info' : 'bg-secondary'">
+                        {{ item.taxMethod || 'EXCLUSIVE' }}
+                      </span>
+                    </td>
+                    <td class="text-center">
+                      <span v-if="item.isEstimate" class="badge bg-warning">Est</span>
+                      <span v-else class="text-muted">-</span>
+                    </td>
+                    <td class="text-center">
+                      <span v-if="item.isOptional" class="badge bg-info">Opt</span>
+                      <span v-else class="text-muted">-</span>
+                    </td>
+                    <td class="fw-bold">{{ formatCurrency((item.quantity * item.rate) - (item.discountAmount || 0)) }}</td>
+                    <td>
+                      <button
+                        @click="removeItem(idx)"
+                        class="btn btn-sm btn-danger"
+                        title="Delete"
+                      >
+                        <i class="fas fa-trash"></i>
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+                <tfoot v-if="form.items.length > 0">
+                  <tr>
+                    <td colspan="5" class="text-end fw-bold">Subtotal:</td>
+                    <td class="fw-bold">{{ formatCurrency(itemsSubtotal) }}</td>
+                    <td></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+
+          <!-- Parties Section -->
+          <div>
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h5 class="mb-0">
+                <i class="fas fa-users me-2"></i>Parties
+              </h5>
+              <button
+                v-if="!showPartyForm"
+                @click="showPartyForm = true"
+                class="btn btn-sm btn-primary"
+              >
+                <i class="fas fa-plus me-1"></i>Add Party
+              </button>
+            </div>
+
+            <div class="table-responsive">
+              <table class="table table-hover mb-0">
+                <thead>
+                  <tr>
+                    <th style="width: 20%">Role</th>
+                    <th style="width: 30%">Entity Name</th>
+                    <th style="width: 20%">Contact Person</th>
+                    <th style="width: 20%">Email</th>
+                    <th style="width: 10%">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <!-- Add Party Form Row -->
+                  <tr v-if="showPartyForm" class="table-active">
+                    <td>
+                      <select v-model="newParty.role" class="form-select form-select-sm">
+                        <option value="">-- Select --</option>
+                        <option
+                          v-for="role in partyRoles"
+                          :key="role.id || role.value"
+                          :value="role.id || role.value"
+                        >
+                          {{ role.name || role.label }}
+                        </option>
+                      </select>
+                    </td>
+                    <td>
+                      <input
+                        v-model="newParty.entity"
+                        type="text"
+                        class="form-control form-control-sm"
+                        placeholder="Company or person name"
+                        required
+                      />
+                    </td>
+                    <td>
+                      <input
+                        v-model="newParty.contact"
+                        type="text"
+                        class="form-control form-control-sm"
+                        placeholder="Contact person"
+                      />
+                    </td>
+                    <td>
+                      <input
+                        v-model="newParty.email"
+                        type="email"
+                        class="form-control form-control-sm"
+                        placeholder="email@example.com"
+                      />
+                    </td>
+                    <td>
+                      <button
+                        @click="addParty"
+                        class="btn btn-sm btn-success me-1"
+                        title="Save"
+                      >
+                        <i class="fas fa-check"></i>
+                      </button>
+                      <button
+                        @click="cancelPartyForm"
+                        class="btn btn-sm btn-secondary"
+                        title="Cancel"
+                      >
+                        <i class="fas fa-times"></i>
+                      </button>
+                    </td>
+                  </tr>
+
+                  <!-- Parties List -->
+                  <tr v-if="form.parties.length === 0 && !showPartyForm">
+                    <td colspan="5" class="text-center text-muted py-3">
+                      No parties added. Click "Add Party" to create one.
+                    </td>
+                  </tr>
+                  <tr v-for="(party, idx) in form.parties" :key="idx">
+                    <td>{{ party.role }}</td>
+                    <td>{{ party.entity }}</td>
+                    <td>{{ party.contact }}</td>
+                    <td>{{ party.email }}</td>
+                    <td>
+                      <button
+                        @click="removeParty(idx)"
+                        class="btn btn-sm btn-danger"
+                        title="Delete"
+                      >
+                        <i class="fas fa-trash"></i>
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Tab Navigation Buttons -->
+            <div class="d-flex justify-content-between mt-4 pt-3 border-top">
+              <button @click="activeTab = 1" class="btn btn-secondary">
+                <i class="fas fa-chevron-left me-2"></i>Previous
+              </button>
+              <button @click="activeTab = 3" class="btn btn-primary">
+                Next<i class="fas fa-chevron-right ms-2"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 3: LOGISTICS & MORE -->
+        <div v-show="activeTab === 3">
+          <!-- SECTION 1: ORDER TYPE-SPECIFIC FIELDS -->
+          <div class="mb-4" v-if="form.orderType">
+            <h6 class="text-muted text-uppercase fw-bold mb-3">
+              <i class="fas fa-cog me-2"></i>Order Type Specific Details
+            </h6>
+            
+            <!-- SALES Order Specific -->
+            <div v-if="['SALES', '1', 1].includes(form.orderType)" class="row g-3">
+              <div class="col-lg-3 col-md-6">
+                <label class="form-label fw-500">Arrival Date</label>
+                <input v-model="form.arrivalDate" type="date" class="form-control" />
+                <small class="text-muted">When guests arrive</small>
+              </div>
+              <div class="col-lg-3 col-md-6">
+                <label class="form-label fw-500">Departure Date</label>
+                <input v-model="form.departureDate" type="date" class="form-control" />
+                <small class="text-muted">When guests depart</small>
+              </div>
+              <div class="col-lg-3 col-md-6">
+                <label class="form-label fw-500">Duration (Days)</label>
+                <input v-model.number="form.durationDays" type="number" class="form-control" disabled />
+                <small class="text-muted">Auto-calculated</small>
+              </div>
+            </div>
+            
+            <!-- PURCHASE Order Specific -->
+            <div v-if="['PURCHASE', '2', 2].includes(form.orderType)" class="row g-3">
+              <div class="col-lg-6">
+                <label class="form-label fw-500">Supplier Reference</label>
+                <input v-model="form.supplierReference" type="text" class="form-control" placeholder="Supplier's reference number" />
+              </div>
+              <div class="col-lg-6">
+                <label class="form-label fw-500">Delivery Terms</label>
+                <input v-model="form.deliveryTerms" type="text" class="form-control" placeholder="e.g., FOB, CIF, DDP..." />
+              </div>
+              <div class="col-12">
+                <label class="form-label fw-500">Payment Terms</label>
+                <input v-model="form.paymentTerms" type="text" class="form-control" placeholder="e.g., Net 30, 2/10 Net 30..." />
+              </div>
+            </div>
+          </div>
+
+          <hr class="my-4" />
+
+          <!-- SECTION 2: PARTICIPANTS -->
+          <div class="mb-4">
+            <h5 class="mb-3">
+              <i class="fas fa-people-carry me-2"></i>Participants
+            </h5>
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label class="form-label">Hunters</label>
+                <div class="input-group">
+                  <button
+                    @click="decrementCounter('hunters')"
+                    class="btn btn-outline-secondary"
+                    type="button"
+                  >
+                    -
+                  </button>
+                  <input
+                    v-model.number="form.participants.hunters"
+                    type="number"
+                    class="form-control text-center"
+                    min="0"
+                  />
+                  <button
+                    @click="incrementCounter('hunters')"
+                    class="btn btn-outline-secondary"
+                    type="button"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+              <div class="col-md-6 mb-3">
+                <label class="form-label">Observers</label>
+                <div class="input-group">
+                  <button
+                    @click="decrementCounter('observers')"
+                    class="btn btn-outline-secondary"
+                    type="button"
+                  >
+                    -
+                  </button>
+                  <input
+                    v-model.number="form.participants.observers"
+                    type="number"
+                    class="form-control text-center"
+                    min="0"
+                  />
+                  <button
+                    @click="incrementCounter('observers')"
+                    class="btn btn-outline-secondary"
+                    type="button"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+              <div class="col-md-6 mb-3">
+                <label class="form-label">Companions</label>
+                <div class="input-group">
+                  <button
+                    @click="decrementCounter('companions')"
+                    class="btn btn-outline-secondary"
+                    type="button"
+                  >
+                    -
+                  </button>
+                  <input
+                    v-model.number="form.participants.companions"
+                    type="number"
+                    class="form-control text-center"
+                    min="0"
+                  />
+                  <button
+                    @click="incrementCounter('companions')"
+                    class="btn btn-outline-secondary"
+                    type="button"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+              <div class="col-md-6 mb-3">
+                <label class="form-label">Staff</label>
+                <div class="input-group">
+                  <button
+                    @click="decrementCounter('staff')"
+                    class="btn btn-outline-secondary"
+                    type="button"
+                  >
+                    -
+                  </button>
+                  <input
+                    v-model.number="form.participants.staff"
+                    type="number"
+                    class="form-control text-center"
+                    min="0"
+                  />
+                  <button
+                    @click="incrementCounter('staff')"
+                    class="btn btn-outline-secondary"
+                    type="button"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <hr class="my-4" />
+
+          <!-- SECTION 3: CLIENT PREFERENCES -->
+          <div class="mb-4">
+            <h5 class="mb-3">
+              <i class="fas fa-heart me-2"></i>Client Preferences & Requirements
+            </h5>
+            <div class="row g-3">
+              <div class="col-lg-6">
+                <label class="form-label fw-500">Food Preferences</label>
+                <textarea v-model="form.preferences.foodPreferences" class="form-control" rows="2" placeholder="e.g., Vegetarian, Kosher, etc..."></textarea>
+              </div>
+              <div class="col-lg-6">
+                <label class="form-label fw-500">Beverage Preferences</label>
+                <textarea v-model="form.preferences.beveragePreferences" class="form-control" rows="2" placeholder="e.g., Alcohol-free, Wine preferences, etc..."></textarea>
+              </div>
+              <div class="col-lg-6">
+                <label class="form-label fw-500">Allergies & Intolerances</label>
+                <div class="d-flex flex-wrap gap-2 mb-2">
+                  <div v-for="allergy in allergies" :key="allergy.id || allergy.value" class="form-check">
+                    <input
+                      :id="`allergy-new-${allergy.id || allergy.value}`"
+                      v-model="form.preferences.allergies"
+                      type="checkbox"
+                      class="form-check-input"
+                      :value="allergy.id || allergy.value"
+                    />
+                    <label class="form-check-label" :for="`allergy-new-${allergy.id || allergy.value}`">
+                      {{ allergy.name || allergy.label }}
+                    </label>
+                  </div>
+                </div>
+              </div>
+              <div class="col-lg-6">
+                <label class="form-label fw-500">Alcohol Preferences</label>
+                <textarea v-model="form.preferences.alcoholPreferences" class="form-control" rows="2" placeholder="e.g., No alcohol, Preferred brands, etc..."></textarea>
+              </div>
+              <div class="col-12">
+                <label class="form-label fw-500">Special Requests</label>
+                <textarea v-model="form.preferences.specialRequests" class="form-control" rows="2" placeholder="Any special requests or requirements..."></textarea>
+              </div>
+            </div>
+          </div>
+
+          <hr class="my-4" />
+
+          <!-- SECTION 4: LOGISTICS PLANNING -->
+          <div class="mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h5 class="mb-0">
+                <i class="fas fa-truck me-2"></i>Logistics Planning
+              </h5>
+              <button @click="addLogisticsRow" class="btn btn-sm btn-primary">
+                <i class="fas fa-plus me-1"></i>Add Logistics
+              </button>
+            </div>
+
+            <div class="table-responsive" v-if="form.logistics.length > 0">
+              <table class="table table-hover table-sm mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th style="width: 15%">Type</th>
+                    <th style="width: 18%">Start Date/Time</th>
+                    <th style="width: 18%">End Date/Time</th>
+                    <th style="width: 15%">From Location</th>
+                    <th style="width: 15%">To Location</th>
+                    <th style="width: 12%">Est. Amount</th>
+                    <th style="width: 7%">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(logistics, idx) in form.logistics" :key="idx">
+                    <td>
+                      <span v-if="!logistics.editing" class="badge" :class="getLogisticsTypeBadge(logistics.logisticsType)">
+                        {{ logistics.logisticsType }}
+                      </span>
+                      <select v-else v-model="logistics.logisticsType" class="form-select form-select-sm">
+                        <option value="">-- Select --</option>
+                        <option value="HOTEL">Hotel</option>
+                        <option value="CHARTER">Charter</option>
+                        <option value="TRANSFER">Transfer</option>
+                        <option value="AIRPORT">Airport</option>
+                      </select>
+                    </td>
+                    <td>
+                      <span v-if="!logistics.editing" class="text-muted small">{{ logistics.startDatetime }}</span>
+                      <input v-else v-model="logistics.startDatetime" type="datetime-local" class="form-control form-control-sm" />
+                    </td>
+                    <td>
+                      <span v-if="!logistics.editing" class="text-muted small">{{ logistics.endDatetime }}</span>
+                      <input v-else v-model="logistics.endDatetime" type="datetime-local" class="form-control form-control-sm" />
+                    </td>
+                    <td>
+                      <span v-if="!logistics.editing" class="text-muted small">{{ logistics.fromLocation }}</span>
+                      <input v-else v-model="logistics.fromLocation" type="text" class="form-control form-control-sm" placeholder="From" />
+                    </td>
+                    <td>
+                      <span v-if="!logistics.editing" class="text-muted small">{{ logistics.toLocation }}</span>
+                      <input v-else v-model="logistics.toLocation" type="text" class="form-control form-control-sm" placeholder="To" />
+                    </td>
+                    <td>
+                      <span v-if="!logistics.editing" class="fw-bold">{{ formatCurrency(logistics.estimatedAmount || 0) }}</span>
+                      <input v-else v-model.number="logistics.estimatedAmount" type="number" class="form-control form-control-sm" step="0.01" placeholder="0" />
+                    </td>
+                    <td class="text-center">
+                      <button
+                        @click="logistics.editing = !logistics.editing"
+                        :class="['btn btn-sm me-1', logistics.editing ? 'btn-success' : 'btn-warning']"
+                      >
+                        <i :class="['fas', logistics.editing ? 'fa-check' : 'fa-edit']"></i>
+                      </button>
+                      <button
+                        @click="removeLogistics(idx)"
+                        class="btn btn-sm btn-danger"
+                      >
+                        <i class="fas fa-trash"></i>
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div v-else class="alert alert-info mb-0">
+              <i class="fas fa-info-circle me-2"></i>No logistics entries. Click "Add Logistics" to plan transportation and arrangements.
+            </div>
+          </div>
+
+          <!-- HOTEL LOGISTICS (Legacy) -->
+          <hr class="my-4" v-if="false" />
+          <div class="mb-4" v-if="false">
+            <h5 class="mb-3">
+              <i class="fas fa-hotel me-2"></i>Hotel Logistics
+            </h5>
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label class="form-label">Location</label>
+                <input v-model="form.hotelLocation" type="text" class="form-control" />
+              </div>
+              <div class="col-md-6 mb-3">
+                <label class="form-label">Check-in Date</label>
+                <input v-model="form.hotelCheckIn" type="date" class="form-control" />
+              </div>
+              <div class="col-md-6 mb-3">
+                <label class="form-label">Number of Nights</label>
+                <input
+                  v-model.number="form.hotelNights"
+                  type="number"
+                  class="form-control"
+                  min="0"
+                />
+              </div>
+            </div>
+          </div>
+
+          <!-- DIETARY & PREFERENCES (Legacy - kept for compatibility) -->
+          <div v-if="false">
+            <h5 class="mb-3">
+              <i class="fas fa-utensils me-2"></i>Dietary & Preferences
+            </h5>
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label class="form-label">Dietary Preferences</label>
+                <select v-model="form.dietaryPreferences" class="form-select">
+                  <option value="">-- None --</option>
+                  <option
+                    v-for="pref in dietaryPreferences"
+                    :key="pref.id || pref.value"
+                    :value="pref.id || pref.value"
+                  >
+                    {{ pref.name || pref.label }}
+                  </option>
+                </select>
+              </div>
+              <div class="col-md-6 mb-3">
+                <label class="form-label">Allergies</label>
+                <div class="d-flex flex-wrap gap-2">
+                  <div v-for="allergy in allergies" :key="allergy.id || allergy.value" class="form-check">
+                    <input
+                      :id="`allergy-legacy-${allergy.id || allergy.value}`"
+                      v-model="form.preferences.allergies"
+                      type="checkbox"
+                      class="form-check-input"
+                      :value="allergy.id || allergy.value"
+                    />
+                    <label class="form-check-label" :for="`allergy-legacy-${allergy.id || allergy.value}`">>
+                      {{ allergy.name || allergy.label }}
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+            <!-- Tab Navigation Buttons -->
+            <div class="d-flex justify-content-between mt-4 pt-3 border-top">
+              <button @click="activeTab = 2" class="btn btn-secondary">
+                <i class="fas fa-chevron-left me-2"></i>Previous
+              </button>
+              <button @click="activeTab = 4" class="btn btn-primary">
+                Next<i class="fas fa-chevron-right ms-2"></i>
+              </button>
+            </div>
+        </div>
+
+        <!-- TAB 4: PAYMENT PLAN -->
+        <div v-show="activeTab === 4">
+          <!-- Installment Setup Instructions -->
+          <div class="alert alert-info mb-4">
+            <i class="fas fa-info-circle me-2"></i>
+            <strong>Payment Plan Setup:</strong> Define installment schedules for this order. Each installment can be a fixed amount or percentage of total.
+          </div>
+
+          <div class="mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h5 class="mb-0">
+                <i class="fas fa-money-bill-wave me-2"></i>Installment Plan
+              </h5>
+              <button
+                v-if="!showInstallmentForm"
+                @click="showInstallmentForm = true"
+                class="btn btn-sm btn-primary"
+              >
+                <i class="fas fa-plus me-1"></i>Add Installment
+              </button>
+            </div>
+
+            <div class="table-responsive">
+              <table class="table table-hover mb-0">
+                <thead>
+                  <tr>
+                    <th style="width: 8%">#</th>
+                    <th style="width: 20%">Amount Due</th>
+                    <th style="width: 15%">Type</th>
+                    <th style="width: 18%">Due Date Type</th>
+                    <th style="width: 12%">Days</th>
+                    <th style="width: 12%">Deposit</th>
+                    <th style="width: 15%">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <!-- Add Installment Form Row -->
+                  <tr v-if="showInstallmentForm" class="table-active">
+                    <td>
+                      <input
+                        v-model.number="newInstallment.sequenceNo"
+                        type="number"
+                        class="form-control form-control-sm"
+                        min="1"
+                        readonly
+                      />
+                    </td>
+                    <td>
+                      <div class="input-group input-group-sm">
+                        <input
+                          v-model.number="newInstallment.amountDue"
+                          type="number"
+                          class="form-control"
+                          placeholder="Amount"
+                          step="0.01"
+                        />
+                        <select v-model="newInstallment.amountDueType" class="form-select">
+                          <option value="">-- Select Type --</option>
+                          <option v-for="type in installmentAmountTypes" :key="type.id" :value="type.id">
+                            {{ type.name }}
+                          </option>
+                        </select>
+                      </div>
+                    </td>
+                    <td class="text-center">
+                      <span v-if="newInstallment.amountDueType === 'FIXED'" class="badge bg-primary">Fixed</span>
+                      <span v-else class="badge bg-secondary">%</span>
+                    </td>
+                    <td>
+                      <select v-model="newInstallment.dueDaysType" class="form-select form-select-sm">
+                        <option value="">-- Select Type --</option>
+                        <option
+                          v-for="daysType in installmentDaysTypes"
+                          :key="daysType.id"
+                          :value="daysType.id"
+                        >
+                          {{ daysType.name }}
+                        </option>
+                      </select>
+                    </td>
+                    <td>
+                      <input
+                        v-model.number="newInstallment.dueDays"
+                        type="number"
+                        class="form-control form-control-sm"
+                        placeholder="0"
+                        min="0"
+                      />
+                    </td>
+                    <td class="text-center">
+                      <div class="form-check">
+                        <input
+                          v-model="newInstallment.isDeposit"
+                          type="checkbox"
+                          class="form-check-input"
+                        />
+                      </div>
+                    </td>
+                    <td>
+                      <button
+                        @click="addInstallment"
+                        class="btn btn-sm btn-success me-1"
+                        title="Save"
+                      >
+                        <i class="fas fa-check"></i>
+                      </button>
+                      <button
+                        @click="cancelInstallmentForm"
+                        class="btn btn-sm btn-secondary"
+                        title="Cancel"
+                      >
+                        <i class="fas fa-times"></i>
+                      </button>
+                    </td>
+                  </tr>
+
+                  <!-- Installments List -->
+                  <tr v-if="form.installments.length === 0 && !showInstallmentForm">
+                    <td colspan="7" class="text-center text-muted py-3">
+                      No installments set. Click "Add Installment" to create a payment plan.
+                    </td>
+                  </tr>
+                  <tr v-for="(installment, idx) in form.installments" :key="idx">
+                    <td class="fw-bold">{{ installment.sequenceNo }}</td>
+                    <td>
+                      <!-- Display amountDue with proper formatting -->
+                      <span v-if="installment.amountDueType === 'FIXED'" class="badge bg-primary">
+                        {{ formatCurrency(installment.amountDue || 0) }}
+                      </span>
+                      <span v-else class="badge bg-secondary">
+                        {{ installment.amountDue || 0 }}%
+                      </span>
+                    </td>
+                    <td class="text-center">
+                      <span class="badge" :class="installment.amountDueType === 'FIXED' ? 'bg-primary' : 'bg-secondary'">
+                        {{ installment.amountDueType }}
+                      </span>
+                    </td>
+                    <td>
+                      <!-- Display dueDaysType with proper formatting -->
+                      <small>{{ getDueDaysTypeLabel(installment.dueDaysType) }}</small>
+                    </td>
+                    <td>{{ installment.dueDays || 0 }} days</td>
+                    <td class="text-center">
+                      <i v-if="installment.isDeposit" class="fas fa-check text-success"></i>
+                      <span v-else class="text-muted">-</span>
+                    </td>
+                    <td>
+                      <button
+                        @click="removeInstallment(idx)"
+                        class="btn btn-sm btn-danger"
+                        title="Delete"
+                      >
+                        <i class="fas fa-trash"></i>
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Summary -->
+          <div v-if="form.installments.length > 0" class="row mt-4">
+            <div class="col-md-6">
+              <div class="card bg-light">
+                <div class="card-body">
+                  <h6 class="card-title">Installment Summary</h6>
+                  <p class="mb-2">
+                    <strong>Total Installments:</strong> {{ form.installments.length }}
+                  </p>
+                  <p class="mb-2">
+                    <strong>Deposits:</strong> {{ form.installments.filter((i: any) => i.is_deposit).length }}
+                  </p>
+                  <p class="mb-0">
+                    <strong>Fixed Amount Installments:</strong> {{ form.installments.filter((i: any) => i.amount_due_type === 'FIXED').length }}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Tab Navigation Buttons -->
+            <div class="d-flex justify-content-between mt-4 pt-3 border-top">
+              <button @click="activeTab = 3" class="btn btn-secondary">
+                <i class="fas fa-chevron-left me-2"></i>Previous
+              </button>
+              <button @click="submit" class="btn btn-success">
+                <i class="fas fa-save me-2"></i>Save Order
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, reactive, computed, onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
+import { useOrderStore } from '@/stores/bushman/order-store'
+import { useToast } from '@/composables/useToast'
+import Swal from 'sweetalert2'
+
+const router = useRouter()
+const route = useRoute()
+const orderStore = useOrderStore()
+const toast = useToast()
+
+// State
+const activeTab = ref(1)
+const loading = ref(false)
+const saving = ref(false)
+const showItemForm = ref(false)
+const showPartyForm = ref(false)
+const showInstallmentForm = ref(false)
+
+const form = reactive({
+  // STEP 1: BASIC INFORMATION
+  orderNumber: '',
+  orderType: '',
+  status: '',
+  orderDate: new Date().toISOString().split('T')[0],
+  expectedDate: '',
+  currency: '',
+  exchangeRate: 1.0,
+  paymentMethod: '',
+  remarks: '',
+  reference: '',
+  
+  // STEP 2: PARTIES (from quotation)
+  enquiryId: '',
+  quotationId: '',
+  
+  // STEP 3: ITEMS & PRICING
+  vat: 0,
+  expenses: 0,
+  items: [] as Array<{
+    itemId?: number | string
+    name: string
+    category: string
+    unitPrice: number
+    quantity: number
+    rate: number
+    unitOfMeasurementId?: number
+    discountAmount?: number
+    discountMethod?: 'AMOUNT' | 'PERCENTAGE'
+    taxMethod?: 'INCLUSIVE' | 'EXCLUSIVE'
+    isEstimate?: boolean
+    isOptional?: boolean
+  }>,
+  parties: [] as Array<{
+    role: string
+    entity: string
+    contact: string
+    email: string
+  }>,
+  
+  // STEP 4: ADDITIONAL DETAILS
+  // SALES-specific
+  arrivalDate: '',
+  departureDate: '',
+  durationDays: 0,
+  
+  // PURCHASE-specific
+  supplierReference: '',
+  deliveryTerms: '',
+  paymentTerms: '',
+  
+  // Participants
+  participants: {
+    hunters: 0,
+    observers: 0,
+    companions: 0,
+    staff: 0,
+  },
+  
+  // Logistics Planning
+  logistics: [] as Array<{
+    logisticsType?: 'HOTEL' | 'CHARTER' | 'TRANSFER' | 'AIRPORT'
+    startDatetime?: string
+    endDatetime?: string
+    fromLocation?: string
+    toLocation?: string
+    estimatedAmount?: number
+    notes?: string
+    editing?: boolean
+  }>,
+  
+  // Client Preferences
+  preferences: {
+    foodPreferences: '',
+    beveragePreferences: '',
+    allergies: [],
+    alcoholPreferences: '',
+    specialRequests: '',
+  },
+  
+  // Legacy/Additional fields
+  hotelLocation: '',
+  hotelCheckIn: '',
+  hotelNights: 0,
+  dietaryPreferences: '',
+  referenceNumber: '',
+  notes: '',
+  
+  // Payment Schedule
+  installments: [] as Array<{
+    sequenceNo: number
+    narration?: string
+    amountDue: number
+    amountDueType: 'FIXED' | 'PERCENTAGE'
+    dueDays: number
+    dueDaysType: 'AFTER_INVOICE' | 'AFTER_DELIVERY' | 'AFTER_CONFIRMATION'
+    isDeposit: boolean
+  }>,
+})
+
+const newItem = reactive({
+  name: '',
+  category: '',
+  unitPrice: 0,
+  quantity: 1,
+  rate: 0,
+  discountAmount: 0,
+  discountMethod: 'AMOUNT' as 'AMOUNT' | 'PERCENTAGE',
+  taxMethod: 'EXCLUSIVE' as 'INCLUSIVE' | 'EXCLUSIVE',
+  isEstimate: false,
+  isOptional: false,
+})
+
+const newParty = reactive({
+  role: '',
+  entity: '',
+  contact: '',
+  email: '',
+})
+
+const newInstallment = reactive({
+  sequenceNo: 1,
+  amountDue: 0,
+  amountDueType: 'FIXED' as 'FIXED' | 'PERCENTAGE',
+  dueDaysType: 'AFTER_CONFIRMATION',
+  dueDays: 0,
+  isDeposit: false,
+  narration: '',
+})
+
+// Computed
+const id = computed(() => route.params.id as string)
+const isEdit = computed(() => !!id.value)
+
+const orderTypes = computed(() => orderStore.orderTypes)
+const orderStatuses = computed(() => orderStore.orderStatuses)
+const currencies = computed(() => {
+  const data = orderStore.currencies
+  console.log('Currencies computed - data length:', data?.length, 'data:', data)
+  if (data && data.length > 0) {
+    console.log('First currency item:', data[0])
+    console.log('Currency item keys:', Object.keys(data[0]))
+    console.log('Label value:', data[0].label)
+    console.log('Symbol:', data[0].symbol)
+    console.log('Name:', data[0].name)
+  }
+  return data
+})
+const enquiries = computed(() => orderStore.enquiries)
+const quotations = computed(() => orderStore.quotations)
+const dietaryPreferences = computed(() => orderStore.dietaryPreferences)
+const allergies = computed(() => orderStore.allergies)
+const partyRoles = computed(() => orderStore.partyRoles)
+const itemCategories = computed(() => orderStore.itemCategories)
+const installmentDaysTypes = computed(() => {
+  return orderStore.installmentDaysTypes
+})
+const installmentAmountTypes = computed(() => {
+  return orderStore.installmentAmountTypes
+})
+
+const filteredQuotations = computed(() => {
+  if (!form.enquiryId) {
+    // If no enquiry selected, show all quotations
+    return quotations.value
+  }
+  // Filter quotations by enquiry_id to show only quotations for selected enquiry
+  return quotations.value.filter((q: any) => 
+    q.enquiry_id === parseInt(form.enquiryId) ||
+    q.sales_enquiry_id === parseInt(form.enquiryId)
+  )
+})
+
+const calculatedGuides = computed(() => {
+  return Math.ceil(form.participants.hunters / 2)
+})
+
+const itemsSubtotal = computed(() => {
+  return form.items.reduce((sum, item) => sum + item.quantity * item.rate, 0)
+})
+
+// Methods
+const addItem = () => {
+  if (!newItem.name || !newItem.rate) {
+    toast.warning('Please fill all required fields')
+    return
+  }
+  form.items.push({
+    name: newItem.name,
+    category: newItem.category,
+    unitPrice: newItem.unitPrice,
+    quantity: newItem.quantity,
+    rate: newItem.rate,
+  })
+  showItemForm.value = false
+  resetItemForm()
+  toast.success('Item added successfully')
+}
+
+const cancelItemForm = () => {
+  showItemForm.value = false
+  resetItemForm()
+}
+
+const removeItem = (index: number) => {
+  form.items.splice(index, 1)
+  toast.success('Item removed')
+}
+
+const addParty = () => {
+  if (!newParty.role || !newParty.entity) {
+    toast.warning('Please fill all required fields')
+    return
+  }
+  form.parties.push({
+    role: newParty.role,
+    entity: newParty.entity,
+    contact: newParty.contact,
+    email: newParty.email,
+  })
+  showPartyForm.value = false
+  resetPartyForm()
+  toast.success('Party added successfully')
+}
+
+const cancelPartyForm = () => {
+  showPartyForm.value = false
+  resetPartyForm()
+}
+
+const removeParty = (index: number) => {
+  form.parties.splice(index, 1)
+  toast.success('Party removed')
+}
+
+const incrementCounter = (type: string) => {
+  const counters = form.participants as any
+  if (counters[type] !== undefined) {
+    counters[type]++
+  }
+}
+
+const decrementCounter = (type: string) => {
+  const counters = form.participants as any
+  if (counters[type] !== undefined && counters[type] > 0) {
+    counters[type]--
+  }
+}
+
+const resetItemForm = () => {
+  newItem.name = ''
+  newItem.category = ''
+  newItem.unitPrice = 0
+  newItem.quantity = 1
+  newItem.rate = 0
+}
+
+const resetPartyForm = () => {
+  newParty.role = ''
+  newParty.entity = ''
+  newParty.contact = ''
+  newParty.email = ''
+}
+
+const addInstallment = () => {
+  if (!newInstallment.amountDue) {
+    toast.warning('Please enter amount due')
+    return
+  }
+  newInstallment.sequenceNo = form.installments.length + 1
+  form.installments.push({
+    sequenceNo: newInstallment.sequenceNo,
+    amountDue: newInstallment.amountDue,
+    amountDueType: newInstallment.amountDueType,
+    dueDaysType: newInstallment.dueDaysType as 'AFTER_INVOICE' | 'AFTER_DELIVERY' | 'AFTER_CONFIRMATION',
+    dueDays: newInstallment.dueDays,
+    isDeposit: newInstallment.isDeposit,
+    narration: newInstallment.narration,
+  })
+  showInstallmentForm.value = false
+  resetInstallmentForm()
+  toast.success('Installment added successfully')
+}
+
+const removeInstallment = (index: number) => {
+  form.installments.splice(index, 1)
+  // Resequence remaining installments
+  form.installments.forEach((installment, idx) => {
+    installment.sequenceNo = idx + 1
+  })
+  toast.success('Installment removed')
+}
+
+const cancelInstallmentForm = () => {
+  showInstallmentForm.value = false
+  resetInstallmentForm()
+}
+
+const resetInstallmentForm = () => {
+  newInstallment.sequenceNo = form.installments.length + 1
+  newInstallment.amountDue = 0
+  newInstallment.amountDueType = 'FIXED'
+  newInstallment.dueDaysType = 'AFTER_CONFIRMATION'
+  newInstallment.dueDays = 0
+  newInstallment.isDeposit = false
+  newInstallment.narration = ''
+}
+
+const getDueDaysTypeLabel = (value: string) => {
+  const daysType = installmentDaysTypes.value.find((dt: any) => dt.id === value)
+  return daysType ? daysType.name : value
+}
+
+const getLogisticsTypeBadge = (type?: string) => {
+  const badgeMap: Record<string, string> = {
+    'HOTEL': 'bg-primary',
+    'CHARTER': 'bg-success',
+    'TRANSFER': 'bg-warning',
+    'AIRPORT': 'bg-info',
+  }
+  return badgeMap[type || ''] || 'bg-secondary'
+}
+
+const addLogisticsRow = () => {
+  form.logistics.push({
+    logisticsType: undefined,
+    startDatetime: '',
+    endDatetime: '',
+    fromLocation: '',
+    toLocation: '',
+    estimatedAmount: 0,
+    notes: '',
+    editing: true
+  })
+}
+
+const removeLogistics = (idx: number) => {
+  form.logistics.splice(idx, 1)
+  toast.success('Logistics entry removed')
+}
+
+const formatCurrency = (amount: number) => {
+  try {
+    // Get the currency name from the selected currency ID
+    let currencyCode = 'USD' // default
+    if (form.currency) {
+      const selectedCurrency = currencies.value.find((c: any) => c.id === form.currency)
+      if (selectedCurrency) {
+        currencyCode = selectedCurrency.name // use the 'name' field which contains USD, TZS, etc.
+      }
+    }
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currencyCode,
+    }).format(amount)
+  } catch (error) {
+    // Fallback if currency code is invalid
+    console.warn('Invalid currency, falling back to USD:', error)
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+    }).format(amount)
+  }
+}
+
+const submit = async () => {
+  // First, show confirmation dialog
+  const confirmation = await Swal.fire({
+    title: isEdit.value ? 'Update Order?' : 'Create Order?',
+    text: isEdit.value 
+      ? 'Are you sure you want to update this order?' 
+      : 'Are you sure you want to create this order?',
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonColor: '#3085d6',
+    cancelButtonColor: '#d33',
+    confirmButtonText: isEdit.value ? 'Yes, update it!' : 'Yes, create it!',
+    cancelButtonText: 'Cancel'
+  })
+
+  if (!confirmation.isConfirmed) {
+    console.log('User cancelled the operation')
+    return
+  }
+
+  console.log('Submit clicked - checking form validation')
+  console.log('Form data:', {
+    orderType: form.orderType,
+    status: form.status,
+    orderDate: form.orderDate,
+    currency: form.currency
+  })
+
+  if (!form.orderType || !form.status || !form.orderDate || !form.currency) {
+    console.warn('Validation failed - missing required fields')
+    Swal.fire({
+      title: 'Missing Required Fields',
+      text: 'Please fill all required fields in Order Details tab',
+      icon: 'warning',
+      confirmButtonColor: '#3085d6',
+      confirmButtonText: 'OK'
+    })
+    return
+  }
+
+  // FIXED 2C: Warn if items removed from quotation-based order
+  if (isEdit.value && form.quotationId && form.items.length === 0) {
+    const itemsWarning = await Swal.fire({
+      title: 'No Items in Order?',
+      text: 'This order was created from quotation but has no items. Are you sure you want to save?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#3085d6',
+      cancelButtonColor: '#d33',
+      confirmButtonText: 'Yes, save anyway',
+      cancelButtonText: 'Cancel'
+    })
+
+    if (!itemsWarning.isConfirmed) {
+      console.log('User cancelled due to missing items warning')
+      return
+    }
+  }
+
+  console.log('Validation passed - submitting order')
+  saving.value = true
+  try {
+    const payload = {
+      ...form,
+      id: isEdit.value ? id.value : undefined,
+    }
+
+    console.log('Payload:', payload)
+
+    if (isEdit.value) {
+      console.log('Updating order:', id.value)
+      await orderStore.updateOrder(id.value, payload)
+      
+      // Success alert
+      Swal.fire({
+        title: 'Order Updated!',
+        text: 'The order has been updated successfully',
+        icon: 'success',
+        confirmButtonColor: '#3085d6',
+        confirmButtonText: 'OK'
+      }).then(() => {
+        console.log('Order updated, redirecting to /orders')
+        router.push('/orders')
+      })
+    } else {
+      console.log('Creating new order')
+      await orderStore.createOrder(payload)
+      
+      // Success alert
+      Swal.fire({
+        title: 'Order Created!',
+        text: 'The order has been created successfully',
+        icon: 'success',
+        confirmButtonColor: '#3085d6',
+        confirmButtonText: 'OK'
+      }).then(() => {
+        console.log('Order created, redirecting to /orders')
+        router.push('/orders')
+      })
+    }
+  } catch (error: any) {
+    console.error('Error saving order:', error)
+    
+    // Error alert
+    Swal.fire({
+      title: 'Error!',
+      text: error.message || 'An error occurred while saving the order',
+      icon: 'error',
+      confirmButtonColor: '#d33',
+      confirmButtonText: 'OK'
+    })
+  } finally {
+    saving.value = false
+  }
+}
+
+const resetForm = () => {
+  form.orderNumber = ''
+  form.orderType = ''
+  form.status = ''
+  form.orderDate = new Date().toISOString().split('T')[0]
+  form.currency = ''
+  form.exchangeRate = 1.0
+  form.enquiryId = ''
+  form.quotationId = ''
+  form.vat = 0
+  form.expenses = 0
+  form.referenceNumber = ''
+  form.paymentTerms = ''
+  form.remarks = ''
+  form.reference = ''
+  form.notes = ''
+  form.items = []
+  form.parties = []
+  form.participants = { hunters: 0, observers: 0, companions: 0, staff: 0 }
+  form.hotelLocation = ''
+  form.hotelCheckIn = ''
+  form.hotelNights = 0
+  form.dietaryPreferences = ''
+  form.preferences = {
+    foodPreferences: '',
+    beveragePreferences: '',
+    allergies: [],
+    alcoholPreferences: '',
+    specialRequests: ''
+  }
+  form.installments = []
+  form.logistics = []
+  toast.info('Form reset')
+}
+
+const onEnquiryChange = () => {
+  form.quotationId = ''
+  // Clear quotation selection when enquiry changes
+  // filteredQuotations computed property will automatically show quotations for the selected enquiry
+}
+
+const goBack = () => {
+  router.push('/orders')
+}
+
+// FIXED 2A: Navigate to source quotation
+const goToSourceQuotation = () => {
+  if (form.enquiryId) {
+    router.push({
+      name: 'SalesEnquiryDetail',
+      params: { id: form.enquiryId }
+    })
+  }
+}
+
+const loadDropdownData = async () => {
+  loading.value = true
+  try {
+    await Promise.all([
+      orderStore.fetchOrderTypes(),
+      orderStore.fetchOrderStatuses(),
+      orderStore.fetchCurrencies(),
+      orderStore.fetchEnquiries(),
+      orderStore.fetchQuotations(),
+      orderStore.fetchDietaryPreferences(),
+      orderStore.fetchAllergies(),
+      orderStore.fetchPartyRoles(),
+      orderStore.fetchItemCategories(),
+      orderStore.fetchInstallmentDaysTypes(),
+      orderStore.fetchInstallmentAmountTypes(),
+    ])
+  } catch (error) {
+    console.error('Error loading dropdown data:', error)
+  } finally {
+    loading.value = false
+  }
+}
+
+const loadExistingOrder = async () => {
+  if (!isEdit.value) return
+
+  loading.value = true
+  try {
+    const order = await orderStore.getOrder(id.value)
+    if (order) {
+      form.orderNumber = order.orderNumber
+      form.orderType = order.orderType
+      form.status = order.status
+      form.orderDate = order.orderDate
+      form.currency = order.currency
+      form.exchangeRate = order.exchangeRate || 1.0
+      form.enquiryId = order.enquiryId
+      form.quotationId = order.quotationId
+      form.vat = order.vat || 0
+      form.expenses = order.expenses || 0
+      form.referenceNumber = order.referenceNumber
+      form.paymentTerms = order.paymentTerms
+      form.remarks = order.remarks || ''
+      form.reference = order.reference || ''
+      form.notes = order.notes
+      form.items = order.items || []
+      form.parties = order.parties || []
+      form.participants = order.participants || { hunters: 0, observers: 0, companions: 0, staff: 0 }
+      form.hotelLocation = order.hotelLocation
+      form.hotelCheckIn = order.hotelCheckIn
+      form.hotelNights = order.hotelNights || 0
+      form.dietaryPreferences = order.dietaryPreferences
+      form.preferences = order.preferences || {
+        foodPreferences: '',
+        beveragePreferences: '',
+        allergies: [],
+        alcoholPreferences: '',
+        specialRequests: ''
+      }
+      form.installments = order.installments || []
+      form.logistics = order.logistics || []
+
+      // FIXED 1C: Load items from existing order
+      if (order.items && Array.isArray(order.items) && order.items.length > 0) {
+        form.items = order.items.map((item: any) => ({
+          name: item.description || item.name || '',
+          category: item.item_category_id || item.category || 'Service',
+          unitPrice: item.unit_price || item.price || 0,
+          quantity: item.quantity || 1,
+          rate: item.unit_price || item.rate || 0
+        }))
+      }
+
+      // Load parties from existing order
+      if (order.parties && Array.isArray(order.parties) && order.parties.length > 0) {
+        form.parties = order.parties.map((party: any) => ({
+          role: party.party_role_id || party.role || '',
+          entity: party.entity_id || party.entity || '',
+          contact: party.contact_person || party.contact || '',
+          email: party.email || ''
+        }))
+      }
+    }
+
+    // FIXED 1B: Load quotation context from route query params
+    const quotationId = route.query.quotationId as string | undefined
+    const enquiryId = route.query.enquiryId as string | undefined
+
+    if (quotationId && enquiryId) {
+      try {
+        const enquiry = await orderStore.fetchEnquiryWithQuotations(parseInt(enquiryId))
+        if (enquiry?.pricings) {
+          const quotation = enquiry.pricings.find(
+            (p: any) => p.id === parseInt(quotationId)
+          )
+          if (quotation) {
+            form.enquiryId = enquiryId
+            form.quotationId = quotationId
+            // Auto-populate items from quotation if form items are empty
+            if (form.items.length === 0 && quotation.items?.length > 0) {
+              form.items = quotation.items.map((item: any) => ({
+                name: item.name || item.description || '',
+                category: item.type || 'Service',
+                unitPrice: item.price || 0,
+                quantity: 1,
+                rate: item.price || 0
+              }))
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error loading quotation context:', error)
+        // Continue anyway - user can add items manually
+      }
+    }
+  } catch (error) {
+    toast.error('Error loading order')
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(() => {
+  loadDropdownData()
+  loadExistingOrder()
+})
+</script>
+
+<style scoped>
+.page-wrapper {
+  padding: 20px;
+}
+
+.page-header {
+  margin-bottom: 20px;
+  padding: 15px;
+  background: white;
+  border-radius: 5px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.nav-tabs {
+  border-bottom: 2px solid #dee2e6;
+}
+
+.nav-link {
+  color: #6c757d;
+  border: none;
+  border-bottom: 3px solid transparent;
+  cursor: pointer;
+  padding: 10px 15px;
+  transition: all 0.3s ease;
+}
+
+.nav-link:hover {
+  color: #0d6efd;
+  background: rgba(13, 110, 253, 0.05);
+}
+
+.nav-link.active {
+  color: #0d6efd;
+  border-bottom-color: #0d6efd;
+  font-weight: 500;
+}
+
+.card {
+  border: 1px solid #dee2e6;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.card-body {
+  padding: 30px;
+}
+
+.modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1050;
+}
+
+.modal.d-block {
+  display: block !important;
+}
+
+.table-responsive {
+  border: 1px solid #dee2e6;
+  border-radius: 5px;
+}
+
+.btn-group-sm {
+  gap: 5px;
+}
+
+@media (max-width: 768px) {
+  .table {
+    font-size: 0.85rem;
+  }
+
+  .nav-link {
+    padding: 8px 12px;
+    font-size: 0.9rem;
+  }
+}
+</style>

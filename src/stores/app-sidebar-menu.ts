@@ -366,6 +366,11 @@ export const useAppSidebarMenuStore = defineStore("appSidebarMenu", () => {
       permission: 'CAN_VIEW_SALES_PIPELINE'
     },
     {
+      url: '/orders',
+      icon: 'fa fa-boxes',
+      text: 'Orders Management'
+    },
+    {
       url: '/sales',
       icon: 'fa fa-shopping-cart',
       text: 'Sales',
