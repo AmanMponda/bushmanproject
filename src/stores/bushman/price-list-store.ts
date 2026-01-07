@@ -139,8 +139,6 @@ export const usePriceListStore = defineStore('price-list', {
       // default current_only=true to limit to current/future
       params.current_only = true
 
-      console.log('API URL (price-structures):', url, 'params:', params)
-
       const config = {
         method: 'get',
         maxBodyLength: Infinity,
@@ -220,7 +218,6 @@ export const usePriceListStore = defineStore('price-list', {
 
     async getPriceListById(id: any) {
       const url = `${import.meta.env.VITE_APP_BASE_URL}${import.meta.env.VITE_APP_PRICE_STRUCTURES_URL}${id}`
-      console.log('Fetching price structure detail, URL:', url)
       const token = localStorage.getItem('token')
       
       // Use fetch with AbortController for reliable timeout
@@ -238,8 +235,6 @@ export const usePriceListStore = defineStore('price-list', {
         })
         clearTimeout(timeoutId)
         
-        console.log('getPriceListById fetch status:', response.status)
-        
         if (!response.ok) {
           const errorText = await response.text()
           console.error('getPriceListById fetch error:', response.status, errorText)
@@ -247,7 +242,6 @@ export const usePriceListStore = defineStore('price-list', {
         }
         
         const data = await response.json()
-        console.log('getPriceListById response data:', data)
         
         // Return axios-like response object for compatibility
         return { status: response.status, data: data }
@@ -305,14 +299,7 @@ export const usePriceListStore = defineStore('price-list', {
       }
 
       // Log the final request body being sent to backend
-      console.log('=== STORE UPDATE PRICE LIST ===')
-      console.log('Price List ID:', id)
-      console.log('Final Request Body:', JSON.stringify(requestBody, null, 2))
-      console.log('Observer Amount in Body:', requestBody.observer_amount)
-      console.log('Observer Days in Body:', requestBody.observer_days)
-      console.log('Companion Amount in Body:', requestBody.companion_amount)
-      console.log('Companion Days in Body:', requestBody.companion_days)
-      console.log('===============================')
+      // Debug logs removed for production
 
       const data = JSON.stringify(requestBody)
 
@@ -494,9 +481,7 @@ export const usePriceListStore = defineStore('price-list', {
       }
 
       // Debug: log request body for inspection during development
-      console.log('createPriceList requestBody:', requestBody)
-      console.log('items array:', requestBody.items)
-      console.log('JSON being sent:', JSON.stringify(requestBody))
+      // Request payload prepared (debug logs removed)
 
       const config = {
         method: 'post',
@@ -553,8 +538,7 @@ export const usePriceListStore = defineStore('price-list', {
       }
 
       const response = await axios.request(config)
-      console.log('getCompletePriceListPdf response type:', response.headers['content-type'])
-      console.log('getCompletePriceListPdf response size:', response.data?.size || 'unknown')
+      // PDF response received (debug logs removed)
       
       // When include_pdf=true, API returns actual PDF binary content (not JSON)
       // The response.data is a Blob containing the PDF

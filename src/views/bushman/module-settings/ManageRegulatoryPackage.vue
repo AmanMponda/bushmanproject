@@ -1194,7 +1194,7 @@ const getQs = async (id: any = null) => {
       })
     }
   } catch (error) {
-    console.log(error)
+    console.error(error)
   }
 }
 
@@ -1213,7 +1213,7 @@ const getPackages = async () => {
       }))
     }
   } catch (error) {
-    console.log(error)
+    console.error(error)
   } finally {
     loading.value = false
   }
@@ -1230,7 +1230,7 @@ const getSpeciesItems = async () => {
       }
     })
   } catch (error) {
-    console.log(error)
+    console.error(error)
   }
 }
 

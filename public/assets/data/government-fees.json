@@ -1,0 +1,628 @@
+{
+  "document_title": "Kanuni Za Uwindaji Wa Kitalii - Tangazo la Serikali Na. 780 (Limaendelea)",
+  "categories": {
+    "mammals": [
+      {
+        "id": 1,
+        "english_name": "Aardvark",
+        "swahili_name": "Muhanga",
+        "scientific_name": "Orycteropus afer",
+        "price_tzs": 360000
+      },
+      {
+        "id": 2,
+        "english_name": "Aardwolf",
+        "swahili_name": "Fisi wa Ankole",
+        "scientific_name": "Proteles cristatus",
+        "price_tzs": 1120000
+      },
+      {
+        "id": 3,
+        "english_name": "Abbot's duiker",
+        "swahili_name": "Mindi",
+        "scientific_name": "Cephalophus spadix",
+        "price_tzs": 800000
+      },
+      {
+        "id": 4,
+        "english_name": "African elephant - at least one tusk weighing between 20kg and 25kg or measuring not less than 160 cm",
+        "swahili_name": "Tembo",
+        "scientific_name": "Loxodonta Africana",
+        "price_tzs": 53000000
+      },
+      {
+        "id": 5,
+        "english_name": "African Elephant - at least one tusk weighing between 25.1 kg and 30kg or not less than 160cm",
+        "swahili_name": "Tembo",
+        "scientific_name": "Loxodonta Africana",
+        "price_tzs": 32000000
+      },
+      {
+        "id": 6,
+        "english_name": "African Elephant - at least one tusk weighing 30kg and above or not less than 160cm",
+        "swahili_name": "Tembo",
+        "scientific_name": "Loxodonta Africana",
+        "price_tzs": 27000000
+      },
+      {
+        "id": 7,
+        "english_name": "African Savanna Hare (Scrub Hare)",
+        "swahili_name": "Sungura",
+        "scientific_name": "Lepus victoriae",
+        "price_tzs": 60000
+      },
+      {
+        "id": 8,
+        "english_name": "Cape Hare",
+        "swahili_name": "Sungura",
+        "scientific_name": "Lepus capensis",
+        "price_tzs": 60000
+      },
+      {
+        "id": 9,
+        "english_name": "Baboon Olive",
+        "swahili_name": "Nyani Mwekundu",
+        "scientific_name": "Papio anubis",
+        "price_tzs": 270000
+      },
+      {
+        "id": 10,
+        "english_name": "Baboon Yellow",
+        "swahili_name": "Nyani Njano",
+        "scientific_name": "Papio cynocephalus",
+        "price_tzs": 270000
+      },
+      {
+        "id": 11,
+        "english_name": "Banded Mongoose",
+        "swahili_name": "Nguchio",
+        "scientific_name": "Mungos mungo",
+        "price_tzs": 160000
+      },
+      {
+        "id": 12,
+        "english_name": "Bat-eared fox",
+        "swahili_name": "Mbweha masikio",
+        "scientific_name": "Otocyon megalotis",
+        "price_tzs": 670000
+      },
+      {
+        "id": 13,
+        "english_name": "Black & White Colobus Monkey",
+        "swahili_name": "Mbega mweusi na Mweupe",
+        "scientific_name": "Colobus spp",
+        "price_tzs": 1600000
+      },
+      {
+        "id": 14,
+        "english_name": "Black backed jackal",
+        "swahili_name": "Bweha shaba",
+        "scientific_name": "Canis mesomelas",
+        "price_tzs": 530000
+      },
+      {
+        "id": 15,
+        "english_name": "Black Mangabey",
+        "swahili_name": "Babakoto",
+        "scientific_name": "Lophocebus atterimus",
+        "price_tzs": 1600000
+      },
+      {
+        "id": 16,
+        "english_name": "Blue duiker",
+        "swahili_name": "Ndimba",
+        "scientific_name": "Cephalophus monticola",
+        "price_tzs": 670000
+      },
+      {
+        "id": 17,
+        "english_name": "Blue monkey",
+        "swahili_name": "Kima",
+        "scientific_name": "Cercopithecus mitis",
+        "price_tzs": 270000
+      },
+      {
+        "id": 18,
+        "english_name": "Reedbuck Bohor",
+        "swahili_name": "Tohe ndope",
+        "scientific_name": "Redunca redunca",
+        "price_tzs": 1200000
+      },
+      {
+        "id": 19,
+        "english_name": "Buffalo African Cape",
+        "swahili_name": "Nyati",
+        "scientific_name": "Sinceris caffer caffer",
+        "price_tzs": 6650000
+      },
+      {
+        "id": 20,
+        "english_name": "Burchell's Zebra",
+        "swahili_name": "Pundamilia",
+        "scientific_name": "Equus burchelli",
+        "price_tzs": 2650000
+      },
+      {
+        "id": 21,
+        "english_name": "Bushbuck Maasai",
+        "swahili_name": "Mbawala (Pongo)",
+        "scientific_name": "Tragelophus scriptus",
+        "price_tzs": 1860000
+      },
+      {
+        "id": 22,
+        "english_name": "Bushbuck Chobe",
+        "swahili_name": "Mbawala (Pongo)",
+        "scientific_name": "Tragelophus scriptus ornatus",
+        "price_tzs": 1590000
+      },
+      {
+        "id": 23,
+        "english_name": "Bushpig",
+        "swahili_name": "Nguruwe mwitu",
+        "scientific_name": "Potamochoerus porcus",
+        "price_tzs": 930000
+      },
+      {
+        "id": 24,
+        "english_name": "Caracal",
+        "swahili_name": "Simba mangu",
+        "scientific_name": "Felix caracal",
+        "price_tzs": 400000
+      },
+      {
+        "id": 25,
+        "english_name": "Civet cat",
+        "swahili_name": "Fungo",
+        "scientific_name": "Civettictis civetta",
+        "price_tzs": 530000
+      },
+      {
+        "id": 26,
+        "english_name": "Hartebeest Coke's",
+        "swahili_name": "Kongoni",
+        "scientific_name": "Alcelaphus buselaphus cokei",
+        "price_tzs": 2650000
+      },
+      {
+        "id": 27,
+        "english_name": "Common duiker",
+        "swahili_name": "Nsya (Nogorombwe)",
+        "scientific_name": "Sylvicapra grimmia",
+        "price_tzs": 670000
+      },
+      {
+        "id": 28,
+        "english_name": "Common waterbuck",
+        "swahili_name": "Kuro-ngogoro",
+        "scientific_name": "Kobus ellipsiprymnus",
+        "price_tzs": 2120000
+      },
+      {
+        "id": 29,
+        "english_name": "Defassa waterbuck",
+        "swahili_name": "Kuro (singising)",
+        "scientific_name": "Kobus defassa",
+        "price_tzs": 2120000
+      },
+      {
+        "id": 30,
+        "english_name": "Dikdik Kirk's",
+        "swahili_name": "Digidigi (Suguya)",
+        "scientific_name": "Madoqua kirkii",
+        "price_tzs": 800000
+      },
+      {
+        "id": 31,
+        "english_name": "Edwards Potto",
+        "swahili_name": "Potto",
+        "scientific_name": "Perodicticus potto edwardii",
+        "price_tzs": 960000
+      },
+      {
+        "id": 32,
+        "english_name": "Eland",
+        "swahili_name": "Pofu (Mbunju)",
+        "scientific_name": "Taurotragus oryx",
+        "price_tzs": 4500000
+      },
+      {
+        "id": 33,
+        "english_name": "Four-toed hedgehog",
+        "swahili_name": "Kalunguyeye",
+        "scientific_name": "Erinaceus albiventris",
+        "price_tzs": 265000
+      },
+      {
+        "id": 34,
+        "english_name": "Genet",
+        "swahili_name": "Kanu",
+        "scientific_name": "Genetta genetta",
+        "price_tzs": 530000
+      },
+      {
+        "id": 35,
+        "english_name": "Gerenuk",
+        "swahili_name": "Swala twiga",
+        "scientific_name": "Litocranius walleri",
+        "price_tzs": 8480000
+      },
+      {
+        "id": 36,
+        "english_name": "Giant Forest Hog",
+        "swahili_name": "Nguruwe mkubwa",
+        "scientific_name": "Hylochoerus meinertzhagen",
+        "price_tzs": 1180000
+      },
+      {
+        "id": 37,
+        "english_name": "Golden jackal (Common Jackal)",
+        "swahili_name": "Bweha dhahabu",
+        "scientific_name": "Canis aureus",
+        "price_tzs": 530000
+      },
+      {
+        "id": 38,
+        "english_name": "Grant's gazelle",
+        "swahili_name": "Swala granti",
+        "scientific_name": "Gazella grantii",
+        "price_tzs": 1590000
+      },
+      {
+        "id": 39,
+        "english_name": "Greater bush baby",
+        "swahili_name": "Komba",
+        "scientific_name": "Galago crassicaudanus",
+        "price_tzs": 480000
+      },
+      {
+        "id": 40,
+        "english_name": "Greater kudu",
+        "swahili_name": "Tandala mkubwa",
+        "scientific_name": "Tragelaphus strepsiceros",
+        "price_tzs": 5300000
+      },
+      {
+        "id": 41,
+        "english_name": "Ground Pangolin",
+        "swahili_name": "Kakakuona",
+        "scientific_name": "Smutsia temminckii",
+        "price_tzs": 2600000
+      },
+      {
+        "id": 42,
+        "english_name": "Hippopotamus",
+        "swahili_name": "Kiboko",
+        "scientific_name": "Hippopotamus amphibius",
+        "price_tzs": 3980000
+      },
+      {
+        "id": 43,
+        "english_name": "Impala East African",
+        "swahili_name": "Swala pala",
+        "scientific_name": "Aepyceros melampus rendili",
+        "price_tzs": 795000
+      },
+      {
+        "id": 44,
+        "english_name": "Impala Southern",
+        "swahili_name": "Swalapala",
+        "scientific_name": "Aepyceros melampus melampus",
+        "price_tzs": 530000
+      },
+      {
+        "id": 45,
+        "english_name": "Jumping hare/springhare",
+        "swahili_name": "Kamendegere",
+        "scientific_name": "Pedetes capensis",
+        "price_tzs": 200000
+      },
+      {
+        "id": 46,
+        "english_name": "Klipspringer",
+        "swahili_name": "Mbuzi mawe",
+        "scientific_name": "Oreotragus oreotragus",
+        "price_tzs": 1860000
+      },
+      {
+        "id": 47,
+        "english_name": "Leopard",
+        "swahili_name": "Chui",
+        "scientific_name": "Panthera pardus",
+        "price_tzs": 11930000
+      },
+      {
+        "id": 48,
+        "english_name": "Lesser galago",
+        "swahili_name": "Komba",
+        "scientific_name": "Galaga senegalensis",
+        "price_tzs": 400000
+      },
+      {
+        "id": 49,
+        "english_name": "Lesser kudu",
+        "swahili_name": "Tandala mdogo",
+        "scientific_name": "Tragelaphus imberbis",
+        "price_tzs": 8480000
+      },
+      {
+        "id": 50,
+        "english_name": "Hartebeest Lichtenstein's",
+        "swahili_name": "Konzi",
+        "scientific_name": "Alcelaphus buselaphus lichtensteini",
+        "price_tzs": 1730000
+      },
+      {
+        "id": 51,
+        "english_name": "Lion",
+        "swahili_name": "Simba (dume tu)",
+        "scientific_name": "Panthera leo",
+        "price_tzs": 18600000
+      },
+      {
+        "id": 52,
+        "english_name": "Marsh Mongoose",
+        "swahili_name": "Nguchio",
+        "scientific_name": "Herpestes/Atilax paludinosus",
+        "price_tzs": 160000
+      },
+      {
+        "id": 53,
+        "english_name": "Mountain Reedbuck",
+        "swahili_name": "Tohe milima",
+        "scientific_name": "Redunca furvorufula",
+        "price_tzs": 2120000
+      },
+      {
+        "id": 54,
+        "english_name": "Nile Crocodile",
+        "swahili_name": "Mamba",
+        "scientific_name": "Crocodylus niloticus",
+        "price_tzs": 4510000
+      },
+      {
+        "id": 55,
+        "english_name": "Nyasa Wildebeest",
+        "swahili_name": "Nyumbu kusi (Nyasi)",
+        "scientific_name": "Connochaetes taurinus Taurinus",
+        "price_tzs": 1730000
+      },
+      {
+        "id": 56,
+        "english_name": "Oribi Common",
+        "swahili_name": "Taya",
+        "scientific_name": "Ourebia ourebi",
+        "price_tzs": 670000
+      },
+      {
+        "id": 57,
+        "english_name": "Oryx Fringed Eared",
+        "swahili_name": "Choroa",
+        "scientific_name": "Oryx gazelle",
+        "price_tzs": 9280000
+      },
+      {
+        "id": 58,
+        "english_name": "Otter",
+        "swahili_name": "Fisi maji",
+        "scientific_name": "Aonyx /Lutra spp",
+        "price_tzs": 450000
+      },
+      {
+        "id": 59,
+        "english_name": "Patas (Red) Monkey",
+        "swahili_name": "Kima Mwekundu",
+        "scientific_name": "Erythrocebus patas",
+        "price_tzs": 320000
+      },
+      {
+        "id": 60,
+        "english_name": "Porcupine crested",
+        "swahili_name": "Nungunugu",
+        "scientific_name": "Hystrix cristata",
+        "price_tzs": 400000
+      },
+      {
+        "id": 61,
+        "english_name": "Puku",
+        "swahili_name": "Sheshe",
+        "scientific_name": "Kobus vardonii",
+        "price_tzs": 2120000
+      },
+      {
+        "id": 62,
+        "english_name": "Pygmy antelope (Suni)",
+        "swahili_name": "Paa (Suni)",
+        "scientific_name": "Neotragus moschatus",
+        "price_tzs": 795000
+      },
+      {
+        "id": 63,
+        "english_name": "Ratel (Honey badger)",
+        "swahili_name": "Nyegere",
+        "scientific_name": "Melivora capensis",
+        "price_tzs": 795000
+      },
+      {
+        "id": 64,
+        "english_name": "Red Colobus Monkey",
+        "swahili_name": "Mbega Mwekundu",
+        "scientific_name": "Piliocolobus spp",
+        "price_tzs": 960000
+      },
+      {
+        "id": 65,
+        "english_name": "Red duiker (harveys red)",
+        "swahili_name": "Funo (Mbaluka)",
+        "scientific_name": "Cephalophus natalensis",
+        "price_tzs": 795000
+      },
+      {
+        "id": 66,
+        "english_name": "Roan antelope",
+        "swahili_name": "Korongo",
+        "scientific_name": "Hippotragus equinus",
+        "price_tzs": 9280000
+      },
+      {
+        "id": 67,
+        "english_name": "Roberts Gazelle",
+        "swahili_name": "Swala Roberti",
+        "scientific_name": "Gazella robertsi",
+        "price_tzs": 1860000
+      },
+      {
+        "id": 68,
+        "english_name": "Rock hyrax",
+        "swahili_name": "Pimbi (kwaga)",
+        "scientific_name": "Heterohyrax brucei",
+        "price_tzs": 270000
+      },
+      {
+        "id": 69,
+        "english_name": "Sable antelope Common",
+        "swahili_name": "Palahala",
+        "scientific_name": "Hippotragus niger",
+        "price_tzs": 9280000
+      },
+      {
+        "id": 70,
+        "english_name": "Sable Antelope Roosevelt",
+        "swahili_name": "Palahala",
+        "scientific_name": "Hippotragus niger roosevelti",
+        "price_tzs": 9280000
+      },
+      {
+        "id": 71,
+        "english_name": "Serval cat",
+        "swahili_name": "Mondo",
+        "scientific_name": "Felis serval",
+        "price_tzs": 530000
+      },
+      {
+        "id": 72,
+        "english_name": "Shape's Grysbok",
+        "swahili_name": "Dongoro Shapi",
+        "scientific_name": "Raphicerus sharpie",
+        "price_tzs": 930000
+      },
+      {
+        "id": 73,
+        "english_name": "Side stripped jackal",
+        "swahili_name": "Bweha mraba",
+        "scientific_name": "Canis adustus",
+        "price_tzs": 530000
+      },
+      {
+        "id": 74,
+        "english_name": "Sitatunga East Africa",
+        "swahili_name": "Nzohe",
+        "scientific_name": "Tragelaphus spekei",
+        "price_tzs": 7950000
+      },
+      {
+        "id": 75,
+        "english_name": "Southern Reedbuck",
+        "swahili_name": "Tohe kusi",
+        "scientific_name": "Redunca arundinum",
+        "price_tzs": 1060000
+      },
+      {
+        "id": 76,
+        "english_name": "Spotted hyaena",
+        "swahili_name": "Fisi madoa (kingungwa)",
+        "scientific_name": "Crocuta crocuta",
+        "price_tzs": 1060000
+      },
+      {
+        "id": 77,
+        "english_name": "Steinbuck",
+        "swahili_name": "Dondoro",
+        "scientific_name": "Raphicerus campestris",
+        "price_tzs": 670000
+      },
+      {
+        "id": 78,
+        "english_name": "Striped hyaena",
+        "swahili_name": "Fisi Miraba",
+        "scientific_name": "Hyaena hyaena",
+        "price_tzs": 1860000
+      },
+      {
+        "id": 79,
+        "english_name": "Thomson Gazelle",
+        "swahili_name": "Swala tomi",
+        "scientific_name": "Gazella thomsonii",
+        "price_tzs": 1330000
+      },
+      {
+        "id": 80,
+        "english_name": "Topi",
+        "swahili_name": "Nyamera",
+        "scientific_name": "Damaliscus korrigum jimela",
+        "price_tzs": 2120000
+      },
+      {
+        "id": 81,
+        "english_name": "Tree hyrax",
+        "swahili_name": "Perere (wibari)",
+        "scientific_name": "Dendrohyrax arboreus",
+        "price_tzs": 265000
+      },
+      {
+        "id": 82,
+        "english_name": "Velvet monkey",
+        "swahili_name": "Tumbili",
+        "scientific_name": "Cercopithecus aethiops",
+        "price_tzs": 265000
+      },
+      {
+        "id": 83,
+        "english_name": "Warthog",
+        "swahili_name": "Ngiri",
+        "scientific_name": "Phacochoerus aethiopicus",
+        "price_tzs": 800000
+      },
+      {
+        "id": 84,
+        "english_name": "White nosed Monkey",
+        "swahili_name": "Kima puti",
+        "scientific_name": "Cercopithecus nictitans",
+        "price_tzs": 480000
+      },
+      {
+        "id": 85,
+        "english_name": "White tailed Mongoose",
+        "swahili_name": "Karambago",
+        "scientific_name": "Ichneumia albicauda",
+        "price_tzs": 160000
+      },
+      {
+        "id": 86,
+        "english_name": "White-beared wildebeest",
+        "swahili_name": "Nyumbu kidevu",
+        "scientific_name": "Connochaetes taurinus alborbatus",
+        "price_tzs": 1730000
+      },
+      {
+        "id": 87,
+        "english_name": "Wild cat",
+        "swahili_name": "Kimburu",
+        "scientific_name": "Felis lybica",
+        "price_tzs": 530000
+      },
+      {
+        "id": 88,
+        "english_name": "Zorilla",
+        "swahili_name": "Kicheche",
+        "scientific_name": "Ictonyx striatus",
+        "price_tzs": 400000
+      }
+    ]
+  },
+  "notes": {
+    "title_translation": "Laws of Tourist Hunting - Government Notice No. 780 (Continued)",
+    "currency": "TZS (Tanzanian Shillings)",
+    "section_title": "A. MAMMALS"
+  }
+}

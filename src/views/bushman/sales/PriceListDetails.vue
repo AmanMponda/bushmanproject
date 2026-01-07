@@ -394,13 +394,9 @@ const emit = defineEmits<{
 // Reactive state
 const activeTab = ref('overview')
 
-// Watch for prop changes and log them
+// Watch for prop changes (debug logs removed in production)
 watch(() => props.priceListItem, (newVal) => {
-  console.log('PriceListDetails received priceListItem:', newVal)
-  console.log('Has sales_package?', !!newVal?.sales_package)
-  console.log('Has price_list_type?', !!newVal?.price_list_type)
-  console.log('Has package_name?', !!newVal?.package_name)
-  console.log('Has area_name?', !!newVal?.area_name)
+  // Intentionally left blank: updates are handled reactively
 }, { immediate: true })
 
 // Computed properties

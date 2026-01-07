@@ -552,9 +552,7 @@ export default defineComponent({
           this.toggleFormAndList()
           this.getAreas()
         } else {
-          // console.log(requestData);
-          console.log(response)
-        }
+          // response logging removed        }
       } catch (error) {
         this.saving = false
         const errors = handleErrors(error)

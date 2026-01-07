@@ -18,7 +18,7 @@ export const useCalendarStore = defineStore('calendar_store', {
           'sales-confirmation/calendar-stats-vset' +
           '?status_list=confirmed,provision_sales,completed'
 
-        console.log('Fetching calendar data from:', url)
+        // Fetch URL prepared (debug log removed)
 
         const config = {
           method: 'get',
@@ -31,7 +31,7 @@ export const useCalendarStore = defineStore('calendar_store', {
 
         const response = await axios.request(config)
 
-        console.log('API Response received:', {
+        // API response received (debug logs removed)
           status: response.status,
           dataType: typeof response.data,
           isArray: Array.isArray(response.data),

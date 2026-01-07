@@ -121,8 +121,6 @@ export const useSalesInquiriesStore = defineStore('sales_inquiries', {
       this.loadingresults = true
       const url = import.meta.env.VITE_APP_BASE_URL + import.meta.env.VITE_APP_SALES_CONFIRMATION_VSET_URL
 
-      console.log('API URL:', url)
-
       const config = {
         method: 'get',
         maxBodyLength: Infinity,
@@ -134,7 +132,6 @@ export const useSalesInquiriesStore = defineStore('sales_inquiries', {
 
       try {
         const response = await axios.request(config)
-        console.log('Full API Response:', response)
 
         // Handle both response formats
         let data = []
@@ -147,14 +144,9 @@ export const useSalesInquiriesStore = defineStore('sales_inquiries', {
           data = response.data
         }
 
-        console.log('Extracted data:', data)
-
         if (data && Array.isArray(data) && data.length > 0) {
-          console.log(`Found ${data.length} sales confirmations`)
-
           this.loadingresults = false
           this.results = data.map((item: any, index: number) => {
-            console.log(`Processing item ${index}:`, item)
 
             // Format dates
             const formatDateTime = (dateString: any) => {
@@ -204,7 +196,6 @@ export const useSalesInquiriesStore = defineStore('sales_inquiries', {
             }
           })
 
-          console.log('Formatted Results:', this.results)
           return response
         } else {
           console.warn('No data or empty array received from API')
@@ -219,9 +210,6 @@ export const useSalesInquiriesStore = defineStore('sales_inquiries', {
         this.loadingresults = false
         this.results = []
 
-        // You could return mock data here as fallback
-        // this.results = this.getMockData()
-
         throw error
       }
     },
@@ -234,8 +222,6 @@ export const useSalesInquiriesStore = defineStore('sales_inquiries', {
       this.loadingresults = true
       const url = import.meta.env.VITE_APP_BASE_URL + import.meta.env.VITE_APP_SALES_CONFIRMATION_PROPOSALS_URL
 
-      console.log('Fetching proposals from API URL:', url)
-
       const config = {
         method: 'get',
         maxBodyLength: Infinity,
@@ -247,7 +233,6 @@ export const useSalesInquiriesStore = defineStore('sales_inquiries', {
 
       try {
         const response = await axios.request(config)
-        console.log('Sales Confirmation Proposals Response:', response)
 
         // Handle both response formats
         let data = []
@@ -259,13 +244,9 @@ export const useSalesInquiriesStore = defineStore('sales_inquiries', {
           // If response.data is directly the array
           data = response.data
         }
-
-        console.log('Extracted proposals data:', data)
-        console.log('First proposal structure:', data && data[0] ? JSON.stringify(data[0], null, 2) : 'No data')
         this.loadingresults = false
 
         if (data && Array.isArray(data)) {
-          console.log(`Found ${data.length} sales confirmation proposals`)
           return { status: 200, data: data }
         } else {
           console.warn('No proposals data received from API')
@@ -329,7 +310,7 @@ export const useSalesInquiriesStore = defineStore('sales_inquiries', {
         this.priceBreakDown = response.data
         return response
       } catch (error) {
-        console.log(error)
+        console.error(error)
         return error
       }
     },
@@ -438,7 +419,7 @@ export const useSalesInquiriesStore = defineStore('sales_inquiries', {
           return response
         }
       } catch (error) {
-        console.log(error)
+        console.error(error)
         return error
       }
     },
@@ -514,8 +495,7 @@ export const useSalesInquiriesStore = defineStore('sales_inquiries', {
       }
       try {
         const response = await axios.request(config)
-        console.log('Companions response:', response)
-
+        // Companions response received (debug logs removed)
         // Handle multiple response formats
         let companionsData = []
         if (response.data.value && Array.isArray(response.data.value)) {
@@ -529,8 +509,7 @@ export const useSalesInquiriesStore = defineStore('sales_inquiries', {
           companionsData = response.data
         }
 
-        console.log('Extracted companions data:', companionsData)
-
+        // Extracted companions data (debug logs removed)
         if (usedOptionsList === false) {
           if (response.status === 200) {
             this.companions = companionsData.map((item: any) => {
@@ -554,7 +533,7 @@ export const useSalesInquiriesStore = defineStore('sales_inquiries', {
           return response
         }
       } catch (error: any) {
-        console.log('Error fetching companions:', error)
+        console.error('Error fetching companions:', error)
         this.companions = []
         return error
       }

@@ -545,7 +545,6 @@ function getEarliestEventDate(events: CalendarEvent[]): string | null {
 }
 
 function handleEventClick(clickInfo: EventClickArg) {
-  console.log('Event clicked:', clickInfo.event)
   selectedEvent.value = {
     id: clickInfo.event.id,
     title: clickInfo.event.title,
@@ -594,25 +593,19 @@ function handleJumpToDate() {
     const calendarApi = calendarRef.value.getApi()
     if (calendarApi) {
       calendarApi.gotoDate(date)
-      console.log('Jumped to date:', date)
     }
   }
 }
 
 async function loadCalendarEvents() {
-  console.log('Loading calendar events from API...')
   loadingData.value = true
 
   try {
     const response = await calendarStore.getCalendarStats()
-    console.log('API response:', response)
 
     if (response && response.status === 200 && Array.isArray(response.data)) {
-      console.log('API data received:', response.data)
-
       if (response.data.length > 0) {
         const apiEvents = transformApiEvents(response.data)
-        console.log('Transformed API events:', apiEvents)
 
         calendarOptions.value.events = apiEvents
         calendarEvents.value = apiEvents
@@ -622,13 +615,10 @@ async function loadCalendarEvents() {
           const earliestDate = getEarliestEventDate(apiEvents)
           if (earliestDate) {
             calendarOptions.value.initialDate = earliestDate
-            console.log('Setting calendar initial date to earliest booking:', earliestDate)
           }
         }
 
         calendarKey.value++
-
-        console.log(`Loaded ${apiEvents.length} events successfully`)
       } else {
         console.warn('No events found in API response')
       }
@@ -699,7 +689,6 @@ function transformApiEvents(apiData: any[]): CalendarEvent[] {
       }
 
       events.push(event)
-      console.log(`Added event: ${event.title} from ${eventStart} to ${eventEnd}`)
     } catch (error) {
       console.error('Error transforming event:', item.id, error)
     }
@@ -740,7 +729,6 @@ function parseApiDate(dateString: string | undefined): Date | null {
 
 // Lifecycle
 onMounted(() => {
-  console.log('Calendar component mounted')
   loadCalendarEvents()
 })
 </script>

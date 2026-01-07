@@ -707,7 +707,7 @@ const handlePaymentSubmit = async (payload: {
     }
 
     // Show toast - you might want to use a toast library or component here
-    console.log('Toast:', message)
+    // e.g., use a toast component to display `message`
 
     emit('paymentRecorded', result)
     await loadPaymentStatus()
@@ -730,8 +730,7 @@ const handleUnpay = async (installment: Installment) => {
   try {
     await proposalStore.unpayInstallment(installment.id)
 
-    // Show success toast
-    console.log('Toast: Payment reversed successfully')
+    // Show success toast (use your toast component instead of console.log)
 
     await loadPaymentStatus()
   } catch (error: any) {

@@ -419,7 +419,7 @@ const getSeasonList = async () => {
       })
       .map((item: any) => ({ value: item.id, text: item.name, selfItem: item }))
   } catch (error) {
-    console.log(error)
+    console.error(error)
   }
 }
 
@@ -461,6 +461,30 @@ const downloadAllInquiriesPdf = async () => {
 onMounted(() => {
   getSeasonList()
   getSalesInquiryList()
+
+  // Open enquiry details if an id was passed via sessionStorage (used to avoid exposing id in URL)
+  try {
+    const openId = sessionStorage.getItem('openEnquiryId')
+    if (openId) {
+      const id = Number(openId)
+      if (Number.isFinite(id) && id > 0) {
+        ;(async () => {
+          try {
+            const res = await salesEnquiryService.get(id)
+            if (res && res.data) {
+              selectedInquiryItem.value = res.data
+              showDetailsPage.value = true
+            }
+          } catch (err) {
+            console.error('Failed to open enquiry from session:', err)
+          }
+        })()
+      }
+      sessionStorage.removeItem('openEnquiryId')
+    }
+  } catch (e) {
+    // ignore session storage errors
+  }
 })
 </script>
 

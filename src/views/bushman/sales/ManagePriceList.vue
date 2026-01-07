@@ -362,7 +362,6 @@ const onDownloadPdf = async () => {
 }
 
 const goBack = () => {
-  console.log('ManagePriceList: goBack called')
   showPriceList.value = true
   ShowCreateNewPriceListForm.value = false
   showEditForm.value = false
@@ -523,7 +522,7 @@ const handleFiltersUpdate = (filters: any) => {
 
 const handleSelectionChange = (selectedRows: any[]) => {
   // Handle selected rows - can be used for bulk operations
-  console.log('Selected rows:', selectedRows)
+  // e.g., use these rows for bulk actions
 }
 
 const getPriceLists = async () => {

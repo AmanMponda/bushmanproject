@@ -104,7 +104,7 @@ const availableServices = computed(() => {
 
 
 
-console.log(availableServices.value);
+// availableServices prepared (debug log removed)
 
 const getServicePermissions = async (id) => {
 	try {

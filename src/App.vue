@@ -51,7 +51,6 @@ onMounted(() => {
 
 	// Only log in development mode
 	if (import.meta.env.DEV) {
-		console.log(authStore.isAuthenticated);
 	}
 	authCheck.value = true;
 

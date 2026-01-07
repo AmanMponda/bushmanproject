@@ -3,16 +3,16 @@ const handleErrors = (errorResponse: any) => {
   const errors: string[] = []
 
   // Log the entire error response for debugging
-  console.log('Full error response:', errorResponse)
-  console.log('Error data:', errorResponse?.data)
+  console.error('Full error response:', errorResponse)
+  console.error('Error data:', errorResponse?.data)
 
   // Check if the error response exists
 
   // Check if the error has a response from the server
   if (errorResponse) {
     const { status, data } = errorResponse
-    console.log('Status:', status)
-    console.log('Data details:', JSON.stringify(data, null, 2))
+    console.error('Status:', status)
+    console.error('Data details:', JSON.stringify(data, null, 2))
 
     // Handle different server error statuses
 

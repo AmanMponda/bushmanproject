@@ -474,6 +474,7 @@
           v-if="item?.id"
           :enquiry-id="item?.id" 
           :initial-pricings="item?.pricings"
+          :enquiry-data="item"
           @update="onPricingUpdate"
         />
       </div>

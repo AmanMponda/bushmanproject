@@ -217,7 +217,6 @@ export default defineComponent({
         }
       } catch (error) {
         this.loading = false
-        console.log(error)
         // this.$toast.error(error.message)
       }
     },
@@ -233,7 +232,6 @@ export default defineComponent({
     },
 
     btnDownloadClicked(rowData: any) {
-      console.log(rowData)
       this.$emit('download-btn-pressed', rowData)
     },
 
@@ -291,11 +289,9 @@ export default defineComponent({
     },
 
     btnViewClicked(rowData: any) {
-      console.log(rowData)
       this.$emit('view-btn-pressed', rowData)
     },
     btnEditClicked(rowData: any) {
-      console.log(rowData)
       this.$emit('edit-btn-pressed', rowData)
     },
 

@@ -497,8 +497,7 @@ const handleFiltersUpdate = (filters: any) => {
 
 const handleSelectionChange = (selectedRows: any[]) => {
   // Handle selected rows - can be used for bulk operations
-  console.log('Selected rows:', selectedRows)
-}
+  // Selected rows logging removed}
 
 const getPriceLists = async () => {
   loading.value = true

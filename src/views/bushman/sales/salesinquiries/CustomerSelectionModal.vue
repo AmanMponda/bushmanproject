@@ -644,14 +644,12 @@ const handleProceed = async () => {
         const fullPhone = form.phone_country_code.startsWith('+') 
           ? `${form.phone_country_code}${form.phone}` 
           : `+${form.phone_country_code}${form.phone}`
-        console.log('Primary phone:', fullPhone)
         contacts.push({ type: 'phone_number', contact: fullPhone })
       }
       if (form.phone_additional) {
         const fullPhoneAdditional = form.phone_additional_country_code.startsWith('+')
           ? `${form.phone_additional_country_code}${form.phone_additional}`
           : `+${form.phone_additional_country_code}${form.phone_additional}`
-        console.log('Additional phone:', fullPhoneAdditional)
         contacts.push({ type: 'phone_number', contact: fullPhoneAdditional })
       }
       if (form.address) contacts.push({ type: 'address', contact: form.address })
@@ -674,7 +672,6 @@ const handleProceed = async () => {
 
       if (response.data && response.data.success && response.data.data) {
         entityId = response.data.data.id
-        console.log('Entity created successfully with ID:', entityId)
         init({ message: 'Customer created successfully!', color: 'success' })
       } else {
         console.error('Entity creation failed:', response.data)
@@ -718,11 +715,6 @@ const handleProceed = async () => {
     address: form.address,
   }
   
-  console.log('CustomerSelectionModal - Emitting customerData:', customerData)
-  console.log('CustomerSelectionModal - entity_id being sent:', entityId)
-
-  console.log('Emitting customer data with entity_id:', entityId)
-  console.log('Full customer data:', customerData)
   emit('proceed', customerData)
 }
 

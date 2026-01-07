@@ -156,11 +156,7 @@ const visibleData = computed(() => {
 watch(
   () => props.data,
   (newData) => {
-    console.log('StandardDataTable: props.data changed', {
-      isArray: Array.isArray(newData),
-      length: Array.isArray(newData) ? newData.length : 'N/A',
-      sample: Array.isArray(newData) && newData.length > 0 ? newData[0] : null,
-    })
+    // debug logs removed
   },
   { immediate: true, deep: true },
 )
@@ -169,11 +165,7 @@ watch(
 watch(
   visibleData,
   (newData) => {
-    console.log('StandardDataTable: visibleData changed', {
-      length: newData.length,
-      disablePagination: props.disablePagination,
-      serverSide: props.serverSide,
-    })
+    // debug logs removed
   },
   { immediate: true },
 )

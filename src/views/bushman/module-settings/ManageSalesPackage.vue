@@ -390,7 +390,7 @@ export default {
           }))
         }
       } catch (error) {
-        console.log(error)
+        console.error(error)
       }
     }
     function showDetails(data: any) {

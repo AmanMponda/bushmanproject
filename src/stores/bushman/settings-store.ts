@@ -609,7 +609,7 @@ export const useSettingsStore = defineStore('settings-store', {
         }
       } catch (error) {
         this.loadingSalesChartersPriceList = false
-        console.log(error)
+        console.error(error)
       }
     },
 

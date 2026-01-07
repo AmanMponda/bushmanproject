@@ -1,35 +1,56 @@
 <template>
   <div class="create-quotation-page">
     <!-- Header -->
-    <div class="page-header bg-white border-bottom mb-4 p-3">
-      <div class="d-flex justify-content-between align-items-center">
-        <div>
-          <h4 class="mb-1">
-            <i class="fa fa-file-invoice-dollar me-2 text-primary"></i>
-            Edit Quotation
-          </h4>
-          <p class="text-muted mb-0 small">Manage pricing items for this quotation</p>
+    <div class="d-flex align-items-center mb-3">
+      <div>
+        <h1 class="page-header mb-0">Edit Quotation</h1>
+        <div class="quotation-meta mt-2">
+          <span
+            v-if="existingPricing"
+            class="badge px-2 pt-5px pb-5px rounded fs-12px d-inline-flex align-items-center"
+            :class="existingPricing.status === 'LOCKED' 
+              ? 'bg-teal text-teal-800 bg-opacity-25' 
+              : 'bg-orange bg-opacity-20 text-orange'"
+          >
+            <i class="fa fa-circle fs-9px fa-fw me-5px" :class="existingPricing.status === 'LOCKED' ? 'text-teal' : ''"></i>
+            {{ existingPricing.status === 'LOCKED' ? 'Locked' : 'Draft' }}
+          </span>
+          <span class="text-muted small ms-2">
+            Quotation ID: {{ existingPricing?.id || 'N/A' }}
+          </span>
+          <span class="text-muted small ms-2">
+            Updated: {{ formatDate(existingPricing?.updated_at) }}
+          </span>
         </div>
-        <button class="btn btn-outline-secondary" @click="goBack">
-          <i class="fa fa-arrow-left me-1"></i> Back to Enquiry
+      </div>
+      <div class="ms-auto">
+        <button class="btn btn-theme" @click="goBack">
+          <i class="fa fa-arrow-left fa-fw me-1"></i> Back to Enquiry
+        </button>
+        <button class="btn btn-outline-theme ms-2" :disabled="!existingPricing || printingPdf" @click="downloadQuotationPdf">
+          <span v-if="printingPdf" class="spinner-border spinner-border-sm me-1"></span>
+          <i v-else class="fa fa-print fa-fw me-1"></i> Print PDF
         </button>
       </div>
     </div>
 
     <div class="container-fluid">
       <!-- Enquiry Info Summary -->
-      <div class="card mb-4">
-        <div class="card-body">
-          <h6 class="card-title mb-3">
-            <i class="fa fa-info-circle me-2"></i>
-            Enquiry Details
-            <span v-if="existingPricing" class="badge bg-success ms-2">
-              <i class="fa fa-check-circle me-1"></i>Pricing Record Ready
-            </span>
-            <span v-else class="badge bg-warning ms-2">
-              <i class="fa fa-exclamation-triangle me-1"></i>No Pricing Record
-            </span>
-          </h6>
+      <card class="mb-3">
+        <div class="p-3 bg-light border-bottom">
+          <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+            <h6 class="mb-0 fw-semibold">Enquiry Details</h6>
+            <div class="d-flex flex-wrap gap-2">
+              <span v-if="!existingPricing" class="badge bg-orange bg-opacity-20 text-orange px-2 pt-5px pb-5px rounded fs-12px">
+                <i class="fa fa-circle fs-9px fa-fw me-5px"></i>No Pricing Record
+              </span>
+              <span v-if="loadingPreview" class="badge bg-primary bg-opacity-20 text-primary px-2 pt-5px pb-5px rounded fs-12px">
+                <i class="fa fa-circle text-primary text-opacity-80 fs-9px fa-fw me-5px"></i>Loading Package Data
+              </span>
+            </div>
+          </div>
+        </div>
+        <div class="p-3">
           <div class="row">
             <div class="col-md-3">
               <small class="text-muted d-block">Package</small>
@@ -49,7 +70,7 @@
             </div>
           </div>
         </div>
-      </div>
+      </card>
 
       <!-- Loading State -->
       <div v-if="loadingEnquiry" class="text-center py-5">
@@ -67,7 +88,7 @@
       <!-- Main Content - Existing Items + Add New Items -->
       <div v-else-if="existingPricing">
         <!-- Summary Card -->
-        <div class="card mb-4 bg-primary text-white">
+        <div class="card mb-4 quotation-summary-card text-white">
           <div class="card-body">
             <div class="row text-center">
               <div class="col-md-3">
@@ -75,15 +96,15 @@
                 <small>Total Items</small>
               </div>
               <div class="col-md-3">
-                <h3 class="mb-0">{{ formatCurrency(pricingSummary.trophy_total || 0) }}</h3>
+                <h3 class="mb-0">{{ currencySymbol }} {{ formatCurrency(pricingSummary.trophy_total || 0) }}</h3>
                 <small>Trophy Fees</small>
               </div>
               <div class="col-md-3">
-                <h3 class="mb-0">{{ formatCurrency(pricingSummary.extra_total || 0) }}</h3>
+                <h3 class="mb-0">{{ currencySymbol }} {{ formatCurrency(pricingSummary.extra_total || 0) }}</h3>
                 <small>Extras</small>
               </div>
               <div class="col-md-3">
-                <h3 class="mb-0">{{ formatCurrency(pricingSummary.subtotal || 0) }}</h3>
+                <h3 class="mb-0">{{ currencySymbol }} {{ formatCurrency(pricingSummary.subtotal || 0) }}</h3>
                 <small>Grand Total</small>
               </div>
             </div>
@@ -92,46 +113,48 @@
 
         <!-- Existing Items by Type -->
         <div v-for="(items, itemType) in existingItemsByType" :key="itemType" class="card mb-4">
-          <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
-            <h6 class="mb-0">
-              <i class="fa fa-check-circle me-2"></i>
-              {{ getItemTypeLabel(itemType) }}
-              <span class="badge bg-light text-dark ms-2">{{ items.length }} items</span>
-            </h6>
+          <div class="card-header bg-white d-flex justify-content-between align-items-center quotation-section-header">
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+              <span class="badge" :class="getItemTypeBadgeClass(itemType)">
+                {{ formatItemType(itemType) }}
+              </span>
+              <span class="fw-semibold">{{ getItemTypeLabel(itemType) }}</span>
+              <span class="badge bg-light text-dark">{{ items.length }} items</span>
+            </div>
           </div>
           <div class="card-body p-0">
             <div class="table-responsive">
-              <table class="table table-hover mb-0">
-                <thead class="table-light">
+              <table class="table table-hover text-nowrap mb-0">
+                <thead>
                   <tr>
-                    <th>Item</th>
-                    <th style="width: 100px;" class="text-center">Qty</th>
-                    <th style="width: 150px;" class="text-end">Unit Price</th>
-                    <th style="width: 150px;" class="text-end">Total</th>
-                    <th style="width: 100px;" class="text-center">Optional</th>
-                    <th style="width: 80px;" class="text-center">Actions</th>
+                    <th class="border-top-0 pt-0 pb-2">Item</th>
+                    <th class="border-top-0 pt-0 pb-2 text-center" style="width: 100px;">Qty</th>
+                    <th class="border-top-0 pt-0 pb-2 text-end" style="width: 150px;">Unit Price</th>
+                    <th class="border-top-0 pt-0 pb-2 text-end" style="width: 150px;">Total</th>
+                    <th class="border-top-0 pt-0 pb-2 text-center" style="width: 100px;">Optional</th>
+                    <th class="border-top-0 pt-0 pb-2 text-center" style="width: 80px;">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr v-for="item in items" :key="item.id">
-                    <td>
+                    <td class="align-middle">
                       <div>
                         <strong>{{ item.item_name || item.description }}</strong>
                         <span v-if="item.item_code" class="text-muted small ms-2">({{ item.item_code }})</span>
                       </div>
                       <small class="text-muted">{{ item.description }}</small>
                     </td>
-                    <td class="text-center">{{ item.quantity }}</td>
-                    <td class="text-end">{{ formatCurrency(item.unit_amount) }}</td>
-                    <td class="text-end">
+                    <td class="text-center align-middle">{{ item.quantity }}</td>
+                    <td class="text-end align-middle">{{ formatCurrency(item.unit_amount) }}</td>
+                    <td class="text-end align-middle">
                       <strong class="text-success">{{ formatCurrency(item.total_amount) }}</strong>
                     </td>
-                    <td class="text-center">
-                      <span v-if="item.is_optional" class="badge bg-info">Optional</span>
-                      <span v-else>-</span>
+                    <td class="text-center align-middle py-1">
+                      <span v-if="item.is_optional" class="badge bg-primary bg-opacity-20 text-primary px-2 pt-5px pb-5px rounded fs-12px">Optional</span>
+                      <span v-else class="text-muted">-</span>
                     </td>
-                    <td class="text-center">
-                      <button class="btn btn-sm btn-outline-danger" @click="removeItem(item)" :disabled="removingItem === item.id">
+                    <td class="text-center align-middle">
+                      <button class="btn btn-danger btn-sm" @click="removeItem(item)" :disabled="removingItem === item.id">
                         <i class="fa fa-trash"></i>
                       </button>
                     </td>
@@ -150,14 +173,39 @@
 
         <!-- Add New Items Section -->
         <div class="card mb-4">
-          <div class="card-header bg-light">
-            <h6 class="mb-0">
-              <i class="fa fa-plus-circle me-2 text-primary"></i>
-              Add Items from Enquiry Preferences
-            </h6>
+          <div class="card-header bg-white quotation-section-header">
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+              <div>
+                <h6 class="mb-1">
+                  <i class="fa fa-bolt me-2 text-primary"></i>
+                  Items enquired by the client
+                </h6>
+                <small class="text-muted">Based on package data and enquiry preferences.</small>
+              </div>
+              <div class="d-flex flex-wrap gap-2">
+                <button
+                  class="btn btn-outline-primary btn-sm"
+                  @click="selectAllSystemItems"
+                  :disabled="loadingPreview || availablePriceableItems.length === 0"
+                >
+                  <i class="fa fa-magic me-1"></i> Generate from Package
+                </button>
+                <button
+                  class="btn btn-outline-secondary btn-sm"
+                  @click="clearSelection"
+                  :disabled="selectedItemsCount === 0"
+                >
+                  <i class="fa fa-eraser me-1"></i> Clear Selection
+                </button>
+              </div>
+            </div>
           </div>
           <div class="card-body">
-            <div v-if="availablePriceableItems.length > 0">
+            <div v-if="loadingPreview" class="text-center py-4">
+              <span class="spinner-border spinner-border-sm me-2"></span>
+              Loading package rates...
+            </div>
+            <div v-else-if="availablePriceableItems.length > 0">
               <div v-for="category in availablePriceableItems" :key="category.category" class="mb-4">
                 <div class="d-flex justify-content-between align-items-center mb-2">
                   <h6 class="text-muted mb-0">
@@ -251,7 +299,7 @@
               </div>
 
               <!-- Add Items Button -->
-              <div v-if="selectedItemsCount > 0" class="card bg-light mt-3">
+              <div v-if="selectedItemsCount > 0" class="card bg-light mt-3 sticky-bottom quotation-selection-bar">
                 <div class="card-body">
                   <div class="row align-items-center">
                     <div class="col-md-4">
@@ -282,7 +330,7 @@
             </div>
             <div v-else class="text-center py-4 text-muted">
               <i class="fa fa-check-circle fa-2x mb-2 text-success"></i>
-              <p class="mb-0">All items from enquiry preferences have been added to the quotation.</p>
+              <p class="mb-0">All system-generated items are already included in the quotation.</p>
             </div>
           </div>
         </div>
@@ -342,6 +390,9 @@ const loadingEnquiry = ref(false)
 const saving = ref(false)
 const removingItem = ref<number | null>(null)
 const existingPricing = ref<any>(null) // The pricing record with all data
+const pricePreviewData = ref<any>(null)
+const loadingPreview = ref(false)
+const printingPdf = ref(false)
 
 const selectedItems = ref<Record<string, boolean>>({})
 const itemPrices = ref<Record<string, any>>({})
@@ -378,7 +429,7 @@ const getItemTypeLabel = (type: string) => {
     'PACKAGE': 'Package',
     'TROPHY': 'Trophy Fees',
     'EXTRA': 'Safari Extras & Daily Rate',
-    'LOGISTICS': 'Participants',
+    'LOGISTICS': 'Companion Hunters',
     'ADJUSTMENT': 'Adjustments',
   }
   return labels[type] || type
@@ -409,9 +460,10 @@ const enquiryParticipants = computed(() => {
   
   // Check if participants already added
   const existingLogistics = existingPricing.value?.items_by_type?.LOGISTICS || []
-  const hasParticipants = existingLogistics.some((l: any) => 
-    l.description?.toLowerCase().includes('participant')
-  )
+  const hasParticipants = existingLogistics.length > 0 || existingLogistics.some((l: any) => {
+    const desc = String(l.description || l.item_name || '').toLowerCase()
+    return desc.includes('participant') || desc.includes('companion') || desc.includes('observer')
+  })
   
   if (hasParticipants) return []
   
@@ -420,9 +472,9 @@ const enquiryParticipants = computed(() => {
   // Handle general participants
   if (pref.no_of_participants > 0) {
     participants.push({
-      type: 'PARTICIPANT',
+      type: 'COMPANION',
       count: pref.no_of_participants,
-      label: `Participants (${pref.no_of_participants})`,
+      label: `Companion Hunters (${pref.no_of_participants})`,
     })
   }
   
@@ -431,7 +483,7 @@ const enquiryParticipants = computed(() => {
     participants.push({
       type: 'COMPANION',
       count: pref.no_of_companions,
-      label: `Companions (${pref.no_of_companions})`,
+      label: `Companion Hunters (${pref.no_of_companions})`,
     })
   }
   
@@ -450,94 +502,123 @@ const enquiryParticipants = computed(() => {
 // Check if hunting days need to be added
 const needsHuntingDays = computed(() => {
   const existingExtras = existingPricing.value?.items_by_type?.EXTRA || []
+  const existingPackageItems = existingPricing.value?.items_by_type?.PACKAGE || []
   const hasHuntingDays = existingExtras.some((e: any) => 
     e.description?.toLowerCase().includes('hunting days') || 
     e.description?.toLowerCase().includes('daily rate')
-  )
+  ) || existingPackageItems.length > 0
   return !hasHuntingDays
 })
 
 const availablePriceableItems = computed(() => {
   const items = []
-  
-  // Add hunting days if not already added
+
+  // Add hunting days as a package subtype if not already added
   const hunterPref = enquiryData.value?.hunter_preferences || enquiryData.value?.preference
-  const noOfDays = hunterPref?.no_of_days
+  const packageDetail = pricePreviewData.value?.price_structure_detail || existingPricing.value?.price_structure_detail
+  const noOfDays = packageDetail?.hunt_length_days || hunterPref?.no_of_days
   if (needsHuntingDays.value && noOfDays && noOfDays > 0) {
-    const packageAmount = existingPricing.value?.price_structure_detail?.amount || 0
+    const packageAmount = parseFloat(packageDetail?.amount) || 0
     items.push({
-      category: 'Hunting Days',
+      category: 'Package',
       items: [{
         id: 'hunting_days',
         name: `Hunting Days (${noOfDays} days)`,
         code: '',
         quantity: 1, // Quantity is 1 because package amount is for ALL days
-        type: 'EXTRA',
+        type: 'PACKAGE',
         suggested_price: packageAmount, // This is the TOTAL package amount, not per-day
       }]
     })
   }
-  
+
   // Add species from enquiry preferences (TROPHY fees)
   if (enquirySpecies.value.length > 0) {
     items.push({
       category: 'Species (Trophy Fees)',
-      items: enquirySpecies.value.map((sp: any) => ({
-        id: sp.item_id,
-        name: cleanItemName(sp.item_name || sp.species_name || 'Unknown Species'),
-        code: '',
-        quantity: sp.desired_quantity || 1,
-        type: 'TROPHY',
-        suggested_price: 0, // Will be set from price structure
-        priority: sp.priority || 'NICE_TO_HAVE',
-      }))
+      items: enquirySpecies.value.map((sp: any) => {
+        const trophyFee = pricePreviewData.value?.trophy_fees?.find(
+          (tf: any) => tf.item_id === sp.item_id || tf.species_id === sp.item_id
+        )
+        return {
+          id: sp.item_id,
+          name: cleanItemName(sp.item_name || sp.species_name || 'Unknown Species'),
+          code: '',
+          quantity: sp.desired_quantity || 1,
+          type: 'TROPHY',
+          suggested_price: parseFloat(trophyFee?.amount) || 0,
+          priority: sp.priority || 'NICE_TO_HAVE',
+        }
+      })
     })
   }
-  
+
   // Add safari extras from enquiry
   if (enquirySafariExtras.value.length > 0) {
     items.push({
       category: 'Safari Extras',
-      items: enquirySafariExtras.value.map((extra: any) => ({
-        id: extra.item_id,
-        name: cleanItemName(extra.item_name || 'Extra'),
-        code: '',
-        quantity: extra.desired_quantity || 1,
-        type: 'EXTRA',
-        suggested_price: 0,
-      }))
+      items: enquirySafariExtras.value.map((extra: any) => {
+        const safariExtra = pricePreviewData.value?.safari_extras?.find(
+          (se: any) => se.id === extra.item_id || se.item_id === extra.item_id || se.safari_extra_id === extra.item_id
+        )
+        return {
+          id: extra.item_id,
+          name: cleanItemName(extra.item_name || 'Extra'),
+          code: '',
+          quantity: extra.desired_quantity || 1,
+          type: 'EXTRA',
+          suggested_price: parseFloat(safariExtra?.amount) || 0,
+        }
+      })
     })
   }
-  
+
   // Add participants as LOGISTICS costs
   if (enquiryParticipants.value.length > 0) {
     items.push({
-      category: 'Participants',
-      items: enquiryParticipants.value.map((part: any) => ({
-        id: `participant_${part.type}`,
-        name: part.label,
-        code: '',
-        quantity: part.count,
-        type: 'LOGISTICS',
-        suggested_price: 0,
-      }))
+      category: 'Companion Hunters',
+      items: enquiryParticipants.value.map((part: any) => {
+        let cost = 0
+        if (part.type === 'COMPANION') {
+          cost = parseFloat(pricePreviewData.value?.companion_costs?.[0]?.amount) || 0
+        } else if (part.type === 'OBSERVER') {
+          cost = parseFloat(pricePreviewData.value?.observer_costs?.[0]?.amount) || 0
+        }
+        return {
+          id: `participant_${part.type}`,
+          name: part.label,
+          code: '',
+          quantity: part.count,
+          type: 'LOGISTICS',
+          suggested_price: cost,
+        }
+      })
     })
   }
-  
+
   return items
 })
 
 const enquiryPackageName = computed(() => {
-  return existingPricing.value?.price_structure_detail?.name || 'N/A'
+  return pricePreviewData.value?.price_structure_detail?.name ||
+    existingPricing.value?.price_structure_detail?.name || 'N/A'
 })
 
 const enquiryHuntingType = computed(() => {
-  return existingPricing.value?.price_structure_detail?.hunting_type?.name || 'N/A'
+  return pricePreviewData.value?.price_structure_detail?.hunting_type ||
+    existingPricing.value?.price_structure_detail?.hunting_type?.name || 'N/A'
 })
 
 const enquiryCurrency = computed(() => {
   return existingPricing.value?.currency?.code || 
-         existingPricing.value?.currency?.name || 'USD'
+         existingPricing.value?.currency?.name ||
+         pricePreviewData.value?.price_structure_detail?.currency_code || 'USD'
+})
+
+const currencySymbol = computed(() => {
+  return existingPricing.value?.currency?.symbol ||
+    pricePreviewData.value?.price_structure_detail?.currency_code ||
+    '$'
 })
 
 const enquiryDays = computed(() => {
@@ -565,6 +646,52 @@ const formatCurrency = (amount: number) => {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(amount || 0)
+}
+
+const formatDate = (dateValue?: string) => {
+  if (!dateValue) return 'N/A'
+  const parsed = new Date(dateValue)
+  if (Number.isNaN(parsed.getTime())) return 'N/A'
+  return parsed.toLocaleDateString()
+}
+
+const downloadQuotationPdf = async () => {
+  const pricingId = existingPricing.value?.id || pricingIdFromRoute.value
+  if (!pricingId) return
+
+  printingPdf.value = true
+  try {
+    const response = await fetch(
+      `${import.meta.env.VITE_APP_BASE_URL}sales-enquiries/pricing/${pricingId}/quotation-pdf`,
+      { headers: { 'Content-Type': 'application/json' } }
+    )
+
+    const data = await response.json()
+    if (data?.success && data?.pdf) {
+      const byteCharacters = atob(data.pdf)
+      const byteNumbers = new Array(byteCharacters.length)
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i)
+      }
+      const byteArray = new Uint8Array(byteNumbers)
+      const blob = new Blob([byteArray], { type: 'application/pdf' })
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `quotation-${pricingId}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+    } else {
+      Swal.fire('Error', data?.message || 'Failed to generate quotation PDF', 'error')
+    }
+  } catch (error) {
+    console.error('Error downloading quotation PDF:', error)
+    Swal.fire('Error', 'Failed to download quotation PDF', 'error')
+  } finally {
+    printingPdf.value = false
+  }
 }
 
 const cleanItemName = (name: string) => {
@@ -648,6 +775,23 @@ const isCategorySelected = (category: any) => {
   })
 }
 
+const selectAllSystemItems = () => {
+  availablePriceableItems.value.forEach((category: any) => {
+    category.items.forEach((item: any) => {
+      const key = `${category.category}_${item.id}`
+      if (!selectedItems.value[key]) {
+        selectedItems.value[key] = true
+        initializeItemPrice(category.category, item)
+      }
+    })
+  })
+}
+
+const clearSelection = () => {
+  selectedItems.value = {}
+  itemPrices.value = {}
+}
+
 const removeItem = async (item: any) => {
   const result = await Swal.fire({
     title: 'Remove Item?',
@@ -685,6 +829,27 @@ const removeItem = async (item: any) => {
   }
 }
 
+const loadPricePreview = async (priceStructureDetailId: number) => {
+  if (!priceStructureDetailId) {
+    pricePreviewData.value = null
+    return
+  }
+
+  loadingPreview.value = true
+  try {
+    const response = await salesEnquiryService.previewPriceItems(priceStructureDetailId)
+    if (response?.success && response?.data) {
+      pricePreviewData.value = response.data
+    } else if (response?.data) {
+      pricePreviewData.value = response.data
+    }
+  } catch (error) {
+    console.error('Error loading price preview:', error)
+  } finally {
+    loadingPreview.value = false
+  }
+}
+
 const loadPricing = async () => {
   loadingEnquiry.value = true
   try {
@@ -694,7 +859,6 @@ const loadPricing = async () => {
       return
     }
     
-    console.log('📋 Loading pricing details for ID:', pricingIdFromRoute.value)
     const pricingResponse = await salesEnquiryService.getPricing(pricingIdFromRoute.value)
     
     if (pricingResponse.success && pricingResponse.data) {
@@ -713,12 +877,11 @@ const loadPricing = async () => {
         hunter_preferences: pricingData.enquiry?.hunter_preferences || {},
         preference: pricingData.enquiry?.hunter_preferences || {},
       }
-      
-      console.log('✅ Pricing loaded:', existingPricing.value.id)
-      console.log('✅ Existing items:', existingPricing.value.items?.length || 0)
-      console.log('✅ Summary:', pricingSummary.value)
-      console.log('✅ Species preferences:', enquiryData.value.species_preferences?.length || 0)
-      console.log('✅ Safari extras:', enquiryData.value.safari_extras_preferences?.length || 0)
+
+      const previewId = pricingData.price_structure_detail_id || pricingData.price_structure_detail?.id
+      if (previewId) {
+        await loadPricePreview(Number(previewId))
+      }
     } else {
       throw new Error('Failed to load pricing data')
     }
@@ -810,6 +973,7 @@ const saveQuotation = async () => {
 }
 
 const goBack = () => {
+  // Always navigate to the enquiry details view for the associated enquiry id
   const routeId = Number(route.params.id)
   const pricingEnquiryId = existingPricing.value?.enquiry?.id || existingPricing.value?.enquiry_id
   const fallbackId = enquiryData.value?.id
@@ -819,10 +983,13 @@ const goBack = () => {
     : null
 
   if (targetId) {
-    router.push(`/sales/enquiries/${targetId}`)
+    // Save target id in session storage and navigate to enquiries list — the list page will open the details panel without exposing the id in the URL
+    try { sessionStorage.setItem('openEnquiryId', String(targetId)) } catch (e) { /* ignore */ }
+    router.push('/sales/sales-inquiry')
     return
   }
 
+  // Fallback to enquiries list if we cannot determine an id
   router.push('/sales/sales-inquiry')
 }
 
@@ -834,13 +1001,31 @@ onMounted(() => {
 <style scoped>
 .create-quotation-page {
   min-height: 100vh;
-  background-color: #f8f9fa;
+  background: #f8f9fa;
 }
 
 .page-header {
-  position: sticky;
-  top: 0;
-  z-index: 100;
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 0;
+}
+
+.quotation-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin-top: 0.5rem;
+}
+
+.quotation-summary-card {
+  background: linear-gradient(120deg, #0d6efd 0%, #3b82f6 100%);
+  border: none;
+}
+
+.quotation-section-header {
+  border-bottom: 1px solid #eef0f3;
+  padding: 0.75rem 1rem;
 }
 
 .sticky-bottom {
@@ -850,10 +1035,7 @@ onMounted(() => {
   box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
 }
 
-.table th {
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-weight: 600;
+.quotation-selection-bar {
+  border: 1px solid #e5e7eb;
 }
 </style>

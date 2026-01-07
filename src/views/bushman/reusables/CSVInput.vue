@@ -252,7 +252,6 @@ async function processCsvFile(file: File) {
 
   csvHeaders.value = parsed.headerFields
   csvRawRows.value = parsed.rows
-  console.log('CSVInput: detected headers', csvHeaders.value)
 
   // Auto-detect columns (try to match by header name)
   props.columnFields.forEach((field) => {
@@ -298,7 +297,6 @@ async function parseCsvText(text: string) {
 }
 
 function recalculateCsvPreview() {
-  console.log('CSVInput: recalculating preview. column map:', JSON.parse(JSON.stringify(csvColumnMap)))
   const seenNames = new Set<string>()
   const existingNames = new Set(props.modelValue.map((item) => String(item[props.duplicateKeyField]).toLowerCase()))
   const allowedNames = props.allowedValues.length > 0 
@@ -333,7 +331,6 @@ function recalculateCsvPreview() {
       return newRow
     })
     .filter((r: CsvRow) => r[props.duplicateKeyField]) // Remove empty rows
-  console.log('CSVInput: preview rows after recalculation:', csvPreviewData.value.length)
 }
 
 function toggleAllCsvRows() {

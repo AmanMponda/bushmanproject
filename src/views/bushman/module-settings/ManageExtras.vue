@@ -438,9 +438,7 @@ const loadExtras = async () => {
     const response = await axios.get(url)
     // Handle both nested and flat response structures
     allExtras.value = response.data?.data || response.data || []
-    console.log('Loaded safari extras:', JSON.parse(JSON.stringify(allExtras.value)))
-    console.log('Extras count:', allExtras.value.length)
-  } catch (error) {
+    // Debug logs removed for extras loading  } catch (error) {
     console.error('Error loading safari extras:', error)
     allExtras.value = []
   } finally {

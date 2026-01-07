@@ -312,7 +312,7 @@ const getAllSpeces = async () => {
       }
 
       if (Array.isArray(detailedDataArray)) {
-        console.log('Sample detailed data item:', detailedDataArray[0]) // Debug log
+        // Debug log removed
         detailedData.value = detailedDataArray.map((item: any) => ({
           id: item.id || 0,
           name: item.name || item.species_name || item.species?.name || 'N/A',

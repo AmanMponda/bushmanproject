@@ -792,7 +792,6 @@ function saveDraft() {
 }
 
 function validateLines() {
-  console.log('Validating lines...', form.lines)
   
   // Filter out completely empty lines (lines that haven't been started)
   const nonEmptyLines = form.lines.filter(line => {
@@ -802,56 +801,42 @@ function validateLines() {
     return line.name.trim() || line.itemId || (line.salesPackageIds && line.salesPackageIds.length > 0)
   })
   
-  console.log('Non-empty lines to validate:', nonEmptyLines)
-  
   for (const line of nonEmptyLines) {
     if (!line.itemType) {
-      console.log('Validation failed: No item type for line', line)
       return 'Please select a type for each line.'
     }
     if (line.itemType === 'COMPANION') {
       if (!line.minDays || line.minDays <= 0) {
-        console.log('Validation failed: No hunt length for COMPANION line', line)
         return 'Please select a hunt length for each companion hunter line.'
       }
       continue
     }
     if (line.itemType === 'PACKAGE') {
       if (!line.name.trim()) {
-        console.log('Validation failed: No name for PACKAGE line', line)
         return 'Please enter a name for each PACKAGE line.'
       }
       if (!line.minDays || line.minDays <= 0) {
-        console.log('Validation failed: No hunt length for PACKAGE line', line)
         return 'Please enter a hunt length for each PACKAGE line.'
       }
       if (!line.huntingTypeId) {
-        console.log('Validation failed: No hunting type for PACKAGE line', line)
         return 'Please select a hunting type for each PACKAGE line.'
       }
       if (!line.salesPackageIds || line.salesPackageIds.length === 0) {
-        console.log('Validation failed: No sales packages for PACKAGE line', line)
         return 'Please select at least one sales package for each PACKAGE line.'
       }
       continue
     }
     if (line.source === 'existing' && !line.itemId) {
-      console.log('Validation failed: No item selected for existing line', line)
       return 'Please select an item for each existing line.'
     }
     if (line.source === 'new' && !line.name.trim()) {
-      console.log('Validation failed: No name for new item line', line)
       return 'Please enter a name for each new item line.'
     }
   }
-  console.log('Line validation passed')
   return null
 }
 
 async function submit() {
-  console.log('Submit button clicked')
-  console.log('canSubmit:', canSubmit.value)
-  console.log('Form data:', form)
   
   if (!canSubmit.value) {
     toast.init({ message: 'Please fill in all required fields', color: 'warning' })
@@ -865,7 +850,6 @@ async function submit() {
   }
 
   saving.value = true
-  console.log('Saving started...')
 
   try {
     const payload: any = {
@@ -943,18 +927,12 @@ async function submit() {
       }))
     }
 
-    console.log('Payload to send:', payload)
-
     let response: any
     if (props.editMode && props.editItem?.id) {
-      console.log('Updating price structure:', props.editItem.id)
       response = await priceStructuresStore.update(props.editItem.id, payload)
     } else {
-      console.log('Creating new price structure')
       response = await priceStructuresStore.create(payload)
     }
-
-    console.log('Response received:', response)
 
     if (response && (response.status === 200 || response.status === 201)) {
       await Swal.fire({
@@ -987,7 +965,6 @@ async function submit() {
     })
   } finally {
     saving.value = false
-    console.log('Saving completed')
   }
 }
 

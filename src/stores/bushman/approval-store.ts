@@ -53,7 +53,7 @@ export const useApprovalChainStore = defineStore('approval-chain-store', {
 
         return response
       } catch (error) {
-        console.log(error)
+        console.error(error)
         this.loadingApprovalChain = false
         return error
       }

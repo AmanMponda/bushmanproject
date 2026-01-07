@@ -93,7 +93,6 @@ onMounted(() => {
 		authStore.loadUser();
 	}
 
-	console.log(authStore.isAuthenticated);
 	authCheck.value = true;
 
 	// Try to load selected service from localStorage

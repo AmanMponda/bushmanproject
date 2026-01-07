@@ -34,7 +34,7 @@ export const useQuotaStore = defineStore('quota', {
         url += `/${id}`
       }
 
-      console.log('GET URL:', url)
+      // GET URL prepared (debug log removed)
 
       const config = {
         method: 'get',
@@ -116,8 +116,7 @@ export const useQuotaStore = defineStore('quota', {
         end_date: formatDateForApi(quota.end_date),
       })
 
-      console.log('Creating quota with data:', q_data)
-      console.log('Raw quota data received:', quota)
+      // Creating quota (debug logs removed)
 
       const config = {
         method: 'post',
@@ -131,7 +130,6 @@ export const useQuotaStore = defineStore('quota', {
 
       try {
         const response = await axios.request(config)
-        console.log('Create quota response:', response)
 
         // Handle the response structure
         if (response.status === 201) {
@@ -192,7 +190,7 @@ export const useQuotaStore = defineStore('quota', {
       // Use path parameter with PATCH method
       const url = `${import.meta.env.VITE_APP_BASE_URL}sales/sales-quotas/${quota.id}`
 
-      console.log('Update URL (PATCH with path param):', url)
+      // Update URL prepared (debug log removed)
 
       // Date formatting
       const formatDateForApi = (date: any): string => {
@@ -224,7 +222,6 @@ export const useQuotaStore = defineStore('quota', {
         description: quota.description || '',
       }
 
-      console.log('Update data:', data)
 
       const config = {
         method: 'patch', // Now using PATCH with path parameter
@@ -237,7 +234,6 @@ export const useQuotaStore = defineStore('quota', {
 
       try {
         const response = await axios.request(config)
-        console.log('Update response:', response)
         return response
       } catch (error: any) {
         console.error('Error in updateQuota:', error)
@@ -249,7 +245,6 @@ export const useQuotaStore = defineStore('quota', {
       // Use path parameter with DELETE method
       const url = `${import.meta.env.VITE_APP_BASE_URL}sales/sales-quotas/${quota_id}`
 
-      console.log('Delete URL (DELETE with path param):', url)
 
       const config = {
         method: 'delete', // Now using DELETE with path parameter
@@ -261,7 +256,6 @@ export const useQuotaStore = defineStore('quota', {
 
       try {
         const response = await axios.request(config)
-        console.log('Delete response:', response)
         return {
           status: response.status,
           data: response.data,
@@ -281,7 +275,7 @@ export const useQuotaStore = defineStore('quota', {
 
     // Fixed method with proper TypeScript types
     async getAllSpeciesPerQuotaPerArea(quota_id: any, area_id: any, species_id: any) {
-      console.log('Params received:', { quota_id, area_id, species_id })
+      // Params prepared (debug logs removed)
 
       // Build URL without null/undefined values
       let url = import.meta.env.VITE_APP_BASE_URL + import.meta.env.VITE_APP_SALES_QUOTAS_AREA_SPECIES_URL
@@ -308,7 +302,7 @@ export const useQuotaStore = defineStore('quota', {
         url += '?' + queryString
       }
 
-      console.log('Final URL:', url)
+      // Final URL prepared (debug logs removed)
 
       const config = {
         method: 'get',
@@ -321,7 +315,6 @@ export const useQuotaStore = defineStore('quota', {
 
       try {
         const response = await axios.request(config)
-        console.log('API Response:', response.data)
         return response
       } catch (error) {
         console.error('API Error:', error)

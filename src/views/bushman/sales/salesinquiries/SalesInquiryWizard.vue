@@ -792,11 +792,9 @@ const onSeasonChange = async (value: any) => {
 }
 
 const onPackageChange = async (value: any) => {
-  console.log('onPackageChange called with value:', value)
   form.priceListId = value
   
   if (!value) {
-    console.log('No package selected, clearing species')
     speciesObjects.value = []
     return
   }
@@ -807,9 +805,7 @@ const onPackageChange = async (value: any) => {
 const onStartDateChange = (newValue: any) => {
   // Vueform @change event passes the value directly
   const dateValue = newValue?.target?.value ?? newValue
-  console.log('onStartDateChange called with:', dateValue)
   form.start_date = dateValue || null
-  console.log('form.start_date set to:', form.start_date)
   checkBookedDateConflict()
 }
 
@@ -1174,7 +1170,7 @@ const getAreas = async () => {
     const dataArray = Array.isArray(raw) ? raw : Array.isArray(raw?.data) ? raw.data : []
     areasOptions.value = dataArray.map((item: any) => ({ value: item.id, text: item.name, type: item.type, selfItem: item }))
   } catch (error) {
-    console.log(error)
+    // Error handled silently
   }
 }
 
@@ -1189,7 +1185,6 @@ const getSeasonList = async () => {
 
     // Handle different response structures
     const seasonsData = response.data?.data || response.data || []
-    console.log('Seasons data:', seasonsData)
 
     if (!Array.isArray(seasonsData)) {
       console.error('Seasons data is not an array:', seasonsData)
@@ -1204,8 +1199,6 @@ const getSeasonList = async () => {
         return endDate >= today
       })
       .map((item: any) => ({ value: item.id, text: item.name, selfItem: item }))
-
-    console.log('Filtered seasons options:', seasonsOptions.value)
   } catch (error) {
     console.error('Error fetching seasons:', error)
   }
@@ -1221,15 +1214,11 @@ const getPL = async () => {
       ? response.data.data
       : Array.isArray(response.data) ? response.data : []
     
-    console.log('Packages loaded from API:', dataArray)
-    
     packagesOptions.value = dataArray.map((item: any) => ({
       value: item.id,
       text: item.package_name || item.name || item.code || `Package #${item.id}`,
       selfItem: item,
     }))
-    
-    console.log('Packages options after mapping:', packagesOptions.value)
   } catch (error) {
     console.error('Error loading packages:', error)
   }
@@ -1448,9 +1437,7 @@ const populateFormFromPackage = async () => {
   if (priceStructureDetailId) {
     loadingPackageItems.value = true
     try {
-      console.log('Fetching package items for priceStructureDetailId:', priceStructureDetailId)
       const response = await salesEnquiryService.previewPriceItems(priceStructureDetailId)
-      console.log('Preview price items response:', response)
       
       // Handle both response structures: { success, data } or direct data
       const responseData = response?.data || response
@@ -1459,17 +1446,12 @@ const populateFormFromPackage = async () => {
       if (isSuccess && responseData) {
         const data = responseData.data || responseData
 
-        console.log('Package data to process:', data)
-        console.log('Species in package:', data?.species)
-
         // Store full package detail info for preview
         selectedPackageDetail.value = data
 
         // Populate species (item_preferences)
         if (Array.isArray(data.species) && data.species.length > 0) {
-          console.log('Populating species from package:', data.species.length, 'items')
           data.species.forEach((s: any) => {
-            console.log('Adding species:', s)
             speciesObjects.value.push({
               species_id: s.item_id || s.species_id || s.id,
               name: s.item_name || s.species_name || s.name || 'Unknown',
@@ -1479,9 +1461,7 @@ const populateFormFromPackage = async () => {
               fromPackage: true,
             })
           })
-          console.log('Species objects after population:', speciesObjects.value)
         } else {
-          console.warn('No species found in package data or species array is empty, trying fallback...')
           // Try fallback to get species from the package's selfItem
           populateFormFromPackageFallback(pkg)
         }
@@ -1556,10 +1536,7 @@ const populateFormFromPackage = async () => {
 
 // Fallback method if preview endpoint is not available
 const populateFormFromPackageFallback = (pkg: any) => {
-  console.log('Using fallback method for package species. Package:', pkg)
-  
   const pkgData = pkg?.selfItem || pkg
-  console.log('Package data for fallback:', pkgData)
   
   // Try multiple possible locations for species data
   // Option 1: Direct species array on the package
@@ -1578,15 +1555,11 @@ const populateFormFromPackageFallback = (pkg: any) => {
     speciesArray = pkgData.item_preferences
   }
   
-  console.log('Species array found in fallback:', speciesArray)
-  
   if (Array.isArray(speciesArray) && speciesArray.length > 0) {
     speciesArray.forEach((s: any) => {
       const speciesId = s.species_id || s.item_id || s.id
       const speciesName = s.species_name || s.item_name || s.name || s.species?.name || 'Unknown'
       const quantity = s.quantity || 1
-      
-      console.log('Adding species from fallback:', { speciesId, speciesName, quantity })
       
       if (speciesId) {
         speciesObjects.value.push({ 
@@ -1598,9 +1571,6 @@ const populateFormFromPackageFallback = (pkg: any) => {
         })
       }
     })
-    console.log('Species objects after fallback:', speciesObjects.value)
-  } else {
-    console.warn('No species found in fallback method')
   }
 
   // Safari extras are NOT loaded from package - only manually added from items table
@@ -1745,8 +1715,6 @@ const submit = async () => {
   }
 
   // Build the request payload according to backend SalesEnquiryController expectations
-  console.log('form.start_date before payload:', form.start_date)
-  
   const requestdata: any = {
     // Core enquiry fields
     date: form.start_date || new Date().toISOString().split('T')[0],
@@ -1809,10 +1777,8 @@ const submit = async () => {
   }
   
   requestdata.entity_id = entityId
-  console.log('Submitting with entity_id:', entityId)
 
   try {
-    console.log('Final requestdata being sent:', JSON.stringify(requestdata, null, 2))
     
     let response: any
     if (isEditMode.value && editingInquiryId.value) {
@@ -2021,9 +1987,6 @@ const initializeFromCustomerData = () => {
   if (!props.customerData) return
 
   const data = props.customerData
-  
-  console.log('Loading customer data:', data)
-  console.log('Entity ID received:', data.entity_id)
   
   // Populate form fields for display only
   form.full_name = data.full_name || ''

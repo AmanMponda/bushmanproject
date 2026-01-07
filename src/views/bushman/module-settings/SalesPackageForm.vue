@@ -546,7 +546,7 @@ async function getLicencePackages() {
       }))
     }
   } catch (error) {
-    console.log(error)
+    console.error(error)
   } finally {
     loadingLicenceOptions.value = false
   }
@@ -568,7 +568,7 @@ async function getAreas() {
       return { value: area.id, text: `${locationName} (${locationCode})` }
     })
   } catch (error) {
-    console.log(error)
+    console.error(error)
   }
 }
 
@@ -603,7 +603,7 @@ async function getSalesPackages() {
       // no-op
     }
   } catch (error) {
-    console.log(error)
+    console.error(error)
   } finally {
     loading.value = false
   }
