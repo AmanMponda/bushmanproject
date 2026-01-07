@@ -685,7 +685,11 @@ async function viewAreaDetails(rowData: any) {
         description: response.data.data.description,
       }
       processCoordinatesForMap(response.data.data.coordinates || [])
-      loadAreaSpecies(response.data.data.id)
+      if (Array.isArray(response.data.data?.species)) {
+        setAreaSpeciesFromList(response.data.data.species)
+      } else {
+        loadAreaSpecies(response.data.data.id)
+      }
     } else {
       toast.init({ message: 'Failed to load area details', color: 'danger' })
       goBackToList()
@@ -715,11 +719,15 @@ function viewAreaSpeciesFromDetails() {
     showAddSpecies.value = true
     speciesForm.specie = null
     csvUploaded.value = false
-    loadAreaSpecies(areaDetails.value.id)
+    if (Array.isArray(areaDetails.value?.species)) {
+      setAreaSpeciesFromList(areaDetails.value.species)
+    } else {
+      loadAreaSpecies(areaDetails.value.id)
+    }
   }
 }
 
-function viewAreaSpecies(rowData: any) {
+async function viewAreaSpecies(rowData: any) {
   selectedArea.value = rowData
   showHuntingAreaList.value = false
   showAreaDetails.value = false
@@ -727,6 +735,29 @@ function viewAreaSpecies(rowData: any) {
   showAreaSpecies.value = true
   speciesForm.specie = null
   csvUploaded.value = false
+  loadingSpecies.value = true
+  try {
+    const response = await huntingAreaStore.getHuntingAreaByIdDirect(rowData.id)
+    if (response.status === 200 && response.data?.success) {
+      areaDetails.value = response.data.data
+      selectedArea.value = {
+        id: response.data.data.id,
+        location_name: response.data.data.location?.name,
+        location_code: response.data.data.location?.code,
+        location_id: response.data.data.location_id,
+        description: response.data.data.description,
+      }
+      setAreaSpeciesFromList(response.data.data?.species || [])
+      return
+    }
+  } catch (error: any) {
+    toast.init({
+      message: error?.response?.data?.message || 'Failed to load area species',
+      color: 'danger'
+    })
+  } finally {
+    loadingSpecies.value = false
+  }
   loadAreaSpecies(rowData.id)
 }
 
@@ -1107,17 +1138,42 @@ async function createNewLocationWithHuntingArea() {
   }
 }
 
+function normalizeSpeciesList(list: any[]) {
+  return (list || []).map((item: any) => ({
+    id: item.id ?? item.specie_id ?? item.specie?.id,
+    specie_id: item.specie_id ?? item.specie?.id ?? item.id,
+    specie_name: item.specie_name ?? item.specie?.name ?? item.name,
+  }))
+}
+
+function setAreaSpeciesFromList(list: any[]) {
+  areaSpecies.value = normalizeSpeciesList(list)
+  selectedSpeciesIds.value = []
+  loadingSpecies.value = false
+}
+
 async function loadAreaSpecies(areaId: any) {
   loadingSpecies.value = true
   try {
     const resp = await huntingAreaStore.listHuntingAreaSpecies(areaId)
-    const list = Array.isArray(resp.data?.data) ? resp.data.data : Array.isArray(resp.data) ? resp.data : []
-    areaSpecies.value = list.map((item: any) => ({
-      id: item.id,
-      specie_id: item.specie_id ?? item.specie?.id,
-      specie_name: item.specie_name ?? item.specie?.name ?? item.name,
-    }))
-    selectedSpeciesIds.value = []
+    
+    // Handle new payload structure: { success: true, data: [{ hunting_area_id, area_name, species: [...] }] }
+    let list = []
+    if (resp.data?.data && Array.isArray(resp.data.data)) {
+      // Find the hunting area matching our areaId
+      const huntingArea = resp.data.data.find((area: any) => area.hunting_area_id === Number(areaId))
+      if (huntingArea && Array.isArray(huntingArea.species)) {
+        list = huntingArea.species
+      }
+    } else if (Array.isArray(resp.data?.data)) {
+      // Fallback to old flat structure
+      list = resp.data.data
+    } else if (Array.isArray(resp.data)) {
+      // Another fallback
+      list = resp.data
+    }
+    
+    setAreaSpeciesFromList(list)
   } catch (error) {
     toast.init({ message: 'Failed to load species for this area', color: 'danger' })
   } finally {
@@ -1343,12 +1399,21 @@ async function getAreas() {
           let speciesCount = 0
           try {
             const speciesResponse = await huntingAreaStore.listHuntingAreaSpecies(area.id)
-            const speciesList = Array.isArray(speciesResponse.data?.data)
-              ? speciesResponse.data.data
-              : Array.isArray(speciesResponse.data)
-                ? speciesResponse.data
-                : []
-            speciesCount = speciesList.length
+            
+            // Handle new payload structure: { success: true, data: [{ hunting_area_id, area_name, species: [...] }] }
+            if (speciesResponse.data?.data && Array.isArray(speciesResponse.data.data)) {
+              // Find the hunting area matching our areaId
+              const huntingArea = speciesResponse.data.data.find((a: any) => a.hunting_area_id === Number(area.id))
+              if (huntingArea && Array.isArray(huntingArea.species)) {
+                speciesCount = huntingArea.species.length
+              }
+            } else if (Array.isArray(speciesResponse.data?.data)) {
+              // Fallback to old flat structure
+              speciesCount = speciesResponse.data.data.length
+            } else if (Array.isArray(speciesResponse.data)) {
+              // Another fallback
+              speciesCount = speciesResponse.data.length
+            }
           } catch (error) {
             // If species loading fails, just set to 0
             speciesCount = 0

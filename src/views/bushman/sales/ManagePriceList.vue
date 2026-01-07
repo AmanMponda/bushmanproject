@@ -54,7 +54,12 @@
 
       <!-- Detail View -->
       <div v-else-if="showStructureDetails">
-        <PriceStructureDetails :id="selectedStructureId" :initial-view="initialView" @go-back="goBackToStructures" />
+        <PriceStructureDetails
+          :id="selectedStructureId"
+          :initial-view="initialView"
+          @go-back="goBackToStructures"
+          @edit="handleEditFromDetails"
+        />
       </div>
 
       <!-- Edit Form -->
@@ -390,16 +395,16 @@ const onCreateSaved = () => {
 }
 
 
-const handleEditFromDetails = async () => {
+const handleEditFromDetails = async (structureId?: number) => {
   try {
-    // Use the current item from detail view
-    if (item.value && item.value.id) {
-      const response = await priceListStore.getPriceListById(item.value.id)
-      editItem.value = response.data.data || response.data
-      showEditForm.value = true
-      showPriceList.value = false
-      ShowCreateNewPriceListForm.value = false
-    }
+    const id = structureId || selectedStructureId.value
+    if (!id) return
+    const response = await priceStructuresStore.get(id)
+    editItem.value = response.data?.data || response.data
+    showEditForm.value = true
+    showPriceList.value = false
+    showStructureDetails.value = false
+    ShowCreateNewPriceListForm.value = false
   } catch (error) {
     console.error('Error fetching price list for edit:', error)
     toast?.init({ message: 'Failed to load price list details', color: 'danger' })

@@ -11,20 +11,24 @@
               <span>{{ formatDateShort(structure.start_date) }} - {{ formatDateShort(structure.end_date) }}</span>
             </div>
           </div>
-          <div class="header-actions">
-            <button 
-              class="btn btn-outline-primary" 
-              @click="downloadPdf" 
-              :disabled="downloadingPdf"
-            >
-              <i class="fa fa-file-pdf me-2"></i>
-              {{ downloadingPdf ? 'Downloading...' : 'Download PDF' }}
-            </button>
-            <button class="btn btn-outline-secondary" @click="$emit('go-back')">
-              <i class="fa fa-arrow-left me-2"></i> Back to List
-            </button>
-          </div>
+        <div class="header-actions">
+          <button 
+            class="btn btn-outline-primary" 
+            @click="downloadPdf" 
+            :disabled="downloadingPdf"
+          >
+            <i class="fa fa-file-pdf me-2"></i>
+            {{ downloadingPdf ? 'Downloading...' : 'Download PDF' }}
+          </button>
+          <button class="btn btn-outline-success" @click="$emit('edit', props.id)">
+            <i class="fa fa-edit me-2"></i>
+            Edit Price Structure
+          </button>
+          <button class="btn btn-outline-secondary" @click="$emit('go-back')">
+            <i class="fa fa-arrow-left me-2"></i> Back to List
+          </button>
         </div>
+      </div>
 
         <!-- Tab Navigation -->
         <div class="tab-navigation">
@@ -52,22 +56,6 @@
             <span>Safari Extras</span>
             <span class="badge">{{ filteredSafariExtras.length }}</span>
           </button>
-          <button 
-            :class="['tab-btn', { active: activeView === 'trophy-fees' }]"
-            @click="activeView = 'trophy-fees'"
-          >
-            <i class="fa fa-trophy"></i>
-            <span>Trophy Fees</span>
-            <span class="badge">{{ filteredTrophyFees.length }}</span>
-          </button>
-          <button 
-            :class="['tab-btn', { active: activeView === 'upgrade-fees' }]"
-            @click="activeView = 'upgrade-fees'"
-          >
-            <i class="fa fa-arrow-up"></i>
-            <span>Upgrade Fees</span>
-            <span class="badge">{{ filteredUpgradeFees.length }}</span>
-          </button>
         </div>
       </div>
 
@@ -92,23 +80,6 @@
             />
           </div>
 
-          <div class="action-buttons">
-            <button class="btn-add" @click="goToAddItem" v-if="activeView === 'items'">
-              <i class="fa fa-plus"></i> Add Package
-            </button>
-            <button class="btn-add" @click="openAddCompanion" v-if="activeView === 'prices'">
-              <i class="fa fa-plus"></i> Add Companion
-            </button>
-            <button class="btn-add" @click="goToAddSafariExtra" v-if="activeView === 'safari-extras'">
-              <i class="fa fa-plus"></i> Add Safari Extra
-            </button>
-            <button class="btn-add" @click="goToAddTrophyFee" v-if="activeView === 'trophy-fees'">
-              <i class="fa fa-plus"></i> Add Trophy Fee
-            </button>
-            <button class="btn-add" @click="goToAddUpgradeFee" v-if="activeView === 'upgrade-fees'">
-              <i class="fa fa-plus"></i> Add Upgrade Fee
-            </button>
-          </div>
         </div>
 
         <!-- Data Tables -->
@@ -222,164 +193,23 @@
               </tr>
             </tbody>
           </table>
-
-          <!-- Trophy Fees Table -->
-          <table v-else-if="activeView === 'trophy-fees'" class="modern-table">
-            <thead>
-              <tr>
-                <th>Species</th>
-                <th>Area</th>
-                <th class="text-end">Amount</th>
-                <th class="text-center">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="fee in filteredTrophyFees" :key="fee.id">
-                <td>
-                  <div class="species-name">
-                    <i class="fa fa-paw me-2"></i>
-                    <div>
-                      <div>{{ fee.species?.name || fee.species_name || fee.name || fee.item_name || `ID: ${fee.species_id}` }}</div>
-                      <small v-if="fee.species?.scientific_name || fee.scientific_name || fee.description" class="text-muted d-block">
-                        {{ fee.species?.scientific_name || fee.scientific_name || fee.description }}
-                      </small>
-                    </div>
-                  </div>
-                </td>
-                <td>{{ fee.area?.name || fee.area_name || (fee.area_id ? `ID: ${fee.area_id}` : 'N/A') }}</td>
-                <td class="text-end">
-                  <div>
-                    <span class="amount">{{ fee.currency?.symbol || fee.currency_symbol || '$' }}{{ fee.amount }}</span>
-                    <div v-if="fee.durations && fee.durations.length" class="mt-1">
-                      <small class="text-muted">Duration: {{ formatTrophyFeeDurations(fee) }}</small>
-                    </div>
-                  </div>
-                </td>
-                <td class="text-center">
-                  <button class="btn-icon btn-danger" @click="deleteTrophyFee(fee)" title="Delete">
-                    <i class="fa fa-trash"></i>
-                  </button>
-                </td>
-              </tr>
-              <tr v-if="filteredTrophyFees.length === 0">
-                <td colspan="4" class="empty-state">
-                  <i class="fa fa-inbox"></i>
-                  <p>No trophy fees found</p>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-
-          <!-- Upgrade Fees Table -->
-          <table v-else-if="activeView === 'upgrade-fees'" class="modern-table">
-            <thead>
-              <tr>
-                <th>Item</th>
-                <th>Description</th>
-                <th class="text-end">Fee Amount</th>
-                <th class="text-center">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="fee in filteredUpgradeFees" :key="fee.id">
-                <td>
-                  <div class="species-name">
-                    <i class="fa fa-paw me-2"></i>
-                    {{ fee.species_name || fee.name || fee.item_name || 'Upgrade Fee' }}
-                  </div>
-                </td>
-                <td>
-                  <span class="condition-badge">{{ fee.trigger_condition || fee.description || '-' }}</span>
-                </td>
-                <td class="text-end">
-                  <span class="amount">{{ fee.currency_symbol || fee.currency?.symbol || '$' }}{{ fee.fee_amount ?? fee.amount }}</span>
-                </td>
-                <td class="text-center">
-                  <button class="btn-icon btn-danger" @click="deleteUpgradeFee(fee)" title="Delete">
-                    <i class="fa fa-trash"></i>
-                  </button>
-                </td>
-              </tr>
-              <tr v-if="filteredUpgradeFees.length === 0">
-                <td colspan="4" class="empty-state">
-                  <i class="fa fa-inbox"></i>
-                  <p>No upgrade fees found</p>
-                </td>
-              </tr>
-            </tbody>
-          </table>
         </div>
       </div>
     </div>
 
-    <!-- Add Item Modal -->
-    <div v-if="showAddModal" class="modal-overlay" @click.self="closeAddModal">
-      <div class="modal-container">
-        <div class="modal-header">
-          <h3>
-            <span v-if="addModalType === 'package'">Add Package</span>
-            <span v-else-if="addModalType === 'companion'">Add Companion Hunter</span>
-            <span v-else-if="addModalType === 'safari-extra'">Add Safari Extra</span>
-            <span v-else-if="addModalType === 'trophy-fee'">Add Trophy Fee</span>
-            <span v-else-if="addModalType === 'upgrade-fee'">Add Upgrade Fee</span>
-          </h3>
-          <button class="btn-close" @click="closeAddModal">
-            <i class="fa fa-times"></i>
-          </button>
-        </div>
-        <div class="modal-body">
-          <PriceStructureAddItem 
-            v-if="addModalType === 'package'" 
-            :id="props.id" 
-            @cancel="closeAddModal"
-            @saved="onItemAdded"
-          />
-          <PriceStructureAddPrice 
-            v-if="addModalType === 'companion'" 
-            :id="props.id" 
-            @cancel="closeAddModal"
-            @saved="onItemAdded"
-          />
-          <PriceStructureAddSafariExtra 
-            v-if="addModalType === 'safari-extra'" 
-            :id="props.id" 
-            @cancel="closeAddModal"
-            @saved="onItemAdded"
-          />
-          <PriceStructureAddTrophyFee 
-            v-if="addModalType === 'trophy-fee'" 
-            :id="props.id" 
-            @cancel="closeAddModal"
-            @saved="onItemAdded"
-          />
-          <PriceStructureAddUpgradeFee 
-            v-if="addModalType === 'upgrade-fee'" 
-            :id="props.id" 
-            @cancel="closeAddModal"
-            @saved="onItemAdded"
-          />
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
 import { usePriceStructuresStore } from '@/stores/bushman/price-structures-store'
 import { useSettingsStore } from '@/stores/bushman/settings-store'
 import { useToast } from '@/composables/useToast'
-import PriceStructureAddItem from './PriceStructureAddItem.vue'
-import PriceStructureAddPrice from './PriceStructureAddPrice.vue'
-import PriceStructureAddSafariExtra from './PriceStructureAddSafariExtra.vue'
-import PriceStructureAddTrophyFee from './PriceStructureAddTrophyFee.vue'
-import PriceStructureAddUpgradeFee from './PriceStructureAddUpgradeFee.vue'
 
 const props = withDefaults(
   defineProps<{ 
     id: number
-    initialView: 'items' | 'prices' | 'safari-extras' | 'trophy-fees' | 'upgrade-fees' 
+    initialView: 'items' | 'prices' | 'safari-extras' 
   }>(), 
   { 
     id: 0, 
@@ -389,9 +219,9 @@ const props = withDefaults(
 
 const emit = defineEmits<{
   'go-back': []
+  'edit': [id: number]
 }>()
 
-const router = useRouter()
 const store = usePriceStructuresStore()
 const settingsStore = useSettingsStore()
 const toast = useToast()
@@ -399,16 +229,12 @@ const toast = useToast()
 const loading = ref(false)
 const downloadingPdf = ref(false)
 const structure = ref<any | null>(null)
-const activeView = ref<'items' | 'prices' | 'safari-extras' | 'trophy-fees' | 'upgrade-fees'>(props.initialView)
+const activeView = ref<'items' | 'prices' | 'safari-extras'>(props.initialView)
 const searchTerm = ref('')
 
 const baseItems = computed(() => structure.value?.items || [])
 
 const safariExtras = computed(() => structure.value?.safari_extras || [])
-
-const trophyFees = computed(() => structure.value?.trophy_fees || [])
-
-const upgradeFees = computed(() => structure.value?.upgrade_fees || [])
 
 const filteredItems = computed(() => {
   const items = baseItems.value || []
@@ -454,36 +280,6 @@ const filteredSafariExtras = computed(() => {
   )
 })
 
-const filteredUpgradeFees = computed(() => {
-  const fees = upgradeFees.value || []
-  if (!searchTerm.value) return fees
-  
-  const term = searchTerm.value.toLowerCase()
-  return fees.filter((fee: any) =>
-    fee.trigger_condition?.toLowerCase().includes(term) ||
-    fee.species_name?.toLowerCase().includes(term) ||
-    fee.fee_amount?.toString().includes(term) ||
-    fee.amount?.toString().includes(term)
-  )
-})
-
-const filteredTrophyFees = computed(() => {
-  const fees = trophyFees.value || []
-  if (!searchTerm.value) return fees
-  
-  const term = searchTerm.value.toLowerCase()
-  return fees.filter((fee: any) =>
-    fee.species?.name?.toLowerCase().includes(term) ||
-    fee.species_name?.toLowerCase().includes(term) ||
-    fee.species?.scientific_name?.toLowerCase().includes(term) ||
-    fee.species_scientific_name?.toLowerCase().includes(term) ||
-    fee.scientific_name?.toLowerCase().includes(term) ||
-    fee.area_name?.toLowerCase().includes(term) ||
-    fee.area?.name?.toLowerCase().includes(term) ||
-    fee.amount?.toString().includes(term)
-  )
-})
-
 const refresh = async () => {
   loading.value = true
   try {
@@ -512,54 +308,6 @@ const formatDateShort = (isoDate: string | null) => {
 const formatPricingUnit = (unit: string | null) => {
   if (!unit) return ''
   return unit.replace(/_/g, ' ').toLowerCase().replace(/(^|\\s)\\S/g, (t) => t.toUpperCase())
-}
-
-const formatTrophyFeeDurations = (fee: any) => {
-  const durations = fee?.durations || []
-  if (!durations.length) return ''
-  return durations
-    .map((d: any) => d.hunt_length_label || (d.hunt_length_days ? `${d.hunt_length_days} days` : ''))
-    .filter(Boolean)
-    .join(', ')
-}
-
-
-const showAddModal = ref(false)
-const addModalType = ref('')
-
-const goToAddItem = () => {
-  addModalType.value = 'package'
-  showAddModal.value = true
-}
-
-const openAddCompanion = () => {
-  addModalType.value = 'companion'
-  showAddModal.value = true
-}
-
-const goToAddUpgradeFee = () => {
-  addModalType.value = 'upgrade-fee'
-  showAddModal.value = true
-}
-
-const goToAddTrophyFee = () => {
-  addModalType.value = 'trophy-fee'
-  showAddModal.value = true
-}
-
-const goToAddSafariExtra = () => {
-  addModalType.value = 'safari-extra'
-  showAddModal.value = true
-}
-
-const closeAddModal = () => {
-  showAddModal.value = false
-  addModalType.value = ''
-}
-
-const onItemAdded = async () => {
-  closeAddModal()
-  await refresh()
 }
 
 const downloadPdf = async () => {
@@ -639,28 +387,6 @@ const deleteSafariExtra = async (extra: any) => {
     await refresh()
   } catch {
     toast.init({ message: 'Failed to delete safari extra', color: 'danger' })
-  }
-}
-
-const deleteUpgradeFee = async (fee: any) => {
-  try {
-    const url = `${import.meta.env.VITE_APP_BASE_URL}settings/upgrade-fees/${fee.id}`
-    await fetch(url, { method: 'DELETE' })
-    toast.init({ message: 'Upgrade fee deleted', color: 'success' })
-    await refresh()
-  } catch {
-    toast.init({ message: 'Failed to delete upgrade fee', color: 'danger' })
-  }
-}
-
-const deleteTrophyFee = async (fee: any) => {
-  try {
-    const url = `${import.meta.env.VITE_APP_BASE_URL}settings/trophy-fees/${fee.id}`
-    await fetch(url, { method: 'DELETE' })
-    toast.init({ message: 'Trophy fee deleted', color: 'success' })
-    await refresh()
-  } catch {
-    toast.init({ message: 'Failed to delete trophy fee', color: 'danger' })
   }
 }
 

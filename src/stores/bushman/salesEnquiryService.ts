@@ -97,6 +97,14 @@ export const salesEnquiryService = {
   },
 
   /**
+   * Get pricing details by ID
+   */
+  async getPricing(pricingId: number): Promise<ApiResponse<any>> {
+    const response = await axios.get(`${API_BASE}/pricing/${pricingId}`);
+    return response.data;
+  },
+
+  /**
    * Update pricing
    */
   async updatePricing(pricingId: number, data: UpdatePricingInput): Promise<ApiResponse<Pricing>> {

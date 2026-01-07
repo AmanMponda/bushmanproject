@@ -782,7 +782,7 @@ export const useSalesInquiriesStore = defineStore('sales_inquiries', {
      * Lock pricing (change status to LOCKED)
      */
     async lockPricing(pricingId: number) {
-      const url = `${import.meta.env.VITE_APP_BASE_URL}sales-enquiries/pricing/${pricingId}`
+      const url = `${import.meta.env.VITE_APP_BASE_URL}sales-enquiries/pricing/${pricingId}/lock`
       const config = {
         method: 'patch',
         maxBodyLength: Infinity,
@@ -790,7 +790,6 @@ export const useSalesInquiriesStore = defineStore('sales_inquiries', {
         headers: {
           'Content-Type': 'application/json',
         },
-        data: JSON.stringify({ status: 'LOCKED' }),
       }
       const response = await axios.request(config)
       return response
@@ -820,7 +819,7 @@ export const useSalesInquiriesStore = defineStore('sales_inquiries', {
      * Update pricing item
      */
     async updatePricingItem(itemId: number, payload: any) {
-      const url = `${import.meta.env.VITE_APP_BASE_URL}pricing-items/${itemId}`
+      const url = `${import.meta.env.VITE_APP_BASE_URL}sales-enquiries/pricing-items/${itemId}`
       const config = {
         method: 'put',
         maxBodyLength: Infinity,
@@ -838,7 +837,7 @@ export const useSalesInquiriesStore = defineStore('sales_inquiries', {
      * Delete pricing item
      */
     async deletePricingItem(itemId: number) {
-      const url = `${import.meta.env.VITE_APP_BASE_URL}pricing-items/${itemId}`
+      const url = `${import.meta.env.VITE_APP_BASE_URL}sales-enquiries/pricing-items/${itemId}`
       const config = {
         method: 'delete',
         maxBodyLength: Infinity,
@@ -855,7 +854,24 @@ export const useSalesInquiriesStore = defineStore('sales_inquiries', {
      * Get pricings for an enquiry
      */
     async getEnquiryPricings(enquiryId: number) {
-      const url = `${import.meta.env.VITE_APP_BASE_URL}sales-enquiries/${enquiryId}`
+      const url = `${import.meta.env.VITE_APP_BASE_URL}sales-enquiries/${enquiryId}/pricing`
+      const config = {
+        method: 'get',
+        maxBodyLength: Infinity,
+        url: url,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+      const response = await axios.request(config)
+      return response
+    },
+
+    /**
+     * Preview price structure items (species, extras, trophy fees, etc.)
+     */
+    async previewPriceItems(priceStructureDetailId: number) {
+      const url = `${import.meta.env.VITE_APP_BASE_URL}sales-enquiries/preview-price-items/${priceStructureDetailId}`
       const config = {
         method: 'get',
         maxBodyLength: Infinity,

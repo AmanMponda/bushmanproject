@@ -89,11 +89,40 @@
               </div>
             </div>
             <div class="card">
-              <div class="card-header bg-white">
+              <div class="card-header bg-white d-flex align-items-center">
                 <h6 class="mb-0">
                   <i class="fa fa-paw me-2 text-primary"></i>
                   Species ({{ getSpeciesCount() }})
                 </h6>
+                <span class="text-muted small ms-3">{{ huntingAreasList.length }} Hunting Area(s)</span>
+                <div class="ms-auto d-flex align-items-center gap-2">
+                  <span class="small text-muted">Edit Counts</span>
+                  <div class="form-check form-switch mb-0">
+                    <input
+                      v-model="editSpeciesCounts"
+                      class="form-check-input"
+                      type="checkbox"
+                      @change="toggleSpeciesCountEdit"
+                    />
+                  </div>
+                  <button
+                    v-if="editSpeciesCounts"
+                    class="btn btn-sm btn-primary"
+                    :disabled="savingSpeciesCounts"
+                    @click="saveSpeciesCountChanges"
+                  >
+                    <span v-if="savingSpeciesCounts" class="spinner-border spinner-border-sm me-1"></span>
+                    Save
+                  </button>
+                  <button
+                    v-if="editSpeciesCounts"
+                    class="btn btn-sm btn-outline-secondary"
+                    :disabled="savingSpeciesCounts"
+                    @click="cancelSpeciesCountEdit"
+                  >
+                    Cancel
+                  </button>
+                </div>
               </div>
               <div class="card-body">
 
@@ -214,13 +243,57 @@
                     <thead>
                       <tr>
                         <th>Species Name</th>
+                        <th v-for="area in huntingAreasList" :key="area.id" class="text-center">
+                          {{ area.name }}
+                        </th>
+                        <th v-if="huntingAreasList.length === 0">Hunting Areas</th>
                         <th>Quantity</th>
                       </tr>
                     </thead>
                     <tbody>
-                      <tr v-for="(species, index) in getSpeciesList()" :key="index">
+                      <tr v-for="(species, index) in displayedSpeciesList" :key="index">
                         <td>{{ getSpeciesName(species) }}</td>
-                        <td>{{ species.quantity || 'N/A' }}</td>
+                        <td v-for="area in huntingAreasList" :key="area.id" class="text-center">
+                          <div class="form-check form-switch mb-0 d-flex justify-content-center">
+                            <input
+                              class="form-check-input"
+                              type="checkbox"
+                              :checked="isSpeciesInArea(species, area.id)"
+                              :disabled="isToggleDisabled(species, area.id)"
+                              @change="toggleSpeciesInArea(species, area.id, $event)"
+                            />
+                          </div>
+                        </td>
+                        <td v-if="huntingAreasList.length === 0" class="text-center text-muted">
+                          <small>No areas loaded</small>
+                        </td>
+                        <td>
+                          <div v-if="editSpeciesCounts" class="d-flex align-items-center gap-2">
+                            <button
+                              class="btn btn-sm btn-outline-secondary"
+                              type="button"
+                              :disabled="Number(species.quantity || 1) <= 1"
+                              @click="decrementSpeciesCount(index)"
+                            >
+                              -
+                            </button>
+                            <input
+                              v-model.number="species.quantity"
+                              type="number"
+                              min="1"
+                              class="form-control form-control-sm text-center"
+                              style="width: 80px;"
+                            />
+                            <button
+                              class="btn btn-sm btn-outline-secondary"
+                              type="button"
+                              @click="incrementSpeciesCount(index)"
+                            >
+                              +
+                            </button>
+                          </div>
+                          <span v-else>{{ species.quantity || species.qty || 'N/A' }}</span>
+                        </td>
                       </tr>
                     </tbody>
                   </table>
@@ -287,6 +360,7 @@ import MultiRowTableInput from '../reusables/MultiRowTableInput.vue'
 import RegulatoryPackageCSVInput from './RegulatoryPackageCSVInput.vue'
 import Swal from 'sweetalert2'
 import { useSpeciesStore } from '@/stores/bushman/species-store'
+import { useHuntingAreaStore } from '@/stores/bushman/hunting-story'
 import axios from 'axios'
 
 // Stores
@@ -294,6 +368,7 @@ const quotaStore = useQuotaStore()
 const regulatoryPackageStore = useRegulatoryPackageStore()
 const { init: toastInit } = useToast()
 const speciesStore = useSpeciesStore()
+const huntingAreaStore = useHuntingAreaStore()
 
 // Form validation
 const { isValid: isValidpackageForm, validate: validatepackageForm, resetValidation: resetValidationpackageForm, reset: resetpackageForm } = useForm()
@@ -324,10 +399,29 @@ const packageCreatedForSpecies = ref(false)
 const createdPackageId = ref<number | null>(null)
 const createdPackageName = ref<string | null>(null)
 const showAddSpeciesForm = ref(false)
+const editSpeciesCounts = ref(false)
+const savingSpeciesCounts = ref(false)
+const editableSpeciesList = ref<any[]>([])
+const huntingAreaSpeciesMap = ref<Record<number, Array<{ species_id: number; species_name: string }>>>({})
+const allHuntingAreaSpeciesSet = ref<Set<number>>(new Set())
+const savingAvailability = ref<Record<string, boolean>>({})
+const huntingAreasMap = ref<Record<number, string>>({})
+
+// Computed list of hunting areas for columns
+const huntingAreasList = computed(() => {
+  return Object.entries(huntingAreasMap.value).map(([id, name]) => ({
+    id: Number(id),
+    name: name
+  }))
+})
 
 const importProgressPercent = computed(() => importTotal.value > 0 ? Math.round((importProcessed.value / importTotal.value) * 100) : 0)
 const importSuccessCount = computed(() => importResults.value.filter((r: any) => r.ok).length)
 const importFailCount = computed(() => importResults.value.filter((r: any) => !r.ok).length)
+const displayedSpeciesList = computed(() => {
+  if (editSpeciesCounts.value) return editableSpeciesList.value
+  return getDisplaySpeciesList()
+})
 
 function closeImportResults() {
   const hadFailures = importResults.value.some((r: any) => !r.ok)
@@ -544,6 +638,7 @@ const showNewPackageForm = () => {
 const showDetails = async (row: any) => {
   try {
     loading.value = true
+    await loadHuntingAreas()
     const response = await regulatoryPackageStore.getRegulatoryPackageById(row.id)
     if (response.status === 200) {
       const apiData = response.data
@@ -564,6 +659,7 @@ const showDetails = async (row: any) => {
     toastInit({ message: 'Failed to load package details', color: 'danger' })
   } finally {
     loading.value = false
+    await loadHuntingAreaSpecies()
   }
 }
 
@@ -592,6 +688,43 @@ const getSpeciesList = () => {
   return speciesData
 }
 
+const getDisplaySpeciesList = () => {
+  const areaId = getPackageAreaId()
+  if (!areaId) return getSpeciesList()
+  const areaSpecies = huntingAreaSpeciesMap.value[areaId] || []
+  if (areaSpecies.length === 0) return getSpeciesList()
+
+  const packageSpecies = getSpeciesList()
+  const qtyMap = new Map<number, number>()
+  packageSpecies.forEach((sp: any) => {
+    const id = getSpeciesId(sp)
+    if (!id) return
+    const qty = Number(sp.quantity ?? sp.qty ?? 1)
+    qtyMap.set(Number(id), qty)
+  })
+
+  return areaSpecies.map((sp) => ({
+    specie_id: sp.species_id,
+    species_id: sp.species_id,
+    species_name: sp.species_name,
+    quantity: qtyMap.get(sp.species_id) ?? 1,
+  }))
+}
+
+const getPackageAreaId = () => {
+  if (!selectItem.value) return null
+  return selectItem.value.hunting_area_id ||
+    selectItem.value.hunting_area?.id ||
+    selectItem.value.area_id ||
+    selectItem.value.area?.id ||
+    null
+}
+
+const getPackageAreaName = () => {
+  // Return generic label since we're comparing against all hunting area species
+  return 'In Hunting Areas'
+}
+
 const hasSpecies = () => {
   const species = getSpeciesList()
   return species && species.length > 0
@@ -607,6 +740,263 @@ const getSpeciesName = (species: any) => {
   if (species.species_name) return species.species_name
   if (typeof species === 'string') return species
   return 'N/A'
+}
+
+const getSpeciesId = (species: any) => {
+  if (species.species_id) return species.species_id
+  if (species.species?.id) return species.species.id
+  if (species.id) return species.id
+  if (species.speciesId) return species.speciesId
+  return null
+}
+
+const loadHuntingAreaSpecies = async () => {
+  try {
+    const response = await huntingAreaStore.listHuntingAreaSpecies()
+    
+    // Handle new payload structure: { success: true, data: [{ hunting_area_id, area_name, species: [...] }] }
+    let data: any[] = []
+    if (response.data?.data && Array.isArray(response.data.data)) {
+      data = response.data.data
+    } else if (Array.isArray(response.data)) {
+      data = response.data
+    }
+    
+    const map: Record<number, Array<{ species_id: number; species_name: string }>> = {}
+    data.forEach((area: any) => {
+      const areaId = Number(area.hunting_area_id || area.area_id)
+      if (!areaId) return
+      const speciesList = (area.species || [])
+        .map((s: any) => ({
+          species_id: Number(s.specie_id || s.species_id || s.id),
+          species_name: s.specie_name || s.species_name || s.name || '',
+        }))
+        .filter((s: any) => s.species_id)
+      map[areaId] = speciesList
+    })
+    huntingAreaSpeciesMap.value = map
+    
+    // Build flat set of all species IDs across all areas
+    const allSpeciesIds = new Set<number>()
+    Object.values(map).forEach(list => {
+      list.forEach(s => allSpeciesIds.add(s.species_id))
+    })
+    allHuntingAreaSpeciesSet.value = allSpeciesIds
+  } catch (error) {
+    console.error('Failed to load hunting area species', error)
+  }
+}
+
+const loadHuntingAreas = async () => {
+  try {
+    const response = await huntingAreaStore.getAllHuntingAreas()
+    const data = response.data?.data || response.data || []
+    const map: Record<number, string> = {}
+    data.forEach((area: any) => {
+      const id = Number(area.id)
+      if (!id) return
+      map[id] = area.name || area.description || area.location?.name || `Area ${id}`
+    })
+    huntingAreasMap.value = map
+  } catch (error) {
+    console.error('Failed to load hunting areas', error)
+  }
+}
+
+const isSpeciesAvailableInArea = (species: any) => {
+  const speciesId = getSpeciesId(species)
+  if (!speciesId) return false
+  // Check if species exists in ANY hunting area
+  return allHuntingAreaSpeciesSet.value.has(Number(speciesId))
+}
+
+// Check if a specific species is in a specific hunting area
+const isSpeciesInArea = (species: any, areaId: number) => {
+  const speciesId = getSpeciesId(species)
+  if (!speciesId) return false
+  const list = huntingAreaSpeciesMap.value[areaId] || []
+  return list.some((s) => Number(s.species_id) === Number(speciesId))
+}
+
+// Check if toggle is disabled for a specific species/area combo
+const isToggleDisabled = (species: any, areaId: number) => {
+  const speciesId = getSpeciesId(species)
+  const key = `${areaId}-${speciesId}`
+  return savingAvailability.value[key] || false
+}
+
+// Toggle a species for a specific hunting area
+const toggleSpeciesInArea = async (species: any, areaId: number, event: Event) => {
+  const speciesId = getSpeciesId(species)
+  if (!speciesId || !areaId) return
+  
+  const target = event.target as HTMLInputElement
+  const shouldEnable = !!target?.checked
+  const key = `${areaId}-${speciesId}`
+  
+  savingAvailability.value = { ...savingAvailability.value, [key]: true }
+  
+  try {
+    if (shouldEnable) {
+      // Add species to this hunting area
+      await huntingAreaStore.addHuntingAreaSpecies({
+        hunting_area_id: areaId,
+        specie_id: speciesId,
+      })
+    } else {
+      // Remove species from this hunting area
+      await huntingAreaStore.deleteHuntingAreaSpecies(areaId, undefined, speciesId)
+    }
+    
+    // Update local state
+    const map = { ...huntingAreaSpeciesMap.value }
+    const current = map[areaId] ? [...map[areaId]] : []
+    
+    if (shouldEnable) {
+      if (!current.some((s) => Number(s.species_id) === Number(speciesId))) {
+        current.push({
+          species_id: Number(speciesId),
+          species_name: getSpeciesName(species),
+        })
+      }
+    } else {
+      const idx = current.findIndex((s) => Number(s.species_id) === Number(speciesId))
+      if (idx !== -1) current.splice(idx, 1)
+    }
+    
+    map[areaId] = current
+    huntingAreaSpeciesMap.value = map
+    
+    // Update flat set
+    if (shouldEnable) {
+      allHuntingAreaSpeciesSet.value.add(Number(speciesId))
+    } else {
+      // Only remove from set if no other area has this species
+      const stillExists = Object.values(map).some(list => 
+        list.some(s => Number(s.species_id) === Number(speciesId))
+      )
+      if (!stillExists) {
+        allHuntingAreaSpeciesSet.value.delete(Number(speciesId))
+      }
+    }
+    allHuntingAreaSpeciesSet.value = new Set(allHuntingAreaSpeciesSet.value)
+    
+    toastInit({ 
+      message: shouldEnable 
+        ? `Species added to ${huntingAreasMap.value[areaId] || 'area'}` 
+        : `Species removed from ${huntingAreasMap.value[areaId] || 'area'}`, 
+      color: 'success' 
+    })
+  } catch (error) {
+    const msg = handleErrors(error)
+    toastInit({ message: Array.isArray(msg) ? msg.join(', ') : (msg || 'Failed to update'), color: 'danger' })
+    target.checked = !shouldEnable
+  } finally {
+    savingAvailability.value = { ...savingAvailability.value, [key]: false }
+  }
+}
+
+const toggleSpeciesAvailability = async (species: any, event: Event) => {
+  // Legacy function - kept for compatibility
+  const speciesId = getSpeciesId(species)
+  if (!speciesId) return
+  const target = event.target as HTMLInputElement
+  const shouldEnable = !!target?.checked
+  
+  // Find which area(s) have this species, or use first available area for adding
+  const areaIds = Object.keys(huntingAreaSpeciesMap.value).map(Number)
+  let targetAreaId: number | null = null
+  
+  // For removing: find an area that has this species
+  // For adding: use the first available area
+  if (!shouldEnable) {
+    for (const aId of areaIds) {
+      const list = huntingAreaSpeciesMap.value[aId] || []
+      if (list.some((s) => Number(s.species_id) === Number(speciesId))) {
+        targetAreaId = aId
+        break
+      }
+    }
+  } else {
+    targetAreaId = areaIds[0] || null
+  }
+  
+  if (!targetAreaId) {
+    toastInit({ message: 'No hunting area available', color: 'warning' })
+    target.checked = !shouldEnable
+    return
+  }
+  
+  await toggleSpeciesInArea(species, targetAreaId, event)
+}
+
+const toggleSpeciesCountEdit = () => {
+  if (!editSpeciesCounts.value) {
+    editableSpeciesList.value = []
+    return
+  }
+  const source = getSpeciesList()
+  editableSpeciesList.value = source.map((species: any) => ({
+    ...species,
+    quantity: Number(species.quantity ?? species.qty ?? 1),
+  }))
+}
+
+const cancelSpeciesCountEdit = () => {
+  editSpeciesCounts.value = false
+  editableSpeciesList.value = []
+}
+
+const incrementSpeciesCount = (index: number) => {
+  const row = editableSpeciesList.value[index]
+  if (!row) return
+  row.quantity = Number(row.quantity || 0) + 1
+}
+
+const decrementSpeciesCount = (index: number) => {
+  const row = editableSpeciesList.value[index]
+  if (!row) return
+  const current = Number(row.quantity || 1)
+  row.quantity = current > 1 ? current - 1 : 1
+}
+
+const saveSpeciesCountChanges = async () => {
+  if (!selectItem.value?.id) {
+    toastInit({ message: 'Open the package details first before saving species.', color: 'warning' })
+    return
+  }
+  const speciesBulk = editableSpeciesList.value
+    .map((row: any) => ({
+      species_id: Number(getSpeciesId(row)),
+      quantity: Number(row.quantity || 1),
+    }))
+    .filter((row: any) => row.species_id && row.quantity > 0)
+
+  if (speciesBulk.length === 0) {
+    toastInit({ message: 'No species quantities to save.', color: 'warning' })
+    return
+  }
+
+  savingSpeciesCounts.value = true
+  try {
+    let response: any
+    const maybeFn: any = (regulatoryPackageStore as any).addSpeciesToRegulatoryPackage
+    if (typeof maybeFn === 'function') {
+      response = await maybeFn(selectItem.value.id as number, speciesBulk)
+    } else {
+      response = await postSpeciesToPackage(selectItem.value.id as number, speciesBulk)
+    }
+    if (response && (response.status === 201 || response.status === 200 || response.data?.success)) {
+      toastInit({ message: 'Species counts updated.', color: 'success' })
+      await showDetails({ id: selectItem.value.id })
+      cancelSpeciesCountEdit()
+    }
+  } catch (error) {
+    const msg = handleErrors(error)
+    toastInit({ message: Array.isArray(msg) ? msg.join(', ') : (msg || 'Failed to update species counts'), color: 'danger' })
+  } finally {
+    savingSpeciesCounts.value = false
+  }
 }
 
 const exportPackageCsv = () => {

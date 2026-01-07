@@ -264,7 +264,7 @@ export const useHuntingAreaStore = defineStore('hunting-area-store', {
       const config = {
         method: 'delete',
         maxBodyLength: Infinity,
-        url: import.meta.env.VITE_APP_BASE_URL + 'hunting-area-species/0',
+        url: import.meta.env.VITE_APP_BASE_URL + 'settings/hunting-area-species/0',
         headers: {
           'Content-Type': 'application/json',
         },

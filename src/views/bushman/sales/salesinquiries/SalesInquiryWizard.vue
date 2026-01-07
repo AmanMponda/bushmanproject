@@ -1,985 +1,464 @@
 ﻿<template>
-  <div class="sales-inquiry-wizard-container">
-    <!-- Header -->
-    <div class="card mb-3">
-      <div class="card-header bg-transparent">
-        <div class="d-flex justify-content-between align-items-center">
-          <div class="d-flex align-items-center gap-2">
-            <i class="fa fa-edit text-primary fs-4"></i>
-            <h2 class="h4 mb-0">{{ isEditMode ? 'Edit Enquiry' : 'Create New Enquiry' }}</h2>
+  <div class="ps-page inquiry-page">
+    <main class="content">
+      <!-- Page Header -->
+      <div class="page-head">
+        <div class="page-head-left">
+          <div class="crumbs">
+            <span class="crumb-icon"><i class="fa fa-clipboard-list"></i></span>
+            SALES / <span>SALES INQUIRY</span>
           </div>
+          <h1>{{ isEditMode ? 'Edit Sales Inquiry' : 'Create Sales Inquiry' }}</h1>
+          <p class="subtitle">Configure your sales inquiry with customer details, packages, species, and extras.</p>
+        </div>
+
+        <div class="head-actions">
+          <button class="btn ghost" type="button" @click="cancelWizard">
+            <span class="btn-icon"><i class="fa fa-arrow-left"></i></span> Back
+          </button>
+          <button class="btn ghost" type="button" @click="resetEditMode">
+            <span class="btn-icon"><i class="fa fa-rotate-right"></i></span> Reset
+          </button>
+          <button class="btn primary" type="button" @click="submit" :disabled="saving || !canSubmit">
+            <span class="btn-icon"><i class="fa fa-check"></i></span> {{ saving ? 'Saving...' : 'Submit Enquiry' }}
+          </button>
         </div>
       </div>
-    </div>
 
-    <!-- Vueform Wizard -->
-    <Vueform
-      ref="vueformRef"
-      :endpoint="false"
-      :display-errors="false"
-      :columns="{ container: 12, label: 12, wrapper: 12 }"
-      @submit="handleSubmit"
-    >
-      <!-- Wizard Steps -->
-      <template #empty>
-        <FormSteps>
-          <FormStep 
-            name="customer" 
-            label="Customer Info"
-            :elements="['customerSection', 'basicInfoSection', 'contactInfoSection']"
-            :labels="{ next: 'Next Step' }"
-          />
-          <FormStep 
-            name="package" 
-            label="Package & Schedule"
-            :elements="['seasonPackageSection', 'huntScheduleSection', 'huntPartySection', 'speciesSection']"
-            :labels="{ previous: 'Back', next: 'Next Step' }"
-          />
-          <FormStep 
-            name="extras" 
-            label="Safari Extras"
-            :elements="['safariExtrasSection', 'trophyFeesSection', 'companionCostsSection']"
-            :labels="{ previous: 'Back', next: 'Review' }"
-          />
-          <FormStep 
-            name="review" 
-            label="Review & Submit"
-            :elements="['reviewSection']"
-            :labels="{ previous: 'Back', finish: saving ? 'Saving...' : 'Submit Enquiry' }"
-            @activate="syncFormData"
-          />
-        </FormSteps>
-
-        <!-- Step 1: Customer Information -->
-        <GroupElement name="customerSection">
-          <template #label>
-            <div class="d-flex align-items-center gap-2 mb-2">
-              <i class="fa fa-user text-primary"></i>
-              <h5 class="mb-0">Customer Selection</h5>
+      <!-- Two Column Layout -->
+      <section class="grid two-col">
+        <!-- LEFT: Customer Details -->
+        <aside class="panel left-panel">
+          <div class="panel-header">
+            <div class="panel-icon"><i class="fa fa-user"></i></div>
+            <div class="panel-title-text">
+              <h3>Sales Enquiry for {{ form.full_name || 'Customer' }}</h3>
+              <p>Hunt details and configuration</p>
             </div>
-          </template>
-          
-          <StaticElement name="customerAlert">
-            <div class="alert alert-info mb-3">
-              <strong>New or Existing Customer?</strong><br />
-              Select an existing customer to auto-fill their information, or choose "New Customer" to enter details manually.
-            </div>
-          </StaticElement>
+          </div>
 
-          <RadiogroupElement
-            name="customerType"
-            :default="'new'"
-            :items="[
-              { value: 'new', label: 'New Customer' },
-              { value: 'existing', label: 'Existing Customer' }
-            ]"
-            view="tabs"
-            @change="onCustomerTypeChange"
-          />
-
-          <SelectElement
-            v-show="customerType === 'existing'"
-            name="existingCustomer"
-            label="Select Customer"
-            placeholder="Search and select an existing customer"
-            :items="existingCustomerItems"
-            :search="true"
-            :native="false"
-            :object="true"
-            :columns="{ container: 12 }"
-            :loading="loadingCustomers"
-            @select="onExistingCustomerSelect"
-          />
-        </GroupElement>
-
-        <GroupElement name="basicInfoSection">
-          <template #label>
-            <div class="d-flex align-items-center gap-2 mb-2 mt-3">
-              <i class="fa fa-id-card text-primary"></i>
-              <h5 class="mb-0">Basic Information</h5>
-            </div>
-          </template>
-
-          <TextElement
-            name="full_name"
-            label="Full Name"
-            placeholder="Enter full name"
-            :columns="{ container: 6 }"
-            rules="required"
-          />
-
-          <SelectElement
-            name="country"
-            label="Country"
-            placeholder="Select Country"
-            :items="countryItems"
-            :search="true"
-            :native="false"
-            :columns="{ container: 6 }"
-            rules="required"
-          />
-
-          <SelectElement
-            name="nationality"
-            label="Nationality"
-            placeholder="Select Nationality"
-            :items="nationalityItems"
-            :search="true"
-            :native="false"
-            :columns="{ container: 6 }"
-            rules="required"
-          />
-        </GroupElement>
-
-        <GroupElement name="contactInfoSection">
-          <template #label>
-            <div class="d-flex align-items-center gap-2 mb-2 mt-3">
-              <i class="fa fa-envelope text-primary"></i>
-              <h5 class="mb-0">Contact Information</h5>
-            </div>
-          </template>
-
-          <TextElement
-            name="email"
-            label="Email"
-            input-type="email"
-            placeholder="Enter email address"
-            :columns="{ container: 6 }"
-            rules="required|email"
-          />
-
-          <TextElement
-            name="phone"
-            label="Primary Phone"
-            placeholder="e.g., +971501234567"
-            :columns="{ container: 6 }"
-            rules="required"
-          />
-
-          <TextElement
-            name="phone_additional"
-            label="Additional Phone"
-            placeholder="e.g., +971501234567 (Optional)"
-            :columns="{ container: 6 }"
-          />
-
-          <TextElement
-            name="address"
-            label="Address"
-            placeholder="Enter address"
-            :columns="{ container: 6 }"
-            rules="required"
-          />
-        </GroupElement>
-
-        <!-- Step 2: Season, Package, Dates & Species -->
-        <GroupElement name="seasonPackageSection">
-          <template #label>
-            <div class="d-flex align-items-center gap-2 mb-2">
-              <i class="fa fa-calendar text-primary"></i>
-              <h5 class="mb-0">Season & Package</h5>
-            </div>
-          </template>
-
-          <SelectElement
-            name="season"
-            label="Season"
-            placeholder="Select Season"
-            :items="seasonItems"
-            :search="true"
-            :native="false"
-            :columns="{ container: 6 }"
-            rules="required"
-            @change="onSeasonChange"
-          />
-
-          <SelectElement
-            name="priceListId"
-            label="Hunting Package"
-            placeholder="Select a Hunting Package"
-            :items="packageItems"
-            :search="true"
-            :native="false"
-            :columns="{ container: 6 }"
-            :disabled="!form.season || loadingPackageItems"
-            :loading="loadingPackageItems"
-            @change="onPackageChange"
-          />
-
-          <StaticElement name="packageDetails" :conditions="[['priceListId', '!=', null]]">
-            <div v-if="selectedPackageDetail" class="card bg-primary bg-opacity-10 border-primary mt-3">
-              <div class="card-body">
-                <div class="d-flex align-items-start gap-3">
-                  <i class="fa fa-box-open text-primary fs-3"></i>
-                  <div class="flex-grow-1">
-                    <h6 class="fw-bold text-primary mb-3">Selected Package Details</h6>
-                    <div class="row g-3 small">
-                      <div class="col-md-6">
-                        <div class="d-flex justify-content-between">
-                          <span class="text-muted">Package Name:</span>
-                          <span class="fw-bold">{{ selectedPackageDetail.price_structure_detail?.name || 'N/A' }}</span>
-                        </div>
-                      </div>
-                      <div class="col-md-6">
-                        <div class="d-flex justify-content-between">
-                          <span class="text-muted">Location:</span>
-                          <span class="fw-medium">{{ selectedPackageDetail.price_structure?.location_name || 'N/A' }}</span>
-                        </div>
-                      </div>
-                      <div class="col-md-3">
-                        <div class="d-flex justify-content-between">
-                          <span class="text-muted">Hunting Type:</span>
-                          <span class="fw-medium">{{ selectedPackageDetail.price_structure_detail?.hunting_type || 'N/A' }}</span>
-                        </div>
-                      </div>
-                      <div class="col-md-3">
-                        <div class="d-flex justify-content-between">
-                          <span class="text-muted">Duration:</span>
-                          <span class="fw-medium">{{ selectedPackageDetail.price_structure_detail?.hunt_length || 'N/A' }}</span>
-                        </div>
-                      </div>
-                      <div class="col-md-3">
-                        <div class="d-flex justify-content-between">
-                          <span class="text-muted">Package Cost:</span>
-                          <span class="fw-bold text-primary">{{ selectedPackageDetail.price_structure_detail?.currency_code || '$' }} {{ parseFloat(selectedPackageDetail.price_structure_detail?.amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</span>
-                        </div>
-                      </div>
-                      <div class="col-md-3">
-                        <div class="d-flex justify-content-between">
-                          <span class="text-muted">Species Included:</span>
-                          <span class="fw-medium badge bg-info">{{ selectedPackageDetail.summary?.species_count || 0 }} species</span>
-                        </div>
-                      </div>
-                      <div v-if="selectedPackageDetail.summary?.safari_extras_count > 0" class="col-md-4">
-                        <div class="d-flex justify-content-between">
-                          <span class="text-muted">Safari Extras:</span>
-                          <span class="fw-medium badge bg-secondary">{{ selectedPackageDetail.summary?.safari_extras_count || 0 }}</span>
-                        </div>
-                      </div>
-                      <div v-if="selectedPackageDetail.summary?.companion_costs_count > 0" class="col-md-4">
-                        <div class="d-flex justify-content-between">
-                          <span class="text-muted">Companion Costs:</span>
-                          <span class="fw-medium badge bg-success">{{ selectedPackageDetail.summary?.companion_costs_count || 0 }}</span>
-                        </div>
-                      </div>
-                      <div v-if="selectedPackageDetail.summary?.trophy_fees_count > 0" class="col-md-4">
-                        <div class="d-flex justify-content-between">
-                          <span class="text-muted">Trophy Fees:</span>
-                          <span class="fw-medium badge bg-warning">{{ selectedPackageDetail.summary?.trophy_fees_count || 0 }}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <!-- Species Preview -->
-                    <div v-if="selectedPackageDetail.species && selectedPackageDetail.species.length > 0" class="mt-3 pt-3 border-top">
-                      <h6 class="text-primary mb-2 small"><i class="fa fa-paw me-1"></i>Included Species</h6>
-                      <div class="d-flex flex-wrap gap-1">
-                        <span v-for="species in selectedPackageDetail.species.slice(0, 10)" :key="species.id" class="badge bg-secondary">
-                          {{ species.item_name }} ({{ species.quantity }})
-                        </span>
-                        <span v-if="selectedPackageDetail.species.length > 10" class="badge bg-info">
-                          +{{ selectedPackageDetail.species.length - 10 }} more
-                        </span>
-                      </div>
-                    </div>
-
-                    <!-- Safari Extras Preview -->
-                    <div v-if="selectedPackageDetail.safari_extras && selectedPackageDetail.safari_extras.length > 0" class="mt-2">
-                      <h6 class="text-primary mb-2 small"><i class="fa fa-hiking me-1"></i>Safari Extras ({{ selectedPackageDetail.safari_extras.length }})</h6>
-                      <div class="d-flex flex-wrap gap-2">
-                        <div v-for="extra in selectedPackageDetail.safari_extras" :key="extra.id" class="badge bg-info text-start py-2 px-3">
-                          <div class="fw-bold">{{ extra.item_name || extra.description || 'Safari Extra' }}</div>
-                          <div class="small">{{ extra.currency_code || '$' }} {{ parseFloat(extra.amount || 0).toFixed(2) }} <span v-if="extra.pricing_unit" class="text-white-50">/ {{ extra.pricing_unit.replace(/_/g, ' ').toLowerCase() }}</span></div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+          <div class="form">
+            <!-- Hunt Details Form -->
+            <div class="form-section">
+              <div class="section-title">
+                <span class="section-icon"><i class="fa fa-calendar-alt"></i></span>
+                Hunt Details
               </div>
-            </div>
-            <div v-else-if="selectedPackageInfo" class="alert alert-info mb-0 mt-2 py-2">
-              <div class="row g-2 small">
-                <div class="col-6 col-md-3">
-                  <strong>Area:</strong> {{ selectedPackageInfo.area || 'N/A' }}
+              
+              <label class="field">
+                <span class="lbl">Season <span class="req">*</span></span>
+                <div class="input-wrapper">
+                  <select v-model="form.season" @change="onSeasonChange(form.season)">
+                    <option :value="null">Select Season...</option>
+                    <option v-for="s in seasonItems" :key="s.value" :value="s.value">{{ s.label }}</option>
+                  </select>
                 </div>
-                <div class="col-6 col-md-3">
-                  <strong>Hunting Type:</strong> {{ selectedPackageInfo.huntingType || 'N/A' }}
+              </label>
+
+              <label class="field">
+                <span class="lbl">Start Date <span class="req">*</span></span>
+                <div class="input-wrapper vueform-date-wrapper">
+                  <Vueform size="sm" :display-errors="false" :endpoint="false">
+                    <DateElement
+                      name="start_date"
+                      :default="form.start_date"
+                      @change="onStartDateChange"
+                      :disabled="!form.season"
+                      :display-format="'MMM D, YYYY'"
+                      :value-format="'YYYY-MM-DD'"
+                      placeholder="Select start date..."
+                      :add-class="{ DateElement: { input: 'form-control' } }"
+                    />
+                  </Vueform>
                 </div>
-                <div class="col-6 col-md-3">
-                  <strong>Duration:</strong> {{ selectedPackageInfo.duration || 0 }} days
+              </label>
+
+              <label class="field">
+                <span class="lbl">Hunting Package</span>
+                <div class="input-wrapper">
+                  <select v-model="form.priceListId" :disabled="!form.season || loadingPackageItems" @change="onPackageChange(form.priceListId)">
+                    <option :value="null">Select Package...</option>
+                    <option v-for="p in packageItems" :key="p.value" :value="p.value">{{ p.label }}</option>
+                  </select>
                 </div>
-                <div class="col-6 col-md-3">
-                  <strong>Base Amount:</strong> {{ selectedPackageInfo.amount || 'N/A' }}
+              </label>
+
+              <label class="field">
+                <span class="lbl">Number of Days <span class="req">*</span></span>
+                <div class="input-wrapper">
+                  <input type="number" v-model.number="form.no_of_days" min="1" placeholder="e.g., 10" @change="onDaysChange(form.no_of_days)" />
                 </div>
-              </div>
-            </div>
-          </StaticElement>
-        </GroupElement>
+              </label>
 
-        <GroupElement name="huntScheduleSection">
-          <template #label>
-            <div class="d-flex align-items-center gap-2 mb-2 mt-3">
-              <i class="fa fa-calendar-alt text-primary"></i>
-              <h5 class="mb-0">Hunt Schedule</h5>
-            </div>
-          </template>
-
-          <DateElement
-            name="start_date"
-            label="Start Date"
-            :columns="{ container: 6 }"
-            rules="required"
-            :disabled="!form.season"
-            display-format="MMMM D, YYYY"
-            @change="onStartDateChange"
-          />
-
-          <TextElement
-            name="no_of_days"
-            label="Number of Days"
-            input-type="number"
-            placeholder="e.g., 10"
-            :columns="{ container: 6 }"
-            rules="required|numeric|min:1"
-            @change="onDaysChange"
-          />
-
-          <StaticElement name="huntPeriodInfo">
-            <div v-if="form.start_date && form.no_of_days > 0" class="alert alert-info mt-2 mb-0 py-2">
-              <i class="fa fa-info-circle me-2"></i>
-              <strong>Hunt Period:</strong> {{ formatDate(form.start_date) }} to {{ formatDate(calculatedEndDate) }}
-              <span class="ms-2">({{ form.no_of_days }} days)</span>
-            </div>
-          </StaticElement>
-
-          <!-- Companion Cost Preview -->
-          <StaticElement name="companionCostPreview">
-            <div v-if="companionCosts.length > 0 && form.no_of_participants > 0 && form.no_of_days > 0" class="card bg-success bg-opacity-10 border-success mt-3">
-              <div class="card-body py-2">
-                <div class="row align-items-center">
-                  <div class="col-md-8">
-                    <small class="text-muted d-block"><i class="fa fa-users me-1"></i>Estimated Companion Costs</small>
-                    <div class="d-flex align-items-center gap-2 mt-1">
-                      <span class="small">{{ companionCosts[0]?.currency_code || '$' }} {{ parseFloat(companionCosts[0]?.amount || 0).toFixed(2) }}/day</span>
-                      <span class="text-muted">×</span>
-                      <span class="small">{{ form.no_of_days }} days</span>
-                      <span class="text-muted">×</span>
-                      <span class="small">{{ form.no_of_participants }} participants</span>
-                    </div>
-                  </div>
-                  <div class="col-md-4 text-end">
-                    <div class="fw-bold text-success fs-5">
-                      {{ companionCosts[0]?.currency_code || '$' }} {{ totalCompanionCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
-                    </div>
-                  </div>
+              <label class="field">
+                <span class="lbl">Hunting Area</span>
+                <div class="input-wrapper">
+                  <select v-model="form.area">
+                    <option :value="null">Select Hunting Area...</option>
+                    <option v-for="a in gameAreaItems" :key="a.value" :value="a.value">{{ a.label }}</option>
+                  </select>
                 </div>
-              </div>
+              </label>
+
+              <label class="field">
+                <span class="lbl">Number of Hunters <span class="req">*</span></span>
+                <div class="input-wrapper">
+                  <input type="number" v-model.number="form.no_of_hunters" min="1" placeholder="e.g., 2" />
+                </div>
+              </label>
             </div>
-          </StaticElement>
+          </div>
+        </aside>
 
-          <StaticElement name="dateConflictWarning">
-            <div v-if="dateConflictWarning" class="alert alert-warning mt-2 mb-0 py-2">
-              <i class="fa fa-exclamation-triangle me-2"></i>
-              <strong>Date Conflict Detected:</strong> {{ dateConflictWarning }}
+        <!-- RIGHT: Inquiry Configuration -->
+        <section class="panel center-panel">
+          <div class="panel-header center-header">
+            <div class="panel-icon"><i class="fa fa-cog"></i></div>
+            <div class="panel-title-text">
+              <h3>Inquiry Configuration</h3>
+              <p>Set up season, packages, species, and extras</p>
             </div>
-          </StaticElement>
+          </div>
 
-          <StaticElement name="bookedDatesDisplay">
-            <div v-if="bookedDatesForSelectedSeason.length > 0" class="mt-2">
-              <small class="text-muted d-block mb-1">
-                <i class="fa fa-calendar-times me-1"></i>Already Booked Dates:
-              </small>
-              <div class="d-flex flex-wrap gap-1">
-                <span v-for="(booking, index) in bookedDatesForSelectedSeason" :key="index" class="badge bg-danger">
-                  {{ formatBookingDateRange(booking) }} - {{ booking.client_name }}
-                </span>
-              </div>
-            </div>
-          </StaticElement>
-        </GroupElement>
-
-        <GroupElement name="huntPartySection">
-          <template #label>
-            <div class="d-flex align-items-center gap-2 mb-2 mt-3">
-              <i class="fa fa-users text-primary"></i>
-              <h5 class="mb-0">Hunt Party Details</h5>
-            </div>
-          </template>
-
-          <SelectElement
-            name="area"
-            label="Hunting Area"
-            placeholder="Select Area"
-            :items="areaItems"
-            :search="true"
-            :native="false"
-            :columns="{ container: 6 }"
-            rules="required"
-          />
-
-          <TextElement
-            name="no_of_participants"
-            label="Number of Participants"
-            input-type="number"
-            placeholder="e.g., 2"
-            :default="1"
-            :columns="{ container: 6 }"
-            rules="required|numeric|min:1"
-            @change="onParticipantsChange"
-          />
-
-          <TextElement
-            name="prev_experience"
-            label="Previous Experience"
-            placeholder="Describe your hunting experience..."
-            :columns="{ container: 6 }"
-          />
-
-          <TextareaElement
-            name="special_requests"
-            label="Special Requests"
-            placeholder="Any special requests or requirements..."
-            :rows="2"
-            :columns="{ container: 12 }"
-          />
-        </GroupElement>
-
-        <GroupElement name="speciesSection">
-          <template #label>
-            <div class="d-flex align-items-center gap-2 mb-2 mt-3">
-              <i class="fa fa-paw text-primary"></i>
-              <h5 class="mb-0">Species Selection</h5>
-            </div>
-          </template>
-
-          <SelectElement
-            name="selectedSpecies"
-            label="Species"
-            placeholder="Select Species"
-            :items="speciesItems"
-            :search="true"
-            :native="false"
-            :columns="{ container: 5 }"
-          />
-
-          <TextElement
-            name="speciesQuantity"
-            label="Quantity"
-            input-type="number"
-            placeholder="Qty"
-            :default="1"
-            :columns="{ container: 3 }"
-          />
-
-          <StaticElement name="addSpeciesBtn" :columns="{ container: 4 }">
-            <div style="margin-top: 1.75rem;">
-              <button type="button" class="btn btn-primary w-100" @click="addSpeciesToList">
-                <i class="fa fa-plus me-1"></i> Add Species
+          <!-- Tabs -->
+          <div class="inner-card tabs-card">
+            <div class="tabs">
+              <button
+                v-for="t in tabs"
+                :key="t.key"
+                class="tab"
+                :class="{ active: activeTab === t.key }"
+                @click="activeTab = t.key"
+              >
+                <span class="tab-icon"><i :class="t.icon"></i></span>
+                <span class="tab-text">{{ t.label }}</span>
+                <span class="tab-count" v-if="getTabCount(t.key) > 0">{{ getTabCount(t.key) }}</span>
               </button>
             </div>
-          </StaticElement>
+          </div>
 
-          <StaticElement name="speciesList">
-            <hr class="my-3" />
-            <div class="d-flex justify-content-between align-items-center mb-2">
-              <strong class="small">Selected Species ({{ speciesObjects.length }})</strong>
-              <small class="text-muted">Click priority badge to toggle</small>
-            </div>
-            <div v-if="speciesObjects.length > 0" class="list-group">
-              <div v-for="(s, index) in speciesObjects" :key="index"
-                class="list-group-item d-flex justify-content-between align-items-center">
-                <div class="d-flex align-items-center gap-2">
-                  <strong>{{ s.name }}</strong>
-                  <span v-if="s.fromPackage" class="badge bg-info">from Package</span>
-                  <span 
-                    class="badge cursor-pointer" 
-                    :class="s.priority === 'MUST_HAVE' ? 'bg-danger' : 'bg-secondary'"
-                    @click="togglePriority(index)"
-                    :title="s.priority === 'MUST_HAVE' ? 'Click to change to Nice to Have' : 'Click to change to Must Have'"
-                    style="cursor: pointer;">
-                    {{ s.priority === 'MUST_HAVE' ? 'MUST HAVE' : 'NICE TO HAVE' }}
-                  </span>
-                </div>
-                <div class="d-flex align-items-center gap-2">
-                  <button type="button" class="btn btn-sm btn-outline-primary" :disabled="s.quantity <= 1"
-                    @click="decrementQuantity(index)">
-                    <i class="fa fa-minus"></i>
-                  </button>
-                  <span class="badge bg-primary" style="min-width: 30px">{{ s.quantity }}</span>
-                  <button type="button" class="btn btn-sm btn-outline-primary" @click="incrementQuantity(index)">
-                    <i class="fa fa-plus"></i>
-                  </button>
-                  <button type="button" class="btn btn-sm btn-outline-danger ms-2"
-                    @click="deleteFromStorage(index)">
-                    <i class="fa fa-trash"></i>
-                  </button>
-                </div>
+          <!-- Tab Content: Species -->
+          <div v-show="activeTab === 'species'" class="inner-card content-card">
+            <div class="content-body">
+              <!-- Previous Experience -->
+              <div class="section-divider first">
+                <span><i class="fa fa-file-alt me-2"></i>Previous Experience</span>
               </div>
-            </div>
-            <div v-else class="alert alert-secondary mb-0">
-              No species selected yet. Add species using the form above or select a package.
-            </div>
-          </StaticElement>
+              <div class="form-row experience-requests-row">
+                <label class="field">
+                  <span class="lbl">Previous Experience</span>
+                  <div class="input-wrapper">
+                    <textarea v-model="form.prev_experience" rows="3" placeholder="Describe hunting experience..."></textarea>
+                  </div>
+                </label>
 
-          <!-- Upgrade Fees Display -->
-          <StaticElement name="upgradeFees">
-            <div v-if="selectedUpgradeFees.length > 0" class="card mt-3 bg-warning bg-opacity-10">
-              <div class="card-header bg-light py-2">
-                <div class="d-flex align-items-center gap-2">
-                  <i class="fa fa-arrow-up text-warning"></i>
-                  <h6 class="mb-0">Upgrade Fees</h6>
-                </div>
-              </div>
-              <div class="card-body">
-                <div class="table-responsive">
-                  <table class="table table-hover table-sm mb-0">
-                    <thead>
-                      <tr>
-                        <th class="text-start">Species</th>
-                        <th class="text-end">Upgrade Fee</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr v-for="fee in selectedUpgradeFees" :key="fee.id">
-                        <td class="fw-medium">{{ fee.species_name || fee.species?.name || 'Unknown' }}</td>
-                        <td class="text-end fw-semibold text-warning">{{ fee.currency_symbol || '$' }}{{ fee.amount }}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          </StaticElement>
-        </GroupElement>
-
-        <!-- Step 3: Safari Extras & Trophy Fees -->
-        <GroupElement name="safariExtrasSection">
-          <template #label>
-            <div class="d-flex align-items-center gap-2 mb-2">
-              <i class="fa fa-hiking text-primary fs-4"></i>
-              <h5 class="mb-0 fw-bold">Safari Extras</h5>
-            </div>
-          </template>
-
-          <StaticElement name="safariExtrasList">
-            <div v-if="selectedSafariExtras.length === 0" class="alert alert-secondary border-start border-4" role="alert">
-              <h6 class="alert-heading">No Safari Extras Selected</h6>
-              <p class="mb-0">Safari extras will be populated when you select a package. You can also add them manually later.</p>
-            </div>
-
-            <template v-else>
-              <div class="alert alert-info border-start border-4" role="alert">
-                <h6 class="alert-heading">Customize Safari Extras ({{ selectedSafariExtras.length }} selected)</h6>
-                <p class="mb-0">Remove any safari extras that your client does not require by clicking the remove button.</p>
+                <label class="field">
+                  <span class="lbl">Special Requests</span>
+                  <div class="input-wrapper">
+                    <textarea
+                      v-model="form.special_requests"
+                      rows="3"
+                      placeholder="Any special requests or requirements..."
+                    ></textarea>
+                  </div>
+                </label>
               </div>
 
-              <div class="card mb-3 bg-light">
-                <div class="card-body">
-                  <div class="d-flex flex-column gap-3">
-                    <div v-for="(extra, index) in selectedSafariExtras" :key="extra.id"
-                      class="p-3 border rounded bg-white d-flex justify-content-between align-items-center">
-                      <div class="d-flex align-items-center gap-3">
-                        <div class="fw-semibold text-capitalize">{{ extra.name }}</div>
-                        <span v-if="extra.fromPackage" class="badge bg-info">FROM PACKAGE</span>
-                        <small class="text-muted">{{ extra.description }}</small>
-                        <span v-if="extra.charges_per" class="badge bg-secondary">{{ extra.charges_per }}</span>
-                      </div>
-                      <div class="d-flex align-items-center gap-2">
-                        <small class="text-muted me-3">{{ extra.currency_code || 'USD' }} {{ extra.amount }}</small>
-                        <button type="button" class="btn btn-sm btn-outline-danger" title="Remove this safari extra"
-                          @click="removeSafariExtra(index)">
-                          <i class="fa fa-trash"></i>
-                        </button>
-                      </div>
+              <!-- Species Selection -->
+              <div class="section-divider">
+                <span><i class="fa fa-paw me-2"></i>Species Selection</span>
+              </div>
+
+              <!-- Add Species Form -->
+              <div class="add-item-row">
+                <select v-model="selectedSpeciesId" class="form-select" :disabled="!form.area || loadingAreaSpecies">
+                  <option :value="null">Select Species...</option>
+                  <option v-for="s in speciesItems" :key="s.value" :value="s.value">{{ s.label }}</option>
+                </select>
+                <input type="number" v-model.number="speciesQuantity" min="1" placeholder="Qty" class="qty-input" />
+                <button
+                  type="button"
+                  class="btn btn-primary"
+                  style="background-color: #3b82f6; border-color: #3b82f6;"
+                  :disabled="!form.area || loadingAreaSpecies"
+                  @click="addSpeciesToList"
+                >
+                  <i class="fa fa-plus me-1"></i> Add
+                </button>
+              </div>
+
+              <!-- Species List -->
+              <div class="items-list">
+                <div class="list-header">
+                  <strong>Selected Species ({{ speciesObjects.length }})</strong>
+                  <small class="text-muted">Click priority badge to toggle</small>
+                </div>
+                
+                <div v-if="speciesObjects.length > 0" class="list-items">
+                  <div v-for="(s, index) in speciesObjects" :key="index" class="list-item">
+                    <div class="item-info">
+                      <strong>{{ s.name }}</strong>
+                      <span v-if="s.fromPackage" class="badge bg-info ms-2">from Package</span>
+                      <span 
+                        class="badge ms-2 cursor-pointer" 
+                        :class="s.priority === 'MUST_HAVE' ? 'bg-danger' : 'bg-secondary'"
+                        @click="togglePriority(index)"
+                        style="cursor: pointer;">
+                        {{ s.priority === 'MUST_HAVE' ? 'MUST HAVE' : 'NICE TO HAVE' }}
+                      </span>
+                    </div>
+                    <div class="item-actions">
+                      <button type="button" class="btn btn-sm btn-outline-primary" :disabled="s.quantity <= 1" @click="decrementQuantity(index)">
+                        <i class="fa fa-minus"></i>
+                      </button>
+                      <span class="qty-badge">{{ s.quantity }}</span>
+                      <button type="button" class="btn btn-sm btn-outline-primary" @click="incrementQuantity(index)">
+                        <i class="fa fa-plus"></i>
+                      </button>
+                      <button type="button" class="btn btn-sm btn-outline-danger ms-2" @click="deleteFromStorage(index)">
+                        <i class="fa fa-trash"></i>
+                      </button>
                     </div>
                   </div>
                 </div>
-              </div>
-            </template>
-          </StaticElement>
-
-          <StaticElement name="budgetSection">
-            <div class="card mt-3">
-              <div class="card-header bg-light">
-                <div class="d-flex align-items-center gap-2">
-                  <i class="fa fa-dollar-sign text-primary"></i>
-                  <h6 class="mb-0">Budget Information</h6>
+                <div v-else class="empty-list">
+                  <i class="fa fa-paw fa-2x text-muted mb-2"></i>
+                  <p>No species selected yet. Add species using the form above or select a package.</p>
                 </div>
               </div>
-              <div class="card-body">
-                <div class="row g-3">
-                  <div class="col-md-6">
-                    <label for="budget-min" class="form-label">Budget Minimum (USD)</label>
-                    <input id="budget-min" v-model="form.budget_min" type="number" class="form-control" min="0" placeholder="e.g., 5000" />
-                    <small class="text-muted">Enter the minimum budget for this hunt</small>
+
+              <!-- Upgrade Fees -->
+              <div v-if="selectedUpgradeFees.length > 0" class="upgrade-fees-section">
+                <div class="section-divider">
+                  <span><i class="fa fa-arrow-up me-2"></i>Upgrade Fees</span>
+                </div>
+                <div class="fees-table">
+                  <div class="fee-row header">
+                    <span>Species</span>
+                    <span>Upgrade Fee</span>
                   </div>
-                  <div class="col-md-6">
-                    <label for="budget-max" class="form-label">Budget Maximum (USD)</label>
-                    <input id="budget-max" v-model="form.budget_max" type="number" class="form-control" min="0" placeholder="e.g., 15000" />
-                    <small class="text-muted">Enter the maximum budget for this hunt</small>
-                  </div>
-                </div>
-                <div v-if="form.budget_min && form.budget_max" class="alert alert-info mt-3 mb-0">
-                  <i class="fa fa-info-circle me-2"></i>
-                  <strong>Budget Range:</strong> ${{ form.budget_min.toLocaleString() }} - ${{ form.budget_max.toLocaleString() }}
-                </div>
-              </div>
-            </div>
-          </StaticElement>
-        </GroupElement>
-
-        <GroupElement name="trophyFeesSection">
-          <template #label>
-            <div v-if="trophyFees.length > 0" class="d-flex align-items-center gap-2 mb-2 mt-3">
-              <i class="fa fa-trophy text-warning fs-4"></i>
-              <h5 class="mb-0 fw-bold">Trophy Fees</h5>
-            </div>
-          </template>
-
-          <StaticElement name="trophyFeesList">
-            <template v-if="trophyFees.length > 0">
-              <div class="alert alert-warning border-start border-4" role="alert">
-                <h6 class="alert-heading">Trophy Fees ({{ trophyFees.length }} items)</h6>
-                <p class="mb-0">These are per-animal fees charged when the animal is harvested. Fees may vary by sequence (1st, 2nd animal, etc.).</p>
-              </div>
-
-              <div class="card mb-3 bg-light">
-                <div class="card-body">
-                  <div class="table-responsive">
-                    <table class="table table-hover mb-0">
-                      <thead>
-                        <tr>
-                          <th class="text-start">Species</th>
-                          <th class="text-center">Sequence</th>
-                          <th class="text-end">Fee</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr v-for="(fee, index) in trophyFees" :key="`trophy-${fee.id}-${index}`">
-                          <td class="fw-medium">{{ fee.species_name || 'Unknown' }}</td>
-                          <td class="text-center">
-                            <span class="badge bg-primary">{{ getSequenceLabel(fee.sequence_order) }}</span>
-                          </td>
-                          <td class="text-end fw-semibold">{{ fee.currency_code || 'USD' }} {{ fee.amount.toLocaleString() }}</td>
-                        </tr>
-                      </tbody>
-                    </table>
+                  <div v-for="fee in selectedUpgradeFees" :key="fee.id" class="fee-row">
+                    <span>{{ fee.species_name || fee.species?.name || 'Unknown' }}</span>
+                    <span class="text-warning fw-bold">{{ fee.currency_symbol || '$' }}{{ fee.amount }}</span>
                   </div>
                 </div>
               </div>
-            </template>
-          </StaticElement>
-        </GroupElement>
-
-        <GroupElement name="companionCostsSection">
-          <template #label>
-            <div v-if="companionCosts.length > 0" class="d-flex align-items-center gap-2 mb-2 mt-3">
-              <i class="fa fa-users text-info fs-4"></i>
-              <h5 class="mb-0 fw-bold">Companion Costs</h5>
             </div>
-          </template>
+          </div>
 
-          <StaticElement name="companionCostsList">
-            <template v-if="companionCosts.length > 0">
-              <div class="alert alert-info border-start border-4" role="alert">
-                <h6 class="alert-heading">Companion Cost Calculation</h6>
-                <p class="mb-0">Cost per participant per day. Total cost = Rate × Days × Number of Participants.</p>
+          <!-- Tab Content: Extras -->
+          <div v-show="activeTab === 'extras'" class="inner-card content-card">
+            <div class="content-body">
+              <!-- Budget Section -->
+              <div class="section-divider first">
+                <span><i class="fa fa-dollar-sign me-2"></i>Budget Information</span>
+              </div>
+              <div class="form-row">
+                <label class="field">
+                  <span class="lbl">Budget Minimum (USD)</span>
+                  <div class="input-wrapper">
+                    <CurrencyInput v-model="form.budget_min" currency="USD" placeholder="e.g., 5,000" />
+                  </div>
+                </label>
+                <label class="field">
+                  <span class="lbl">Budget Maximum (USD)</span>
+                  <div class="input-wrapper">
+                    <CurrencyInput v-model="form.budget_max" currency="USD" placeholder="e.g., 15,000" />
+                  </div>
+                </label>
+              </div>
+              <div v-if="form.budget_min && form.budget_max" class="info-alert">
+                <i class="fa fa-info-circle me-2"></i>
+                <strong>Budget Range:</strong> ${{ form.budget_min.toLocaleString() }} - ${{ form.budget_max.toLocaleString() }}
               </div>
 
-              <div class="card mb-3 bg-light">
-                <div class="card-body">
-                  <div v-for="(cost, index) in companionCosts" :key="`companion-${cost.id}-${index}`"
-                    class="mb-3">
-                    <div class="d-flex justify-content-between align-items-center p-3 border rounded bg-white mb-2">
-                      <div>
-                        <div class="fw-semibold">{{ cost.description }}</div>
-                        <small class="text-muted">Per participant per day</small>
-                      </div>
-                      <div class="text-end">
-                        <div class="fw-bold fs-5">{{ cost.currency_code || 'USD' }} {{ parseFloat(cost.amount).toFixed(2) }}</div>
-                        <small class="text-muted">per day</small>
-                      </div>
+              <!-- Safari Extras -->
+              <div class="section-divider">
+                <span><i class="fa fa-compass me-2"></i>Safari Extras ({{ selectedSafariExtras.length }})</span>
+              </div>
+
+              <!-- Add Safari Extra Form -->
+              <div class="add-item-row">
+                <select v-model="selectedSafariExtraId" class="form-select">
+                  <option :value="null">Select Safari Extra...</option>
+                  <option v-for="item in safariExtrasItems" :key="item.value" :value="item.value">{{ item.label }}</option>
+                </select>
+                <button type="button" class="btn btn-primary" style="background-color: #3b82f6; border-color: #3b82f6;" @click="addSafariExtra">
+                  <i class="fa fa-plus me-1"></i> Add
+                </button>
+              </div>
+
+              <!-- Safari Extras List -->
+              <div class="items-list">
+                <div class="list-header">
+                  <strong>Selected Safari Extras ({{ selectedSafariExtras.length }})</strong>
+                  <small class="text-muted">Click priority badge to toggle</small>
+                </div>
+                
+                <div v-if="selectedSafariExtras.length > 0" class="list-items">
+                  <div v-for="(extra, index) in selectedSafariExtras" :key="index" class="list-item">
+                    <div class="item-info">
+                      <strong>{{ extra.name }}</strong>
+                      <span v-if="extra.fromPackage" class="badge bg-info ms-2">from Package</span>
+                      <span 
+                        class="badge ms-2 cursor-pointer" 
+                        :class="extra.priority === 'MUST_HAVE' ? 'bg-danger' : 'bg-secondary'"
+                        @click="toggleSafariExtraPriority(index)"
+                        style="cursor: pointer;">
+                        {{ extra.priority === 'MUST_HAVE' ? 'MUST HAVE' : 'NICE TO HAVE' }}
+                      </span>
+                      <small class="text-muted ms-2" v-if="extra.description">{{ extra.description }}</small>
                     </div>
-
-                    <!-- Calculation Breakdown -->
-                    <div v-if="form.no_of_participants > 0 && huntDuration > 0" class="card bg-success bg-opacity-10 border-success">
-                      <div class="card-body">
-                        <div class="row g-3 align-items-center">
-                          <div class="col-md-8">
-                            <div class="d-flex align-items-center gap-3">
-                              <div class="text-center">
-                                <div class="text-muted small">Rate/Day</div>
-                                <div class="fw-bold">{{ cost.currency_code }} {{ parseFloat(cost.amount).toFixed(2) }}</div>
-                              </div>
-                              <span class="text-muted">×</span>
-                              <div class="text-center">
-                                <div class="text-muted small">Days</div>
-                                <div class="fw-bold">{{ huntDuration }}</div>
-                              </div>
-                              <span class="text-muted">×</span>
-                              <div class="text-center">
-                                <div class="text-muted small">Participants</div>
-                                <div class="fw-bold">{{ form.no_of_participants }}</div>
-                              </div>
-                              <span class="text-muted">=</span>
-                            </div>
-                          </div>
-                          <div class="col-md-4">
-                            <div class="text-end">
-                              <div class="text-muted small">Total Companion Cost</div>
-                              <div class="fw-bold fs-4 text-success">{{ cost.currency_code }} {{ (parseFloat(cost.amount) * form.no_of_participants * huntDuration).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}</div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <!-- Info message when no participants -->
-                    <div v-else class="alert alert-warning mb-0">
-                      <i class="fa fa-info-circle me-2"></i>
-                      <small>Enter number of participants and hunt duration to see total cost calculation</small>
+                    <div class="item-actions">
+                      <button type="button" class="btn btn-sm btn-outline-danger ms-2" @click="removeSafariExtra(index)">
+                        <i class="fa fa-trash"></i>
+                      </button>
                     </div>
                   </div>
                 </div>
-              </div>
-            </template>
-          </StaticElement>
-        </GroupElement>
-
-        <!-- Step 4: Review & Submit -->
-        <GroupElement name="reviewSection">
-          <template #label>
-            <div class="d-flex align-items-center gap-2 mb-2">
-              <i class="fa fa-clipboard-check text-primary fs-4"></i>
-              <h5 class="mb-0 fw-bold">Review Your Enquiry</h5>
-            </div>
-          </template>
-
-          <StaticElement name="reviewContent">
-            <div class="alert alert-info border-start border-4" role="alert">
-              <h6 class="alert-heading">Please Review</h6>
-              <p class="mb-0">Review all the information below before submitting your enquiry.</p>
-            </div>
-
-            <!-- Customer Summary -->
-            <div class="card mb-3">
-              <div class="card-header bg-light">
-                <div class="d-flex align-items-center gap-2">
-                  <i class="fa fa-user text-primary"></i>
-                  <h6 class="mb-0">Customer Information</h6>
+                <div v-else class="empty-list">
+                  <i class="fa fa-compass fa-2x text-muted mb-2"></i>
+                  <p>No safari extras selected yet. Add safari extras using the form above.</p>
                 </div>
               </div>
-              <div class="card-body">
-                <div class="row g-3 small">
-                  <div class="col-md-4"><span class="text-muted">Full Name:</span><span class="ms-2 fw-medium">{{ form.full_name || 'N/A' }}</span></div>
-                  <div class="col-md-4"><span class="text-muted">Country:</span><span class="ms-2 fw-medium">{{ getItemLabel(countryItems, form.country) }}</span></div>
-                  <div class="col-md-4"><span class="text-muted">Nationality:</span><span class="ms-2 fw-medium">{{ getItemLabel(nationalityItems, form.nationality) }}</span></div>
-                  <div class="col-md-4"><span class="text-muted">Email:</span><span class="ms-2 fw-medium">{{ form.email || 'N/A' }}</span></div>
-                  <div class="col-md-4"><span class="text-muted">Primary Phone:</span><span class="ms-2 fw-medium">{{ form.phone || 'N/A' }}</span></div>
-                  <div class="col-md-4"><span class="text-muted">Additional Phone:</span><span class="ms-2 fw-medium">{{ form.phone_additional || 'N/A' }}</span></div>
-                  <div class="col-12"><span class="text-muted">Address:</span><span class="ms-2 fw-medium">{{ form.address || 'N/A' }}</span></div>
+
+              <!-- Trophy Fees -->
+              <div v-if="trophyFees.length > 0">
+                <div class="section-divider">
+                  <span><i class="fa fa-trophy me-2"></i>Trophy Fees ({{ trophyFees.length }})</span>
+                </div>
+                <div class="fees-table">
+                  <div class="fee-row header">
+                    <span>Species</span>
+                    <span>Sequence</span>
+                    <span>Fee</span>
+                  </div>
+                  <div v-for="(fee, index) in trophyFees" :key="`trophy-${fee.id}-${index}`" class="fee-row">
+                    <span>{{ fee.species_name || 'Unknown' }}</span>
+                    <span><span class="badge bg-primary">{{ getSequenceLabel(fee.sequence_order) }}</span></span>
+                    <span class="fw-semibold">{{ fee.currency_code || 'USD' }} {{ fee.amount.toLocaleString() }}</span>
+                  </div>
                 </div>
               </div>
             </div>
+          </div>
 
-            <!-- Season & Package Summary -->
-            <div class="card mb-3">
-              <div class="card-header bg-light">
-                <div class="d-flex align-items-center gap-2">
-                  <i class="fa fa-box text-primary"></i>
-                  <h6 class="mb-0">Season & Package</h6>
+          <!-- Tab Content: More Details -->
+          <!-- Tab Content: Review -->
+          <div v-show="activeTab === 'review'" class="inner-card content-card">
+            <div class="content-body">
+              <!-- Remarks -->
+              <div class="review-section">
+                <div class="review-header">
+                  <i class="fa fa-comment text-primary me-2"></i>
+                  <h6>Enquiry Remarks</h6>
                 </div>
+                <textarea v-model="form.remarks" class="form-control mb-3" rows="3" placeholder="Add any additional remarks or notes for this enquiry (optional)..."></textarea>
               </div>
-              <div class="card-body">
-                <div class="row g-3 small">
-                  <div class="col-md-6"><span class="text-muted">Season:</span><span class="ms-2 fw-medium">{{ getItemLabel(seasonItems, form.season) }}</span></div>
-                  <div class="col-md-6"><span class="text-muted">Package:</span><span class="ms-2 fw-medium">{{ getItemLabel(packageItems, form.priceListId) || 'No package selected' }}</span></div>
-                </div>
-              </div>
-            </div>
 
-            <!-- Schedule Summary -->
-            <div class="card mb-3">
-              <div class="card-header bg-light">
-                <div class="d-flex align-items-center gap-2">
-                  <i class="fa fa-calendar text-primary"></i>
-                  <h6 class="mb-0">Schedule & Hunt Party</h6>
+              <!-- Customer Summary -->
+              <div class="review-section">
+                <div class="review-header">
+                  <i class="fa fa-user text-primary me-2"></i>
+                  <h6>Customer Information</h6>
+                </div>
+                <div class="review-grid">
+                  <div class="review-item"><span class="label">Full Name:</span><span class="value">{{ form.full_name || 'N/A' }}</span></div>
+                  <div class="review-item"><span class="label">Country:</span><span class="value">{{ getItemLabel(countryItems, form.country) }}</span></div>
+                  <div class="review-item"><span class="label">Nationality:</span><span class="value">{{ getItemLabel(nationalityItems, form.nationality) }}</span></div>
+                  <div class="review-item"><span class="label">Email:</span><span class="value">{{ form.email || 'N/A' }}</span></div>
+                  <div class="review-item"><span class="label">Phone:</span><span class="value">{{ form.phone || 'N/A' }}</span></div>
+                  <div class="review-item"><span class="label">Address:</span><span class="value">{{ form.address || 'N/A' }}</span></div>
                 </div>
               </div>
-              <div class="card-body">
-                <div class="row g-3 small mb-3">
-                  <div class="col-md-4"><span class="text-muted">Start Date:</span><span class="ms-2 fw-medium">{{ formatReviewDate(form.start_date) }}</span></div>
-                  <div class="col-md-4"><span class="text-muted">Days:</span><span class="ms-2 fw-medium">{{ form.no_of_days || 'N/A' }}</span></div>
-                  <div class="col-md-4"><span class="text-muted">End Date:</span><span class="ms-2 fw-medium text-info">{{ formatReviewDate(calculatedEndDate) }}</span></div>
-                </div>
-                <hr class="my-2" />
-                <div class="row g-3 small">
-                  <div class="col-md-4"><span class="text-muted">Hunting Area:</span><span class="ms-2 fw-medium">{{ getItemLabel(areaItems, form.area) }}</span></div>
-                  <div class="col-md-4"><span class="text-muted">Days:</span><span class="ms-2 fw-medium">{{ huntDuration || 'N/A' }}</span></div>
-                  <div class="col-md-4"><span class="text-muted">Participants:</span><span class="ms-2 fw-medium">{{ form.no_of_participants || 1 }}</span></div>
-                </div>
-                <hr class="my-2" />
-                <div class="row g-3 small">
-                  <div class="col-md-3"><span class="text-muted">Experience:</span><span class="ms-2 fw-medium">{{ form.prev_experience || 'N/A' }}</span></div>
-                </div>
-                <div v-if="form.special_requests" class="row g-3 small mt-1">
-                  <div class="col-12"><span class="text-muted">Special Requests:</span><span class="ms-2 fw-medium">{{ form.special_requests }}</span></div>
-                </div>
-              </div>
-            </div>
 
-            <!-- Enquiry Remarks -->
-            <div class="card mb-3">
-              <div class="card-header bg-light">
-                <div class="d-flex align-items-center gap-2">
-                  <i class="fa fa-comment text-primary"></i>
-                  <h6 class="mb-0">Enquiry Remarks</h6>
+              <!-- Season & Package Summary -->
+              <div class="review-section">
+                <div class="review-header">
+                  <i class="fa fa-box text-primary me-2"></i>
+                  <h6>Season & Package</h6>
+                </div>
+                <div class="review-grid">
+                  <div class="review-item"><span class="label">Season:</span><span class="value">{{ getItemLabel(seasonItems, form.season) }}</span></div>
+                  <div class="review-item"><span class="label">Package:</span><span class="value">{{ getItemLabel(packageItems, form.priceListId) || 'No package selected' }}</span></div>
                 </div>
               </div>
-              <div class="card-body">
-                <textarea v-model="form.remarks" class="form-control" rows="3"
-                  placeholder="Add any additional remarks or notes for this enquiry (optional)..."></textarea>
-              </div>
-            </div>
 
-            <!-- Species Summary -->
-            <div class="card mb-3">
-              <div class="card-header bg-light">
-                <div class="d-flex align-items-center gap-2">
-                  <i class="fa fa-paw text-primary"></i>
-                  <h6 class="mb-0">Selected Species ({{ speciesObjects.length }})</h6>
+              <!-- Schedule Summary -->
+              <div class="review-section">
+                <div class="review-header">
+                  <i class="fa fa-calendar text-primary me-2"></i>
+                  <h6>Schedule & Hunt Party</h6>
+                </div>
+                <div class="review-grid">
+                  <div class="review-item"><span class="label">Start Date:</span><span class="value">{{ formatReviewDate(form.start_date) }}</span></div>
+                  <div class="review-item"><span class="label">Days:</span><span class="value">{{ form.no_of_days || 'N/A' }}</span></div>
+                  <div class="review-item"><span class="label">End Date:</span><span class="value text-info">{{ formatReviewDate(calculatedEndDate) }}</span></div>
+                  <div class="review-item"><span class="label">Hunting Area:</span><span class="value">{{ form.area || 'N/A' }}</span></div>
+                  <div class="review-item"><span class="label">Participants:</span><span class="value">{{ form.no_of_participants || 1 }}</span></div>
+                  <div class="review-item"><span class="label">Experience:</span><span class="value">{{ form.prev_experience || 'N/A' }}</span></div>
                 </div>
               </div>
-              <div class="card-body">
-                <div v-if="speciesObjects.length > 0" class="d-flex flex-wrap gap-2">
+
+              <!-- Species Summary -->
+              <div class="review-section">
+                <div class="review-header">
+                  <i class="fa fa-paw text-primary me-2"></i>
+                  <h6>Selected Species ({{ speciesObjects.length }})</h6>
+                </div>
+                <div v-if="speciesObjects.length > 0" class="species-badges">
                   <span v-for="(s, index) in speciesObjects" :key="index" class="badge" :class="s.fromPackage ? 'bg-info' : 'bg-primary'">
                     {{ s.name }} (x{{ s.quantity }})
                   </span>
                 </div>
                 <span v-else class="text-muted">No species selected</span>
               </div>
-            </div>
 
-            <!-- Safari Extras Summary -->
-            <div v-if="selectedSafariExtras.length > 0" class="card mb-3">
-              <div class="card-header bg-light">
-                <div class="d-flex align-items-center gap-2">
-                  <i class="fa fa-hiking text-primary"></i>
-                  <h6 class="mb-0">Safari Extras ({{ selectedSafariExtras.length }})</h6>
+              <!-- Safari Extras Summary -->
+              <div v-if="selectedSafariExtras.length > 0" class="review-section">
+                <div class="review-header">
+                  <i class="fa fa-hiking text-primary me-2"></i>
+                  <h6>Safari Extras ({{ selectedSafariExtras.length }})</h6>
+                </div>
+                <div class="extras-badges">
+                  <div v-for="extra in selectedSafariExtras" :key="extra.id" class="extra-badge">
+                    <span class="extra-badge-name">{{ extra.name || 'Safari Extra' }}</span>
+                    <span class="extra-badge-price">{{ extra.currency_code || 'USD' }} {{ parseFloat(extra.amount || 0).toFixed(2) }}</span>
+                  </div>
                 </div>
               </div>
-              <div class="card-body">
-                <div class="d-flex flex-wrap gap-2">
-                  <div v-for="extra in selectedSafariExtras" :key="extra.id" class="badge bg-success text-start py-2 px-3">
-                    <div class="fw-bold">{{ extra.name || 'Safari Extra' }}</div>
-                    <div class="small">{{ extra.currency_code || 'USD' }} {{ parseFloat(extra.amount || 0).toFixed(2) }}</div>
+
+              <!-- Trophy Fees Summary -->
+              <div v-if="trophyFees.length > 0" class="review-section">
+                <div class="review-header">
+                  <i class="fa fa-trophy text-warning me-2"></i>
+                  <h6>Trophy Fees ({{ trophyFees.length }})</h6>
+                </div>
+                <div class="fees-table compact">
+                  <div class="fee-row header">
+                    <span>Species</span>
+                    <span>Sequence</span>
+                    <span>Fee</span>
+                  </div>
+                  <div v-for="(fee, index) in trophyFees" :key="`trophy-review-${fee.id}-${index}`" class="fee-row">
+                    <span>{{ fee.species_name || 'Unknown' }}</span>
+                    <span><span class="badge bg-primary">{{ getSequenceLabel(fee.sequence_order) }}</span></span>
+                    <span class="fw-semibold">{{ fee.currency_code || 'USD' }} {{ fee.amount.toLocaleString() }}</span>
                   </div>
                 </div>
               </div>
             </div>
-
-            <!-- Trophy Fees Summary -->
-            <div v-if="trophyFees.length > 0" class="card mb-3">
-              <div class="card-header bg-light">
-                <div class="d-flex align-items-center gap-2">
-                  <i class="fa fa-trophy text-warning"></i>
-                  <h6 class="mb-0">Trophy Fees ({{ trophyFees.length }})</h6>
-                </div>
-              </div>
-              <div class="card-body">
-                <div class="table-responsive">
-                  <table class="table table-hover table-sm mb-0">
-                    <thead>
-                      <tr>
-                        <th class="text-start">Species</th>
-                        <th class="text-center">Sequence</th>
-                        <th class="text-end">Fee</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr v-for="(fee, index) in trophyFees" :key="`trophy-review-${fee.id}-${index}`">
-                        <td class="fw-medium">{{ fee.species_name || 'Unknown' }}</td>
-                        <td class="text-center">
-                          <span class="badge bg-primary">{{ getSequenceLabel(fee.sequence_order) }}</span>
-                        </td>
-                        <td class="text-end fw-semibold">{{ fee.currency_code || 'USD' }} {{ fee.amount.toLocaleString() }}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-
-            <!-- Per Participant Costs Summary -->
-            <div v-if="companionCosts.length > 0 && form.no_of_participants > 0" class="card mb-3">
-              <div class="card-header bg-light">
-                <div class="d-flex align-items-center gap-2">
-                  <i class="fa fa-users text-info"></i>
-                  <h6 class="mb-0">Per Participant Daily Rate</h6>
-                </div>
-              </div>
-              <div class="card-body">
-                <div v-for="cost in companionCosts" :key="cost.id" class="d-flex justify-content-between align-items-center">
-                  <div>
-                    <span class="text-muted">{{ cost.description }}</span>
-                    <span class="ms-2 fw-medium">{{ cost.currency_code || 'USD' }} {{ cost.amount.toLocaleString() }}/day/participant</span>
-                  </div>
-                  <div class="fw-bold text-info">
-                    Est: {{ cost.currency_code || 'USD' }} {{ (cost.amount * form.no_of_participants * (huntDuration || 1)).toLocaleString() }}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </StaticElement>
-        </GroupElement>
-
-        <!-- Wizard Navigation Controls -->
-        <FormStepsControls>
-          <template #previous="{ previous, isDisabled }">
-            <button 
-              type="button" 
-              class="btn btn-outline-secondary me-2"
-              :disabled="isDisabled"
-              @click="previous"
-            >
-              <i class="fa fa-arrow-left me-1"></i> Back
-            </button>
-          </template>
-          <template #next="{ next, isDisabled }">
-            <button 
-              type="button" 
-              class="btn btn-primary"
-              :disabled="isDisabled"
-              @click="next"
-            >
-              Next Step <i class="fa fa-arrow-right ms-1"></i>
-            </button>
-          </template>
-          <template #finish="{ finish, isDisabled }">
-            <button 
-              type="button" 
-              class="btn btn-success"
-              :disabled="isDisabled || saving"
-              @click="finish"
-            >
-              <i class="fa fa-check me-1"></i> {{ saving ? 'Saving...' : 'Submit Enquiry' }}
-            </button>
-          </template>
-        </FormStepsControls>
-      </template>
-    </Vueform>
-
-    <!-- Cancel Button -->
-    <div class="mt-3 text-end">
-      <button type="button" class="btn btn-outline-secondary" @click="cancelWizard">
-        <i class="fa fa-times me-1"></i> Cancel
-      </button>
-    </div>
+          </div>
+        </section>
+      </section>
+    </main>
   </div>
 </template>
 
+
+
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import axios from 'axios'
 import Swal from 'sweetalert2'
 import handleErrors from '@/stores/bushman/errorHandler'
@@ -988,12 +467,19 @@ import { salesEnquiryService } from '@/stores/bushman/salesEnquiryService'
 import { useSettingsStore } from '@/stores/bushman/settings-store'
 import { usePriceListStore } from '@/stores/bushman/price-list-store'
 import { useAuthStore } from '@/stores/auth'
+import { useAppOptionStore } from '@/stores/app-option'
+import CurrencyInput from '@/components/CurrencyInput.vue'
 
-const props = defineProps<{ editRow?: any | null }>()
+const props = defineProps<{ 
+  editRow?: any | null
+  customerData?: any | null
+}>()
 const emit = defineEmits<{ (e: 'cancel'): void; (e: 'saved'): void }>()
 
 const vueformRef = ref<any>(null)
 const { init } = useToast()
+const appOptionStore = useAppOptionStore()
+const originalSidebarState = ref<boolean>(false)
 
 // Form state - reactive object that syncs with Vueform
 const form = reactive({
@@ -1029,6 +515,8 @@ const form = reactive({
 const countries = ref<any[]>([])
 const nationality = ref<any[]>([])
 const speciesOptions = ref<any[]>([])
+const selectedAreaSpecies = ref<any[]>([])
+const areaSpeciesLoaded = ref(false)
 const speciesObjects = ref<any[]>([])
 const areasOptions = ref<any[]>([])
 const seasonsOptions = ref<any[]>([])
@@ -1038,6 +526,7 @@ const existingCustomersOptions = ref<any[]>([])
 const saving = ref(false)
 const loadingPackageItems = ref(false)
 const loadingCustomers = ref(false)
+const loadingAreaSpecies = ref(false)
 
 const seasonMinDate = ref<Date | null>(null)
 const seasonMaxDate = ref<Date | null>(null)
@@ -1045,13 +534,33 @@ const bookedDates = ref<Array<{ start_date: string; end_date: string; client_nam
 const loadingBookedDates = ref(false)
 const dateConflictWarning = ref('')
 
+// Tab navigation state
+const activeTab = ref('species')
+const selectedSpeciesId = ref<number | null>(null)
+const speciesQuantity = ref(1)
+
+const tabs = [
+  { key: 'species', label: 'Species', icon: 'fa fa-paw' },
+  { key: 'extras', label: 'Extras', icon: 'fa fa-hiking' },
+  { key: 'review', label: 'Review', icon: 'fa fa-clipboard-check' }
+]
+
+// Get count for tab badge
+const getTabCount = (tabKey: string): number => {
+  switch (tabKey) {
+    case 'extras':
+      return selectedSafariExtras.value.length
+    default:
+      return 0
+  }
+}
+
 const isEditMode = ref(false)
 const editingInquiryId = ref<number | null>(null)
 
-const customerType = ref<'new' | 'existing'>('new')
-const selectedExistingCustomer = ref<any>(null)
-
 const selectedSafariExtras = ref<any[]>([])
+const safariExtrasOptions = ref<any[]>([])
+const selectedSafariExtraId = ref<number | null>(null)
 const trophyFees = ref<any[]>([])
 const companionCosts = ref<any[]>([])
 const selectedPackageDetail = ref<any>(null)
@@ -1098,7 +607,7 @@ const packageItems = computed(() =>
   packagesOptions.value.map((pkg: any) => ({
     value: pkg.value,
     label: pkg.selfItem 
-      ? `${pkg.text} - ${pkg.selfItem?.price_structure?.location_name || 'N/A'} • ${pkg.selfItem?.hunting_type_name || 'N/A'} • ${pkg.selfItem?.hunt_length_days || 0} days • ${pkg.selfItem?.currency_symbol || '$'}${pkg.selfItem?.amount || '0'}`
+      ? `${pkg.text}, ${pkg.selfItem?.price_structure?.location_name || 'N/A'}, ${pkg.selfItem?.hunting_type_name || 'N/A'}, ${pkg.selfItem?.hunt_length_days || 0} days, ${pkg.selfItem?.currency_symbol || '$'}${pkg.selfItem?.amount || '0'}`
       : pkg.text,
     selfItem: pkg.selfItem
   }))
@@ -1108,14 +617,38 @@ const areaItems = computed(() =>
   areasOptions.value.map((a: any) => ({ value: a.value, label: a.text }))
 )
 
-const speciesItems = computed(() => 
-  speciesOptions.value.map((s: any) => ({ value: s.value, label: s.text }))
+const gameAreaItems = computed(() => 
+  areasOptions.value
+    // Accept both "game" and "GAME" and also check selfItem.type when available
+    .filter((a: any) => (a.type && String(a.type).toLowerCase() === 'game') || (a.selfItem && String(a.selfItem.type).toLowerCase() === 'game'))
+    .map((a: any) => ({
+      value: a.value,
+      // For GAME locations prefer the hunting area name and append the location code when available
+      label: (a.selfItem && String(a.selfItem.type).toLowerCase() === 'game' && a.selfItem.hunting_areas && a.selfItem.hunting_areas.length > 0)
+        ? `${a.selfItem.hunting_areas[0].name}${a.selfItem.code ? ` (${a.selfItem.code})` : ''}`
+        : a.text,
+      selfItem: a.selfItem
+    }))
+)
+
+const speciesItems = computed(() => {
+  const useAreaSpecies = !!form.area && areaSpeciesLoaded.value
+  const source = useAreaSpecies ? selectedAreaSpecies.value : speciesOptions.value
+  return source.map((s: any) => ({ value: s.value, label: s.text }))
+})
+
+const safariExtrasItems = computed(() => 
+  safariExtrasOptions.value.map((item: any) => ({ 
+    value: item.id, 
+    label: `${item.name} - ${item.description || ''}`,
+    item: item
+  }))
 )
 
 const existingCustomerItems = computed(() => 
   existingCustomersOptions.value.map((c: any) => ({ 
     value: c.value, 
-    label: `${c.text} - ${c.selfItem?.email || 'N/A'} • ${c.selfItem?.country || 'N/A'}`,
+    label: `${c.text} - ${c.selfItem?.email || 'N/A'} ◆ ${c.selfItem?.country || 'N/A'}`,
     selfItem: c.selfItem
   }))
 )
@@ -1175,26 +708,66 @@ const getItemLabel = (items: any[], value: any) => {
   return item?.label || 'N/A'
 }
 
-// Event handlers for Vueform
-const onCustomerTypeChange = (newValue: string) => {
-  customerType.value = newValue as 'new' | 'existing'
-  selectedExistingCustomer.value = null
-  clearCustomerInformation()
+const getAreaOptionFromSelection = (selection: any) => {
+  if (!selection) return null
+  if (typeof selection === 'number') {
+    return areasOptions.value.find((a: any) => a.value === selection) || null
+  }
+  const byText = areasOptions.value.find((a: any) => a.text === selection)
+  if (byText) return byText
+  return areasOptions.value.find((a: any) =>
+    Array.isArray(a.selfItem?.hunting_areas) &&
+    a.selfItem.hunting_areas.some((h: any) => h?.name === selection)
+  ) || null
 }
 
-const onExistingCustomerSelect = (option: any) => {
-  if (!option) {
-    clearCustomerInformation()
+const getHuntingAreaIdFromOption = (areaOption: any, selection: any) => {
+  if (!areaOption?.selfItem?.hunting_areas) return null
+  const list = areaOption.selfItem.hunting_areas
+  if (typeof selection === 'string') {
+    const match = list.find((h: any) => h?.name === selection)
+    if (match?.id) return match.id
+  }
+  return list[0]?.id || null
+}
+
+const normalizeAreaSpecies = (list: any[]) =>
+  (list || []).map((s: any) => ({
+    value: s.id,
+    text: s.name,
+    scientific_name: s.scientific_name || ''
+  }))
+
+const loadAreaSpeciesForWizard = async (selection: any) => {
+  const areaOption = getAreaOptionFromSelection(selection)
+  const huntingAreaId = getHuntingAreaIdFromOption(areaOption, selection)
+
+  if (!areaOption || !huntingAreaId) {
+    selectedAreaSpecies.value = []
+    areaSpeciesLoaded.value = false
     return
   }
-  // With object=true and @select, we get the full option object
-  // Find the original customer data using the value
-  const customer = existingCustomersOptions.value.find((c: any) => c.value === option.value)
-  if (customer) {
-    selectedExistingCustomer.value = customer.value
-    populateFormFromCustomer(customer)
+
+  loadingAreaSpecies.value = true
+  areaSpeciesLoaded.value = false
+  try {
+    const response = await axios.get(`${apiBaseUrl}/locations/hunting-areas/${huntingAreaId}`, {
+      headers: { 'Content-Type': 'application/json' },
+    })
+    const list = response.data?.data?.species || []
+    selectedAreaSpecies.value = normalizeAreaSpecies(list)
+    areaSpeciesLoaded.value = true
+  } catch (error) {
+    console.error('Error loading area species:', error)
+    selectedAreaSpecies.value = []
+    areaSpeciesLoaded.value = false
+  } finally {
+    loadingAreaSpecies.value = false
   }
 }
+
+// Customer data is now received from CustomerSelectionModal via props
+// No need for customer type change handlers here
 
 const onSeasonChange = async (value: any) => {
   form.season = value
@@ -1219,12 +792,24 @@ const onSeasonChange = async (value: any) => {
 }
 
 const onPackageChange = async (value: any) => {
+  console.log('onPackageChange called with value:', value)
   form.priceListId = value
+  
+  if (!value) {
+    console.log('No package selected, clearing species')
+    speciesObjects.value = []
+    return
+  }
+  
   await populateFormFromPackage()
 }
 
 const onStartDateChange = (newValue: any) => {
-  form.start_date = newValue || ''
+  // Vueform @change event passes the value directly
+  const dateValue = newValue?.target?.value ?? newValue
+  console.log('onStartDateChange called with:', dateValue)
+  form.start_date = dateValue || null
+  console.log('form.start_date set to:', form.start_date)
   checkBookedDateConflict()
 }
 
@@ -1255,7 +840,7 @@ const syncFormData = () => {
   form.start_date = data.start_date || null
   form.no_of_days = Number(data.no_of_days) || 0
   form.area = data.area || null
-  form.no_of_participants = Number(data.no_of_participants) || 1
+  form.no_of_participants = Number(form.no_of_hunters) || Number(data.no_of_participants) || 1
   form.prev_experience = data.prev_experience || ''
   form.special_requests = data.special_requests || ''
   createQuotation.value = data.createQuotation || false
@@ -1269,26 +854,32 @@ const handleSubmit = async (formData: any, form$: any) => {
 
 // Add species to list
 const addSpeciesToList = () => {
-  if (!vueformRef.value) return
-  const data = vueformRef.value.data
-  const selectedSpecies = data.selectedSpecies
-  const quantity = Number(data.speciesQuantity) || 1
-
-  if (!selectedSpecies) {
+  if (!form.area) {
+    init({ message: 'Please select a hunting area to load species.', color: 'warning' })
+    return
+  }
+  if (loadingAreaSpecies.value) {
+    init({ message: 'Species are still loading for this area. Please wait.', color: 'warning' })
+    return
+  }
+  if (!selectedSpeciesId.value) {
     init({ message: 'Please select a species.', color: 'warning' })
     return
   }
+
+  const quantity = Number(speciesQuantity.value) || 1
 
   if (quantity <= 0) {
     init({ message: 'Quantity must be greater than zero.', color: 'warning' })
     return
   }
 
-  const exists = speciesObjects.value.some((species: { species_id: any }) => species.species_id === selectedSpecies)
+  const exists = speciesObjects.value.some((species: { species_id: any }) => species.species_id === selectedSpeciesId.value)
   if (!exists) {
-    const speciesOption = speciesOptions.value.find((s: any) => s.value === selectedSpecies)
+    const source = !!form.area && areaSpeciesLoaded.value ? selectedAreaSpecies.value : speciesOptions.value
+    const speciesOption = source.find((s: any) => s.value === selectedSpeciesId.value)
     speciesObjects.value.push({
-      species_id: selectedSpecies,
+      species_id: selectedSpeciesId.value,
       name: speciesOption?.text || 'Unknown',
       quantity: quantity,
       priority: 'NICE_TO_HAVE',
@@ -1296,7 +887,9 @@ const addSpeciesToList = () => {
       fromPackage: false,
     })
     // Reset selection
-    vueformRef.value.update({ selectedSpecies: null, speciesQuantity: 1 })
+    selectedSpeciesId.value = null
+    speciesQuantity.value = 1
+    init({ message: `Added "${speciesOption?.text || 'Unknown'}" to species list`, color: 'success' })
   } else {
     init({ message: 'This species is already added. Update the quantity instead.', color: 'warning' })
   }
@@ -1338,15 +931,8 @@ const hasInput = (value: any) => {
 const canProceedToNextStep = computed(() => {
   switch (currentStep.value) {
     case 0:
-      return (
-        hasInput(form.full_name) &&
-        hasInput(form.country) &&
-        hasInput(form.nationality) &&
-        hasInput(form.email) &&
-        hasInput(form.phone) &&
-        hasInput(form.address) &&
-        (customerType.value === 'existing' ? hasInput(selectedExistingCustomer.value) : true)
-      )
+      // Customer data is pre-validated by CustomerSelectionModal, just check entity_id exists
+      return !!(props.customerData?.entity_id)
     case 1:
       return (
         hasInput(form.season) &&
@@ -1361,6 +947,29 @@ const canProceedToNextStep = computed(() => {
     default:
       return false
   }
+})
+
+// Validation for submit button
+const canSubmit = computed(() => {
+  // Customer info may come either from selected customer (props.customerData.entity_id)
+  // or from filled form fields (full_name, country, nationality, email)
+  const hasCustomerInfo = !!props.customerData?.entity_id || (
+    hasInput(form.full_name) &&
+    hasInput(form.country) &&
+    hasInput(form.nationality) &&
+    hasInput(form.email)
+  )
+
+  return (
+    hasCustomerInfo &&
+    hasInput(form.season) &&
+    hasInput(form.start_date) &&
+    // Area may be optional in some cases, but require when available
+    // (keep existing behavior for now)
+    hasInput(form.area) &&
+    form.no_of_days > 0 &&
+    speciesObjects.value.length > 0
+  )
 })
 
 const filteredPackagesOptions = computed(() => {
@@ -1410,8 +1019,6 @@ const resetEditMode = () => {
   companionCosts.value = []
   selectedPackageDetail.value = null
   resetQuotationForm()
-  customerType.value = 'new'
-  selectedExistingCustomer.value = null
   currentStep.value = 0
   form.remarks = ''
   form.prev_experience = ''
@@ -1528,17 +1135,33 @@ const apiBaseUrl = (() => {
 
 const getSpecies = async () => {
   try {
-    const response = await axios.get(`${apiBaseUrl}/settings/price-items`, {
+    const response = await axios.get(`${apiBaseUrl}/settings/species/`, {
       headers: { 'Content-Type': 'application/json' },
     })
     const raw = response.data?.data ?? response.data ?? []
     const dataArray = Array.isArray(raw) ? raw : []
+    // Map species directly from the species endpoint
     speciesOptions.value = dataArray
-      .flatMap((item: any) => item.sales_packages || [])
-      .flatMap((pkg: any) => pkg.species || [])
-      .map((sp: any) => ({ value: sp.species_id, text: sp.species_name }))
+      .filter((species: any) => species.is_active !== false) // Only include active species
+      .map((species: any) => ({ 
+        value: species.id, 
+        text: species.name,
+        scientific_name: species.scientific_name || ''
+      }))
   } catch (error) {
-    console.error('Error loading items:', error)
+    console.error('Error loading species:', error)
+  }
+}
+
+const getSafariExtras = async () => {
+  try {
+    const response = await axios.get(`${apiBaseUrl}/settings/items?subtype=SAFARI_EXTRA`, {
+      headers: { 'Content-Type': 'application/json' },
+    })
+    const raw = response.data?.data ?? response.data ?? []
+    safariExtrasOptions.value = Array.isArray(raw) ? raw : []
+  } catch (error) {
+    console.error('Error loading safari extras:', error)
   }
 }
 
@@ -1549,7 +1172,7 @@ const getAreas = async () => {
     })
     const raw = response.data?.data ?? response.data ?? []
     const dataArray = Array.isArray(raw) ? raw : Array.isArray(raw?.data) ? raw.data : []
-    areasOptions.value = dataArray.map((item: any) => ({ value: item.id, text: item.name }))
+    areasOptions.value = dataArray.map((item: any) => ({ value: item.id, text: item.name, type: item.type, selfItem: item }))
   } catch (error) {
     console.log(error)
   }
@@ -1597,11 +1220,16 @@ const getPL = async () => {
     const dataArray = Array.isArray(response.data?.data)
       ? response.data.data
       : Array.isArray(response.data) ? response.data : []
+    
+    console.log('Packages loaded from API:', dataArray)
+    
     packagesOptions.value = dataArray.map((item: any) => ({
       value: item.id,
       text: item.package_name || item.name || item.code || `Package #${item.id}`,
       selfItem: item,
     }))
+    
+    console.log('Packages options after mapping:', packagesOptions.value)
   } catch (error) {
     console.error('Error loading packages:', error)
   }
@@ -1713,17 +1341,6 @@ const populateFormFromCustomer = (customer: any) => {
   }
 }
 
-watch(customerType, () => {
-  selectedExistingCustomer.value = null
-  clearCustomerInformation()
-})
-
-watch(selectedExistingCustomer, (newValue) => {
-  if (!newValue && customerType.value === 'existing') {
-    clearCustomerInformation()
-  }
-})
-
 const onSeasonSelected = async (selectedSeason: any) => {
   dateConflictWarning.value = ''
   form.start_date = null
@@ -1801,21 +1418,19 @@ const populateFormFromPackage = async () => {
 
   // Reset all package-related data
   speciesObjects.value = []
-  selectedSafariExtras.value = []
+  // Safari extras are never loaded from package, so no need to filter
   trophyFees.value = []
   companionCosts.value = []
   selectedPackageDetail.value = null
 
-  // Get area from price_structure.location_name
+  // Get area from price_structure.location_name and set it directly as the display value
   const areaName = pkgData?.price_structure?.location_name
   if (areaName) {
-    const areaOption = areasOptions.value.find((a: any) => a.text === areaName)
-    if (areaOption) {
-      form.area = areaOption.value
-      // Also update Vueform
-      if (vueformRef.value) {
-        vueformRef.value.update({ area: areaOption.value })
-      }
+    // Set the area directly as the location name (read-only)
+    form.area = areaName
+    // Also update Vueform
+    if (vueformRef.value) {
+      vueformRef.value.update({ area: areaName })
     }
   }
 
@@ -1833,42 +1448,45 @@ const populateFormFromPackage = async () => {
   if (priceStructureDetailId) {
     loadingPackageItems.value = true
     try {
+      console.log('Fetching package items for priceStructureDetailId:', priceStructureDetailId)
       const response = await salesEnquiryService.previewPriceItems(priceStructureDetailId)
-      if (response.success && response.data) {
-        const data = response.data
+      console.log('Preview price items response:', response)
+      
+      // Handle both response structures: { success, data } or direct data
+      const responseData = response?.data || response
+      const isSuccess = response?.success !== false // Consider success if not explicitly false
+      
+      if (isSuccess && responseData) {
+        const data = responseData.data || responseData
+
+        console.log('Package data to process:', data)
+        console.log('Species in package:', data?.species)
 
         // Store full package detail info for preview
         selectedPackageDetail.value = data
 
         // Populate species (item_preferences)
-        if (Array.isArray(data.species)) {
+        if (Array.isArray(data.species) && data.species.length > 0) {
+          console.log('Populating species from package:', data.species.length, 'items')
           data.species.forEach((s: any) => {
+            console.log('Adding species:', s)
             speciesObjects.value.push({
-              species_id: s.item_id,
-              name: s.item_name,
+              species_id: s.item_id || s.species_id || s.id,
+              name: s.item_name || s.species_name || s.name || 'Unknown',
               quantity: s.quantity || 1,
               notes: s.notes || '',
               priority: 'NICE_TO_HAVE',
               fromPackage: true,
             })
           })
+          console.log('Species objects after population:', speciesObjects.value)
+        } else {
+          console.warn('No species found in package data or species array is empty, trying fallback...')
+          // Try fallback to get species from the package's selfItem
+          populateFormFromPackageFallback(pkg)
         }
 
-        // Populate safari extras (includes observer fees)
-        if (Array.isArray(data.safari_extras)) {
-          data.safari_extras.forEach((extra: any) => {
-            selectedSafariExtras.value.push({
-              id: extra.id,
-              safari_extra_id: extra.safari_extra_id,
-              name: extra.item_name || extra.name || extra.description || 'Safari Extra',
-              description: extra.description || '',
-              amount: parseFloat(extra.amount) || 0,
-              charges_per: extra.pricing_unit || extra.charges_per,
-              currency_code: extra.currency_code,
-              fromPackage: true,
-            })
-          })
-        }
+        // Safari extras are NOT loaded from package - only manually added from items table
 
         // Populate trophy fees
         if (Array.isArray(data.trophy_fees)) {
@@ -1938,47 +1556,54 @@ const populateFormFromPackage = async () => {
 
 // Fallback method if preview endpoint is not available
 const populateFormFromPackageFallback = (pkg: any) => {
-  // Get species from sales_packages[0].species
-  const salesPackages = pkg?.sales_packages || []
-  if (Array.isArray(salesPackages) && salesPackages.length > 0) {
-    const firstPackage = salesPackages[0]
-    const pkgSpecies = firstPackage?.species || []
-    
-    if (Array.isArray(pkgSpecies)) {
-      pkgSpecies.forEach((s: any) => {
-        const speciesId = s.species_id
-        const speciesName = s.species_name || s.species?.name || 'Unknown'
-        const quantity = s.quantity || 1
-        if (speciesId) {
-          speciesObjects.value.push({ 
-            species_id: speciesId, 
-            name: speciesName, 
-            quantity, 
-            priority: 'NICE_TO_HAVE',
-            fromPackage: true 
-          })
-        }
-      })
+  console.log('Using fallback method for package species. Package:', pkg)
+  
+  const pkgData = pkg?.selfItem || pkg
+  console.log('Package data for fallback:', pkgData)
+  
+  // Try multiple possible locations for species data
+  // Option 1: Direct species array on the package
+  let speciesArray = pkgData?.species || []
+  
+  // Option 2: species in sales_packages[0].species
+  if ((!speciesArray || speciesArray.length === 0) && pkgData?.sales_packages) {
+    const salesPackages = pkgData.sales_packages
+    if (Array.isArray(salesPackages) && salesPackages.length > 0) {
+      speciesArray = salesPackages[0]?.species || []
     }
   }
-
-  // Safari extras from old structure
-  const extras = pkg?.safari_extras || []
-  if (Array.isArray(extras)) {
-    extras.forEach((e: any) => {
-      const extra = e.safari_extra || e
-      selectedSafariExtras.value.push({
-        id: extra.id,
-        safari_extra_id: extra.id,
-        name: extra.name,
-        description: extra.description,
-        amount: extra.amount,
-        charges_per: extra.charges_per,
-        currency_code: extra.currency?.code || 'USD',
-        fromPackage: true,
-      })
-    })
+  
+  // Option 3: item_preferences array
+  if ((!speciesArray || speciesArray.length === 0) && pkgData?.item_preferences) {
+    speciesArray = pkgData.item_preferences
   }
+  
+  console.log('Species array found in fallback:', speciesArray)
+  
+  if (Array.isArray(speciesArray) && speciesArray.length > 0) {
+    speciesArray.forEach((s: any) => {
+      const speciesId = s.species_id || s.item_id || s.id
+      const speciesName = s.species_name || s.item_name || s.name || s.species?.name || 'Unknown'
+      const quantity = s.quantity || 1
+      
+      console.log('Adding species from fallback:', { speciesId, speciesName, quantity })
+      
+      if (speciesId) {
+        speciesObjects.value.push({ 
+          species_id: speciesId, 
+          name: speciesName, 
+          quantity, 
+          priority: 'NICE_TO_HAVE',
+          fromPackage: true 
+        })
+      }
+    })
+    console.log('Species objects after fallback:', speciesObjects.value)
+  } else {
+    console.warn('No species found in fallback method')
+  }
+
+  // Safari extras are NOT loaded from package - only manually added from items table
 }
 
 const addNewSpeciesItemToStorage = () => {
@@ -2026,6 +1651,41 @@ const togglePriority = (index: number) => {
   if (speciesObjects.value[index]) {
     speciesObjects.value[index].priority = 
       speciesObjects.value[index].priority === 'MUST_HAVE' ? 'NICE_TO_HAVE' : 'MUST_HAVE'
+  }
+}
+
+const toggleSafariExtraPriority = (index: number) => {
+  if (selectedSafariExtras.value[index]) {
+    selectedSafariExtras.value[index].priority = 
+      selectedSafariExtras.value[index].priority === 'MUST_HAVE' ? 'NICE_TO_HAVE' : 'MUST_HAVE'
+  }
+}
+
+const addSafariExtra = () => {
+  if (!selectedSafariExtraId.value) {
+    init({ message: 'Please select a safari extra', color: 'warning' })
+    return
+  }
+
+  // Check if already added
+  const exists = selectedSafariExtras.value.some((e: any) => e.id === selectedSafariExtraId.value)
+  if (exists) {
+    init({ message: 'This safari extra is already added', color: 'warning' })
+    return
+  }
+
+  const safariExtraOption = safariExtrasItems.value.find((item: any) => item.value === selectedSafariExtraId.value)
+  if (safariExtraOption && safariExtraOption.item) {
+    const item = safariExtraOption.item
+    selectedSafariExtras.value.push({
+      id: item.id,
+      name: item.name,
+      description: item.description,
+      priority: 'NICE_TO_HAVE',
+      fromPackage: false
+    })
+    init({ message: `Added "${item.name}" to safari extras`, color: 'success' })
+    selectedSafariExtraId.value = null
   }
 }
 
@@ -2085,6 +1745,8 @@ const submit = async () => {
   }
 
   // Build the request payload according to backend SalesEnquiryController expectations
+  console.log('form.start_date before payload:', form.start_date)
+  
   const requestdata: any = {
     // Core enquiry fields
     date: form.start_date || new Date().toISOString().split('T')[0],
@@ -2092,9 +1754,19 @@ const submit = async () => {
     season_id: form.season || null,
     status: isEditMode.value ? undefined : 'NEW', // Only set status on create
     remarks: form.remarks || null,
+    price_structure_detail_id: form.priceListId || null, // Include selected package/price structure
     
     // Areas - backend expects array of { location_id }
-    areas: form.area ? [{ location_id: form.area }] : [],
+    // Look up the area ID from the area name if form.area is a string
+    areas: form.area ? (() => {
+      // If form.area is already a number (ID), use it directly
+      if (typeof form.area === 'number') {
+        return [{ location_id: form.area }]
+      }
+      // If form.area is a string (name), look up the ID
+      const areaOption = areasOptions.value.find((a: any) => a.text === form.area)
+      return areaOption ? [{ location_id: areaOption.value }] : []
+    })() : [],
     
     // Item preferences (game preferences) - backend expects item_id, not species_item_id
     item_preferences: speciesObjects.value.map((item: any) => ({
@@ -2104,10 +1776,16 @@ const submit = async () => {
       notes: item.notes || null,
     })),
     
+    // Safari extras - send item IDs with priority
+    safari_extras: selectedSafariExtras.value.map((extra: any) => ({
+      item_id: extra.id,
+      priority: extra.priority || 'NICE_TO_HAVE',
+    })),
+    
     // Preference - backend uses no_of_participants
     preference: {
       prev_experience: form.prev_experience || null,
-      no_of_participants: form.no_of_participants || 1,
+      no_of_participants: form.no_of_hunters || form.no_of_participants || 1,
       preferred_start_date: form.start_date || null,
       no_of_days: form.no_of_days || null,
       budget_min: form.budget_min || null,
@@ -2117,37 +1795,25 @@ const submit = async () => {
     },
   }
 
-  // Either use existing entity_id OR create new client
-  if (customerType.value === 'existing' && selectedExistingCustomer.value) {
-    requestdata.entity_id = selectedExistingCustomer.value
-  } else {
-    // Create new client with contacts
-    // Backend expects: contact_type_id 1=email, 2=phone, 3=address
-    const contacts: Array<{ contact_type_id: number; contact: string; contactable: boolean }> = []
-    
-    if (form.email) {
-      contacts.push({ contact_type_id: 1, contact: form.email, contactable: true })
-    }
-    if (form.phone) {
-      contacts.push({ contact_type_id: 2, contact: form.phone, contactable: true })
-    }
-    if (form.phone_additional) {
-      contacts.push({ contact_type_id: 2, contact: form.phone_additional, contactable: true })
-    }
-    if (form.address) {
-      contacts.push({ contact_type_id: 3, contact: form.address, contactable: false })
-    }
-    
-    requestdata.client = {
-      full_name: form.full_name,
-      nick_name: form.nick_name || null,
-      country_id: form.country || null,
-      nationality_id: form.nationality || null,
-      contacts,
-    }
+  // Get entity_id directly from customerData prop (passed from CustomerSelectionModal)
+  const entityId = props.customerData?.entity_id
+  
+  if (!entityId) {
+    console.error('No entity_id found in customerData!')
+    Swal.fire({
+      icon: 'error',
+      title: 'Error',
+      text: 'Customer information is missing. Please select or create a customer first.',
+    })
+    return
   }
+  
+  requestdata.entity_id = entityId
+  console.log('Submitting with entity_id:', entityId)
 
   try {
+    console.log('Final requestdata being sent:', JSON.stringify(requestdata, null, 2))
+    
     let response: any
     if (isEditMode.value && editingInquiryId.value) {
       response = await salesEnquiryService.update(editingInquiryId.value, requestdata)
@@ -2199,7 +1865,8 @@ const submit = async () => {
 
 const getSpeciesNameById = (speciesId: number): string | null => {
   if (!speciesId) return null
-  const species = speciesOptions.value.find((s: any) => s.value === speciesId)
+  const source = !!form.area && areaSpeciesLoaded.value ? selectedAreaSpecies.value : speciesOptions.value
+  const species = source.find((s: any) => s.value === speciesId)
   return species ? species.text : null
 }
 
@@ -2276,14 +1943,16 @@ const loadInquiryForEdit = (rowData: any) => {
   form.no_of_days = prefs.no_of_days || 0
 
   // Load areas - backend returns areas with location_id and location object
+  // Set area as the location name for display (read-only field)
   const locationId = item.areas?.[0]?.location_id
   const locationName = item.areas?.[0]?.location?.name
-  if (locationId) {
+  if (locationName) {
+    // Use the location name directly
+    form.area = locationName
+  } else if (locationId) {
+    // If only ID is available, look up the name
     const areaOption = areasOptions.value.find((a: any) => a.value === locationId)
-    if (areaOption) form.area = areaOption.value
-  } else if (locationName) {
-    const areaOption = areasOptions.value.find((a: any) => a.text === locationName)
-    if (areaOption) form.area = areaOption.value
+    if (areaOption) form.area = areaOption.text
   }
 
   // Load season
@@ -2312,17 +1981,11 @@ const loadInquiryForEdit = (rowData: any) => {
 
   selectedSafariExtras.value = []
 
-  // Set customer type to existing since we're editing
-  customerType.value = 'existing'
-  if (item.entity_id) {
-    selectedExistingCustomer.value = item.entity_id
-  }
+
 
   // Update Vueform with loaded values
   if (vueformRef.value) {
     vueformRef.value.update({
-      customerType: 'existing',
-      existingCustomer: item.entity_id,
       full_name: form.full_name,
       country: form.country,
       nationality: form.nationality,
@@ -2353,29 +2016,1631 @@ const loadHuntLengths = async () => {
   }
 }
 
+// Initialize form data from customerData prop
+const initializeFromCustomerData = () => {
+  if (!props.customerData) return
+
+  const data = props.customerData
+  
+  console.log('Loading customer data:', data)
+  console.log('Entity ID received:', data.entity_id)
+  
+  // Populate form fields for display only
+  form.full_name = data.full_name || ''
+  form.nick_name = data.nick_name || ''
+  form.country = data.country || null
+  form.nationality = data.nationality || null
+  form.email = data.email || ''
+  form.phone = data.phone || ''
+  form.phone_additional = data.phone_additional || ''
+  form.address = data.address || ''
+  
+  // Update Vueform if available
+  if (vueformRef.value) {
+    vueformRef.value.update({
+      full_name: form.full_name,
+      country: form.country,
+      nationality: form.nationality,
+      email: form.email,
+      phone: form.phone,
+      phone_additional: form.phone_additional,
+      address: form.address,
+    })
+  }
+}
+
+watch(
+  () => props.customerData,
+  (newData) => {
+    if (newData) {
+      initializeFromCustomerData()
+    }
+  },
+  { immediate: true },
+)
+
 watch(
   () => props.editRow,
-  (row) => {
-    resetEditMode()
+  (row, oldRow) => {
+    // Only reset if there was a previous row (not on initial mount)
+    if (oldRow !== undefined) {
+      resetEditMode()
+    }
     if (row) loadInquiryForEdit(row)
   },
   { immediate: true },
 )
 
+watch(
+  [() => form.area, () => areasOptions.value.length],
+  ([areaValue]) => {
+    selectedSpeciesId.value = null
+    if (!areaValue) {
+      selectedAreaSpecies.value = []
+      areaSpeciesLoaded.value = false
+      return
+    }
+    loadAreaSpeciesForWizard(areaValue)
+  },
+  { immediate: true },
+)
+
 onMounted(async () => {
+  // Save original sidebar state and collapse it
+  originalSidebarState.value = appOptionStore.appSidebarMinified
+  appOptionStore.appSidebarMinified = true
+  
   await loadHuntLengths()
   getCountries()
   getNationalities()
   getSpecies()
+  getSafariExtras()
   getAreas()
   getSeasonList()
   getPL()
   getExistingCustomers()
 })
+
+// Restore sidebar state when leaving the page
+onUnmounted(() => {
+  appOptionStore.appSidebarMinified = originalSidebarState.value
+})
 </script>
 
 <style scoped>
-/* Smooth animations for step transitions */
+:root {
+  --primary: #2563eb;
+  --primary-dark: #1e40af;
+  --primary-light: #dbeafe;
+  --text: #0f172a;
+  --text-secondary: #64748b;
+  --border: #e2e8f0;
+  --border-light: #f1f5f9;
+  --card: #ffffff;
+  --radius: 14px;
+  --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.08);
+}
+
+.ps-page {
+  min-height: 100%;
+  background: #f5f7fb;
+}
+
+.content {
+  padding: 22px;
+}
+
+.page-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.page-head-left h1 {
+  margin: 0 0 6px;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.subtitle {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.crumbs {
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.4px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.crumb-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  background: #eff6ff;
+  color: var(--primary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+}
+
+.head-actions {
+  display: inline-flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.btn {
+  border: 2px solid transparent;
+  padding: 8px 14px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: #ffffff;
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn .btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+}
+
+.btn.ghost {
+  border-color: var(--border);
+  background: #ffffff;
+  color: var(--text);
+}
+
+.btn.ghost:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.btn.primary {
+  background: #2563eb !important;
+  border-color: #1e40af !important;
+  color: #ffffff !important;
+}
+
+.btn.primary:hover {
+  background: #1e40af !important;
+}
+
+/* Ensure the header 'Submit Enquiry' button uses the primary blue and consistent states */
+.page-head .head-actions .btn.primary {
+  background: #2563eb !important;
+  border-color: #1e40af !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.3) !important;
+}
+
+.page-head .head-actions .btn.primary:hover:not(:disabled) {
+  background: #1e40af !important;
+}
+
+.page-head .head-actions .btn.primary:disabled,
+.page-head .head-actions .btn.primary[disabled] {
+  /* Keep visible when disabled */
+  background: #2563eb !important;
+  border-color: #1e40af !important;
+  color: #ffffff !important;
+  opacity: 1 !important;
+  cursor: not-allowed !important;
+  box-shadow: none !important;
+  filter: none !important;
+  pointer-events: none !important;
+}
+
+.btn.btn-primary {
+  background: var(--primary);
+  border-color: var(--primary-dark);
+  color: #ffffff;
+}
+
+.btn.btn-primary:hover {
+  background: var(--primary-dark);
+}
+
+.btn.btn-secondary {
+  background: #f8fafc;
+  border-color: var(--border);
+  color: #475569;
+}
+
+.btn.btn-secondary:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.btn.btn-success {
+  background: #16a34a;
+  border-color: #15803d;
+  color: #ffffff;
+}
+
+.btn.btn-outline-secondary {
+  border-color: var(--border);
+  background: #ffffff;
+  color: #475569;
+}
+
+/* Two-column grid layout */
+.grid {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  gap: 18px;
+  align-items: start;
+}
+
+.panel {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 20px;
+  background: #f8fafc;
+  border-bottom: 2px solid var(--border);
+}
+
+.panel-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: #dbeafe;
+  border: 2px solid #3b82f6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+}
+
+.panel-title-text h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.panel-title-text p {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* Left Panel Form */
+.form {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background: #fafbfc;
+}
+
+.form-section {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 18px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #1e40af;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #dbeafe;
+}
+
+.section-icon {
+  font-size: 14px;
+}
+
+/* Info rows for left panel */
+.info-rows {
+  padding: 18px;
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px dashed var(--border-light);
+}
+
+.info-row:last-child {
+  border-bottom: none;
+}
+
+.info-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.info-value {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* Tab navigation */
+.tabs-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  background: #f8fafc;
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+
+.tabs-list {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.tab-btn {
+  border: 2px solid #e2e8f0;
+  background: #ffffff;
+  border-radius: 10px;
+  padding: 10px 16px;
+  font-weight: 600;
+  font-size: 13px;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tab-btn:hover {
+  background: #f8fafc;
+  border-color: #2563eb;
+}
+
+.tab-btn.active {
+  background: #2563eb;
+  border-color: #1e40af;
+  color: white;
+  box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.3);
+}
+
+.tab-icon {
+  font-size: 14px;
+}
+
+.tab-text {
+  font-weight: 600;
+}
+
+.tab-count {
+  background: #dbeafe;
+  color: #1e40af;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.tab-btn.active .tab-count {
+  background: rgba(255, 255, 255, 0.3);
+  color: white;
+}
+
+/* Tab content */
+.tab-body {
+  padding: 20px;
+  background: #fafbfc;
+}
+
+.tab-content {
+  padding: 20px;
+  background: #fafbfc;
+}
+
+.content-section {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 20px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+  margin-bottom: 16px;
+}
+
+.content-section:last-child {
+  margin-bottom: 0;
+}
+
+.content-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #dbeafe;
+}
+
+.content-header h4 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #1e40af;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.section-block {
+  margin-bottom: 20px;
+}
+
+.section-block:last-child {
+  margin-bottom: 0;
+}
+
+.section-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #1e40af;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #dbeafe;
+}
+
+.section-label i {
+  color: var(--primary);
+  font-size: 14px;
+}
+
+/* Form controls */
+.form-row {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.form-row.three-col {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.form-row.experience-requests-row {
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.form-group label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.form-group .form-control,
+.form-group .form-select,
+.form-group input,
+.form-group select,
+.form-group textarea {
+  width: 100%;
+  border: 2px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 13px;
+  background: #ffffff;
+  color: #0f172a;
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+.form-group .form-control:focus,
+.form-group .form-select:focus,
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px #dbeafe;
+  background: #ffffff;
+}
+
+/* Add species row */
+.add-species-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+}
+
+.add-species-row .form-group {
+  flex: 1;
+}
+
+.add-species-row .form-group:last-of-type {
+  flex: 0 0 100px;
+}
+
+.btn-add {
+  background: var(--primary);
+  border: none;
+  color: #ffffff;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-weight: 600;
+  font-size: 12px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: background-color 0.2s ease;
+}
+
+.btn-add:hover {
+  background: var(--primary-dark);
+}
+
+/* Species list */
+.species-list {
+  margin-top: 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.species-list-header {
+  display: grid;
+  grid-template-columns: 1fr 100px 100px 60px;
+  gap: 10px;
+  padding: 10px 14px;
+  background: #f8fafc;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.species-row {
+  display: grid;
+  grid-template-columns: 1fr 100px 100px 60px;
+  gap: 10px;
+  padding: 12px 14px;
+  align-items: center;
+  border-top: 1px solid var(--border-light);
+}
+
+.species-row:nth-child(even) {
+  background: #fafbfc;
+}
+
+.species-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.species-source {
+  font-size: 10px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.quantity-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.qty-btn {
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--border);
+  background: #ffffff;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.qty-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.qty-value {
+  font-weight: 600;
+  font-size: 13px;
+  min-width: 24px;
+  text-align: center;
+}
+
+.priority-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 6px;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.priority-badge.must-have {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.priority-badge.nice-to-have {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.remove-btn {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: #fef2f2;
+  border-radius: 6px;
+  color: #dc2626;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s ease;
+}
+
+.remove-btn:hover {
+  background: #fee2e2;
+}
+
+/* Extras grid */
+.extras-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.extra-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.extra-card:hover {
+  border-color: var(--primary);
+}
+
+.extra-card.selected {
+  border-color: var(--primary);
+  background: var(--primary-light);
+}
+
+.extra-checkbox {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--border);
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.extra-card.selected .extra-checkbox {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #ffffff;
+}
+
+.extra-info {
+  flex: 1;
+}
+
+.extra-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+.extra-price {
+  font-size: 12px;
+  color: var(--primary);
+  font-weight: 600;
+}
+
+/* Review sections */
+.review-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.review-section {
+  background: #f8fafc;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+}
+
+.review-section-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.review-section-title i {
+  color: var(--primary);
+}
+
+.review-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px dashed var(--border-light);
+  font-size: 12px;
+}
+
+.review-item:last-child {
+  border-bottom: none;
+}
+
+.review-item .label {
+  color: var(--text-secondary);
+}
+
+.review-item .value {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.review-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.review-badges .badge {
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 6px;
+}
+
+/* Inner card styles */
+.inner-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 14px;
+}
+
+.inner-card:last-child {
+  margin-bottom: 0;
+}
+
+.tabs-card {
+  background: #f8fafc;
+}
+
+.content-card {
+  background: var(--card);
+}
+
+/* Tabs */
+.tabs {
+  display: flex;
+  gap: 8px;
+  padding: 14px;
+  background: #f8fafc;
+  flex-wrap: wrap;
+}
+
+.tab {
+  border: 2px solid #e2e8f0;
+  background: #ffffff;
+  border-radius: 10px;
+  padding: 10px 16px;
+  font-weight: 600;
+  font-size: 13px;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  outline: none;
+}
+
+.tab:hover {
+  background: #f8fafc;
+  border-color: #2563eb;
+}
+
+.tab.active {
+  background: #2563eb;
+  border-color: #1e40af;
+  color: white;
+  box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.3);
+}
+
+.tab-icon {
+  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tab-text {
+  font-weight: 600;
+}
+
+.tab-count {
+  background: #dbeafe;
+  color: #1e40af;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  min-width: 20px;
+  text-align: center;
+}
+
+.tab.active .tab-count {
+  background: rgba(255, 255, 255, 0.3);
+  color: white;
+}
+
+/* Content header */
+.content-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  background: #f8fafc;
+  border-bottom: 2px solid var(--border);
+}
+
+.content-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: #dbeafe;
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.content-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.content-hint {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* Content body */
+.content-body {
+  padding: 16px 20px;
+  background: #fafbfc;
+}
+
+/* Field styles */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field.full-width {
+  grid-column: 1 / -1;
+}
+
+.lbl {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.req {
+  color: #dc2626;
+  font-weight: 700;
+}
+
+.input-wrapper {
+  position: relative;
+}
+
+.input-wrapper input,
+.input-wrapper select,
+.input-wrapper textarea {
+  width: 100%;
+  border: 2px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 13px;
+  background: #ffffff;
+  color: #0f172a;
+  transition: all 0.2s ease;
+  outline: none;
+  font-family: inherit;
+}
+
+.input-wrapper input:focus,
+.input-wrapper select:focus,
+.input-wrapper textarea:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px #dbeafe;
+  background: #ffffff;
+}
+
+.input-wrapper input:disabled,
+.input-wrapper select:disabled,
+.input-wrapper textarea:disabled {
+  background: #f1f5f9;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.input-wrapper textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+/* Vueform date picker */
+.vueform-date-wrapper :deep(.vc-popover-content-wrapper) {
+  min-width: 100%;
+}
+
+.vueform-date-wrapper :deep(.vc-container) {
+  width: 100%;
+  max-width: 100%;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.12);
+  background: #ffffff;
+}
+
+.vueform-date-wrapper :deep(.vc-pane) {
+  width: 100%;
+}
+
+.vueform-date-wrapper :deep(.vc-header) {
+  padding: 10px 12px;
+}
+
+.vueform-date-wrapper :deep(.vc-weekday) {
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+}
+
+.vueform-date-wrapper :deep(.vc-day) {
+  font-size: 12px;
+}
+
+.vueform-date-wrapper :deep(.vc-day-content) {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+}
+
+/* Flatpickr date picker (Vueform) */
+.vueform-date-wrapper :deep(.flatpickr-calendar) {
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.12);
+}
+
+.vueform-date-wrapper :deep(.flatpickr-innerContainer),
+.vueform-date-wrapper :deep(.flatpickr-rContainer),
+.vueform-date-wrapper :deep(.dayContainer) {
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  box-sizing: border-box;
+}
+
+.vueform-date-wrapper :deep(.flatpickr-weekdaycontainer) {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+.vueform-date-wrapper :deep(.flatpickr-day) {
+  width: calc(100% / 7);
+  max-width: none;
+}
+
+/* Section divider */
+.section-divider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #1e40af;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 20px 0 16px;
+  padding: 12px 16px;
+  background: #dbeafe;
+  border-radius: 8px;
+  border-left: 4px solid var(--primary);
+}
+
+.section-divider.first {
+  margin-top: 0;
+}
+
+.section-divider i {
+  font-size: 14px;
+}
+
+/* Package preview */
+.package-preview {
+  background: #f8fafc;
+  border: 2px solid #dbeafe;
+  border-radius: 12px;
+  overflow: hidden;
+  margin: 16px 0;
+}
+
+.preview-header {
+  padding: 12px 16px;
+  background: #dbeafe;
+  font-weight: 600;
+  font-size: 13px;
+  color: #1e40af;
+  display: flex;
+  align-items: center;
+}
+
+.preview-body {
+  padding: 16px;
+  background: #ffffff;
+}
+
+.preview-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.preview-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.preview-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.preview-value {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* Info alert */
+.info-alert {
+  background: #dbeafe;
+  border: 1px solid #3b82f6;
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 12px;
+  color: #1e40af;
+  margin: 12px 0;
+  display: flex;
+  align-items: center;
+}
+
+.warning-alert {
+  background: #fef3c7;
+  border: 1px solid #f59e0b;
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 12px;
+  color: #92400e;
+  margin: 12px 0;
+  display: flex;
+  align-items: center;
+}
+
+/* Add item row */
+.add-item-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+  margin-bottom: 20px;
+}
+
+.add-item-row .form-select {
+  flex: 1;
+  border: 2px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 13px;
+  background: #ffffff;
+  color: #0f172a;
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+.add-item-row .form-select:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px #dbeafe;
+}
+
+.qty-input {
+  width: 100px;
+  border: 2px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 13px;
+  background: #ffffff;
+  color: #0f172a;
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+.qty-input:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px #dbeafe;
+}
+
+/* Items list */
+.items-list {
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.list-header {
+  padding: 12px 16px;
+  background: #f8fafc;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+}
+
+.list-header strong {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.list-items {
+  padding: 8px;
+}
+
+.list-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 14px;
+  background: #fafbfc;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-bottom: 8px;
+  transition: all 0.2s ease;
+}
+
+.list-item:last-child {
+  margin-bottom: 0;
+}
+
+.list-item:hover {
+  background: #f8fafc;
+  border-color: var(--primary);
+}
+
+.item-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.item-info strong {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.item-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.qty-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 28px;
+  padding: 0 8px;
+  background: #dbeafe;
+  color: #1e40af;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.btn-sm {
+  padding: 6px 10px;
+  font-size: 12px;
+  border-radius: 8px;
+}
+
+.btn-outline-primary {
+  border: 2px solid #2563eb;
+  background: #ffffff;
+  color: #2563eb;
+}
+
+.btn-outline-primary:hover {
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.btn-outline-danger {
+  border: 2px solid #dc2626;
+  background: #ffffff;
+  color: #dc2626;
+}
+
+.btn-outline-danger:hover {
+  background: #dc2626;
+  color: #ffffff;
+}
+
+/* Badge styles */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.badge.bg-info {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.badge.bg-danger {
+  background: #dc2626 !important;
+  color: #ffffff !important;
+  font-weight: 600;
+}
+
+.badge.bg-secondary {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.badge.bg-success {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.badge.bg-warning {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.customer-badge-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Empty list */
+.empty-list {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-secondary);
+}
+
+.empty-list i {
+  display: block;
+  margin-bottom: 12px;
+}
+
+.empty-list p {
+  margin: 0;
+  font-size: 13px;
+}
+
+/* Empty section */
+.empty-section {
+  padding: 30px 20px;
+  text-align: center;
+  background: #f8fafc;
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+/* Upgrade fees section */
+.upgrade-fees-section {
+  margin-top: 20px;
+}
+
+.fees-table {
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.fee-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  padding: 12px 16px;
+  font-size: 13px;
+  align-items: center;
+}
+
+.fee-row.header {
+  background: #f8fafc;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.3px;
+  border-bottom: 2px solid var(--border);
+}
+
+.fee-row:not(.header) {
+  border-bottom: 1px solid var(--border-light);
+}
+
+.fee-row:last-child {
+  border-bottom: none;
+}
+
+/* Extras list */
+.extras-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.extra-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 16px;
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  transition: all 0.2s ease;
+}
+
+.extra-item:hover {
+  border-color: var(--primary);
+  background: #fafbfc;
+}
+
+.extra-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.extra-price {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--primary);
+}
+
+/* Utility classes */
+.text-primary {
+  color: var(--primary) !important;
+}
+
+.text-muted {
+  color: var(--text-secondary) !important;
+}
+
+.text-warning {
+  color: #f59e0b !important;
+}
+
+.fw-bold {
+  font-weight: 700 !important;
+}
+
+.me-1 {
+  margin-right: 4px !important;
+}
+
+.me-2 {
+  margin-right: 8px !important;
+}
+
+.ms-2 {
+  margin-left: 8px !important;
+}
+
+.mb-2 {
+  margin-bottom: 8px !important;
+}
+
+.cursor-pointer {
+  cursor: pointer !important;
+}
+
+/* Empty state */
+.empty-state {
+  text-align: center;
+  padding: 30px;
+  color: var(--text-secondary);
+}
+
+.empty-state i {
+  font-size: 32px;
+  margin-bottom: 10px;
+  opacity: 0.5;
+}
+
+.empty-state p {
+  font-size: 13px;
+  margin: 0;
+}
+
+/* Companion Cost Card */
+.companion-cost-card {
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.cost-header {
+  background: #dbeafe;
+  padding: 12px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #93c5fd;
+}
+
+.cost-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1e40af;
+}
+
+.cost-rate {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1e40af;
+}
+
+.cost-calculation {
+  padding: 16px;
+  background: #ffffff;
+}
+
+.calc-formula {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 14px;
+}
+
+.calc-item {
+  font-weight: 500;
+  color: var(--text);
+}
+
+.calc-separator {
+  color: #64748b;
+  font-weight: 400;
+}
+
+.calc-equals {
+  color: #64748b;
+  font-weight: 600;
+  margin: 0 4px;
+}
+
+.calc-total {
+  font-weight: 700;
+  color: #16a34a;
+  font-size: 15px;
+}
+
+/* Smooth animations */
 .animate-fade-in {
   animation: fadeIn 0.3s ease-in-out;
 }
@@ -2385,42 +3650,39 @@ onMounted(async () => {
     opacity: 0;
     transform: translateY(10px);
   }
-
   to {
     opacity: 1;
     transform: translateY(0);
   }
 }
 
-/* Sticky navigation shadow and styling */
-.sales-inquiry-wizard {
-  position: relative;
-  padding-bottom: 80px;
-  /* Space for sticky nav */
+/* Responsive */
+@media (max-width: 1100px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
 }
 
-/* Floating Footer Wrapper - matches card width and adds margins */
-.floating-footer-wrapper {
-  position: sticky;
-  background-color: transparent;
-  bottom: 1rem;
-  z-index: 1050;
-  padding: 0 1rem;
-  margin-top: 1rem;
-}
+@media (max-width: 900px) {
+  .page-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 
-/* Floating Footer - matches card width, rounded corners, shadow, doesn't touch sides */
-.floating-footer {
-  width: 100%;
-  max-width: 100%;
-  border-radius: 0.375rem;
-  position: relative;
-  margin: 0 auto;
-}
+  .content {
+    padding: 16px;
+  }
 
-/* Add padding to card body to prevent content from being hidden behind sticky footer */
-.sales-inquiry-wizard .card-body {
-  background-color: transparent;
-  padding-bottom: 10px;
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .form-row.three-col {
+    grid-template-columns: 1fr;
+  }
+
+  .review-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

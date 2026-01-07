@@ -1,17 +1,34 @@
 <template>
   <div class="sales-inquiries-page">
-    <!-- Breadcrumb -->
-    <div class="d-flex align-items-center mb-3">
-      <div>
-        <ul class="breadcrumb">
-          <li class="breadcrumb-item"><a href="#">Sales</a></li>
-          <li class="breadcrumb-item active">Sales Inquiries</li>
-        </ul>
-      </div>
-    </div>
+    <!-- Customer Selection Page (shown first when creating new inquiry) -->
+    <CustomerSelectionModal
+      v-if="showCustomerModal"
+      :edit-data="editingRow"
+      @cancel="handleCustomerModalCancel"
+      @proceed="handleCustomerModalProceed"
+    />
 
-    <!-- Main Content -->
-    <template v-if="!showAddSalesInquiriesForm">
+    <!-- Create/Edit Form Wizard -->
+    <SalesInquiryWizard
+      v-else-if="showAddSalesInquiriesForm"
+      :edit-row="editingRow"
+      :customer-data="customerData"
+      @cancel="handleWizardCancel"
+      @saved="handleWizardSaved"
+    />
+
+    <!-- Main List and Details Views -->
+    <template v-else>
+      <!-- Breadcrumb -->
+      <div class="d-flex align-items-center mb-3">
+        <div>
+          <ul class="breadcrumb">
+            <li class="breadcrumb-item"><a href="#">Sales</a></li>
+            <li class="breadcrumb-item active">Sales Inquiries</li>
+          </ul>
+        </div>
+      </div>
+
       <!-- Sales Inquiries List View -->
       <template v-if="showDetailsPage === false">
         <div class="row layout-top-spacing bg-white rounded">
@@ -115,14 +132,6 @@
         </div>
       </template>
     </template>
-
-    <!-- Create/Edit Form Wizard (extracted component) -->
-    <SalesInquiryWizard
-      v-if="showAddSalesInquiriesForm"
-      :edit-row="editingRow"
-      @cancel="handleWizardCancel"
-      @saved="handleWizardSaved"
-    />
   </div>
 </template>
 
@@ -135,6 +144,7 @@ import type { SalesEnquiry, EnquiryFilters } from '@/stores/bushman/salesEnquiry
 import { useSettingsStore } from '@/stores/bushman/settings-store'
 import SalesInquiryDetails from './salesinquiries/SalesInquiryDetails.vue'
 import SalesInquiryWizard from './salesinquiries/SalesInquiryWizard.vue'
+import CustomerSelectionModal from './salesinquiries/CustomerSelectionModal.vue'
 import StandardDataTable from '@/components/bootstrap/StandardDataTable.vue'
 import Swal from 'sweetalert2'
 
@@ -144,9 +154,11 @@ const settingsStore = useSettingsStore()
 
 // UI State
 const showAddSalesInquiriesForm = ref(false)
+const showCustomerModal = ref(false)
 const showDetailsPage = ref(false)
 const selectedInquiryItem = ref<SalesEnquiry | null>(null)
 const editingRow = ref<any>(null)
+const customerData = ref<any>(null)
 
 // Table State
 const dataFetched = ref<any[]>([])
@@ -214,24 +226,41 @@ const customFilters = computed(() => [
 // Methods
 const toggleAddSalesInquiriesForm = () => {
   editingRow.value = null
-  showAddSalesInquiriesForm.value = true
+  customerData.value = null
+  showCustomerModal.value = true  // Show customer modal first
 }
 
 const handleGoBack = () => {
   showAddSalesInquiriesForm.value = false
   showDetailsPage.value = false
+  showCustomerModal.value = false
   editingRow.value = null
+  customerData.value = null
 }
 
 const handleWizardCancel = () => {
   showAddSalesInquiriesForm.value = false
   editingRow.value = null
+  customerData.value = null
 }
 
 const handleWizardSaved = () => {
   showAddSalesInquiriesForm.value = false
   editingRow.value = null
+  customerData.value = null
   getSalesInquiryList()
+}
+
+const handleCustomerModalCancel = () => {
+  showCustomerModal.value = false
+  editingRow.value = null
+  customerData.value = null
+}
+
+const handleCustomerModalProceed = (data: any) => {
+  customerData.value = data
+  showCustomerModal.value = false
+  showAddSalesInquiriesForm.value = true  // Now show the wizard
 }
 
 const formatDate = (dateString: string | any): string => {
@@ -283,6 +312,7 @@ const refreshSelectedInquiry = async () => {
 
 const editInquiry = (row: any) => {
   editingRow.value = row
+  // For editing, go directly to wizard since customer data already exists
   showAddSalesInquiriesForm.value = true
 }
 

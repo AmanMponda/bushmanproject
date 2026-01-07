@@ -89,14 +89,32 @@
                 <label class="field">
                   <span class="lbl">Start Date <span class="req">*</span></span>
                   <div class="input-wrapper">
-                    <input v-model="form.startDate" type="date" />
+                    <Vueform size="sm" :display-errors="false" :endpoint="false">
+                      <DateElement
+                        name="start_date"
+                        v-model="form.startDate"
+                        :display-format="'MMM D, YYYY'"
+                        :value-format="'YYYY-MM-DD'"
+                        placeholder="Select start date..."
+                        :add-class="{ DateElement: { input: 'form-control' } }"
+                      />
+                    </Vueform>
                   </div>
                 </label>
 
                 <label class="field">
                   <span class="lbl">End Date <span class="req">*</span></span>
                   <div class="input-wrapper">
-                    <input v-model="form.endDate" type="date" />
+                    <Vueform size="sm" :display-errors="false" :endpoint="false">
+                      <DateElement
+                        name="end_date"
+                        v-model="form.endDate"
+                        :display-format="'MMM D, YYYY'"
+                        :value-format="'YYYY-MM-DD'"
+                        placeholder="Select end date..."
+                        :add-class="{ DateElement: { input: 'form-control' } }"
+                      />
+                    </Vueform>
                   </div>
                 </label>
               </div>
@@ -1164,30 +1182,69 @@ async function fetchItems() {
   }
 }
 
+function normalizeDateInput(value: any): string {
+  if (!value) return ''
+  if (typeof value === 'string') {
+    if (value.includes('T')) return value.split('T')[0]
+    if (value.includes(' ')) return value.split(' ')[0]
+    return value
+  }
+  try {
+    const d = new Date(value)
+    if (Number.isNaN(d.getTime())) return ''
+    return d.toISOString().slice(0, 10)
+  } catch {
+    return ''
+  }
+}
+
+function resolveItemType(item: any): string | null {
+  if (item?.item_type) return item.item_type
+  if (item?.hunting_type_id || item?.hunt_length_id) return 'PACKAGE'
+  return item?.item_group === 'EXTRA' ? 'EXTRA' : null
+}
+
 function populateFormForEdit(editItem: any) {
   if (!editItem) return
 
   form.name = editItem.name || ''
-  form.areaId = editItem.location_id || null
-  form.seasonId = editItem.season_id || null
-  form.startDate = editItem.start_date || editItem.start_at || ''
-  form.endDate = editItem.end_date || editItem.end_at || ''
-  form.currencyId = editItem.currency_id || null
+  form.areaId = editItem.location_id || editItem.area_id || editItem.area?.id || null
+  form.seasonId = editItem.season_id || editItem.season?.id || null
+  form.startDate = normalizeDateInput(
+    editItem.start_date ||
+    editItem.start_at ||
+    editItem.startDate ||
+    editItem.valid_from ||
+    editItem.valid_from_date ||
+    editItem.start
+  )
+  form.endDate = normalizeDateInput(
+    editItem.end_date ||
+    editItem.end_at ||
+    editItem.endDate ||
+    editItem.valid_to ||
+    editItem.valid_to_date ||
+    editItem.end
+  )
+  form.currencyId = editItem.currency_id || editItem.currency?.id || null
   form.isActive = editItem.is_active === 1 || editItem.is_active === true
 
-  if (editItem.items && Array.isArray(editItem.items)) {
-    form.lines = editItem.items.map((item: any) => ({
+  const items = editItem.items || editItem.price_structure_items || []
+  if (Array.isArray(items)) {
+    form.lines = items.map((item: any) => ({
       _key: crypto.randomUUID(),
-      source: item.item_type === 'PACKAGE' ? 'new' : (item.item_id ? 'existing' : 'new'),
-      itemId: item.item_type === 'PACKAGE' ? null : (item.item_id || null),
+      source: resolveItemType(item) === 'PACKAGE' ? 'new' : (item.item_id ? 'existing' : 'new'),
+      itemId: resolveItemType(item) === 'PACKAGE' ? null : (item.item_id || item.item?.id || null),
       name: item.name || '',
       description: item.description || '',
-      itemType: item.item_type || null,
+      itemType: resolveItemType(item),
       huntingTypeId: item.hunting_type_id,
-      minDays: item.item_type === 'PACKAGE' ? (item.hunt_length_id ?? item.min_days) : item.min_days,
+      minDays: resolveItemType(item) === 'PACKAGE'
+        ? (item.hunt_length_id || item.hunt_length?.id || item.min_days)
+        : item.min_days,
       maxDays: item.max_days,
       pricingUnit: item.pricing_unit || 'FLAT',
-      amount: item.amount || 0,
+      amount: item.amount || item.unit_amount || 0,
       salesPackageIds: Array.isArray(item.sales_packages)
         ? item.sales_packages.map((sp: any) => sp.id)
         : (item.sales_package_ids || []),
@@ -1211,6 +1268,38 @@ function populateFormForEdit(editItem: any) {
     }))
     form.lines = form.lines.concat(companionLines)
   }
+
+  const safariExtras = editItem.safari_extras || editItem.price_structure_safari_extras || []
+  if (Array.isArray(safariExtras) && safariExtras.length > 0) {
+    const existingExtraIds = new Set(
+      form.lines
+        .filter((line) => line.itemType === 'EXTRA')
+        .map((line) => line.itemId)
+        .filter((id) => id)
+    )
+
+    const extraLines = safariExtras
+      .filter((extra: any) => {
+        const id = extra.item_id || extra.item?.id || null
+        return !id || !existingExtraIds.has(id)
+      })
+      .map((extra: any) => ({
+        _key: crypto.randomUUID(),
+        source: extra.item_id || extra.item?.id ? 'existing' : 'new',
+        itemId: extra.item_id || extra.item?.id || null,
+        name: extra.name || extra.item_name || extra.item?.name || '',
+        description: extra.description || '',
+        itemType: 'EXTRA',
+        huntingTypeId: null,
+        minDays: null,
+        maxDays: null,
+        pricingUnit: extra.pricing_unit || 'PER_ITEM',
+        amount: extra.amount || extra.unit_amount || 0,
+        salesPackageIds: [],
+      }))
+
+    form.lines = form.lines.concat(extraLines)
+  }
 }
 
 // Store original sidebar state
@@ -1233,10 +1322,23 @@ onMounted(async () => {
 
   if (props.editMode && props.editItem) {
     populateFormForEdit(props.editItem)
+    applyUsdDefaultCurrency()
   }
 
   loading.value = false
 })
+
+function applyUsdDefaultCurrency() {
+  if (form.currencyId) return
+  const usd = lookups.currencies.find((c) => {
+    const code = (c.code || '').toString().toUpperCase()
+    const name = (c.name || '').toString().toUpperCase()
+    return code === 'USD' || name === 'USD' || name.includes('US DOLLAR')
+  })
+  if (usd?.id) {
+    form.currencyId = usd.id
+  }
+}
 
 // Restore sidebar state when leaving the page
 onUnmounted(() => {
@@ -1668,6 +1770,31 @@ h1 {
   min-width: 0;
   margin-bottom: 0;
 }
+
+/* Allow date picker popover to float above and outside the left panel */
+.left-panel {
+  overflow: visible !important;
+}
+
+/* Styles for the Vueform/flatpickr calendar to render as a floating card */
+.vueform-date-wrapper :deep(.flatpickr-calendar) {
+  position: absolute !important;
+  z-index: 9999 !important;
+  min-width: 260px !important;
+  max-width: 360px !important;
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.12) !important;
+  border-radius: 12px !important;
+}
+
+/* Keep inner containers sized appropriately */
+.vueform-date-wrapper :deep(.flatpickr-innerContainer),
+.vueform-date-wrapper :deep(.flatpickr-rContainer),
+.vueform-date-wrapper :deep(.dayContainer) {
+  width: auto !important;
+  min-width: 260px !important;
+  max-width: 360px !important;
+}
+
 
 .toggle-row {
   display: flex;

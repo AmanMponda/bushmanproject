@@ -1,30 +1,23 @@
 import { defineStore } from 'pinia'
 import axios from 'axios'
 
+const itemsBaseUrl = `${import.meta.env.VITE_APP_BASE_URL}settings/trophy-fees`
+const pricingBaseUrl = `${import.meta.env.VITE_APP_BASE_URL}settings/trophy-fees/pricing`
+
 export const useTrophyFeesStore = defineStore('trophyFees', {
   state: () => {
     return {
       trophyFees: [] as any[],
+      trophyFeePricing: [] as any[],
       loading: false,
     }
   },
 
   actions: {
-    async fetchTrophyFees(params: any = {}) {
+    async fetchTrophyFeeItems(params: any = {}) {
       this.loading = true
-      const url = import.meta.env.VITE_APP_BASE_URL + import.meta.env.VITE_APP_TROPHY_FEES_URL
-
-      const config = {
-        method: 'get',
-        url: url,
-        params: params,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      }
-
       try {
-        const response = await axios.request(config)
+        const response = await axios.get(itemsBaseUrl, { params })
         this.trophyFees = response.data.data || response.data
         return response
       } finally {
@@ -32,66 +25,63 @@ export const useTrophyFeesStore = defineStore('trophyFees', {
       }
     },
 
-    async getTrophyFeeById(id: number) {
-      const url = `${import.meta.env.VITE_APP_BASE_URL}${import.meta.env.VITE_APP_TROPHY_FEES_URL}${id}/`
-
-      const config = {
-        method: 'get',
-        url: url,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      }
-
-      const response = await axios.request(config)
-      return response
+    async getTrophyFeeItemById(id: number) {
+      return axios.get(`${itemsBaseUrl}/${id}`)
     },
 
-    async createTrophyFee(payload: any) {
-      const url = import.meta.env.VITE_APP_BASE_URL + import.meta.env.VITE_APP_TROPHY_FEES_URL
-
-      const config = {
-        method: 'post',
-        url: url,
-        data: payload,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      }
-
-      const response = await axios.request(config)
-      return response
+    async createTrophyFeeItem(payload: any) {
+      return axios.post(itemsBaseUrl, payload)
     },
 
-    async updateTrophyFee(id: number, payload: any) {
-      const url = `${import.meta.env.VITE_APP_BASE_URL}${import.meta.env.VITE_APP_TROPHY_FEES_URL}${id}/`
-
-      const config = {
-        method: 'put',
-        url: url,
-        data: payload,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      }
-
-      const response = await axios.request(config)
-      return response
+    async createCombinedTrophyFee(payload: any) {
+      return axios.post(`${itemsBaseUrl}/combined`, payload)
     },
 
-    async deleteTrophyFeeById(id: number) {
-      const url = `${import.meta.env.VITE_APP_BASE_URL}${import.meta.env.VITE_APP_TROPHY_FEES_URL}${id}/`
+    async updateTrophyFeeItem(id: number, payload: any) {
+      return axios.put(`${itemsBaseUrl}/${id}`, payload)
+    },
 
-      const config = {
-        method: 'delete',
-        url: url,
-        headers: {
-          'Content-Type': 'application/json',
-        },
+    async deleteTrophyFeeItemById(id: number) {
+      return axios.delete(`${itemsBaseUrl}/${id}`)
+    },
+
+    async bulkCreateTrophyFees(payload: any) {
+      return axios.post(`${itemsBaseUrl}/bulk`, payload)
+    },
+
+    async fetchTrophyFeeAttributes() {
+      return axios.get(`${itemsBaseUrl}/attributes`)
+    },
+
+    async fetchTrophyFeeSpecies() {
+      return axios.get(`${itemsBaseUrl}/species`)
+    },
+
+    async fetchTrophyFeePricing(params: any = {}) {
+      this.loading = true
+      try {
+        const response = await axios.get(pricingBaseUrl, { params })
+        this.trophyFeePricing = response.data.data || response.data
+        return response
+      } finally {
+        this.loading = false
       }
+    },
 
-      const response = await axios.request(config)
-      return response
+    async getTrophyFeePricingById(id: number) {
+      return axios.get(`${pricingBaseUrl}/${id}`)
+    },
+
+    async createTrophyFeePricing(payload: any) {
+      return axios.post(pricingBaseUrl, payload)
+    },
+
+    async updateTrophyFeePricing(id: number, payload: any) {
+      return axios.put(`${pricingBaseUrl}/${id}`, payload)
+    },
+
+    async deleteTrophyFeePricingById(id: number) {
+      return axios.delete(`${pricingBaseUrl}/${id}`)
     },
   },
 })

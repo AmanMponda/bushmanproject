@@ -19,14 +19,14 @@ const SalesCalendar = () => import ('@/views/bushman/details/Calendar.vue')
 const ManagePriceList = () => import('@/views/bushman/sales/ManagePriceList.vue');
 const PriceStructureAddItem = () => import('@/views/bushman/sales/price-structures/PriceStructureAddItem.vue');
 const PriceStructureAddPrice = () => import('@/views/bushman/sales/price-structures/PriceStructureAddPrice.vue');
-const PriceStructureAddUpgradeFee = () => import('@/views/bushman/sales/price-structures/PriceStructureAddUpgradeFee.vue');
-const PriceStructureAddTrophyFee = () => import('@/views/bushman/sales/price-structures/PriceStructureAddTrophyFee.vue');
 const PriceStructureAddSafariExtra = () => import('@/views/bushman/sales/price-structures/PriceStructureAddSafariExtra.vue');
 const ManageQuotasSettings = () => import('@/views/bushman/module-settings/ManageQuota.vue');
 const ManageRegulatoryPackage = () => import('@/views/bushman/module-settings/ManageRegulatoryPackage.vue');
 const ManageSalesPackage = () => import('@/views/bushman/module-settings/ManageSalesPackage.vue');
 const ManageSalesExtraServices = () => import('@/views/bushman/module-settings/ManageExtras.vue');
 const ManageTrophyFees = () => import('@/views/bushman/module-settings/ManageTrophyFees.vue');
+const ManageUpgradeFees = () => import('@/views/bushman/module-settings/ManageUpgradeFees.vue');
+const ManageItems = () => import('@/views/bushman/module-settings/ManageItems.vue');
 // const ManageCompanionHunterCosts = () => import('@/views/bushman/module-settings/ManageCompanionHunterCosts.vue');
 const ManageTerms = () => import('@/views/bushman/module-settings/ManageTerms.vue');
 const ManageSafariFeeDeposits = () => import('@/views/bushman/module-settings/ManageSafariFeeDeposits.vue');
@@ -37,6 +37,8 @@ const ManageSpeciesSettings = () => import('@/views/bushman/module-settings/Mana
 const ManageAccounts = () => import('@/views/bushman/module-settings/ManageAccounts.vue');
 
 const Managesalesinquiry = () => import('@/views/bushman/sales/SalesInquiries.vue');
+const SalesInquiryDetails = () => import('@/views/bushman/sales/salesinquiries/SalesInquiryDetails.vue');
+const CreateQuotation = () => import('@/views/bushman/sales/salesinquiries/CreateQuotation.vue');
 const Managesalesconfirmation = () => import('@/views/bushman/sales/SalesConfirmationProposals.vue');
 const PipelineItemView = () => import('@/views/bushman/sales/sales-pipeline/PipelineItemView.vue');
 // const LoginPage = () => import('@/views/auth/PageLogin.vue');
@@ -149,18 +151,6 @@ const router = createRouter({
       props: (route) => ({ id: Number(route.params.id), mode: 'companion' }),
       meta: { requiresAuth: true }
     },
-    {
-      path: "/sales/price-structures/:id/upgrade-fees/create",
-      name: "price-structure-upgrade-fee-create",
-      component: PriceStructureAddUpgradeFee,
-      meta: { requiresAuth: true }
-    },
-    {
-      path: "/sales/price-structures/:id/trophy-fees/create",
-      name: "price-structure-trophy-fee-create",
-      component: PriceStructureAddTrophyFee,
-      meta: { requiresAuth: true }
-    },
 
     {
       path: "/sales/price-structures/:id/safari-extras/create",
@@ -180,6 +170,28 @@ const router = createRouter({
       path: "/sales/sales-inquiry",
       name: "sales-inquiry",
       component: Managesalesinquiry,
+      meta: { requiresAuth: true }
+    },
+
+    {
+      path: "/sales/enquiries/:id",
+      name: "sales-enquiry-details",
+      component: SalesInquiryDetails,
+      meta: { requiresAuth: true },
+      props: (route) => ({ itemId: Number(route.params.id) })
+    },
+
+    {
+      path: "/sales/enquiries/:id/create-quotation",
+      name: "create-quotation",
+      component: CreateQuotation,
+      meta: { requiresAuth: true }
+    },
+
+    {
+      path: "/sales/enquiries/:id/quotation/:pricingId",
+      name: "edit-quotation",
+      component: CreateQuotation,
       meta: { requiresAuth: true }
     },
 
@@ -219,6 +231,18 @@ const router = createRouter({
       path: "/module-settings/trophy-fees",
       name: "trophy-fees",
       component: ManageTrophyFees,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/module-settings/upgrade-fees",
+      name: "upgrade-fees",
+      component: ManageUpgradeFees,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/module-settings/items",
+      name: "items",
+      component: ManageItems,
       meta: { requiresAuth: true }
     },
     

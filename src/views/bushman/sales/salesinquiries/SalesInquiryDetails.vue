@@ -471,6 +471,7 @@
       <!-- Quotations Tab -->
       <div id="quotations" class="tab-pane fade" :class="{ 'show active': activeTab === 'quotations' }">
         <QuotationSection 
+          v-if="item?.id"
           :enquiry-id="item?.id" 
           :initial-pricings="item?.pricings"
           @update="onPricingUpdate"
@@ -488,10 +489,13 @@ import { useToast } from '@/composables/useToast'
 import QuotationSection from './QuotationSection.vue'
 
 interface Props {
-  item: SalesEnquiry
+  item?: SalesEnquiry
+  itemId?: number
 }
 
 const props = defineProps<Props>()
+const item = computed<SalesEnquiry | null>(() => localItem.value || props.item || null)
+const localItem = ref<SalesEnquiry | null>(props.item || null)
 const emit = defineEmits<{
   goBack: []
   refresh: []
@@ -516,7 +520,7 @@ const tabs = computed(() => {
     },
   ]
 
-  if (props.item?.package_details || props.item?.custom_details) {
+  if (item.value?.package_details || item.value?.custom_details) {
     tabList.push({
       key: 'package',
       label: 'Package',
@@ -524,10 +528,10 @@ const tabs = computed(() => {
     })
   }
 
-  if (props.item?.item_preferences && props.item.item_preferences.length > 0) {
+  if (item.value?.item_preferences && item.value.item_preferences.length > 0) {
     tabList.push({
       key: 'species',
-      label: `Species (${props.item.item_preferences.length})`,
+      label: `Species (${item.value.item_preferences.length})`,
       icon: 'fa fa-paw',
     })
   }
@@ -559,7 +563,7 @@ const tabs = computed(() => {
   }
 
   // Quotations tab - always visible
-  const pricingsCount = props.item?.pricings?.length || 0
+  const pricingsCount = item.value?.pricings?.length || 0
   tabList.push({
     key: 'quotations',
     label: pricingsCount > 0 ? `Quotations (${pricingsCount})` : 'Quotations',
@@ -638,8 +642,21 @@ const getChartersPrice = async (enquiryId: number) => {
   }
 }
 
+const loadItemIfNeeded = async () => {
+  if (localItem.value) return
+  const id = props.itemId || item.value?.id
+  if (!id) return
+  try {
+    const response = await salesEnquiryService.get(id)
+    const data = response?.data?.data || response?.data || response
+    if (data) localItem.value = data as SalesEnquiry
+  } catch (error) {
+    notify({ message: 'Failed to load enquiry details', color: 'danger' })
+  }
+}
+
 const downloadInquiryPdf = async () => {
-  const inquiryId = props.item?.id
+  const inquiryId = item.value?.id
   if (!inquiryId) return
 
   try {
@@ -660,7 +677,7 @@ const downloadInquiryPdf = async () => {
       const url = window.URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
-      link.download = `inquiry-${props.item?.code || inquiryId}.pdf`
+      link.download = `inquiry-${item.value?.code || inquiryId}.pdf`
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
@@ -721,12 +738,15 @@ const safeString = (str: any, fallback = 'Not provided') => {
   return str || fallback
 }
 
-onMounted(() => {
-  getObservers(props.item.id)
-  getCompanions(props.item.id)
-  getClienSafariExtras(props.item.id)
-  getAccommodation(props.item.id)
-  getChartersPrice(props.item.id)
+onMounted(async () => {
+  await loadItemIfNeeded()
+  if (item.value?.id) {
+    getObservers(item.value.id)
+    getCompanions(item.value.id)
+    getClienSafariExtras(item.value.id)
+    getAccommodation(item.value.id)
+    getChartersPrice(item.value.id)
+  }
 })
 </script>
 

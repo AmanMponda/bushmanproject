@@ -54,14 +54,11 @@ export const useAppSidebarMenuStore = defineStore("appSidebarMenu", () => {
   // Avoid synchronous localStorage read at module level for better performance
 
   const commonMenuItems = computed<MenuItem[]>(() => [
-    {
-      is_header: true,
-      text: 'Company Dashboard'
-    },
+
     {
       url: "/companies-dashboard",
       icon: "fa fa-home",
-      text: "Home",
+      text: "Apps",
     },
     {
       is_divider: true,
@@ -347,7 +344,7 @@ export const useAppSidebarMenuStore = defineStore("appSidebarMenu", () => {
     {
       url: '/bushman/dashboard',
       icon: 'fa fa-home',
-      text: 'Bushman',
+      text: 'Dashboard',
       permission: 'CAN_VIEW_BUSHMAN_DASHBOARD'
     },
     {
@@ -439,7 +436,9 @@ export const useAppSidebarMenuStore = defineStore("appSidebarMenu", () => {
 
 
         { url: '/module-settings/sales-package', text: 'Sales Package', permission: 'CAN_VIEW_SALES_PACKAGE' },
-        // { url: '/module-settings/trophy-fees', text: 'Trophy Fees', permission: 'CAN_VIEW_TROPHY_FEES' },
+        { url: '/module-settings/trophy-fees', text: 'Trophy Fees', permission: 'CAN_VIEW_TROPHY_FEES' },
+        { url: '/module-settings/upgrade-fees', text: 'Upgrade Fees', permission: 'CAN_VIEW_SALES_PACKAGE' },
+        { url: '/module-settings/items', text: 'Items', permission: 'CAN_VIEW_MODULE_SETTINGS' },
         // { url: '/module-settings/safari-fee-deposits', text: 'Deposits Planning', permission: 'CAN_VIEW_SAFARI_FEE_DEPOSITS' },
         // { url: '/module-settings/sales-extra-services', text: 'Extra Services', permission: 'CAN_VIEW_SALES_EXTRA_SERVICES' },
 
