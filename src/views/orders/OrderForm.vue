@@ -142,6 +142,7 @@
               <i class="fas fa-receipt me-2"></i>Payment & Reference
             </h6>
             <div class="row g-3">
+              <!-- COMMENTED OUT: Payment Method - Not implemented yet
               <div class="col-lg-3 col-md-6">
                 <label class="form-label fw-500">Payment Method</label>
                 <select v-model="form.paymentMethod" class="form-select">
@@ -152,6 +153,11 @@
                   <option value="CREDIT_CARD">Credit Card</option>
                   <option value="OTHER">Other</option>
                 </select>
+              </div>
+              -->
+              <div class="col-lg-3 col-md-6">
+                <label class="form-label fw-500">Cheque Number</label>
+                <input v-model="form.cheque_number" type="text" class="form-control" placeholder="Cheque number" />
               </div>
               <div class="col-lg-3 col-md-6">
                 <label class="form-label fw-500">Reference Number</label>
@@ -1167,6 +1173,7 @@ const form = reactive({
   paymentMethod: '',
   remarks: '',
   reference: '',
+  cheque_number: '',
   
   // STEP 2: PARTIES (from quotation)
   enquiryId: '',
@@ -1652,6 +1659,7 @@ const resetForm = () => {
   form.paymentTerms = ''
   form.remarks = ''
   form.reference = ''
+  form.cheque_number = ''
   form.notes = ''
   form.items = []
   form.parties = []
