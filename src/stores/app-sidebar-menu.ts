@@ -366,11 +366,6 @@ export const useAppSidebarMenuStore = defineStore("appSidebarMenu", () => {
       permission: 'CAN_VIEW_SALES_PIPELINE'
     },
     {
-      url: '/orders',
-      icon: 'fa fa-boxes',
-      text: 'Orders Management'
-    },
-    {
       url: '/sales',
       icon: 'fa fa-shopping-cart',
       text: 'Sales',
@@ -378,7 +373,7 @@ export const useAppSidebarMenuStore = defineStore("appSidebarMenu", () => {
       children: [
         { url: '/sales/price-list', text: 'Price Lists', permission: 'CAN_VIEW_PRICE_LISTS' },
         { url: '/sales/sales-inquiry', text: 'Sales Quotations', permission: 'CAN_VIEW_SALES_INQUIRY' },
-        { url: '/sales/sales-confirmation', text: 'Sales Confirmations', permission: 'CAN_VIEW_SALES_CONFIRMATIONS' },
+        { url: '/orders', text: 'Orders', permission: 'CAN_VIEW_SALES_CONFIRMATIONS' },
         { url: '/sales/sales-contracts', text: 'Sales Contracts', permission: 'CAN_VIEW_SALES_CONTRACTS' },
       ],
 
@@ -445,6 +440,7 @@ export const useAppSidebarMenuStore = defineStore("appSidebarMenu", () => {
         { url: '/module-settings/upgrade-fees', text: 'Upgrade Fees', permission: 'CAN_VIEW_SALES_PACKAGE' },
         { url: '/module-settings/items', text: 'Items', permission: 'CAN_VIEW_MODULE_SETTINGS' },
         { url: '/module-settings/government-fees', text: 'Government Fees', permission: 'CAN_VIEW_MODULE_SETTINGS' },
+        { url: '/module-settings/documents', text: 'Documents', permission: 'CAN_VIEW_MODULE_SETTINGS' },
         // { url: '/module-settings/safari-fee-deposits', text: 'Deposits Planning', permission: 'CAN_VIEW_SAFARI_FEE_DEPOSITS' },
         // { url: '/module-settings/sales-extra-services', text: 'Extra Services', permission: 'CAN_VIEW_SALES_EXTRA_SERVICES' },
 

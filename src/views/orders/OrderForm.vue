@@ -37,7 +37,43 @@
         </div>
 
         <div class="form">
-          <!-- SECTION 1: BASIC ORDER INFORMATION -->
+          <!-- SECTION 1: REFERENCES & LINKS (MOVED TO TOP) -->
+          <div class="form-section">
+            <div class="section-title">
+              <span class="section-icon">🔗</span>
+              Links & References
+            </div>
+
+            <div class="financial-grid">
+              <label class="field">
+                <span class="lbl">Sales Enquiry</span>
+                <div class="input-wrapper">
+                  <span class="input-icon">💬</span>
+                  <select v-model="form.enquiryId" @change="onEnquiryChange">
+                    <option value="">-- Select Enquiry --</option>
+                    <option v-for="enq in enquiries" :key="enq.id" :value="String(enq.id)">
+                      {{ enq.code }} - {{ enq.entity?.full_name || 'N/A' }}
+                    </option>
+                  </select>
+                </div>
+              </label>
+
+              <label class="field">
+                <span class="lbl">Quotation / Pricing</span>
+                <div class="input-wrapper">
+                  <span class="input-icon">💼</span>
+                  <select v-model="form.quotationId">
+                    <option value="">-- Select Quotation --</option>
+                    <option v-for="quote in filteredQuotations" :key="quote.id" :value="String(quote.id)">
+                      {{ quote.code || quote.name || `Quote #${quote.id}` }}
+                    </option>
+                  </select>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <!-- SECTION 2: BASIC ORDER INFORMATION -->
           <div class="form-section">
             <div class="section-title">
               <span class="section-icon">🏷️</span>
@@ -79,7 +115,7 @@
             </label>
           </div>
 
-          <!-- SECTION 2: FINANCIAL INFORMATION -->
+          <!-- SECTION 3: FINANCIAL INFORMATION -->
           <div class="form-section">
             <div class="section-title">
               <span class="section-icon">💰</span>
@@ -121,42 +157,6 @@
                 <div class="input-wrapper">
                   <span class="input-icon">💸</span>
                   <input v-model.number="form.expenses" type="number" placeholder="0" step="0.01" />
-                </div>
-              </label>
-            </div>
-          </div>
-
-          <!-- SECTION 3: REFERENCES & LINKS -->
-          <div class="form-section">
-            <div class="section-title">
-              <span class="section-icon">🔗</span>
-              Links & References
-            </div>
-
-            <div class="financial-grid">
-              <label class="field">
-                <span class="lbl">Sales Enquiry</span>
-                <div class="input-wrapper">
-                  <span class="input-icon">💬</span>
-                  <select v-model="form.enquiryId" @change="onEnquiryChange">
-                    <option value="">-- Select Enquiry --</option>
-                    <option v-for="enq in enquiries" :key="enq.id" :value="String(enq.id)">
-                      {{ enq.code }} - {{ enq.entity?.full_name || 'N/A' }}
-                    </option>
-                  </select>
-                </div>
-              </label>
-
-              <label class="field">
-                <span class="lbl">Quotation / Pricing</span>
-                <div class="input-wrapper">
-                  <span class="input-icon">💼</span>
-                  <select v-model="form.quotationId">
-                    <option value="">-- Select Quotation --</option>
-                    <option v-for="quote in filteredQuotations" :key="quote.id" :value="String(quote.id)">
-                      {{ quote.code || quote.name || `Quote #${quote.id}` }}
-                    </option>
-                  </select>
                 </div>
               </label>
             </div>
@@ -252,7 +252,7 @@
               <div class="subsection-header">
                 <h4>Order Items</h4>
                 <button @click="showItemForm = !showItemForm" class="btn btn-sm btn-primary" type="button">
-                  <i class="fas fa-plus me-1"></i>Add Item
+                  <i class="fas fa-plus me-1"></i>{{ editItemIdx !== null ? 'Editing...' : 'Add Item' }}
                 </button>
               </div>
 
@@ -317,6 +317,11 @@
                         <span class="badge bg-info">{{ formatCurrency((item.quantity * item.rate) - (item.discount || 0)) }}</span>
                       </td>
                       <td class="text-center">
+                        <!-- @ts-ignore -->
+                        <button @click="editItem(idx)" class="btn btn-xs btn-primary me-1" type="button" title="Edit">
+                          <i class="fas fa-edit"></i>
+                        </button>
+                        <!-- @ts-ignore -->
                         <button @click="removeItem(idx)" class="btn btn-xs btn-danger" type="button" title="Delete">
                           <i class="fas fa-trash"></i>
                         </button>
@@ -333,7 +338,7 @@
               <div class="subsection-header">
                 <h4>Parties</h4>
                 <button @click="showPartyForm = !showPartyForm" class="btn btn-sm btn-primary" type="button">
-                  <i class="fas fa-plus me-1"></i>Add Party
+                  <i class="fas fa-plus me-1"></i>{{ editPartyIdx !== null ? 'Editing...' : 'Add Party' }}
                 </button>
               </div>
 
@@ -391,11 +396,14 @@
                     <!-- Existing Parties -->
                     <tr v-for="(party, idx) in form.parties" :key="idx">
                       <td>{{ party.role }}</td>
-                      <td>{{ party.entity }}</td>
+                      <td>{{ party.entity_name || party.entity || '-' }}</td>
                       <td>{{ party.contact_person || '-' }}</td>
                       <td>{{ party.contact_phone || '-' }}</td>
                       <td>{{ party.email || '-' }}</td>
                       <td class="text-center">
+                        <button @click="editParty(idx)" class="btn btn-xs btn-primary me-1" type="button" title="Edit">
+                          <i class="fas fa-edit"></i>
+                        </button>
                         <button @click="removeParty(idx)" class="btn btn-xs btn-danger" type="button" title="Delete">
                           <i class="fas fa-trash"></i>
                         </button>
@@ -405,6 +413,16 @@
                 </table>
               </div>
               <div v-if="form.parties.length === 0" class="empty-state mt-3">No parties added</div>
+            </div>
+
+            <!-- Navigation Buttons -->
+            <div class="section-navigation mt-4">
+              <button @click="goToPreviousSection" class="btn btn-secondary" type="button" :disabled="getCurrentSectionIndex() === 0">
+                <i class="fas fa-arrow-left me-2"></i>Previous
+              </button>
+              <button @click="goToNextSection" class="btn btn-primary" type="button" :disabled="getCurrentSectionIndex() === sectionOrder.length - 1">
+                Next<i class="fas fa-arrow-right ms-2"></i>
+              </button>
             </div>
           </div>
 
@@ -450,6 +468,7 @@
                       <th style="min-width: 150px">Location/Route</th>
                       <th style="min-width: 120px">Date</th>
                       <th style="min-width: 100px">Details</th>
+                      <th style="min-width: 100px">Rooms/Extra</th>
                       <th style="min-width: 120px">Amount</th>
                       <th style="min-width: 100px">Status</th>
                       <th style="min-width: 80px">Actions</th>
@@ -480,13 +499,19 @@
                         <input v-else v-model="newLogistics.vehicle_type" type="text" placeholder="Vehicle" class="form-input" />
                       </td>
                       <td>
+                        <input v-if="newLogistics.logistics_type === 'HOTEL'" v-model.number="newLogistics.rooms" type="number" placeholder="Rooms" min="1" class="form-input" />
+                        <input v-else-if="newLogistics.logistics_type === 'CHARTER'" v-model="newLogistics.to_airport" type="text" placeholder="To" class="form-input" />
+                        <input v-else-if="newLogistics.logistics_type === 'TRANSFER'" v-model="newLogistics.to_location" type="text" placeholder="To" class="form-input" />
+                        <input v-else type="text" placeholder="-" class="form-input" disabled />
+                      </td>
+                      <td>
                         <input v-model.number="newLogistics.estimated_amount" type="number" placeholder="Amount" step="0.01" class="form-input" />
                       </td>
                       <td>
                         <select v-model="newLogistics.status" class="form-select">
-                          <option value="PLANNED">Planned</option>
-                          <option value="BOOKED">Booked</option>
-                          <option value="CONFIRMED">Confirmed</option>
+                          <option v-for="status in logisticsStatuses" :key="status.id || status.code" :value="status.id || status.code">
+                            {{ status.name || status }}
+                          </option>
                         </select>
                       </td>
                       <td class="text-center">
@@ -559,6 +584,16 @@
               </div>
               <div v-if="form.logistics.length === 0 && !showLogisticsForm" class="empty-state mt-3">No logistics added</div>
             </div>
+
+            <!-- Navigation Buttons -->
+            <div class="section-navigation mt-4">
+              <button @click="goToPreviousSection" class="btn btn-secondary" type="button" :disabled="getCurrentSectionIndex() === 0">
+                <i class="fas fa-arrow-left me-2"></i>Previous
+              </button>
+              <button @click="goToNextSection" class="btn btn-primary" type="button" :disabled="getCurrentSectionIndex() === sectionOrder.length - 1">
+                Next<i class="fas fa-arrow-right ms-2"></i>
+              </button>
+            </div>
           </div>
 
           <!-- PAYMENT PLAN SECTION -->
@@ -596,15 +631,16 @@
                       </td>
                       <td>
                         <select v-model="newInstallment.amountDueType" class="form-select">
-                          <option value="FIXED">Fixed</option>
-                          <option value="PERCENTAGE">Percentage</option>
+                          <option v-for="type in installmentAmountTypes" :key="type.value || type.id" :value="type.value || type.id">
+                            {{ type.label || type.name }}
+                          </option>
                         </select>
                       </td>
                       <td>
                         <select v-model="newInstallment.dueDaysType" class="form-select">
-                          <option value="AFTER_INVOICE">After Invoice</option>
-                          <option value="AFTER_DELIVERY">After Delivery</option>
-                          <option value="AFTER_CONFIRMATION">After Confirmation</option>
+                          <option v-for="type in installmentDaysTypes" :key="type.value || type.id" :value="type.value || type.id">
+                            {{ type.label || type.name }}
+                          </option>
                         </select>
                       </td>
                       <td>
@@ -652,6 +688,16 @@
               </div>
               <div v-if="form.installments.length === 0 && !showInstallmentForm" class="empty-state mt-3">No installments added</div>
             </div>
+
+            <!-- Navigation Buttons -->
+            <div class="section-navigation mt-4">
+              <button @click="goToPreviousSection" class="btn btn-secondary" type="button" :disabled="getCurrentSectionIndex() === 0">
+                <i class="fas fa-arrow-left me-2"></i>Previous
+              </button>
+              <button @click="goToNextSection" class="btn btn-primary" type="button" :disabled="getCurrentSectionIndex() === sectionOrder.length - 1">
+                Next<i class="fas fa-arrow-right ms-2"></i>
+              </button>
+            </div>
           </div>
 
           <!-- ADDITIONAL DETAILS SECTION -->
@@ -693,6 +739,16 @@
                 <textarea v-model="form.preferences.special_requests" placeholder="Any special requests or notes..." class="form-textarea" rows="4"></textarea>
               </div>
             </div>
+
+            <!-- Navigation Buttons -->
+            <div class="section-navigation mt-4">
+              <button @click="goToPreviousSection" class="btn btn-secondary" type="button" :disabled="getCurrentSectionIndex() === 0">
+                <i class="fas fa-arrow-left me-2"></i>Previous
+              </button>
+              <button @click="submit" class="btn btn-success" type="button">
+                <i class="fas fa-save me-2"></i>Save Order
+              </button>
+            </div>
           </div>
         </div>
       </aside>
@@ -701,6 +757,7 @@
 </template>
 
 <script setup lang="ts">
+// @ts-nocheck
 import { ref, reactive, computed, onMounted, watch, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useOrderStore } from '@/stores/bushman/order-store'
@@ -718,7 +775,9 @@ const toast = useToast()
 const loading = ref(false)
 const saving = ref(false)
 const showItemForm = ref(false)
+const editItemIdx = ref<number | null>(null)
 const showPartyForm = ref(false)
+const editPartyIdx = ref<number | null>(null)
 const showLogisticsForm = ref(false)
 const showInstallmentForm = ref(false)
 const newAllergy = ref('')
@@ -730,8 +789,6 @@ const showSections = reactive({
   payment: false,
   preferences: false,
 })
-
-const participantTypes = ['HUNTER', 'OBSERVER', 'COMPANION', 'STAFF']
 
 const form = reactive({
   // BASIC INFO
@@ -837,6 +894,14 @@ const partyRoles = computed(() => orderStore.partyRoles)
 const itemCategories = computed(() => orderStore.itemCategories || [])
 const entities = computed(() => orderStore.entities || [])
 const logisticsTypes = computed(() => orderStore.logisticsTypes || [])
+const logisticsStatuses = computed(() => orderStore.logisticsStatuses || [])
+const participantTypes = computed(() => 
+  orderStore.participantTypes && orderStore.participantTypes.length > 0 
+    ? orderStore.participantTypes.map((p: any) => p.id || p.code || p)
+    : ['HUNTER', 'OBSERVER', 'COMPANION', 'STAFF']
+)
+const installmentAmountTypes = computed(() => orderStore.installmentAmountTypes || [])
+const installmentDaysTypes = computed(() => orderStore.installmentDaysTypes || [])
 
 const filteredQuotations = computed(() => {
   if (!form.enquiryId) return quotations.value
@@ -858,6 +923,33 @@ const toggleSection = (section: keyof typeof showSections) => {
   })
   // Open only the selected section
   showSections[section] = true
+}
+
+const sectionOrder = ['items', 'logistics', 'payment', 'preferences']
+
+const getCurrentSectionIndex = (): number => {
+  for (let i = 0; i < sectionOrder.length; i++) {
+    if (showSections[sectionOrder[i] as keyof typeof showSections]) {
+      return i
+    }
+  }
+  return 0
+}
+
+const goToNextSection = () => {
+  const currentIndex = getCurrentSectionIndex()
+  if (currentIndex < sectionOrder.length - 1) {
+    const nextSection = sectionOrder[currentIndex + 1] as keyof typeof showSections
+    toggleSection(nextSection)
+  }
+}
+
+const goToPreviousSection = () => {
+  const currentIndex = getCurrentSectionIndex()
+  if (currentIndex > 0) {
+    const previousSection = sectionOrder[currentIndex - 1] as keyof typeof showSections
+    toggleSection(previousSection)
+  }
 }
 
 const getParticipantCount = (partyType: string): number => {
@@ -899,10 +991,31 @@ const addItem = () => {
     toast.warning('Please fill required fields')
     return
   }
-  form.items.push({ ...newItem })
+  
+  // If editing, update the existing item
+  if (editItemIdx.value !== null) {
+    form.items[editItemIdx.value] = { ...form.items[editItemIdx.value], ...newItem }
+    editItemIdx.value = null
+    toast.success('Item updated')
+  } else {
+    // Otherwise, add a new item
+    form.items.push({ ...newItem })
+    toast.success('Item added')
+  }
+  
   showItemForm.value = false
   resetItemForm()
-  toast.success('Item added')
+}
+
+const editItem = (idx: number) => {
+  editItemIdx.value = idx
+  newItem.name = form.items[idx].name
+  newItem.category = form.items[idx].category
+  newItem.quantity = form.items[idx].quantity
+  newItem.rate = form.items[idx].rate
+  newItem.discount = form.items[idx].discount || 0
+  newItem.description = form.items[idx].description || ''
+  showItemForm.value = true
 }
 
 const resetItemForm = () => {
@@ -912,6 +1025,7 @@ const resetItemForm = () => {
   newItem.rate = 0
   newItem.discount = 0
   newItem.description = ''
+  editItemIdx.value = null
 }
 
 const removeItem = (idx: number) => {
@@ -924,10 +1038,30 @@ const addParty = () => {
     toast.warning('Please fill required fields')
     return
   }
-  form.parties.push({ ...newParty })
+  
+  // If editing, update the existing party
+  if (editPartyIdx.value !== null) {
+    form.parties[editPartyIdx.value] = { ...form.parties[editPartyIdx.value], ...newParty }
+    editPartyIdx.value = null
+    toast.success('Party updated')
+  } else {
+    // Otherwise, add a new party
+    form.parties.push({ ...newParty })
+    toast.success('Party added')
+  }
+  
   showPartyForm.value = false
   resetPartyForm()
-  toast.success('Party added')
+}
+
+const editParty = (idx: number) => {
+  editPartyIdx.value = idx
+  newParty.role = form.parties[idx].role
+  newParty.entity = form.parties[idx].entity
+  newParty.contact_person = form.parties[idx].contact_person
+  newParty.contact_phone = form.parties[idx].contact_phone
+  newParty.email = form.parties[idx].email
+  showPartyForm.value = true
 }
 
 const resetPartyForm = () => {
@@ -936,6 +1070,7 @@ const resetPartyForm = () => {
   newParty.contact_person = ''
   newParty.contact_phone = ''
   newParty.email = ''
+  editPartyIdx.value = null
 }
 
 const removeParty = (idx: number) => {
@@ -946,13 +1081,34 @@ const removeParty = (idx: number) => {
 const addLogistics = () => {
   let isValid: boolean = false
   
+  console.log('Adding logistics:', {
+    type: newLogistics.logistics_type,
+    location: newLogistics.location,
+    check_in_date: newLogistics.check_in_date,
+    nights: newLogistics.nights,
+    rooms: newLogistics.rooms,
+    from_airport: newLogistics.from_airport,
+    to_airport: newLogistics.to_airport,
+    flight_date: newLogistics.flight_date,
+    seats: newLogistics.seats,
+    from_location: newLogistics.from_location,
+    to_location: newLogistics.to_location,
+    transfer_date: newLogistics.transfer_date,
+    vehicle_type: newLogistics.vehicle_type,
+  })
+  
   if (newLogistics.logistics_type === 'HOTEL') {
     isValid = !!(newLogistics.location && newLogistics.check_in_date && newLogistics.nights && newLogistics.rooms)
   } else if (newLogistics.logistics_type === 'CHARTER') {
     isValid = !!(newLogistics.from_airport && newLogistics.to_airport && newLogistics.flight_date && newLogistics.seats)
   } else if (newLogistics.logistics_type === 'TRANSFER') {
     isValid = !!(newLogistics.from_location && newLogistics.to_location && newLogistics.transfer_date && newLogistics.vehicle_type)
+  } else {
+    // For OTHER or any other type, just check if basic fields are filled
+    isValid = !!(newLogistics.estimated_amount && newLogistics.status)
   }
+  
+  console.log('Validation result:', isValid)
   
   if (!isValid) {
     toast.warning('Please fill all required fields')
@@ -1194,8 +1350,12 @@ const loadDropdownData = async () => {
       orderStore.fetchQuotations(),
       orderStore.fetchEntities(),
       orderStore.fetchPartyRoles(),
+      orderStore.fetchParticipantTypes(),
       orderStore.fetchItemCategories(),
       orderStore.fetchLogisticsTypes(),
+      orderStore.fetchLogisticsStatuses(),
+      orderStore.fetchInstallmentDaysTypes(),
+      orderStore.fetchInstallmentAmountTypes(),
     ])
   } catch (error) {
     console.error('Error loading data:', error)
@@ -1237,10 +1397,12 @@ const loadExistingOrder = async () => {
   }
 }
 
-// Watch for both enquiry and quotation changes to update status
+// Watch for both enquiry and quotation changes to update status and fetch pricing items & parties
 watch(
   () => [form.enquiryId, form.quotationId],
-  () => {
+  async (newVal, oldVal) => {
+    console.log('Form changed:', { enquiryId: form.enquiryId, quotationId: form.quotationId })
+    
     if (form.enquiryId && !form.quotationId) {
       // Only enquiry selected: set to DRAFT
       const draftStatus = orderStatuses.value.find((s: any) => s.name?.toUpperCase() === 'DRAFT')
@@ -1248,8 +1410,128 @@ watch(
         form.status = draftStatus.id
       }
     }
-    // When quotation is selected, user can manually choose status
-  }
+    
+    // When quotation is selected: fetch and auto-populate items & parties
+    if (form.quotationId) {
+      console.log('Quotation selected:', form.quotationId)
+      try {
+        const pricingId = parseInt(form.quotationId as string)
+        
+        // ===== AUTO-POPULATE ITEMS =====
+        // First try to get items from the already-loaded quotation object
+        const quotationObj = quotations.value.find((q: any) => q.id === pricingId)
+        console.log('Found quotation object:', quotationObj)
+        
+        let pricingItems: any[] = []
+        
+        // Check if quotation already has items embedded
+        if (quotationObj?.items || quotationObj?.pricing_items) {
+          console.log('Using embedded items from quotation')
+          pricingItems = quotationObj.items || quotationObj.pricing_items
+        } else if (quotationObj?.items_by_type) {
+          // Items might be grouped by type
+          console.log('Using items_by_type from quotation')
+          const itemsByType = quotationObj.items_by_type
+          // Flatten all items from all types
+          Object.values(itemsByType).forEach((typeItems: any) => {
+            pricingItems.push(...(Array.isArray(typeItems) ? typeItems : []))
+          })
+        } else {
+          // If not embedded, fetch from API
+          console.log('Fetching items from API for pricing ID:', pricingId)
+          pricingItems = await orderStore.fetchPricingItems(pricingId)
+        }
+        
+        console.log('Total pricing items found:', pricingItems.length, pricingItems)
+        
+        // Transform pricing items to order items format
+        form.items = pricingItems.map((pItem: any) => ({
+          name: pItem.description || '',
+          category: pItem.item_type || '',
+          quantity: pItem.quantity || 1,
+          rate: pItem.rate || 0,
+          discount: 0,
+          amount: pItem.amount || 0
+        }))
+        
+        console.log(`Auto-populated ${form.items.length} items from pricing #${pricingId}`)
+        
+        // ===== AUTO-POPULATE PARTIES =====
+        console.log('Fetching parties for pricing ID:', pricingId)
+        const pricingParties = await orderStore.fetchPricingParties(pricingId)
+        console.log('Pricing parties fetched:', pricingParties)
+        
+        // Transform pricing parties to order parties format
+        form.parties = pricingParties.map((party: any) => ({
+          role: party.role || 'CLIENT',
+          entity: party.entity_id?.toString() || '',
+          entity_name: party.entity_name || party.name || '',
+          contact_person: party.contact_person || '',
+          contact_phone: party.phone || party.contact_phone || '',
+          email: party.email || ''
+        }))
+        
+        console.log(`Auto-populated ${form.parties.length} parties from pricing #${pricingId}`)
+        console.log('Form parties after auto-population:', form.parties)
+        
+        // ===== AUTO-POPULATE LOGISTICS & PARTICIPANTS =====
+        console.log('Fetching logistics for pricing ID:', pricingId)
+        const pricingLogistics = await orderStore.fetchPricingLogistics(pricingId)
+        console.log('Pricing logistics fetched:', pricingLogistics)
+        
+        // Auto-populate participants counts
+        if (pricingLogistics.participants) {
+          const participants = pricingLogistics.participants
+          form.participants = []
+          
+          // Add hunter participants
+          if (participants.hunter > 0) {
+            form.participants.push({ party_type: 'HUNTER', count: participants.hunter })
+          }
+          // Add observer participants
+          if (participants.observer > 0) {
+            form.participants.push({ party_type: 'OBSERVER', count: participants.observer })
+          }
+          // Add companion participants
+          if (participants.companion > 0) {
+            form.participants.push({ party_type: 'COMPANION', count: participants.companion })
+          }
+          // Add staff participants
+          if (participants.staff > 0) {
+            form.participants.push({ party_type: 'STAFF', count: participants.staff })
+          }
+          
+          console.log(`Auto-populated participants from pricing #${pricingId}:`, form.participants)
+        }
+        
+        // Auto-populate logistics items
+        if (pricingLogistics.logistics && Array.isArray(pricingLogistics.logistics)) {
+          form.logistics = pricingLogistics.logistics.map((logItem: any) => ({
+            logistics_type: logItem.logistics_type || 'HOTEL',
+            location: logItem.location || '',
+            check_in_date: logItem.check_in_date || '',
+            nights: logItem.nights || 0,
+            rooms: logItem.rooms || 0,
+            from_airport: logItem.from_airport || '',
+            to_airport: logItem.to_airport || '',
+            flight_date: logItem.flight_date || '',
+            seats: logItem.seats || 0,
+            from_location: logItem.from_location || '',
+            to_location: logItem.to_location || '',
+            transfer_date: logItem.transfer_date || '',
+            vehicle_type: logItem.vehicle_type || '',
+            description: logItem.description || ''
+          }))
+          
+          console.log(`Auto-populated ${form.logistics.length} logistics from pricing #${pricingId}`)
+        }
+      } catch (err: any) {
+        console.error('Error fetching pricing items/parties/logistics:', err?.message || err)
+        console.error('Full error:', err)
+      }
+    }
+  },
+  { immediate: false }
 )
 
 // Restore sidebar state when leaving the page
@@ -1604,6 +1886,13 @@ onMounted(() => {
   border-radius: 8px;
   padding: 14px;
   margin-bottom: 12px;
+}
+
+.section-navigation {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
 }
 
 .section-inner-header {

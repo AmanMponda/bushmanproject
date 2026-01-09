@@ -17,8 +17,10 @@ interface OrderState {
   dietaryPreferences: any[]
   allergies: any[]
   partyRoles: any[]
+  participantTypes: any[]
   itemCategories: any[]
   logisticsTypes: any[]
+  logisticsStatuses: any[]
   installmentSetups: any[]
   installmentDaysTypes: any[]
   installmentAmountTypes: any[]
@@ -47,18 +49,13 @@ export const useOrderStore = defineStore('order', {
     dietaryPreferences: [] as any[],
     allergies: [] as any[],
     partyRoles: [] as any[],
+    participantTypes: [] as any[],
     itemCategories: [] as any[],
     logisticsTypes: [] as any[],
+    logisticsStatuses: [] as any[],
     installmentSetups: [] as any[],
-    installmentDaysTypes: [
-      { value: 'AFTER_INVOICE', label: 'After Invoice' },
-      { value: 'AFTER_DELIVERY', label: 'After Delivery' },
-      { value: 'AFTER_CONFIRMATION', label: 'After Confirmation' }
-    ] as any[],
-    installmentAmountTypes: [
-      { value: 'FIXED', label: 'Fixed Amount' },
-      { value: 'PERCENTAGE', label: 'Percentage' }
-    ] as any[],
+    installmentDaysTypes: [] as any[],
+    installmentAmountTypes: [] as any[],
     loading: false,
     error: null as string | null,
     filters: {
@@ -83,8 +80,10 @@ export const useOrderStore = defineStore('order', {
     getDietaryPreferences: (state: OrderState) => state.dietaryPreferences,
     getAllergies: (state: OrderState) => state.allergies,
     getPartyRoles: (state: OrderState) => state.partyRoles,
+    getParticipantTypes: (state: OrderState) => state.participantTypes,
     getItemCategories: (state: OrderState) => state.itemCategories,
     getLogisticsTypes: (state: OrderState) => state.logisticsTypes,
+    getLogisticsStatuses: (state: OrderState) => state.logisticsStatuses,
     getInstallmentSetups: (state: OrderState) => state.installmentSetups,
     getInstallmentDaysTypes: (state: OrderState) => state.installmentDaysTypes,
     getInstallmentAmountTypes: (state: OrderState) => state.installmentAmountTypes,
@@ -355,6 +354,32 @@ export const useOrderStore = defineStore('order', {
       }
     },
 
+    // ==================== LOGISTICS STATUSES ====================
+
+    async fetchLogisticsStatuses(): Promise<any> {
+      this.loading = true
+      this.error = null
+      try {
+        const config = {
+          method: 'get',
+          url: `${API_BASE}/logistics-statuses`,
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }
+
+        const response: any = await axios.request(config)
+        this.logisticsStatuses = response.data.data || response.data || []
+        return response
+      } catch (err: any) {
+        console.error('Error loading logistics statuses:', err?.response?.data?.message || err.message)
+        // Fail silently and return empty array
+        this.logisticsStatuses = []
+      } finally {
+        this.loading = false
+      }
+    },
+
     // ==================== ENQUIRIES ====================
 
     async fetchEnquiries(): Promise<any> {
@@ -554,6 +579,30 @@ export const useOrderStore = defineStore('order', {
       } catch (err: any) {
         console.error('Error loading party roles:', err?.response?.data?.message || err.message)
         this.partyRoles = []
+      } finally {
+        this.loading = false
+      }
+    },
+
+    // ==================== PARTICIPANT TYPES ====================
+
+    async fetchParticipantTypes(): Promise<any> {
+      this.loading = true
+      try {
+        const config = {
+          method: 'get',
+          url: `${API_BASE}/participant-types/`,
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }
+
+        const response: any = await axios.request(config)
+        this.participantTypes = response.data.data || response.data || []
+        return response
+      } catch (err: any) {
+        console.error('Error loading participant types:', err?.response?.data?.message || err.message)
+        this.participantTypes = []
       } finally {
         this.loading = false
       }
@@ -934,6 +983,169 @@ export const useOrderStore = defineStore('order', {
         this.error = err?.response?.data?.message || 'Error linking quotation to order'
         console.error('Error linking quotation to order:', this.error)
         throw err
+      } finally {
+        this.loading = false
+      }
+    },
+
+    /**
+     * Fetch pricing items from a quotation/pricing
+     * Returns all sales_enquiry_pricing_items for auto-population in order
+     * 
+     * @param pricingId - The sales_enquiry_pricing ID
+     * @returns Array of pricing items with details
+     */
+    async fetchPricingItems(pricingId: number): Promise<any[]> {
+      this.loading = true
+      try {
+        const baseUrl = import.meta.env.VITE_APP_BASE_URL || ''
+        // Changed to fetch the full pricing record which includes items_by_type
+        const url = `${baseUrl}sales-enquiries/pricing/${pricingId}`
+
+        console.log('Fetching pricing from URL:', url)
+
+        const config = {
+          method: 'get',
+          url,
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }
+
+        const response: any = await axios.request(config)
+        console.log('Pricing response:', response.data)
+        
+        // Extract items from the pricing object
+        const pricingData = response.data.data || response.data
+        let allItems: any[] = []
+        
+        // Check if items are in items_by_type (grouped by type)
+        if (pricingData.items_by_type && typeof pricingData.items_by_type === 'object') {
+          console.log('Extracting items from items_by_type')
+          Object.values(pricingData.items_by_type).forEach((typeItems: any) => {
+            if (Array.isArray(typeItems)) {
+              allItems.push(...typeItems)
+            }
+          })
+        }
+        // Check if items are in a direct items array
+        else if (Array.isArray(pricingData.items)) {
+          console.log('Using direct items array')
+          allItems = pricingData.items
+        }
+        // Check for pricing_items array
+        else if (Array.isArray(pricingData.pricing_items)) {
+          console.log('Using pricing_items array')
+          allItems = pricingData.pricing_items
+        }
+        
+        console.log(`Retrieved ${allItems.length} pricing items`)
+        return allItems
+      } catch (err: any) {
+        this.error = err?.response?.data?.message || 'Error fetching pricing items'
+        console.error('Error fetching pricing items:', this.error)
+        console.error('Full error response:', err?.response?.data)
+        console.error('Error status:', err?.response?.status)
+        return []
+      } finally {
+        this.loading = false
+      }
+    },
+
+    /**
+     * Fetch pricing parties from a quotation/pricing
+     * Returns the client entity and contact details for auto-population in order
+     * 
+     * @param pricingId - The sales_enquiry_pricing ID
+     * @returns Array of party objects with role, entity name, contact details
+     */
+    async fetchPricingParties(pricingId: number): Promise<any[]> {
+      this.loading = true
+      try {
+        const baseUrl = import.meta.env.VITE_APP_BASE_URL || ''
+        const url = `${baseUrl}sales-enquiries/pricing/${pricingId}/parties`
+
+        console.log('Fetching pricing parties from URL:', url)
+
+        const config = {
+          method: 'get',
+          url,
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }
+
+        const response: any = await axios.request(config)
+        console.log('Pricing parties response:', response.data)
+        
+        const partiesData = response.data.data || response.data
+        let allParties: any[] = []
+        
+        // Check if parties are in a direct parties array
+        if (Array.isArray(partiesData.parties)) {
+          console.log('Using direct parties array')
+          allParties = partiesData.parties
+        }
+        // Check if it's a single party object
+        else if (partiesData.entity_id) {
+          console.log('Using single party object')
+          allParties = [partiesData]
+        }
+        // Check if parties are in array format
+        else if (Array.isArray(partiesData)) {
+          console.log('Using array format')
+          allParties = partiesData
+        }
+        
+        console.log(`Retrieved ${allParties.length} pricing parties`)
+        return allParties
+      } catch (err: any) {
+        this.error = err?.response?.data?.message || 'Error fetching pricing parties'
+        console.error('Error fetching pricing parties:', this.error)
+        console.error('Full error response:', err?.response?.data)
+        console.error('Error status:', err?.response?.status)
+        return []
+      } finally {
+        this.loading = false
+      }
+    },
+
+    /**
+     * Fetch pricing logistics and participants from a quotation/pricing
+     * Returns participant counts and logistics items for auto-population
+     * 
+     * @param pricingId - The sales_enquiry_pricing ID
+     * @returns Object with participants counts and logistics items
+     */
+    async fetchPricingLogistics(pricingId: number): Promise<any> {
+      this.loading = true
+      try {
+        const baseUrl = import.meta.env.VITE_APP_BASE_URL || ''
+        const url = `${baseUrl}sales-enquiries/pricing/${pricingId}/logistics`
+
+        console.log('Fetching pricing logistics from URL:', url)
+
+        const config = {
+          method: 'get',
+          url,
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }
+
+        const response: any = await axios.request(config)
+        console.log('Pricing logistics response:', response.data)
+        
+        const logisticsData = response.data.data || response.data
+        console.log('Extracted logistics data:', logisticsData)
+        
+        return logisticsData
+      } catch (err: any) {
+        this.error = err?.response?.data?.message || 'Error fetching pricing logistics'
+        console.error('Error fetching pricing logistics:', this.error)
+        console.error('Full error response:', err?.response?.data)
+        console.error('Error status:', err?.response?.status)
+        return { participants: {}, logistics: [] }
       } finally {
         this.loading = false
       }
