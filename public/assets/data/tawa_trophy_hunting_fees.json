@@ -1,0 +1,138 @@
+{
+  "authority": "Tanzania Wildlife Authority (TAWA)",
+  "regime": "Trophy Hunting",
+  "currency": "TZS",
+
+  "hunting_block_fees": [
+    {
+      "code": "HB-01",
+      "name": "Hunting Block Fee – Class I",
+      "basis": "per block per year",
+      "amount_tzs": 14000000
+    },
+    {
+      "code": "HB-02",
+      "name": "Hunting Block Fee – Class II",
+      "basis": "per block per year",
+      "amount_tzs": 5300000
+    },
+    {
+      "code": "HB-03",
+      "name": "Hunting Block Fee – Class III",
+      "basis": "per block per year",
+      "amount_tzs": 2700000
+    },
+    {
+      "code": "HB-04",
+      "name": "Annual Hunting Block Maintenance Fee",
+      "basis": "per block per year",
+      "amount_tzs": 2700000
+    },
+    {
+      "code": "HB-05",
+      "name": "Hunting Block Maintenance Renewal Fee",
+      "basis": "annual renewal",
+      "amount": "20% of the applicable annual hunting block fee"
+    }
+  ],
+
+  "trophy_hunting_licence_fees": [
+    {
+      "code": "THL-01",
+      "category": "Regular",
+      "duration_days": 10,
+      "amount_tzs": 4000000
+    },
+    {
+      "code": "THL-02",
+      "category": "Major",
+      "duration_days": 14,
+      "amount_tzs": 8000000
+    },
+    {
+      "code": "THL-03",
+      "category": "Premium",
+      "duration_days": 21,
+      "amount_tzs": 11930000
+    },
+    {
+      "code": "THL-04",
+      "category": "Bird hunting within hunting block per hunter per day",
+      "duration_days": null,
+      "amount_tzs": 270000
+    },
+    {
+      "code": "THL-05",
+      "category": "Bird hunting on private land per hunter per day",
+      "duration_days": null,
+      "amount_tzs": 140000
+    },
+    {
+      "code": "THL-06",
+      "category": "Sport fishing per angler per day for ten fish",
+      "duration_days": null,
+      "amount_tzs": 270000
+    }
+  ],
+
+  "professional_hunter_fees": [
+    {
+      "code": "PH-01",
+      "name": "Professional Hunter License",
+      "resident_tzs": 1590000,
+      "non_resident_tzs": 5300000
+    },
+    {
+      "code": "PH-02",
+      "name": "Professional Hunter Examination Fee",
+      "resident_tzs": 270000,
+      "non_resident_tzs": 1330000
+    },
+    {
+      "code": "PH-03",
+      "name": "Replacement of Lost Professional Hunter License",
+      "resident_tzs": 140000,
+      "non_resident_tzs": 140000
+    }
+  ],
+
+  "inter_company_license_fees": [
+    {
+      "code": "ICL-01",
+      "safari_category": "Regular Trophy Hunting Safari",
+      "basis": "per person",
+      "amount_tzs": 1500000
+    },
+    {
+      "code": "ICL-02",
+      "safari_category": "Major Trophy Hunting Safari",
+      "basis": "per person",
+      "amount_tzs": 1500000
+    },
+    {
+      "code": "ICL-03",
+      "safari_category": "Premium Trophy Hunting Safari",
+      "basis": "per person",
+      "amount_tzs": 1500000
+    }
+  ],
+
+  "daily_fees": [
+    {
+      "code": "DF-01",
+      "name": "Daily Hunting Observer (Game Scout) Fee",
+      "basis": "per observer per day",
+      "amount_tzs": 270000
+    },
+    {
+      "code": "DF-02",
+      "name": "Daily Campsite Maintenance and Sanitation Fee",
+      "basis": "per day",
+      "amount_tzs": 140000
+    }
+  ],
+  "notes": {
+    "E": "Daily observer fee per hunter per day: TZS 270,000",
+    "F": "Daily observer fee per observer per day: TZS 140,000"
+  }
+}

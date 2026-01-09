@@ -58,7 +58,7 @@
 
 <!-- Area Details View with Map -->
 <template v-else-if="showAreaDetails && areaDetails">
-      <div class="p-2" style="overflow-y: auto; height: 100%; flex: 1;">
+      <div class="p-2">
         <div class="d-flex justify-content-between align-items-center mb-3">
           <div>
             <h3 class="fw-bold mb-1">{{ areaDetails.location?.name || 'Hunting Area' }}</h3>
@@ -144,43 +144,13 @@
             </div>
           </div>
 
-          <!-- Species Management (Full Width) -->
-          <div class="col-12">
-            <div class="card">
-              <div class="card-header d-flex justify-content-between align-items-center">
-                <h6 class="fw-bold mb-0"><i class="fa fa-paw me-2"></i>Species</h6>
-                <span class="text-muted small">Total: {{ areaSpecies.length }}</span>
-              </div>
-              <div class="card-body">
-                <div v-if="loadingSpecies" class="text-center py-3">
-                  <div class="spinner-border text-primary" role="status"></div>
-                </div>
-                <div v-else-if="areaSpecies.length === 0" class="text-center py-3 text-muted">
-                  No species added to this area yet.
-                </div>
-                <div v-else>
-                  <div class="list-group">
-                    <div v-for="species in areaSpecies" :key="species.id" class="list-group-item d-flex justify-content-between align-items-center">
-                      <div>
-                        <div class="fw-semibold">{{ species.specie_name }}</div>
-                        <div class="text-muted small">#{{ species.specie_id }}</div>
-                      </div>
-                      <button class="btn btn-danger btn-sm" @click="deleteAreaSpecies(species)" :disabled="deleting">
-                        <i class="fa fa-trash"></i>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </template>
 
 <!-- Add Species View -->
 <template v-else-if="showAddSpecies && selectedArea">
-      <div class="p-2" style="overflow-y: auto; height: 100%; flex: 1;">
+      <div class="p-2">
         <div class="d-flex justify-content-between align-items-center mb-3">
           <div>
             <h3 class="fw-bold mb-1">{{ selectedArea.location_name || selectedArea.location?.name || 'Hunting Area' }}</h3>
@@ -326,7 +296,7 @@
 
 <!-- Area Species View -->
 <template v-else-if="showAreaSpecies && selectedArea">
-      <div class="p-2" style="overflow-y: auto; height: 100%; flex: 1;">
+      <div class="p-2">
         <div class="d-flex justify-content-between align-items-center mb-3">
           <div>
             <h3 class="fw-bold mb-1">{{ selectedArea.location_name || selectedArea.location?.name || 'Hunting Area' }}</h3>
@@ -349,13 +319,10 @@
             <StandardDataTable
               :key="selectedArea?.id || 'species-table'"
               :columns="speciesColumns"
-              :data="areaSpecies"
+              :data="allSpeciesForArea"
               :loading="loadingSpecies"
               :disable-search="false"
               :show-date-filters="false"
-              :selectable="true"
-              :action-buttons="speciesActions"
-              @selection-change="handleSpeciesSelectionChange"
             >
               <template #specie_id="{ row }">
                 <span class="text-muted">#{{ row.specie_id }}</span>
@@ -363,10 +330,16 @@
               <template #specie_name="{ row }">
                 <span class="fw-semibold">{{ row.specie_name }}</span>
               </template>
-              <template #actions="{ row }">
-                <button class="btn btn-danger btn-sm" @click="deleteAreaSpecies(row)" :disabled="deleting">
-                  <i class="fa fa-trash"></i>
-                </button>
+              <template #availability="{ row }">
+                <div class="form-check form-switch mb-0 d-flex justify-content-center">
+                  <input
+                    class="form-check-input"
+                    type="checkbox"
+                    :checked="isSpeciesInArea(row.specie_id)"
+                    :disabled="isTogglingSpecies(row.specie_id)"
+                    @change="toggleSpeciesInArea(row, $event)"
+                  />
+                </div>
               </template>
             </StandardDataTable>
           </div>
@@ -517,7 +490,7 @@ const columns = [
 const speciesColumns = [
   { key: 'specie_id', label: 'ID', sortable: true, visible: true },
   { key: 'specie_name', label: 'Species', sortable: true, visible: true },
-  { key: 'actions', label: 'Actions', sortable: false, visible: true },
+  { key: 'availability', label: 'Availability', sortable: false, visible: true },
 ]
 
 const items = ref<any[]>([])
@@ -538,11 +511,11 @@ const csvImportDone = ref(0)
 const csvImportResults = ref<any[]>([])
 const showCsvImportResults = ref(false)
 const csvCurrentItem = ref<string>('')
-const selectedSpeciesIds = ref<any[]>([])
 const mapCenter = ref({ lat: -2.5, lng: 34.5 }) // Default center for Tanzania
 const mapZoom = ref(10)
 const mapPaths = ref<any[]>([])
 const mapMarkers = ref<any[]>([])
+const togglingSpeciesIds = ref(new Set<any>())
 
 const areaForm = reactive({
   id: null as number | null,
@@ -584,17 +557,6 @@ const pageActions = computed(() => {
   return actions
 })
 
-const speciesActions = computed(() => {
-  return [
-    {
-      label: 'Delete Selected',
-      icon: 'fa fa-trash',
-      class: 'btn btn-danger',
-      method: () => bulkDeleteSpecies(),
-    },
-  ]
-})
-
 const isAreaFormValid = computed(() => {
   if (editMode.value) {
     // For edit mode, need location_id
@@ -612,6 +574,34 @@ const isAreaFormValid = computed(() => {
 
 const existingCsvModel = computed(() => {
   return areaSpecies.value.map((item: any) => ({ specie_id: item.specie_id }))
+})
+
+const areaSpeciesIdSet = computed(() => {
+  return new Set(areaSpecies.value.map((item: any) => String(item.specie_id)))
+})
+
+const allSpeciesForArea = computed(() => {
+  if (speciesOptions.value.length === 0) {
+    return areaSpecies.value
+  }
+
+  const rows = speciesOptions.value.map((opt: any) => ({
+    specie_id: opt.value,
+    specie_name: opt.text,
+  }))
+
+  const knownIds = new Set(rows.map((row: any) => String(row.specie_id)))
+  areaSpecies.value.forEach((item: any) => {
+    const id = String(item.specie_id)
+    if (!knownIds.has(id)) {
+      rows.push({
+        specie_id: item.specie_id,
+        specie_name: item.specie_name || item.name || `Species #${item.specie_id}`,
+      })
+    }
+  })
+
+  return rows
 })
 
 const speciesTemplateRows = computed(() => {
@@ -1153,14 +1143,60 @@ function normalizeSpeciesList(list: any[]) {
 
 function setAreaSpeciesFromList(list: any[]) {
   areaSpecies.value = normalizeSpeciesList(list)
-  selectedSpeciesIds.value = []
   loadingSpecies.value = false
 }
 
-const handleSpeciesSelectionChange = (selectedRows: any[]) => {
-  selectedSpeciesIds.value = selectedRows
-    .map((row: any) => row?.specie_id)
-    .filter((id: any) => id !== undefined && id !== null)
+function isSpeciesInArea(specieId: any): boolean {
+  return areaSpeciesIdSet.value.has(String(specieId))
+}
+
+function isTogglingSpecies(specieId: any): boolean {
+  return togglingSpeciesIds.value.has(String(specieId))
+}
+
+async function toggleSpeciesInArea(species: any, event: Event) {
+  if (!selectedArea.value) return
+
+  const checkbox = event.target as HTMLInputElement
+  const checked = checkbox?.checked === true
+  const specieId = species?.specie_id ?? species?.id ?? species?.value
+  const specieKey = String(specieId)
+
+  if (specieId === undefined || specieId === null) {
+    checkbox.checked = !checked
+    return
+  }
+
+  if (togglingSpeciesIds.value.has(specieKey)) {
+    return
+  }
+
+  togglingSpeciesIds.value.add(specieKey)
+  try {
+    if (checked) {
+      await huntingAreaStore.addHuntingAreaSpecies({
+        hunting_area_id: selectedArea.value.id,
+        specie_id: specieId,
+      })
+    } else {
+      await huntingAreaStore.deleteHuntingAreaSpecies(
+        selectedArea.value.id,
+        selectedArea.value.id,
+        specieId
+      )
+    }
+
+    await loadAreaSpecies(selectedArea.value.id)
+  } catch (error: any) {
+    checkbox.checked = !checked
+    const errors = handleErrors(error)
+    toast.init({
+      message: errors.join('\n') || 'Failed to update species availability',
+      color: 'danger',
+    })
+  } finally {
+    togglingSpeciesIds.value.delete(specieKey)
+  }
 }
 
 async function loadAreaSpecies(areaId: any) {
@@ -1341,50 +1377,6 @@ async function deleteAreaSpecies(record: any) {
   }
 }
 
-async function bulkDeleteSpecies() {
-  if (!selectedArea.value || selectedSpeciesIds.value.length === 0) return
-
-  const result = await Swal.fire({
-    title: 'Delete selected species?',
-    html: `Remove <strong>${selectedSpeciesIds.value.length}</strong> species from this area?`,
-    icon: 'warning',
-    showCancelButton: true,
-    confirmButtonText: 'Yes, delete',
-    cancelButtonText: 'Cancel',
-    reverseButtons: true,
-    customClass: {
-      confirmButton: 'btn btn-danger me-2',
-      cancelButton: 'btn btn-secondary',
-    },
-    buttonsStyling: false,
-    padding: '2em',
-  })
-
-  if (!result.isConfirmed) return
-
-  deleting.value = true
-  try {
-    for (const specieId of selectedSpeciesIds.value) {
-      await huntingAreaStore.deleteHuntingAreaSpecies(
-        selectedArea.value.id,
-        selectedArea.value.id,
-        specieId
-      )
-    }
-    await Swal.fire({
-      title: 'Deleted',
-      text: 'Selected species removed from hunting area.',
-      icon: 'success',
-      confirmButtonText: 'OK',
-    })
-    loadAreaSpecies(selectedArea.value.id)
-  } catch (error: any) {
-    const errors = handleErrors(error)
-    toast.init({ message: errors.join('\n') || 'Failed to remove selected species', color: 'danger' })
-  } finally {
-    deleting.value = false
-  }
-}
 async function getAreas() {
   try {
     loading.value = true
@@ -1505,7 +1497,7 @@ onMounted(() => {
   width: 100%;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .form-full-height {

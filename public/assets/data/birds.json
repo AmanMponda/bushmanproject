@@ -1,0 +1,835 @@
+[
+  {
+    "id": 1,
+    "common_name": "African Broadbill",
+    "local_name": "Kitogoo - Shamba",
+    "scientific_name": "Smithornis capensis",
+    "population": 110000
+  },
+  {
+    "id": 2,
+    "common_name": "African Darter",
+    "local_name": "Mbizi",
+    "scientific_name": "Anhinga rufa",
+    "population": 160000
+  },
+  {
+    "id": 3,
+    "common_name": "African finfoot",
+    "local_name": "Kikwiri - mtoni",
+    "scientific_name": "Podica senegalensis, Actophilornis",
+    "population": 140000
+  },
+  {
+    "id": 4,
+    "common_name": "African jacana",
+    "local_name": "Kibilinzi",
+    "scientific_name": "africanus",
+    "population": 80000
+  },
+  {
+    "id": 5,
+    "common_name": "African pitta",
+    "local_name": "Pita",
+    "scientific_name": "Pitta angolensis",
+    "population": 110000
+  },
+  {
+    "id": 6,
+    "common_name": "African Pochard",
+    "local_name": "Bata Jicho jekundu",
+    "scientific_name": "Netta erythrophthalma, Rhynchops",
+    "population": 40000
+  },
+  {
+    "id": 7,
+    "common_name": "African Skimmer",
+    "local_name": "Ndege Msumeno",
+    "scientific_name": "Flavirostris",
+    "population": 140000
+  },
+  {
+    "id": 8,
+    "common_name": "Avocet",
+    "local_name": "Kirwiwi donopindo",
+    "scientific_name": "Recurvirostra avosetta",
+    "population": 140000
+  },
+  {
+    "id": 9,
+    "common_name": "Babblers",
+    "local_name": "Zogeypego",
+    "scientific_name": "Phylloscopus spp, Trachyphonus spp, Lybius spp Pogoniulus spp",
+    "population": 80000
+  },
+  {
+    "id": 10,
+    "common_name": "Barbets",
+    "local_name": "Zuwakulu",
+    "scientific_name": "",
+    "population": 70000
+  },
+  {
+    "id": 11,
+    "common_name": "Bee-eaters",
+    "local_name": "Kinegea",
+    "scientific_name": "Merops spp",
+    "population": 110000
+  },
+  {
+    "id": 12,
+    "common_name": "Bishops",
+    "local_name": "Kweche",
+    "scientific_name": "Euplectes spp",
+    "population": 70000
+  },
+  {
+    "id": 13,
+    "common_name": "Bitterns",
+    "local_name": "Kijimbikusita",
+    "scientific_name": "Ardeola",
+    "population": 140000
+  },
+  {
+    "id": 14,
+    "common_name": "Black - necked Grebe",
+    "local_name": "Kikuzi mwezi nweusi",
+    "scientific_name": "Podiceps nigricolls",
+    "population": 70000
+  },
+  {
+    "id": 15,
+    "common_name": "Black faced Sandgrouse",
+    "local_name": "Firigogo Usoniweusi",
+    "scientific_name": "Pterocles decoratus, Himantopus",
+    "population": 60000
+  },
+  {
+    "id": 16,
+    "common_name": "Black- winged Stilt",
+    "local_name": "Kirwiwi kichacheupe",
+    "scientific_name": "himantopus",
+    "population": 140000
+  },
+  {
+    "id": 17,
+    "common_name": "Bulbuls",
+    "local_name": "Sholwe",
+    "scientific_name": "Andropadus spp.",
+    "population": 80000
+  },
+  {
+    "id": 18,
+    "common_name": "Buntings",
+    "local_name": "Kibarabara",
+    "scientific_name": "Emberiza spp",
+    "population": 70000
+  },
+  {
+    "id": 19,
+    "common_name": "Buzzard",
+    "local_name": "Shakivale",
+    "scientific_name": "Buteo spp",
+    "population": 860000
+  },
+  {
+    "id": 20,
+    "common_name": "Canaries",
+    "local_name": "Chiriku",
+    "scientific_name": "Serinus spp, Bubaicus ibis, Egretta spp",
+    "population": 70000
+  },
+  {
+    "id": 21,
+    "common_name": "Cattle Egret",
+    "local_name": "Yangeyange",
+    "scientific_name": "Cercomella spp, Cossypha spp",
+    "population": 265000
+  },
+  {
+    "id": 22,
+    "common_name": "Chats",
+    "local_name": "Kiruwiji",
+    "scientific_name": "",
+    "population": 120000
+  },
+  {
+    "id": 23,
+    "common_name": "Chestnutt- bellied sandgrouse",
+    "local_name": "Firigogo Tumbo jekundu",
+    "scientific_name": "Pterocles exustus",
+    "population": 60000
+  },
+  {
+    "id": 24,
+    "common_name": "Common Quil",
+    "local_name": "Kituntu",
+    "scientific_name": "Coturnix coturnix",
+    "population": 40000
+  },
+  {
+    "id": 25,
+    "common_name": "Coqui",
+    "local_name": "Kwale mdogo",
+    "scientific_name": "Francolinus coqui, Francolinus",
+    "population": 60000
+  },
+  {
+    "id": 26,
+    "common_name": "Coucals",
+    "local_name": "Tipitpi",
+    "scientific_name": "Centropus spp",
+    "population": 140000
+  },
+  {
+    "id": 27,
+    "common_name": "Coursers",
+    "local_name": "Gawa",
+    "scientific_name": "Rhinoptilus spp",
+    "population": 80000
+  },
+  {
+    "id": 28,
+    "common_name": "Crakes",
+    "local_name": "Kiluwiri",
+    "scientific_name": "Crex crex, Francolinus",
+    "population": 70000
+  },
+  {
+    "id": 29,
+    "common_name": "Crested francolin",
+    "local_name": "Kwale kishungi",
+    "scientific_name": "leucascepus, Cercococcyx spp, Chrysococcyx spp, Cuculus spp, Clamator spp",
+    "population": 60000
+  },
+  {
+    "id": 30,
+    "common_name": "Cuckoos",
+    "local_name": "Kekeo",
+    "scientific_name": "",
+    "population": 140000
+  },
+  {
+    "id": 31,
+    "common_name": "Drongos",
+    "local_name": "Mlamba",
+    "scientific_name": "Dicrurus spp, Circaetus spp.",
+    "population": 110000
+  },
+  {
+    "id": 32,
+    "common_name": "Eagles",
+    "local_name": "Tai",
+    "scientific_name": "Terathopius, Alopochen",
+    "population": 870000
+  },
+  {
+    "id": 33,
+    "common_name": "Egyption goose",
+    "local_name": "Bata bukini",
+    "scientific_name": "aegyptiacus",
+    "population": 80000
+  },
+  {
+    "id": 34,
+    "common_name": "Emerald spotted wood dove",
+    "local_name": "Pugi (kituku)",
+    "scientific_name": "Turtur chalcospilos",
+    "population": 80000
+  },
+  {
+    "id": 35,
+    "common_name": "Falcon & Kestrel",
+    "local_name": "Kozi",
+    "scientific_name": "Falco spp",
+    "population": 770000
+  },
+  {
+    "id": 36,
+    "common_name": "Finches",
+    "local_name": "Bwerendu",
+    "scientific_name": "Lagonosticta spp",
+    "population": 40000
+  },
+  {
+    "id": 37,
+    "common_name": "Flycatchers",
+    "local_name": "",
+    "scientific_name": "Muscicapa spp, Melaegornis spp.",
+    "population": 80000
+  },
+  {
+    "id": 38,
+    "common_name": "Giant Petrel",
+    "local_name": "Mimzi Mkuu",
+    "scientific_name": "Macronectes giganteus, Terpsoiphone spp",
+    "population": 140000
+  },
+  {
+    "id": 39,
+    "common_name": "Go-awaybirds",
+    "local_name": "Shorobo",
+    "scientific_name": "Corythaixoides spp",
+    "population": 230000
+  },
+  {
+    "id": 40,
+    "common_name": "Great crested Grebe",
+    "local_name": "Kikuzi- ushungi",
+    "scientific_name": "Podiceps cristatus",
+    "population": 70000
+  },
+  {
+    "id": 41,
+    "common_name": "Great white Pelican",
+    "local_name": "Mwari",
+    "scientific_name": "Pelecanus onocrotalus",
+    "population": 320000
+  },
+  {
+    "id": 42,
+    "common_name": "Greater Flamingo",
+    "local_name": "Heroe Mkubwa",
+    "scientific_name": "Phoenicopterus ruber",
+    "population": 590000
+  },
+  {
+    "id": 43,
+    "common_name": "Green Pigeon",
+    "local_name": "Njiwa",
+    "scientific_name": "Treron calva",
+    "population": 80000
+  },
+  {
+    "id": 44,
+    "common_name": "Grey Crowned Crane",
+    "local_name": "Taji (Korongo– Taji)",
+    "scientific_name": "Balearica regulorum",
+    "population": 610000
+  },
+  {
+    "id": 45,
+    "common_name": "Guiba",
+    "local_name": "Shukwe",
+    "scientific_name": "Lanius spp",
+    "population": 140000
+  },
+  {
+    "id": 46,
+    "common_name": "Hamerkop",
+    "local_name": "Fundishuma",
+    "scientific_name": "Scopus umbretta",
+    "population": 140000
+  },
+  {
+    "id": 47,
+    "common_name": "Harlequin Quail",
+    "local_name": "Kituntu- Elambo",
+    "scientific_name": "Coturnix delegorguei",
+    "population": 40000
+  },
+  {
+    "id": 48,
+    "common_name": "Hawks",
+    "local_name": "Kipanga",
+    "scientific_name": "Accipiter spp",
+    "population": 860000
+  },
+  {
+    "id": 49,
+    "common_name": "Helmeted guineafowl",
+    "local_name": "Kanga",
+    "scientific_name": "Numida meleagris, Ardeola spp, Ardea spp",
+    "population": 80000
+  },
+  {
+    "id": 50,
+    "common_name": "Heron",
+    "local_name": "Korongo",
+    "scientific_name": "",
+    "population": 140000
+  },
+  {
+    "id": 51,
+    "common_name": "Honeyguide",
+    "local_name": "Kiongozi",
+    "scientific_name": "Indicator spp, Upupa spp",
+    "population": 110000
+  },
+  {
+    "id": 52,
+    "common_name": "Hoopoes",
+    "local_name": "Hudihudi",
+    "scientific_name": "Phoeniculus spp, Bycanistes spp, Tockus spp",
+    "population": 140000
+  },
+  {
+    "id": 53,
+    "common_name": "Hornbills",
+    "local_name": "Hondohondo",
+    "scientific_name": "",
+    "population": 270000
+  },
+  {
+    "id": 54,
+    "common_name": "Ibis",
+    "local_name": "Kwanara",
+    "scientific_name": "Bostrychia spp",
+    "population": 390000
+  },
+  {
+    "id": 55,
+    "common_name": "Kingfishers",
+    "local_name": "Kichi",
+    "scientific_name": "Ceryle spp, Ispido spp, Halcyon spp, Milvus spp, Elanus spp",
+    "population": 140000
+  },
+  {
+    "id": 56,
+    "common_name": "Kite",
+    "local_name": "Mwewe",
+    "scientific_name": "",
+    "population": 770000
+  },
+  {
+    "id": 57,
+    "common_name": "Knob Billed Goose",
+    "local_name": "Bata Domokifundo",
+    "scientific_name": "Sarkidiornis melanotos",
+    "population": 80000
+  },
+  {
+    "id": 58,
+    "common_name": "Kori Bustard",
+    "local_name": "Tandawala Mkubwa",
+    "scientific_name": "Ardeotis kori",
+    "population": 960000
+  },
+  {
+    "id": 59,
+    "common_name": "Larks",
+    "local_name": "Kipezamanza",
+    "scientific_name": "Mirafra spp, Calandrella spp",
+    "population": 70000
+  },
+  {
+    "id": 60,
+    "common_name": "Lesser Bustards",
+    "local_name": "Tandawala wadogo",
+    "scientific_name": "Eupodotis spp",
+    "population": 960000
+  },
+  {
+    "id": 61,
+    "common_name": "Lesser Flamingo",
+    "local_name": "Heroe Mdogo",
+    "scientific_name": "Phoeniconaias minor",
+    "population": 590000
+  },
+  {
+    "id": 62,
+    "common_name": "Little Grebe",
+    "local_name": "Kikuzi mdogo",
+    "scientific_name": "Tachybaptus ruficollis, Phalacrocorax africanus",
+    "population": 70000
+  },
+  {
+    "id": 63,
+    "common_name": "Long-tailed Cormorant",
+    "local_name": "Mnandi Mkiamiufu",
+    "scientific_name": "",
+    "population": 160000
+  },
+  {
+    "id": 64,
+    "common_name": "Lovebirds",
+    "local_name": "Kwaru",
+    "scientific_name": "Agapornis spp",
+    "population": 190000
+  },
+  {
+    "id": 65,
+    "common_name": "Morning Dove",
+    "local_name": "Kuyu jichonijano",
+    "scientific_name": "Streptopelia decipiens, Colias spp, Urocelius spp",
+    "population": 80000
+  },
+  {
+    "id": 66,
+    "common_name": "Mousebirds",
+    "local_name": "Pasa",
+    "scientific_name": "",
+    "population": 110000
+  },
+  {
+    "id": 67,
+    "common_name": "Namaqua dove",
+    "local_name": "Pugi mwambamwiko",
+    "scientific_name": "Oena capensis",
+    "population": 80000
+  },
+  {
+    "id": 68,
+    "common_name": "Nightjars",
+    "local_name": "Mbwaraji",
+    "scientific_name": "Caprimulgus spp",
+    "population": 310000
+  },
+  {
+    "id": 69,
+    "common_name": "Orioles",
+    "local_name": "Nasiwa",
+    "scientific_name": "Oriolus spp",
+    "population": 40000
+  },
+  {
+    "id": 70,
+    "common_name": "Osprey",
+    "local_name": "Kuho (Furukombe)",
+    "scientific_name": "Pandion haliaetus, Tyto spp, Bubo spp",
+    "population": 770000
+  },
+  {
+    "id": 71,
+    "common_name": "Owl",
+    "local_name": "Bundi",
+    "scientific_name": "Otus spp",
+    "population": 310000
+  },
+  {
+    "id": 72,
+    "common_name": "Ostrich",
+    "local_name": "Mbuni",
+    "scientific_name": "Struthio camelus",
+    "population": 2650000
+  },
+  {
+    "id": 73,
+    "common_name": "Oxpeckers",
+    "local_name": "Shashi",
+    "scientific_name": "Buphagus spp",
+    "population": 80500
+  },
+  {
+    "id": 74,
+    "common_name": "Parrots",
+    "local_name": "Kasuku",
+    "scientific_name": "Poicephalus spp",
+    "population": 190000
+  },
+  {
+    "id": 75,
+    "common_name": "Pink- backed Pelican",
+    "local_name": "Mwari",
+    "scientific_name": "Pelecanus rufescens, Plocellus spp",
+    "population": 320000
+  },
+  {
+    "id": 76,
+    "common_name": "Plovers",
+    "local_name": "Ndeeo",
+    "scientific_name": "Charadrius spp",
+    "population": 80000
+  },
+  {
+    "id": 77,
+    "common_name": "Oucleas",
+    "local_name": "Kwekelwekea",
+    "scientific_name": "Ouckoa spp",
+    "population": 30000
+  },
+  {
+    "id": 78,
+    "common_name": "Rails",
+    "local_name": "Kiluwiri maji",
+    "scientific_name": "Ralus coerulescens",
+    "population": 70000
+  },
+  {
+    "id": 79,
+    "common_name": "Red -eyed knotbod Coot",
+    "local_name": "Kikiwiri domokifundo Kereng'ende shingo ndekundu",
+    "scientific_name": "Fulica cristata",
+    "population": 70000
+  },
+  {
+    "id": 80,
+    "common_name": "Red necked sparfowl",
+    "local_name": "",
+    "scientific_name": "Francolinus afer",
+    "population": 40000
+  },
+  {
+    "id": 81,
+    "common_name": "Red-eyed dove",
+    "local_name": "Tefere mdogo",
+    "scientific_name": "Streptopelia semitorquata",
+    "population": 80000
+  },
+  {
+    "id": 82,
+    "common_name": "Ring-necked Dove",
+    "local_name": "Tefete mdogo",
+    "scientific_name": "Streptopelia capicola",
+    "population": 80000
+  },
+  {
+    "id": 83,
+    "common_name": "Rollers",
+    "local_name": "Chole",
+    "scientific_name": "",
+    "population": 140000
+  },
+  {
+    "id": 84,
+    "common_name": "Sand Partridge",
+    "local_name": "Kwale",
+    "scientific_name": "Ammoperdix heyi",
+    "population": 40000
+  },
+  {
+    "id": 85,
+    "common_name": "Sandpipers",
+    "local_name": "Kitwiwi",
+    "scientific_name": "Tringa spp, Calidris spp",
+    "population": 140000
+  },
+  {
+    "id": 86,
+    "common_name": "Scimitarbill",
+    "local_name": "Domomundo mweusi",
+    "scientific_name": "Rhinopomastus cyanomelas",
+    "population": 140000
+  },
+  {
+    "id": 87,
+    "common_name": "Secretary Bird",
+    "local_name": "Karuru",
+    "scientific_name": "Sagittarius serpentarius",
+    "population": 900000
+  },
+  {
+    "id": 88,
+    "common_name": "Seedeater",
+    "local_name": "Mpasuambegu",
+    "scientific_name": "Serinus spp",
+    "population": 70000
+  },
+  {
+    "id": 89,
+    "common_name": "Shrikes",
+    "local_name": "Mbweju",
+    "scientific_name": "Lanius spp, Rostrattula benghalensis, Gallinoga spp",
+    "population": 110000
+  },
+  {
+    "id": 90,
+    "common_name": "Snipes",
+    "local_name": "Sululu",
+    "scientific_name": "",
+    "population": 80000
+  },
+  {
+    "id": 91,
+    "common_name": "Sparrows",
+    "local_name": "Chija",
+    "scientific_name": "Lonchura spp",
+    "population": 40000
+  },
+  {
+    "id": 92,
+    "common_name": "Spoonbill",
+    "local_name": "Keerengo domokijiko",
+    "scientific_name": "Platalea spp",
+    "population": 390000
+  },
+  {
+    "id": 93,
+    "common_name": "Spur winged goose",
+    "local_name": "Bata bukini bawakijani",
+    "scientific_name": "Plectropterus gambensis",
+    "population": 80000
+  },
+  {
+    "id": 94,
+    "common_name": "Starlings",
+    "local_name": "Kuzi",
+    "scientific_name": "Cinnyricinclus spp, Cosmopsarus spp, Lamprotornis spp",
+    "population": 80000
+  },
+  {
+    "id": 95,
+    "common_name": "Stone Partridge",
+    "local_name": "Kwale",
+    "scientific_name": "Ptilopachus petrosus",
+    "population": 40000
+  },
+  {
+    "id": 96,
+    "common_name": "Storks",
+    "local_name": "Korongo",
+    "scientific_name": "Ciconia ciconia, Mycteria ibis, Ephippiorhynchus senegalensis, Leptoptilos crumeniferus",
+    "population": 800000
+  },
+  {
+    "id": 97,
+    "common_name": "Sunbirds",
+    "local_name": "Chozi",
+    "scientific_name": "Nectarina spp",
+    "population": 40000
+  },
+  {
+    "id": 98,
+    "common_name": "Swallows/ Martin",
+    "local_name": "Mbayuwayu",
+    "scientific_name": "Hirundo spp, Riparia spp, Delichon spp",
+    "population": 80000
+  },
+  {
+    "id": 99,
+    "common_name": "Swifts",
+    "local_name": "Teleka",
+    "scientific_name": "Apus spp",
+    "population": 80000
+  },
+  {
+    "id": 100,
+    "common_name": "Terns",
+    "local_name": "Buabua",
+    "scientific_name": "Sterna spp",
+    "population": 140000
+  },
+  {
+    "id": 101,
+    "common_name": "Thickness",
+    "local_name": "Chekacheka",
+    "scientific_name": "Burhinus spp",
+    "population": 80000
+  },
+  {
+    "id": 102,
+    "common_name": "Thrushes",
+    "local_name": "Kurumbiza",
+    "scientific_name": "Cichladusa spp, Monticola spp",
+    "population": 120000
+  },
+  {
+    "id": 103,
+    "common_name": "Tits",
+    "local_name": "Chambombe",
+    "scientific_name": "Parus spp, Anthoscopus spp",
+    "population": 70000
+  },
+  {
+    "id": 104,
+    "common_name": "Trogons",
+    "local_name": "Mdiria",
+    "scientific_name": "Apaloderma spp",
+    "population": 80000
+  },
+  {
+    "id": 105,
+    "common_name": "Turacos",
+    "local_name": "Shorobo",
+    "scientific_name": "Tauraco spp, Gyps spp, Necrosyrtes, Torgos spp",
+    "population": 230000
+  },
+  {
+    "id": 106,
+    "common_name": "Vultures",
+    "local_name": "Tumbusi",
+    "scientific_name": "Torgos spp",
+    "population": 860000
+  },
+  {
+    "id": 107,
+    "common_name": "Vulturine guineafowl",
+    "local_name": "Kaloto tumbusi",
+    "scientific_name": "Acryllium vulturinum",
+    "population": 80000
+  },
+  {
+    "id": 108,
+    "common_name": "Wagtails",
+    "local_name": "Kiluwiluwi",
+    "scientific_name": "Macronex spp, Motacilla spp",
+    "population": 110000
+  },
+  {
+    "id": 109,
+    "common_name": "Warblers",
+    "local_name": "Skero",
+    "scientific_name": "Acrocephalus spp",
+    "population": 80000
+  },
+  {
+    "id": 110,
+    "common_name": "Wattled Crane",
+    "local_name": "Korongo usomwckindu",
+    "scientific_name": "Grus carunculatus, Cyptosizia spp",
+    "population": 610000
+  },
+  {
+    "id": 111,
+    "common_name": "Waxbills",
+    "local_name": "Njiri",
+    "scientific_name": "Estrilda spp",
+    "population": 40000
+  },
+  {
+    "id": 112,
+    "common_name": "Weavers",
+    "local_name": "Kitengo",
+    "scientific_name": "Ploceus spp",
+    "population": 70000
+  },
+  {
+    "id": 113,
+    "common_name": "White eyes",
+    "local_name": "Kmengenenge",
+    "scientific_name": "Zosterops spp",
+    "population": 70000
+  },
+  {
+    "id": 114,
+    "common_name": "White faced whistling duck",
+    "local_name": "Bata kichwa cheupe",
+    "scientific_name": "Dendrocygna viduata",
+    "population": 80000
+  },
+  {
+    "id": 115,
+    "common_name": "White- breasted Cormorant",
+    "local_name": "Mnandi kifua cheupe",
+    "scientific_name": "Phalacrocorax lucidus",
+    "population": 160000
+  },
+  {
+    "id": 116,
+    "common_name": "Whydah",
+    "local_name": "Kitongo",
+    "scientific_name": "Vidua spp",
+    "population": 70000
+  },
+  {
+    "id": 117,
+    "common_name": "Woodpeckers",
+    "local_name": "Kigong'ota",
+    "scientific_name": "Campethera Spp",
+    "population": 110000
+  },
+  {
+    "id": 118,
+    "common_name": "Yellow necked spur fowl",
+    "local_name": "Keren'gendo shingo njano",
+    "scientific_name": "Francolinus",
+    "population": 70000
+  },
+  {
+    "id": 119,
+    "common_name": "Yellow throated sandgrouse",
+    "local_name": "Firigogo Koonjano",
+    "scientific_name": "Pterocles gutturalis",
+    "population": 40000
+  }
+]
