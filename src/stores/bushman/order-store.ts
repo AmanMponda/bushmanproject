@@ -12,10 +12,13 @@ interface OrderState {
   enquiries: any[]
   quotations: any[]
   currencies: any[]
+  entities: any[]
+  unitOfMeasurements: any[]
   dietaryPreferences: any[]
   allergies: any[]
   partyRoles: any[]
   itemCategories: any[]
+  logisticsTypes: any[]
   installmentSetups: any[]
   installmentDaysTypes: any[]
   installmentAmountTypes: any[]
@@ -39,10 +42,13 @@ export const useOrderStore = defineStore('order', {
     enquiries: [] as any[],
     quotations: [] as any[],
     currencies: [] as any[],
+    entities: [] as any[],
+    unitOfMeasurements: [] as any[],
     dietaryPreferences: [] as any[],
     allergies: [] as any[],
     partyRoles: [] as any[],
     itemCategories: [] as any[],
+    logisticsTypes: [] as any[],
     installmentSetups: [] as any[],
     installmentDaysTypes: [
       { value: 'AFTER_INVOICE', label: 'After Invoice' },
@@ -72,10 +78,13 @@ export const useOrderStore = defineStore('order', {
     getEnquiries: (state: OrderState) => state.enquiries,
     getQuotations: (state: OrderState) => state.quotations,
     getCurrencies: (state: OrderState) => state.currencies,
+    getEntities: (state: OrderState) => state.entities,
+    getUnitOfMeasurements: (state: OrderState) => state.unitOfMeasurements,
     getDietaryPreferences: (state: OrderState) => state.dietaryPreferences,
     getAllergies: (state: OrderState) => state.allergies,
     getPartyRoles: (state: OrderState) => state.partyRoles,
     getItemCategories: (state: OrderState) => state.itemCategories,
+    getLogisticsTypes: (state: OrderState) => state.logisticsTypes,
     getInstallmentSetups: (state: OrderState) => state.installmentSetups,
     getInstallmentDaysTypes: (state: OrderState) => state.installmentDaysTypes,
     getInstallmentAmountTypes: (state: OrderState) => state.installmentAmountTypes,
@@ -320,6 +329,32 @@ export const useOrderStore = defineStore('order', {
       }
     },
 
+    // ==================== LOGISTICS TYPES ====================
+
+    async fetchLogisticsTypes(): Promise<any> {
+      this.loading = true
+      this.error = null
+      try {
+        const config = {
+          method: 'get',
+          url: `${API_BASE}/logistics-types`,
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }
+
+        const response: any = await axios.request(config)
+        this.logisticsTypes = response.data.data || response.data || []
+        return response
+      } catch (err: any) {
+        console.error('Error loading logistics types:', err?.response?.data?.message || err.message)
+        // Fail silently and return empty array
+        this.logisticsTypes = []
+      } finally {
+        this.loading = false
+      }
+    },
+
     // ==================== ENQUIRIES ====================
 
     async fetchEnquiries(): Promise<any> {
@@ -543,6 +578,54 @@ export const useOrderStore = defineStore('order', {
       } catch (err: any) {
         console.error('Error loading item categories:', err?.response?.data?.message || err.message)
         this.itemCategories = []
+      } finally {
+        this.loading = false
+      }
+    },
+
+    // ==================== ENTITIES ====================
+
+    async fetchEntities(): Promise<any> {
+      this.loading = true
+      try {
+        const config = {
+          method: 'get',
+          url: `${API_BASE}/entities/`,
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }
+
+        const response: any = await axios.request(config)
+        this.entities = response.data.data || response.data || []
+        return response
+      } catch (err: any) {
+        console.error('Error loading entities:', err?.response?.data?.message || err.message)
+        this.entities = []
+      } finally {
+        this.loading = false
+      }
+    },
+
+    // ==================== UNIT OF MEASUREMENTS ====================
+
+    async fetchUnitOfMeasurements(): Promise<any> {
+      this.loading = true
+      try {
+        const config = {
+          method: 'get',
+          url: `${API_BASE}/unit-of-measurements/`,
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }
+
+        const response: any = await axios.request(config)
+        this.unitOfMeasurements = response.data.data || response.data || []
+        return response
+      } catch (err: any) {
+        console.error('Error loading unit of measurements:', err?.response?.data?.message || err.message)
+        this.unitOfMeasurements = []
       } finally {
         this.loading = false
       }

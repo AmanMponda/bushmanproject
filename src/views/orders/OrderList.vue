@@ -37,10 +37,7 @@
                 <span :class="getStatusClass((row as any).status)">{{ (row as any).status }}</span>
               </template>
               <template #order_date="{ row }">
-                {{ formatDate((row as any).order_date) }}
-              </template>
-              <template #expected_date="{ row }">
-                {{ formatDate((row as any).expected_date) }}
+                {{ formatDate((row as any).order_date || (row as any).date) }}
               </template>
               <template #customer_name="{ row }">
                 {{ getCustomerName((row as any)) }}
@@ -101,7 +98,6 @@ const columns = computed(() => [
   { key: 'type', label: 'Type', sortable: true, visible: true },
   { key: 'status', label: 'Status', sortable: true, visible: true },
   { key: 'order_date', label: 'Order Date', sortable: true, visible: true },
-  { key: 'expected_date', label: 'Expected Date', sortable: true, visible: true },
   { key: 'customer_name', label: 'Customer', sortable: true, visible: true },
   { key: 'total_amount', label: 'Total', sortable: true, visible: true },
   { key: 'actions', label: 'Actions', sortable: false, visible: true }
@@ -135,9 +131,15 @@ const pageActions = computed(() => [
 ])
 
 // Methods
-const formatDate = (date: string) => {
+const formatDate = (date: string | null | undefined) => {
   if (!date) return 'N/A'
-  return new Date(date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+  try {
+    const parsedDate = new Date(date)
+    if (isNaN(parsedDate.getTime())) return 'N/A'
+    return parsedDate.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+  } catch {
+    return 'N/A'
+  }
 }
 
 const formatCurrency = (amount: number) => {

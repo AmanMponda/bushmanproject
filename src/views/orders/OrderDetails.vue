@@ -55,51 +55,11 @@
           <li class="nav-item" role="presentation">
             <button 
               class="nav-link"
-              :class="{ active: activeTab === 'parties' }"
-              @click="activeTab = 'parties'"
-              role="tab"
-            >
-              <i class="fa fa-users me-2"></i>Parties Involved
-            </button>
-          </li>
-          <li class="nav-item" role="presentation">
-            <button 
-              class="nav-link"
-              :class="{ active: activeTab === 'logistics' }"
-              @click="activeTab = 'logistics'"
-              role="tab"
-            >
-              <i class="fa fa-truck me-2"></i>Logistics & Timeline
-            </button>
-          </li>
-          <li class="nav-item" role="presentation">
-            <button 
-              class="nav-link"
               :class="{ active: activeTab === 'payments' }"
               @click="activeTab = 'payments'"
               role="tab"
             >
               <i class="fa fa-credit-card me-2"></i>Payment Schedule
-            </button>
-          </li>
-          <li class="nav-item" role="presentation">
-            <button 
-              class="nav-link"
-              :class="{ active: activeTab === 'preferences' }"
-              @click="activeTab = 'preferences'"
-              role="tab"
-            >
-              <i class="fa fa-cog me-2"></i>Preferences & Notes
-            </button>
-          </li>
-          <li class="nav-item" role="presentation">
-            <button 
-              class="nav-link"
-              :class="{ active: activeTab === 'documents' }"
-              @click="activeTab = 'documents'"
-              role="tab"
-            >
-              <i class="fa fa-file me-2"></i>Documents
             </button>
           </li>
         </ul>
@@ -398,97 +358,7 @@
           </div>
         </div>
 
-        <!-- TAB 3: PARTIES INVOLVED -->
-        <div v-if="activeTab === 'parties'" class="tab-pane">
-          <div class="d-flex justify-content-between align-items-center mb-4">
-            <h5 class="mb-0"><i class="fa fa-users me-2"></i>Parties Involved</h5>
-            <button class="btn btn-primary btn-sm">
-              <i class="fa fa-plus me-2"></i>Add Party
-            </button>
-          </div>
-
-          <div v-if="partyCards.length > 0">
-            <div class="table-responsive">
-              <table class="table table-bordered mb-0">
-                <thead class="table-light">
-                  <tr>
-                    <th style="width: 15%;">Role</th>
-                    <th style="width: 25%;">Entity Name</th>
-                    <th style="width: 20%;">Contact Person</th>
-                    <th style="width: 20%;">Email</th>
-                    <th style="width: 15%;">Phone</th>
-                    <th style="width: 5%;">Primary</th>
-                    <th style="width: 10%;">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="(party, idx) in partyCards" :key="party.id" class="align-middle">
-                    <td>
-                      <select class="form-select form-select-sm" disabled>
-                        <option>{{ getRoleLabel(party.role) }}</option>
-                      </select>
-                    </td>
-                    <td>
-                      <input 
-                        type="text" 
-                        class="form-control form-control-sm" 
-                        :value="party.entity?.full_name || ''" 
-                        readonly
-                      />
-                    </td>
-                    <td>
-                      <input 
-                        type="text" 
-                        class="form-control form-control-sm" 
-                        :value="party.contact_name || ''" 
-                        readonly
-                      />
-                    </td>
-                    <td>
-                      <input 
-                        type="email" 
-                        class="form-control form-control-sm" 
-                        :value="party.contact_email || ''" 
-                        readonly
-                      />
-                    </td>
-                    <td>
-                      <input 
-                        type="tel" 
-                        class="form-control form-control-sm" 
-                        :value="party.contact_phone || ''" 
-                        readonly
-                      />
-                    </td>
-                    <td class="text-center">
-                      <input 
-                        type="checkbox" 
-                        class="form-check-input" 
-                        :checked="party.is_primary" 
-                        disabled
-                      />
-                    </td>
-                    <td>
-                      <div class="btn-group btn-group-sm" role="group">
-                        <button class="btn btn-success" title="Confirm">
-                          <i class="fa fa-check"></i>
-                        </button>
-                        <button class="btn btn-danger" title="Delete">
-                          <i class="fa fa-trash"></i>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-          <div v-else class="alert alert-info">
-            <i class="fa fa-inbox me-2"></i> No parties involved in this order
-          </div>
-        </div>
-
-        <!-- TAB 4: LOGISTICS & TIMELINE -->
+        <!-- TAB 3: PAYMENTS -->
         <div v-if="activeTab === 'logistics'" class="tab-pane">
           <div v-if="logisticsTimeline.length > 0">
             <div class="timeline">
@@ -620,110 +490,6 @@
           </div>
           <div v-else class="alert alert-info">
             <i class="fa fa-inbox me-2"></i> No payment schedule for this order
-          </div>
-        </div>
-
-        <!-- TAB 6: PREFERENCES & NOTES -->
-        <div v-if="activeTab === 'preferences'" class="tab-pane">
-          <div class="row">
-            <div class="col-lg-6">
-              <div class="card mb-4">
-                <div class="card-header bg-light">
-                  <h5 class="mb-0"><i class="fa fa-utensils me-2"></i>Food & Beverage Preferences</h5>
-                </div>
-                <div class="card-body">
-                  <div v-if="preferences.food" class="mb-3">
-                    <h6 class="text-muted mb-2">Food Preferences</h6>
-                    <p class="mb-0">{{ preferences.food }}</p>
-                  </div>
-                  <div v-if="preferences.beverages" class="mb-3">
-                    <h6 class="text-muted mb-2">Beverages</h6>
-                    <p class="mb-0">{{ preferences.beverages }}</p>
-                  </div>
-                  <div v-if="preferences.alcohol" class="mb-3">
-                    <h6 class="text-muted mb-2">Alcohol Preferences</h6>
-                    <p class="mb-0">{{ preferences.alcohol }}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div class="col-lg-6">
-              <div class="card mb-4">
-                <div class="card-header bg-light">
-                  <h5 class="mb-0"><i class="fa fa-alert-circle me-2"></i>Important Information</h5>
-                </div>
-                <div class="card-body">
-                  <div v-if="preferences.allergies" class="alert alert-warning mb-3">
-                    <h6 class="text-danger mb-2"><i class="fa fa-exclamation-triangle me-2"></i>Allergies</h6>
-                    <p class="mb-0">{{ preferences.allergies }}</p>
-                  </div>
-                  <div v-if="preferences.special_requests" class="mb-3">
-                    <h6 class="text-muted mb-2">Special Requests</h6>
-                    <p class="mb-0">{{ preferences.special_requests }}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="card">
-            <div class="card-header bg-light">
-              <h5 class="mb-0"><i class="fa fa-sticky-note me-2"></i>Notes & Remarks</h5>
-            </div>
-            <div class="card-body">
-              <p class="mb-0">{{ order.remarks || 'No remarks' }}</p>
-            </div>
-          </div>
-        </div>
-
-        <!-- TAB 7: DOCUMENTS & ATTACHMENTS -->
-        <div v-if="activeTab === 'documents'" class="tab-pane">
-          <div v-if="documents.length > 0" class="row">
-            <div 
-              v-for="doc in documents"
-              :key="doc.id"
-              class="col-md-6 col-lg-4 mb-4"
-            >
-              <div class="card h-100">
-                <div class="card-body text-center">
-                  <div class="document-icon mb-3">
-                    <i class="fa fa-file-pdf fa-3x text-danger"></i>
-                  </div>
-                  <h5 class="card-title">{{ doc.name }}</h5>
-                  <p class="text-muted small mb-3">
-                    <span class="badge bg-light text-dark">{{ doc.type }}</span>
-                  </p>
-                  <p class="text-muted small mb-3">
-                    {{ doc.size }} • {{ formatDate(doc.date) }}
-                  </p>
-                </div>
-                <div class="card-footer bg-light">
-                  <button class="btn btn-sm btn-outline-primary w-100 mb-2">
-                    <i class="fa fa-download me-1"></i>Download
-                  </button>
-                  <button class="btn btn-sm btn-outline-danger w-100">
-                    <i class="fa fa-trash me-1"></i>Delete
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div v-else class="alert alert-info mb-4">
-            <i class="fa fa-inbox me-2"></i> No documents yet
-          </div>
-
-          <!-- Upload Section -->
-          <div class="card">
-            <div class="card-header bg-light">
-              <h5 class="mb-0"><i class="fa fa-cloud-upload me-2"></i>Upload New Document</h5>
-            </div>
-            <div class="card-body">
-              <div class="upload-area border-2 border-dashed rounded p-5 text-center">
-                <i class="fa fa-cloud-upload fa-3x text-muted mb-3"></i>
-                <p class="text-muted mb-2">Drag and drop files or click to browse</p>
-                <small class="text-muted">Allowed types: PDF, DOC, JPG, PNG • Max 10MB</small>
-                <input type="file" class="d-none" accept=".pdf,.doc,.docx,.jpg,.png" />
-              </div>
-            </div>
           </div>
         </div>
       </div>
