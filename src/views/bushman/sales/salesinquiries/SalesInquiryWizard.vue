@@ -74,11 +74,21 @@
               </label>
 
               <label class="field">
+                <span class="lbl">Price Structure</span>
+                <div class="input-wrapper">
+                  <select v-model="form.priceStructureId" :disabled="!form.season" @change="onPriceStructureChange(form.priceStructureId)">
+                    <option :value="null">Select Price Structure...</option>
+                    <option v-for="p in priceStructureItems" :key="p.value" :value="p.value">{{ p.label }}</option>
+                  </select>
+                </div>
+              </label>
+
+              <label class="field">
                 <span class="lbl">Hunting Package</span>
                 <div class="input-wrapper">
-                  <select v-model="form.priceListId" :disabled="!form.season || loadingPackageItems" @change="onPackageChange(form.priceListId)">
+                  <select v-model="form.priceListId" :disabled="!form.season || !form.priceStructureId || loadingPackageItems" @change="onPackageChange(form.priceListId)">
                     <option :value="null">Select Package...</option>
-                    <option v-for="p in packageItems" :key="p.value" :value="p.value">{{ p.label }}</option>
+                    <option v-for="p in filteredPackageItems" :key="p.value" :value="p.value">{{ p.label }}</option>
                   </select>
                 </div>
               </label>
@@ -496,6 +506,7 @@ const form = reactive({
   no_of_observers: 0,
   no_of_participants: 1,
   priceListId: null as any,
+  priceStructureId: null as any,
   no_of_days: 0,
   no_of_companions: 0,
   species: null as any,
@@ -521,6 +532,7 @@ const speciesObjects = ref<any[]>([])
 const areasOptions = ref<any[]>([])
 const seasonsOptions = ref<any[]>([])
 const packagesOptions = ref<any[]>([])
+const priceStructuresOptions = ref<any[]>([])
 const existingCustomersOptions = ref<any[]>([])
 
 const saving = ref(false)
@@ -600,6 +612,14 @@ const seasonItems = computed(() =>
     value: s.value, 
     label: s.selfItem ? `${s.text} - ${formatDateRange(s.selfItem.start_at, s.selfItem.end_at)}` : s.text,
     selfItem: s.selfItem
+  }))
+)
+
+const priceStructureItems = computed(() =>
+  priceStructuresOptions.value.map((p: any) => ({
+    value: p.value,
+    label: p.text,
+    selfItem: p.selfItem
   }))
 )
 
@@ -708,6 +728,13 @@ const getItemLabel = (items: any[], value: any) => {
   return item?.label || 'N/A'
 }
 
+const getPackagePriceStructureId = (pkg: any) =>
+  pkg?.selfItem?.price_structure_id ||
+  pkg?.selfItem?.price_structure?.id ||
+  pkg?.selfItem?.price_structure_detail?.price_structure_id ||
+  pkg?.selfItem?.price_structure_detail?.price_structure?.id ||
+  null
+
 const getAreaOptionFromSelection = (selection: any) => {
   if (!selection) return null
   if (typeof selection === 'number') {
@@ -802,6 +829,23 @@ const onPackageChange = async (value: any) => {
   await populateFormFromPackage()
 }
 
+const onPriceStructureChange = (value: any) => {
+  form.priceStructureId = value
+  if (form.priceListId) {
+    form.priceListId = null
+    speciesObjects.value = []
+    trophyFees.value = []
+    companionCosts.value = []
+    selectedPackageDetail.value = null
+  }
+  if (vueformRef.value) {
+    vueformRef.value.update({
+      priceStructureId: form.priceStructureId,
+      priceListId: form.priceListId
+    })
+  }
+}
+
 const onStartDateChange = (newValue: any) => {
   // Vueform @change event passes the value directly
   const dateValue = newValue?.target?.value ?? newValue
@@ -833,6 +877,7 @@ const syncFormData = () => {
   form.address = data.address || ''
   form.season = data.season || null
   form.priceListId = data.priceListId || null
+  form.priceStructureId = data.priceStructureId || null
   form.start_date = data.start_date || null
   form.no_of_days = Number(data.no_of_days) || 0
   form.area = data.area || null
@@ -970,8 +1015,22 @@ const canSubmit = computed(() => {
 
 const filteredPackagesOptions = computed(() => {
   if (!form.season) return []
-  return packagesOptions.value
+  if (!form.priceStructureId) return []
+  return packagesOptions.value.filter((pkg: any) => {
+    const structureId = getPackagePriceStructureId(pkg)
+    return String(structureId || '') === String(form.priceStructureId || '')
+  })
 })
+
+const filteredPackageItems = computed(() =>
+  filteredPackagesOptions.value.map((pkg: any) => ({
+    value: pkg.value,
+    label: pkg.selfItem 
+      ? `${pkg.text}, ${pkg.selfItem?.price_structure?.location_name || 'N/A'}, ${pkg.selfItem?.hunting_type_name || 'N/A'}, ${pkg.selfItem?.hunt_length_days || 0} days, ${pkg.selfItem?.currency_symbol || '$'}${pkg.selfItem?.amount || '0'}`
+      : pkg.text,
+    selfItem: pkg.selfItem
+  }))
+)
 
 const speciesList = computed(() => salesPackagesSpecies.value)
 
@@ -1022,6 +1081,7 @@ const resetEditMode = () => {
   form.budget_max = null
   form.payment_method_id = null
   form.special_requests = ''
+  form.priceStructureId = null
   // Reset Vueform
   if (vueformRef.value) {
     vueformRef.value.reset()
@@ -1204,6 +1264,22 @@ const getSeasonList = async () => {
   }
 }
 
+
+const getPriceStructures = async () => {
+  try {
+    const response = await priceListStore.getPriceStructures()
+    if (response.status === 200) {
+      const data = response.data?.data || response.data || []
+      priceStructuresOptions.value = data.map((item: any) => ({
+        value: item.id,
+        text: `PS-${item.id} - ${item.area?.name || item.area_name || 'N/A'} (${item.start_date || 'N/A'})`,
+        selfItem: item
+      }))
+    }
+  } catch (error) {
+    console.error('Error loading price structures:', error)
+  }
+}
 
 const getPL = async () => {
   try {
@@ -1928,6 +2004,12 @@ const loadInquiryForEdit = (rowData: any) => {
   }
 
   form.priceListId = null
+  form.priceStructureId =
+    item.price_structure_id ||
+    item.price_structure?.id ||
+    item.price_structure_detail?.price_structure_id ||
+    item.price_structure_detail?.price_structure?.id ||
+    null
 
   // Load item_preferences (game preferences) - backend uses item_id
   speciesObjects.value = []
@@ -1961,6 +2043,7 @@ const loadInquiryForEdit = (rowData: any) => {
       address: form.address,
       season: form.season,
       priceListId: form.priceListId,
+      priceStructureId: form.priceStructureId,
       start_date: form.start_date,
       no_of_days: form.no_of_days,
       area: form.area,
@@ -2054,6 +2137,7 @@ onMounted(async () => {
   appOptionStore.appSidebarMinified = true
   
   await loadHuntLengths()
+  getPriceStructures()
   getCountries()
   getNationalities()
   getSpecies()

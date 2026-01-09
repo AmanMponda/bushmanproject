@@ -8,7 +8,7 @@ const props = defineProps({
   customFilters: { type: Array, required: false, default: () => [] }, // NEW: Custom filters array
   loading: { type: Boolean, default: false },
   pageSizeOptions: { type: Array, default: () => [10, 25, 50, 100] },
-  defaultPageSize: { type: Number, default: 10 },
+  defaultPageSize: { type: Number, default: 100 },
   filters: { type: Object, default: () => ({}) },
   disablePagination: { type: Boolean, default: false },
   disableSearch: { type: Boolean, default: false },

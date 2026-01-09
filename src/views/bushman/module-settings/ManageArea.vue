@@ -180,7 +180,7 @@
 
 <!-- Add Species View -->
 <template v-else-if="showAddSpecies && selectedArea">
-      <div class="p-2">
+      <div class="p-2" style="overflow-y: auto; height: 100%; flex: 1;">
         <div class="d-flex justify-content-between align-items-center mb-3">
           <div>
             <h3 class="fw-bold mb-1">{{ selectedArea.location_name || selectedArea.location?.name || 'Hunting Area' }}</h3>
@@ -326,7 +326,7 @@
 
 <!-- Area Species View -->
 <template v-else-if="showAreaSpecies && selectedArea">
-      <div class="p-2">
+      <div class="p-2" style="overflow-y: auto; height: 100%; flex: 1;">
         <div class="d-flex justify-content-between align-items-center mb-3">
           <div>
             <h3 class="fw-bold mb-1">{{ selectedArea.location_name || selectedArea.location?.name || 'Hunting Area' }}</h3>
@@ -346,40 +346,29 @@
         </div>
         <div class="card mb-4">
           <div class="card-body">
-            <div class="mb-3 d-flex align-items-center justify-content-between">
-              <h6 class="fw-bold mb-0">Species in this Area</h6>
-              <button class="btn btn-danger btn-sm" :disabled="deleting || selectedSpeciesIds.length === 0" @click="bulkDeleteSpecies">
-                <i class="fa fa-trash me-1"></i> Delete Selected
-              </button>
-            </div>
-              <div v-if="loadingSpecies" class="text-center py-3">
-                <div class="spinner-border text-primary" role="status"></div>
-              </div>
-              <div v-else-if="areaSpecies.length === 0" class="text-center py-3 text-muted">
-                No species added to this area yet.
-              </div>
-              <div v-else>
-                <div class="list-group">
-                  <div v-for="species in areaSpecies" :key="species.id" class="list-group-item d-flex justify-content-between align-items-center">
-                    <div class="d-flex align-items-center gap-2">
-                      <input
-                        class="form-check-input"
-                        type="checkbox"
-                        :value="species.specie_id"
-                        v-model="selectedSpeciesIds"
-                        :disabled="deleting"
-                      />
-                      <div>
-                        <div class="fw-semibold">{{ species.specie_name }}</div>
-                        <div class="text-muted small">#{{ species.specie_id }}</div>
-                      </div>
-                    </div>
-                    <button class="btn btn-danger btn-sm" @click="deleteAreaSpecies(species)" :disabled="deleting">
-                      <i class="fa fa-trash"></i>
-                    </button>
-                  </div>
-                </div>
-              </div>
+            <StandardDataTable
+              :key="selectedArea?.id || 'species-table'"
+              :columns="speciesColumns"
+              :data="areaSpecies"
+              :loading="loadingSpecies"
+              :disable-search="false"
+              :show-date-filters="false"
+              :selectable="true"
+              :action-buttons="speciesActions"
+              @selection-change="handleSpeciesSelectionChange"
+            >
+              <template #specie_id="{ row }">
+                <span class="text-muted">#{{ row.specie_id }}</span>
+              </template>
+              <template #specie_name="{ row }">
+                <span class="fw-semibold">{{ row.specie_name }}</span>
+              </template>
+              <template #actions="{ row }">
+                <button class="btn btn-danger btn-sm" @click="deleteAreaSpecies(row)" :disabled="deleting">
+                  <i class="fa fa-trash"></i>
+                </button>
+              </template>
+            </StandardDataTable>
           </div>
         </div>
       </div>
@@ -525,6 +514,11 @@ const columns = [
   { key: 'species', label: 'Species' },
   { key: 'actions', label: 'Actions' },
 ]
+const speciesColumns = [
+  { key: 'specie_id', label: 'ID', sortable: true, visible: true },
+  { key: 'specie_name', label: 'Species', sortable: true, visible: true },
+  { key: 'actions', label: 'Actions', sortable: false, visible: true },
+]
 
 const items = ref<any[]>([])
 const speciesOptions = ref<any[]>([])
@@ -588,6 +582,17 @@ const pageActions = computed(() => {
     })
   }
   return actions
+})
+
+const speciesActions = computed(() => {
+  return [
+    {
+      label: 'Delete Selected',
+      icon: 'fa fa-trash',
+      class: 'btn btn-danger',
+      method: () => bulkDeleteSpecies(),
+    },
+  ]
 })
 
 const isAreaFormValid = computed(() => {
@@ -1150,6 +1155,12 @@ function setAreaSpeciesFromList(list: any[]) {
   areaSpecies.value = normalizeSpeciesList(list)
   selectedSpeciesIds.value = []
   loadingSpecies.value = false
+}
+
+const handleSpeciesSelectionChange = (selectedRows: any[]) => {
+  selectedSpeciesIds.value = selectedRows
+    .map((row: any) => row?.specie_id)
+    .filter((id: any) => id !== undefined && id !== null)
 }
 
 async function loadAreaSpecies(areaId: any) {

@@ -365,7 +365,11 @@ export const useAppSidebarMenuStore = defineStore("appSidebarMenu", () => {
       text: 'Sales Pipeline',
       permission: 'CAN_VIEW_SALES_PIPELINE'
     },
-    
+    {
+      url: '/orders',
+      icon: 'fa fa-boxes',
+      text: 'Orders Management'
+    },
     {
       url: '/sales',
       icon: 'fa fa-shopping-cart',
@@ -373,16 +377,11 @@ export const useAppSidebarMenuStore = defineStore("appSidebarMenu", () => {
       permission: 'CAN_VIEW_SALES',
       children: [
         { url: '/sales/price-list', text: 'Price Lists', permission: 'CAN_VIEW_PRICE_LISTS' },
-        { url: '/sales/sales-inquiry', text: ' Quotations', permission: 'CAN_VIEW_SALES_INQUIRY' },
-        { url: '/sales/sales-confirmation', text: ' Confirmations', permission: 'CAN_VIEW_SALES_CONFIRMATIONS' },
-        { url: '/sales/sales-contracts', text: ' Contracts', permission: 'CAN_VIEW_SALES_CONTRACTS' },
+        { url: '/sales/sales-inquiry', text: 'Sales Quotations', permission: 'CAN_VIEW_SALES_INQUIRY' },
+        { url: '/sales/sales-confirmation', text: 'Sales Confirmations', permission: 'CAN_VIEW_SALES_CONFIRMATIONS' },
+        { url: '/sales/sales-contracts', text: 'Sales Contracts', permission: 'CAN_VIEW_SALES_CONTRACTS' },
       ],
 
-    },
-    {
-      url: '/orders',
-      icon: 'fa fa-boxes',
-      text: 'Orders Management'
     },
     {
       url: '/operations',

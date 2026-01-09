@@ -248,6 +248,7 @@
                         </th>
                         <th v-if="huntingAreasList.length === 0">Hunting Areas</th>
                         <th>Quantity</th>
+                        <th class="text-center">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -293,6 +294,17 @@
                             </button>
                           </div>
                           <span v-else>{{ species.quantity || species.qty || 'N/A' }}</span>
+                        </td>
+                        <td class="text-center">
+                          <button
+                            class="btn btn-sm btn-danger"
+                            title="Delete"
+                            :disabled="editSpeciesCounts || savingSpeciesCounts || !isSpeciesInPackage(species) || !getPackageSpeciesRecordId(species) || isDeletingSpecies(species)"
+                            @click="confirmDeleteSpecies(species)"
+                          >
+                            <span v-if="isDeletingSpecies(species)" class="spinner-border spinner-border-sm"></span>
+                            <i v-else class="fa fa-trash"></i>
+                          </button>
                         </td>
                       </tr>
                     </tbody>
@@ -406,6 +418,7 @@ const huntingAreaSpeciesMap = ref<Record<number, Array<{ species_id: number; spe
 const allHuntingAreaSpeciesSet = ref<Set<number>>(new Set())
 const savingAvailability = ref<Record<string, boolean>>({})
 const huntingAreasMap = ref<Record<number, string>>({})
+const deletingSpecies = ref<Record<string, boolean>>({})
 
 // Computed list of hunting areas for columns
 const huntingAreasList = computed(() => {
@@ -696,11 +709,14 @@ const getDisplaySpeciesList = () => {
 
   const packageSpecies = getSpeciesList()
   const qtyMap = new Map<number, number>()
+  const recordIdMap = new Map<number, number>()
   packageSpecies.forEach((sp: any) => {
     const id = getSpeciesId(sp)
     if (!id) return
     const qty = Number(sp.quantity ?? sp.qty ?? 1)
     qtyMap.set(Number(id), qty)
+    const recordId = Number(sp.record_id || sp.id || 0)
+    if (recordId) recordIdMap.set(Number(id), recordId)
   })
 
   return areaSpecies.map((sp) => ({
@@ -708,6 +724,7 @@ const getDisplaySpeciesList = () => {
     species_id: sp.species_id,
     species_name: sp.species_name,
     quantity: qtyMap.get(sp.species_id) ?? 1,
+    record_id: recordIdMap.get(sp.species_id) || null,
   }))
 }
 
@@ -748,6 +765,27 @@ const getSpeciesId = (species: any) => {
   if (species.id) return species.id
   if (species.speciesId) return species.speciesId
   return null
+}
+
+const getPackageSpeciesRecordId = (species: any) => {
+  if (species?.record_id) return species.record_id
+  if (species?.regulatory_hunting_package_id && species?.id) return species.id
+  const speciesId = getSpeciesId(species)
+  if (!speciesId) return null
+  const match = getSpeciesList().find((sp: any) => Number(getSpeciesId(sp)) === Number(speciesId))
+  return match?.record_id || match?.id || null
+}
+
+const isSpeciesInPackage = (species: any) => {
+  const speciesId = getSpeciesId(species)
+  if (!speciesId) return false
+  return getSpeciesList().some((sp: any) => Number(getSpeciesId(sp)) === Number(speciesId))
+}
+
+const isDeletingSpecies = (species: any) => {
+  const recordId = getPackageSpeciesRecordId(species)
+  if (!recordId) return false
+  return deletingSpecies.value[String(recordId)] || false
 }
 
 const loadHuntingAreaSpecies = async () => {
@@ -996,6 +1034,68 @@ const saveSpeciesCountChanges = async () => {
     toastInit({ message: Array.isArray(msg) ? msg.join(', ') : (msg || 'Failed to update species counts'), color: 'danger' })
   } finally {
     savingSpeciesCounts.value = false
+  }
+}
+
+const confirmDeleteSpecies = (species: any) => {
+  if (!selectItem.value?.id) {
+    toastInit({ message: 'Open the package details first.', color: 'warning' })
+    return
+  }
+  const name = getSpeciesName(species)
+  Swal.fire({
+    title: 'Are you sure?',
+    html: `Remove <strong>${name || 'this species'}</strong> from this package?`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'Yes, remove',
+    cancelButtonText: 'No, cancel',
+    reverseButtons: true,
+    customClass: {
+      confirmButton: 'btn btn-primary me-2',
+      cancelButton: 'btn btn-secondary'
+    },
+    buttonsStyling: false,
+    padding: '2em'
+  }).then(async (result) => {
+    if (result.isConfirmed) {
+      await deleteSpeciesFromPackage(species)
+    }
+  })
+}
+
+const deleteSpeciesFromPackage = async (species: any) => {
+  const packageId = selectItem.value?.id
+  const recordId = getPackageSpeciesRecordId(species)
+  if (!packageId || !recordId) {
+    toastInit({ message: 'Missing package species record ID.', color: 'warning' })
+    return
+  }
+
+  deletingSpecies.value = { ...deletingSpecies.value, [String(recordId)]: true }
+
+  try {
+    const baseUrl = (import.meta.env.VITE_APP_BASE_URL || '').replace(/\/+$/, '')
+    const endpoint = (import.meta.env.VITE_APP_REGULATORY_HUNTING_PACKAGES_URL || '').replace(/\/+$/, '')
+    const url = `${baseUrl}/${endpoint}/${packageId}/species/${recordId}`
+    const response = await axios.request({
+      method: 'delete',
+      maxBodyLength: Infinity,
+      url,
+      headers: { 'Content-Type': 'application/json' },
+    } as any)
+
+    if (response && (response.status === 200 || response.status === 204 || response.data?.success)) {
+      toastInit({ message: 'Species removed from package.', color: 'success' })
+      await showDetails({ id: packageId })
+    } else {
+      toastInit({ message: 'Failed to remove species.', color: 'danger' })
+    }
+  } catch (error) {
+    const msg = handleErrors(error)
+    toastInit({ message: Array.isArray(msg) ? msg.join(', ') : (msg || 'Failed to remove species'), color: 'danger' })
+  } finally {
+    deletingSpecies.value = { ...deletingSpecies.value, [String(recordId)]: false }
   }
 }
 
