@@ -4,8 +4,11 @@ import StandardDataTable from '@/components/bootstrap/StandardDataTable.vue'
 
 const governmentFeesData = ref(null);
 const tawaFeesData = ref(null);
+const mammalsData = ref(null);
+const birdsData = ref(null);
+const reptilesData = ref(null);
 const loading = ref(true);
-const activeTab = ref('mammals'); // 'mammals', 'birds', or 'tawa'
+const activeTab = ref('mammals'); // 'mammals', 'birds', 'reptiles', or 'tawa'
 const activeTawaSection = ref('hunting_blocks'); // Sub-section for TAWA
 
 const columns = [
@@ -16,6 +19,13 @@ const columns = [
 ]
 
 const birdColumns = [
+  { key: 'id', label: '#', sortable: true, visible: true, class: 'text-center' },
+  { key: 'common_name', label: 'English Name', sortable: true, visible: true },
+  { key: 'local_name', label: 'Swahili Name', sortable: true, visible: true },
+  { key: 'population', label: 'Price(TZS)', sortable: true, visible: true, class: 'text-start' },
+]
+
+const reptileColumns = [
   { key: 'id', label: '#', sortable: true, visible: true, class: 'text-center' },
   { key: 'common_name', label: 'English Name', sortable: true, visible: true },
   { key: 'local_name', label: 'Swahili Name', sortable: true, visible: true },
@@ -59,11 +69,11 @@ const loadGovernmentFees = async () => {
     
     // Load birds data
     const birdsResponse = await fetch('/assets/data/birds.json');
-    const birdsData = await birdsResponse.json();
-    if (!governmentFeesData.value.categories) {
-      governmentFeesData.value.categories = {};
-    }
-    governmentFeesData.value.categories.birds = birdsData;
+    birdsData.value = await birdsResponse.json();
+
+    // Load reptiles data
+    const reptilesResponse = await fetch('/assets/data/reptiles.json');
+    reptilesData.value = await reptilesResponse.json();
 
     const tawaResponse = await fetch('/assets/data/tawa_trophy_hunting_fees.json');
     tawaFeesData.value = await tawaResponse.json();
@@ -81,8 +91,11 @@ const mammalsRows = computed(() => {
 })
 
 const birdsRows = computed(() => {
-  if (!governmentFeesData.value) return []
-  return governmentFeesData.value.categories?.birds || []
+  return birdsData.value || []
+})
+
+const reptilesRows = computed(() => {
+  return reptilesData.value || []
 })
 
 const huntingBlockRows = computed(() => {
@@ -162,6 +175,15 @@ onMounted(() => {
               <button 
                 type="button" 
                 class="btn"
+                :class="activeTab === 'reptiles' ? 'btn-info' : 'btn-outline-info'"
+                @click="activeTab = 'reptiles'"
+              >
+                <i class="fas fa-fan fa-fw me-1"></i>
+                Reptiles
+              </button>
+              <button 
+                type="button" 
+                class="btn"
                 :class="activeTab === 'tawa' ? 'btn-warning' : 'btn-outline-warning'"
                 @click="activeTab = 'tawa'"
               >
@@ -236,6 +258,32 @@ onMounted(() => {
             </div> 
           </div>
           <!-- END Birds card -->
+
+          <!-- BEGIN Reptiles card -->
+          <div v-if="activeTab === 'reptiles'" class="card">
+            <div class="card-header bg-info text-white fw-bold">
+              <i class="fas fa-fan fa-fw me-2"></i>
+              Reptiles Fees
+            </div>
+            <div class="card-body">
+              <StandardDataTable
+                :columns="reptileColumns"
+                :data="reptilesRows"
+                :loading="loading"
+                :default-page-size="100"
+                :disable-pagination="false"
+                :show-date-filters="false"
+              >
+                <template #id="{ row }">
+                  <div class="text-center">{{ row.id }}</div>
+                </template>
+                <template #population="{ row }">
+                  <div class="text-start fw-bold">{{ formatPrice(row.population) }}</div>
+                </template>
+              </StandardDataTable>
+            </div> 
+          </div>
+          <!-- END Reptiles card -->
 
           <!-- BEGIN TAWA trophy hunting -->
           <div v-if="activeTab === 'tawa'">

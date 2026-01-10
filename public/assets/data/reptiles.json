@@ -1,0 +1,100 @@
+[
+  {
+    "id": 1,
+    "common_name": "Boomslang",
+    "local_name": "Nyoka",
+    "scientific_name": "Dispholidus typus",
+    "population": 230000
+  },
+  {
+    "id": 2,
+    "common_name": "Chameleons",
+    "local_name": "Vinyonga",
+    "scientific_name": "Chamaeleo spp",
+    "population": 70000
+  },
+  {
+    "id": 3,
+    "common_name": "Cobra",
+    "local_name": "Koboko",
+    "scientific_name": "Naja spp",
+    "population": 230000
+  },
+  {
+    "id": 4,
+    "common_name": "Crocodile Nile",
+    "local_name": "Mamba",
+    "scientific_name": "Crocodilus niloticus",
+    "population": 4500000
+  },
+  {
+    "id": 5,
+    "common_name": "Common Egg Eater",
+    "local_name": "Nyoka",
+    "scientific_name": "Dasypeltis scabra",
+    "population": 230000
+  },
+  {
+    "id": 6,
+    "common_name": "Geckos",
+    "local_name": "Mijusi",
+    "scientific_name": "Hemidactylus spp",
+    "population": 70000
+  },
+  {
+    "id": 7,
+    "common_name": "Green & Black Mamba",
+    "local_name": "Koboko",
+    "scientific_name": "Dendroaspis spp",
+    "population": 200000
+  },
+  {
+    "id": 8,
+    "common_name": "Green snakes",
+    "local_name": "Nyoka wa kijani",
+    "scientific_name": "Philothamnus spp",
+    "population": 200000
+  },
+  {
+    "id": 9,
+    "common_name": "Lizard",
+    "local_name": "Mijusi",
+    "scientific_name": "Gerrhosaurus spp / Agama spp",
+    "population": 70000
+  },
+  {
+    "id": 10,
+    "common_name": "Nile Monitor",
+    "local_name": "Kenge",
+    "scientific_name": "Varanus niloticus",
+    "population": 700000
+  },
+  {
+    "id": 11,
+    "common_name": "Python",
+    "local_name": "Chatu",
+    "scientific_name": "Python spp",
+    "population": 800000
+  },
+  {
+    "id": 12,
+    "common_name": "Sand boa",
+    "local_name": "",
+    "scientific_name": "Eryx colubrinus",
+    "population": 190000
+  },
+  {
+    "id": 13,
+    "common_name": "Terrapins",
+    "local_name": "Kasa",
+    "scientific_name": "Pelomedusa spp",
+    "population": 200000
+  },
+  {
+    "id": 14,
+    "common_name": "Tortoises",
+    "local_name": "Kobe",
+    "scientific_name": "Malacocherspp",
+    "population": 80000
+  }
+]
