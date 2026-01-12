@@ -1,23 +1,64 @@
-<script setup>
-import { ref, computed, watch } from 'vue'
+<script setup lang="ts">
+import { ref, computed, watch, withDefaults } from 'vue'
 
-const props = defineProps({
-  columns: { type: Array, required: true },
-  data: { type: Array, required: true },
-  actionButtons: { type: Array, required: false, default: () => [] },
-  customFilters: { type: Array, required: false, default: () => [] }, // NEW: Custom filters array
-  loading: { type: Boolean, default: false },
-  pageSizeOptions: { type: Array, default: () => [10, 25, 50, 100] },
-  defaultPageSize: { type: Number, default: 100 },
-  filters: { type: Object, default: () => ({}) },
-  disablePagination: { type: Boolean, default: false },
-  disableSearch: { type: Boolean, default: false },
-  showDateFilters: { type: Boolean, default: true },
-  pagination: { type: Object, default: null }, // For server-side
-  serverSide: { type: Boolean, default: false }, // Enable server-side mode
-  totalItems: { type: Number, default: 0 }, // For server-side count
-  selectable: { type: Boolean, default: false }, // Enable row selection with checkboxes
-})
+interface TableColumn {
+  key: string
+  label: string
+  sortable?: boolean
+  visible?: boolean
+}
+
+interface TableFilter {
+  key: string
+  label: string
+  type: string
+  options?: Array<{ label: string; value: string | number }>
+  defaultValue?: any
+}
+
+interface TableActionButton {
+  label: string
+  icon: string
+  class: string
+  method: () => void
+}
+
+const props = withDefaults(
+  defineProps<{
+    columns: TableColumn[]
+    data: any[]
+    actionButtons?: TableActionButton[]
+    customFilters?: TableFilter[]
+    loading?: boolean
+    pageSizeOptions?: number[]
+    defaultPageSize?: number
+    filters?: Record<string, any>
+    disablePagination?: boolean
+    disableSearch?: boolean
+    showDateFilters?: boolean
+    pagination?: any
+    serverSide?: boolean
+    totalItems?: number
+    selectable?: boolean
+  }>(),
+  {
+    columns: () => [],
+    data: () => [],
+    actionButtons: () => [],
+    customFilters: () => [],
+    loading: false,
+    pageSizeOptions: () => [10, 25, 50, 100],
+    defaultPageSize: 100,
+    filters: () => ({}),
+    disablePagination: false,
+    disableSearch: false,
+    showDateFilters: true,
+    pagination: null,
+    serverSide: false,
+    totalItems: 0,
+    selectable: false,
+  }
+)
 
 const emit = defineEmits(['update:filters', 'row-action', 'page-change', 'selection-change'])
 

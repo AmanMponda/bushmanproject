@@ -44,6 +44,13 @@
               Links & References
             </div>
 
+            <!-- QUOTATION WORKFLOW GUIDANCE -->
+            <div v-if="!form.quotationId" style="margin-bottom: 16px; padding: 12px; background: #e3f2fd; border-left: 4px solid #2196f3; border-radius: 4px;">
+              <p style="margin: 0; font-size: 14px; color: #1565c0; font-weight: 500;">
+                💡 <strong>Quick Start:</strong> Select a Quotation below to auto-populate items, parties, and pricing information.
+              </p>
+            </div>
+
             <div class="financial-grid">
               <label class="field">
                 <span class="lbl">Sales Enquiry</span>
@@ -59,10 +66,10 @@
               </label>
 
               <label class="field">
-                <span class="lbl">Quotation / Pricing</span>
+                <span class="lbl">Quotation / Pricing <span v-if="!form.quotationId" style="color: #f44336;">*</span></span>
                 <div class="input-wrapper">
                   <span class="input-icon">💼</span>
-                  <select v-model="form.quotationId">
+                  <select v-model="form.quotationId" :style="{ borderColor: !form.quotationId && form.items.length === 0 ? '#f44336' : '' }">
                     <option value="">-- Select Quotation --</option>
                     <option v-for="quote in filteredQuotations" :key="quote.id" :value="String(quote.id)">
                       {{ quote.code || quote.name || `Quote #${quote.id}` }}
@@ -70,6 +77,13 @@
                   </select>
                 </div>
               </label>
+            </div>
+
+            <!-- SUCCESS MESSAGE WHEN QUOTATION SELECTED -->
+            <div v-if="form.quotationId && form.items.length > 0" style="margin-top: 12px; padding: 12px; background: #e8f5e9; border-left: 4px solid #4caf50; border-radius: 4px;">
+              <p style="margin: 0; font-size: 14px; color: #2e7d32; font-weight: 500;">
+                ✓ Quotation loaded! {{ form.items.length }} items auto-populated. Ready to create order.
+              </p>
             </div>
           </div>
 
@@ -79,19 +93,6 @@
               <span class="section-icon">🏷️</span>
               Basic Information
             </div>
-
-            <label class="field">
-              <span class="lbl">Order Type <span class="req">*</span></span>
-              <div class="input-wrapper">
-                <span class="input-icon">📦</span>
-                <select v-model="form.orderType" required disabled>
-                  <option value="">-- Select Type --</option>
-                  <option v-for="type in orderTypes" :key="type.id || type.code" :value="type.id || type.code">
-                    {{ type.name || type }}
-                  </option>
-                </select>
-              </div>
-            </label>
 
             <label class="field">
               <span class="lbl">Status <span class="req">*</span></span>
@@ -237,12 +238,11 @@
                 <table class="data-table">
                   <thead>
                     <tr>
-                      <th style="min-width: 150px">Name</th>
+                      <th style="min-width: 200px">Name</th>
                       <th style="min-width: 120px">Category</th>
-                      <th style="min-width: 80px">Quantity</th>
-                      <th style="min-width: 100px">Rate</th>
-                      <th style="min-width: 100px">Discount</th>
-                      <th style="min-width: 120px">Total</th>
+                      <th style="min-width: 100px">Quantity</th>
+                      <th style="min-width: 130px">Unit Amount</th>
+                      <th style="min-width: 130px">Total Amount</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -252,9 +252,8 @@
                       <td>{{ item.category }}</td>
                       <td class="text-center">{{ item.quantity }}</td>
                       <td>{{ formatCurrency(item.rate) }}</td>
-                      <td>{{ item.discount ? formatCurrency(item.discount) : '-' }}</td>
                       <td class="text-center">
-                        <span class="badge bg-info">{{ formatCurrency((item.quantity * item.rate) - (item.discount || 0)) }}</span>
+                        <span class="badge bg-info">{{ formatCurrency(item.amount || (item.quantity * item.rate)) }}</span>
                       </td>
                     </tr>
                   </tbody>
@@ -274,21 +273,23 @@
                 <table class="data-table">
                   <thead>
                     <tr>
-                      <th style="min-width: 120px">Role</th>
+                      <th style="min-width: 100px">Role</th>
                       <th style="min-width: 150px">Entity Name</th>
                       <th style="min-width: 140px">Contact Person</th>
-                      <th style="min-width: 120px">Phone</th>
-                      <th style="min-width: 180px">Email</th>
+                      <th style="min-width: 130px">Phone</th>
                     </tr>
                   </thead>
                   <tbody>
                     <!-- Parties from Quotation -->
                     <tr v-for="(party, idx) in form.parties" :key="idx">
-                      <td>{{ party.role }}</td>
+                      <td>
+                        <span class="badge" :class="party.role === 'client' ? 'bg-primary' : party.role === 'supplier' ? 'bg-success' : 'bg-secondary'">
+                          {{ party.role || '-' }}
+                        </span>
+                      </td>
                       <td>{{ party.entity_name || party.entity || '-' }}</td>
                       <td>{{ party.contact_person || '-' }}</td>
                       <td>{{ party.contact_phone || '-' }}</td>
-                      <td>{{ party.email || '-' }}</td>
                     </tr>
                   </tbody>
                 </table>
@@ -346,45 +347,19 @@
                 <table class="data-table">
                   <thead>
                     <tr>
-                      <th style="min-width: 140px">Type</th>
-                      <th style="min-width: 150px">Location/Route</th>
-                      <th style="min-width: 120px">Date</th>
-                      <th style="min-width: 100px">Details</th>
-                      <th style="min-width: 120px">Amount</th>
-                      <th style="min-width: 100px">Status</th>
+                      <th style="min-width: 220px">Description</th>
+                      <th style="min-width: 100px">Quantity</th>
+                      <th style="min-width: 130px">Unit Amount</th>
+                      <th style="min-width: 130px">Total Amount</th>
                     </tr>
                   </thead>
                   <tbody>
                     <tr v-for="(logistics, idx) in form.logistics" :key="idx">
-                      <td>
-                        <span v-if="logistics.logistics_type === 'HOTEL'" class="badge bg-primary">🏨 Hotel</span>
-                        <span v-else-if="logistics.logistics_type === 'AIRPORT'" class="badge bg-primary">🛫 Airport</span>
-                        <span v-else-if="logistics.logistics_type === 'CHARTER'" class="badge bg-primary">✈️ Charter</span>
-                        <span v-else-if="logistics.logistics_type === 'TRANSFER'" class="badge bg-primary">🚗 Transfer</span>
-                        <span v-else class="badge bg-primary">📋 Other</span>
-                      </td>
-                      <td>
-                        <span v-if="logistics.logistics_type === 'HOTEL'">{{ logistics.location }}</span>
-                        <span v-else-if="logistics.logistics_type === 'CHARTER'">{{ logistics.from_airport }} → {{ logistics.to_airport }}</span>
-                        <span v-else>{{ logistics.from_location }} → {{ logistics.to_location }}</span>
-                      </td>
-                      <td>
-                        <span v-if="logistics.logistics_type === 'HOTEL'">{{ logistics.check_in_date }}</span>
-                        <span v-else-if="logistics.logistics_type === 'CHARTER'">{{ logistics.flight_date }}</span>
-                        <span v-else>{{ logistics.transfer_date }}</span>
-                      </td>
-                      <td class="small">
-                        <span v-if="logistics.logistics_type === 'HOTEL'">{{ logistics.nights }} nights, {{ logistics.rooms }} rooms</span>
-                        <span v-else-if="logistics.logistics_type === 'CHARTER'">{{ logistics.seats }} seats</span>
-                        <span v-else>{{ logistics.vehicle_type }}</span>
-                      </td>
-                      <td>
-                        <span class="badge bg-info">{{ formatCurrency(logistics.estimated_amount || 0) }}</span>
-                      </td>
-                      <td>
-                        <span class="badge" :class="logistics.status === 'CONFIRMED' ? 'bg-success' : logistics.status === 'BOOKED' ? 'bg-warning' : 'bg-secondary'">
-                          {{ logistics.status }}
-                        </span>
+                      <td>{{ logistics.description || '-' }}</td>
+                      <td class="text-center">{{ logistics.quantity || 0 }}</td>
+                      <td>{{ formatCurrency(logistics.unit_amount || 0) }}</td>
+                      <td class="text-center">
+                        <span class="badge bg-info">{{ formatCurrency(logistics.total_amount || (logistics.quantity * logistics.unit_amount) || 0) }}</span>
                       </td>
                     </tr>
                   </tbody>
@@ -636,10 +611,10 @@ const showSections = reactive({
 const form = reactive({
   // BASIC INFO
   orderNumber: '',
-  orderType: '',
-  status: '',
+  orderType: 'SALES', // Default to SALES orders
+  status: 'DRAFT', // Default to DRAFT status
   orderDate: new Date().toISOString().split('T')[0],
-  currency: '',
+  currency: '1', // Default currency (adjust if needed)
   exchangeRate: 1.0,
   vat: 0,
   
@@ -1076,10 +1051,23 @@ const submit = async () => {
 
   if (!confirmation.isConfirmed) return
 
-  if (!form.orderType || !form.status || !form.orderDate || !form.currency) {
+  // Validate required fields
+  const missingFields = []
+  if (!form.orderType) missingFields.push('Order Type')
+  if (!form.status) missingFields.push('Status')
+  if (!form.orderDate) missingFields.push('Order Date')
+  if (!form.currency) missingFields.push('Currency')
+  if (!isEdit.value && form.items.length === 0 && !form.quotationId) missingFields.push('Items (select a Quotation or add items manually)')
+
+  if (missingFields.length > 0) {
     Swal.fire({
       title: 'Missing Required Fields',
-      text: 'Please fill all required fields',
+      html: `<div style="text-align: left;">
+        <p>Please fill the following required fields:</p>
+        <ul style="margin: 10px 0; padding-left: 20px;">
+          ${missingFields.map(f => `<li>${f}</li>`).join('')}
+        </ul>
+      </div>`,
       icon: 'warning',
     })
     return
@@ -1106,7 +1094,8 @@ const submit = async () => {
         item_category_id: item.category ? parseInt(item.category as string) : null,
         quantity: item.quantity,
         rate: item.rate,
-        line_total: item.quantity * item.rate,
+        discount: item.discount || 0,
+        line_total: (item.quantity * item.rate) - (item.discount || 0),
       })),
       parties: form.parties.map(party => ({
         role: party.role,
@@ -1115,7 +1104,24 @@ const submit = async () => {
         contact_email: party.email || null,
       })),
       participants: participantsData,
-      logistics: logisticsData,
+      logistics: logisticsData.map(log => ({
+        logistics_type: log.logistics_type,
+        location: log.location || null,
+        check_in_date: log.check_in_date || null,
+        nights: log.nights || 0,
+        rooms: log.rooms || 0,
+        from_airport: log.from_airport || null,
+        to_airport: log.to_airport || null,
+        flight_date: log.flight_date || null,
+        seats: log.seats || 0,
+        from_location: log.from_location || null,
+        to_location: log.to_location || null,
+        transfer_date: log.transfer_date || null,
+        vehicle_type: log.vehicle_type || null,
+        estimated_amount: log.estimated_amount || 0,
+        status: log.status || 'PLANNED',
+        description: log.description || null
+      })),
       preferences: form.preferences,
       installments: form.installments.map(inst => ({
         sequence_no: inst.sequenceNo,
@@ -1291,15 +1297,38 @@ watch(
         
         console.log('Total pricing items found:', pricingItems.length, pricingItems)
         
-        // Transform pricing items to order items format
-        form.items = pricingItems.map((pItem: any) => ({
-          name: pItem.description || '',
-          category: pItem.item_type || '',
-          quantity: pItem.quantity || 1,
-          rate: pItem.rate || 0,
-          discount: 0,
-          amount: pItem.amount || 0
-        }))
+        // Log the first item to see all available fields
+        if (pricingItems.length > 0) {
+          console.log('Sample item fields:', Object.keys(pricingItems[0]))
+          console.log('Complete first item object:', pricingItems[0])
+        }
+        
+        // Transform pricing items to order items format - extract quantity and rate from line items
+        form.items = pricingItems.map((pItem: any) => {
+          console.log('Full item data:', pItem)
+          // Try multiple possible field names for rate
+          let unitRate = pItem.rate || pItem.unit_price || pItem.unit_rate || pItem.rate_amount || pItem.price || pItem.unit_cost || 0
+          const qty = pItem.quantity || pItem.qty || pItem.line_qty || 1
+          const totalAmount = pItem.amount || pItem.total || pItem.line_total || pItem.total_amount || (qty * unitRate)
+          
+          // If rate is 0 but we have amount, calculate rate from amount/quantity
+          if (unitRate === 0 && totalAmount > 0 && qty > 0) {
+            unitRate = totalAmount / qty
+          }
+          
+          const discount = pItem.discount || pItem.discount_amount || pItem.line_discount || 0
+          
+          console.log(`Mapped: name=${pItem.item_name}, qty=${qty}, rate=${unitRate}, amount=${totalAmount}`)
+          
+          return {
+            name: pItem.item_name || pItem.description || '',
+            category: pItem.item_type || pItem.category || '',
+            quantity: qty,
+            rate: unitRate,
+            discount: discount,
+            amount: totalAmount
+          }
+        })
         
         console.log(`Auto-populated ${form.items.length} items from pricing #${pricingId}`)
         
@@ -1307,18 +1336,29 @@ watch(
         console.log('Fetching parties for pricing ID:', pricingId)
         const pricingParties = await orderStore.fetchPricingParties(pricingId)
         console.log('Pricing parties fetched:', pricingParties)
+        console.log('Number of parties:', pricingParties.length)
+        
+        // Log first party to see structure
+        if (pricingParties.length > 0) {
+          console.log('Sample party fields:', Object.keys(pricingParties[0]))
+          console.log('Complete first party object:', pricingParties[0])
+        }
         
         // Transform pricing parties to order parties format
-        form.parties = pricingParties.map((party: any) => ({
-          role: party.role || 'CLIENT',
-          entity: party.entity_id?.toString() || '',
-          entity_name: party.entity_name || party.name || '',
-          contact_person: party.contact_person || '',
-          contact_phone: party.phone || party.contact_phone || '',
-          email: party.email || ''
-        }))
+        form.parties = pricingParties.map((party: any) => {
+          console.log('Mapping party:', party)
+          return {
+            role: party.role || 'CLIENT',
+            entity: party.entity_id?.toString() || '',
+            entity_name: party.entity_name || party.name || party.entity || '',
+            contact_person: party.contact_person || party.contact || '',
+            contact_phone: party.phone || party.contact_phone || party.telephone || '',
+            email: party.email || party.contact_email || ''
+          }
+        })
         
         console.log(`Auto-populated ${form.parties.length} parties from pricing #${pricingId}`)
+        console.log('Form parties after auto-population:', form.parties)
         console.log('Form parties after auto-population:', form.parties)
         
         // ===== AUTO-POPULATE LOGISTICS & PARTICIPANTS =====
@@ -1383,6 +1423,14 @@ watch(
             } else {
               console.log('No currency field found in quotation data')
             }
+
+            // Auto-populate order date from quotation
+            if (data.order_date) {
+              form.orderDate = data.order_date
+              console.log(`Auto-populated orderDate: ${data.order_date}`)
+            } else {
+              console.log('No order_date field found in quotation data')
+            }
             
             // Auto-populate participants from intelligent extraction
             if (data.participants && Array.isArray(data.participants)) {
@@ -1395,25 +1443,23 @@ watch(
             
             // Auto-populate logistics from intelligent extraction
             if (data.logistics && Array.isArray(data.logistics)) {
-              form.logistics = data.logistics.map((logItem: any) => ({
-                logistics_type: logItem.type || logItem.logistics_type || 'HOTEL',
-                location: logItem.location || '',
-                check_in_date: logItem.check_in_date || '',
-                nights: logItem.nights || 0,
-                rooms: logItem.rooms || 0,
-                from_airport: logItem.from_airport || '',
-                to_airport: logItem.to_airport || '',
-                flight_date: logItem.flight_date || '',
-                seats: logItem.seats || 0,
-                from_location: logItem.from_location || '',
-                to_location: logItem.to_location || '',
-                transfer_date: logItem.transfer_date || '',
-                vehicle_type: logItem.vehicle_type || '',
-                estimated_amount: logItem.amount || logItem.estimated_amount || 0,
-                status: logItem.status || 'PLANNED',
-                description: logItem.description || ''
-              }))
-              console.log(`Auto-populated ${form.logistics.length} logistics from quotation`)
+              form.logistics = data.logistics.map((logItem: any) => {
+                // Extract fields using new pricing structure
+                const description = logItem.description || logItem.item_name || logItem.remarks || ''
+                const quantity = logItem.quantity || logItem.qty || logItem.line_qty || 0
+                const unitAmount = logItem.unit_amount || logItem.rate || logItem.unit_price || logItem.unit_cost || 0
+                const totalAmount = logItem.total_amount || logItem.amount || logItem.total || logItem.line_total || (quantity * unitAmount) || 0
+                
+                return {
+                  description: description,
+                  quantity: quantity,
+                  unit_amount: unitAmount,
+                  total_amount: totalAmount,
+                  is_estimate: logItem.is_estimate || false,
+                  is_optional: logItem.is_optional || false
+                }
+              })
+              console.log(`Auto-populated ${form.logistics.length} logistics from quotation:`, form.logistics)
             }
           } else {
             // Fallback to old method if new endpoint not available
@@ -1445,20 +1491,12 @@ watch(
             // Auto-populate logistics items from legacy endpoint
             if (pricingLogistics.logistics && Array.isArray(pricingLogistics.logistics)) {
               form.logistics = pricingLogistics.logistics.map((logItem: any) => ({
-                logistics_type: logItem.logistics_type || 'HOTEL',
-                location: logItem.location || '',
-                check_in_date: logItem.check_in_date || '',
-                nights: logItem.nights || 0,
-                rooms: logItem.rooms || 0,
-                from_airport: logItem.from_airport || '',
-                to_airport: logItem.to_airport || '',
-                flight_date: logItem.flight_date || '',
-                seats: logItem.seats || 0,
-                from_location: logItem.from_location || '',
-                to_location: logItem.to_location || '',
-                transfer_date: logItem.transfer_date || '',
-                vehicle_type: logItem.vehicle_type || '',
-                description: logItem.description || ''
+                description: logItem.description || logItem.item_name || logItem.remarks || '',
+                quantity: logItem.quantity || logItem.qty || logItem.line_qty || 0,
+                unit_amount: logItem.unit_amount || logItem.rate || logItem.unit_price || logItem.unit_cost || 0,
+                total_amount: logItem.total_amount || logItem.amount || logItem.total || logItem.line_total || 0,
+                is_estimate: logItem.is_estimate || false,
+                is_optional: logItem.is_optional || false
               }))
               
               console.log(`Auto-populated ${form.logistics.length} logistics from pricing #${pricingId}`)
@@ -2341,7 +2379,7 @@ onMounted(() => {
 }
 
 .table-wrapper {
-  overflow-x: auto;
+  overflow-x: visible;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
 }
