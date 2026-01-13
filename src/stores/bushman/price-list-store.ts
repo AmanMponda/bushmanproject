@@ -84,6 +84,9 @@ export const usePriceListStore = defineStore('price-list', {
         method: 'get',
         maxBodyLength: Infinity,
         url: url,
+        params: {
+          with: 'trophy_fees,upgrade_fees,safari_extras,items,companion_hunter_prices,observer_hunter_prices'
+        },
         headers: {
           'Content-Type': 'application/json',
         },
@@ -242,9 +245,26 @@ export const usePriceListStore = defineStore('price-list', {
         }
         
         const data = await response.json()
+        const priceList = data.data || data
+        
+        // Fetch trophy fees separately by location_id (trophy fees are location-based, not price list-based)
+        if (priceList?.location_id) {
+          try {
+            const trophyFeesUrl = `${import.meta.env.VITE_APP_BASE_URL}settings/trophy-fees/pricing`
+            const trophyFeesResponse = await axios.get(trophyFeesUrl, {
+              params: { location_id: priceList.location_id }
+            })
+            priceList.trophy_fees = trophyFeesResponse.data?.data || []
+            priceList.upgrade_fees = priceList.trophy_fees || [] // Upgrade fees use the same data
+          } catch (trophyError) {
+            console.warn('Failed to fetch trophy fees:', trophyError)
+            priceList.trophy_fees = []
+            priceList.upgrade_fees = []
+          }
+        }
         
         // Return axios-like response object for compatibility
-        return { status: response.status, data: data }
+        return { status: response.status, data: priceList }
       } catch (error: any) {
         clearTimeout(timeoutId)
         if (error.name === 'AbortError') {

@@ -31,8 +31,9 @@ export const useSpeciesStore = defineStore('species-store', {
       const url = import.meta.env.VITE_APP_BASE_URL + import.meta.env.VITE_APP_SPECIES_URL
       const data = JSON.stringify({
         name: species.name,
+        description: species.scientific_name ?? species.description,
         is_active: typeof species.is_active === 'boolean' ? species.is_active : true,
-
+        item_group_id: species.item_group_id || null,
       })
       const config = {
         method: 'post',
@@ -52,7 +53,10 @@ export const useSpeciesStore = defineStore('species-store', {
       const url = import.meta.env.VITE_APP_BASE_URL + import.meta.env.VITE_APP_SPECIES_URL + id + '/'
       const data = JSON.stringify({
         name: species.name,
+        description: species.scientific_name ?? species.description,
+        subtype: species.subtype,
         is_active: typeof species.is_active === 'boolean' ? species.is_active : true,
+        item_group_id: species.item_group_id || null,
       })
       const config = {
         method: 'put',

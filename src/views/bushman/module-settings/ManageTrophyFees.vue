@@ -65,11 +65,20 @@
                     <i class="fa fa-arrow-left me-1"></i> Back
                   </button>
                   <i class="fa fa-edit text-primary fs-5"></i>
-                  <h2 class="h5 mb-0">{{ editMode ? 'Edit Trophy Fee' : 'Create Trophy Fee' }}</h2>
+                  <h2 class="h5 mb-0">{{ editMode ? 'Edit Trophy Fee' : bulkMode ? 'Bulk Add Trophy Fees' : 'Create Trophy Fee' }}</h2>
                 </div>
                 <div class="d-flex align-items-center gap-2">
-                  <span class="small text-muted">Enable Variant</span>
-                  <div class="form-check form-switch mb-0">
+                  <span v-if="!editMode" class="small text-muted">Bulk Mode</span>
+                  <div v-if="!editMode" class="form-check form-switch mb-0">
+                    <input
+                      v-model="bulkMode"
+                      class="form-check-input"
+                      type="checkbox"
+                      @change="onBulkModeToggle"
+                    />
+                  </div>
+                  <span v-if="!editMode && !bulkMode" class="small text-muted ms-3">Enable Variant</span>
+                  <div v-if="!editMode && !bulkMode" class="form-check form-switch mb-0">
                     <input
                       v-model="form.has_variants"
                       class="form-check-input"
@@ -83,7 +92,75 @@
             </div>
 
             <div class="card-body">
-              <form @submit.prevent="save">
+              <!-- Bulk Mode Multi-Row Table -->
+              <div v-if="bulkMode" class="bulk-input-section">
+                <!-- Shared Filters -->
+                <div class="row g-3 mb-4 p-3 bg-light rounded">
+                  <div class="col-md-6">
+                    <label class="form-label fw-bold">Location <span class="text-danger">*</span></label>
+                    <select v-model="bulkData.location_id" class="form-select" required>
+                      <option :value="null">Select Location</option>
+                      <option v-for="l in locationOptions" :key="l.value" :value="l.value">{{ l.text }}</option>
+                    </select>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label fw-bold">Currency <span class="text-danger">*</span></label>
+                    <select v-model="bulkData.currency_id" class="form-select" required>
+                      <option :value="null">Select Currency</option>
+                      <option v-for="c in currencyOptions" :key="c.value" :value="c.value">{{ c.text }}</option>
+                    </select>
+                  </div>
+                </div>
+
+                <!-- Multi-Row Input Table -->
+                <div class="table-responsive">
+                  <table class="table table-bordered table-hover">
+                    <thead class="table-light">
+                      <tr>
+                        <th style="width: 60%">Species <span class="text-danger">*</span></th>
+                        <th style="width: 30%">Amount <span class="text-danger">*</span></th>
+                        <th style="width: 10%" class="text-center">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="(row, index) in bulkData.rows" :key="index">
+                        <td>
+                          <select v-model="row.species_id" class="form-select form-select-sm" required>
+                            <option :value="null">Select Species</option>
+                            <option v-for="s in speciesOptions" :key="s.value" :value="s.value">{{ s.text }}</option>
+                          </select>
+                        </td>
+                        <td>
+                          <input v-model.number="row.amount" type="number" step="0.01" min="0" class="form-control form-control-sm" placeholder="0.00" required />
+                        </td>
+                        <td class="text-center">
+                          <button type="button" class="btn btn-danger btn-sm" @click="removeBulkRow(index)" title="Remove Row">
+                            <i class="fa fa-trash"></i>
+                          </button>
+                        </td>
+                      </tr>
+                      <tr v-if="bulkData.rows.length === 0">
+                        <td colspan="3" class="text-center text-muted py-3">
+                          <i class="fa fa-inbox fa-2x mb-2"></i>
+                          <p class="mb-0">No rows added. Click "Add Row" to start.</p>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center mt-3">
+                  <button type="button" class="btn btn-outline-primary" @click="addBulkRow">
+                    <i class="fa fa-plus me-1"></i> Add Row
+                  </button>
+                  <div class="text-muted">
+                    <small>{{ bulkData.rows.length }} row(s) added</small>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Single Entry Form -->
+              <form v-else @submit.prevent="save">
                 <div class="row g-3">
                   <div class="col-md-6">
                     <label class="form-label">Species <span class="text-danger">*</span></label>
@@ -137,10 +214,10 @@
 
           <div class="d-flex justify-content-end align-items-center mt-2 mb-2">
             <button v-if="editMode" type="button" class="btn btn-secondary me-2" @click="cancelEdit">Cancel</button>
-            <button type="button" class="btn btn-primary" :disabled="saving || !canSave" @click="save()">
+            <button type="button" class="btn btn-primary" :disabled="saving || (bulkMode ? !canSaveBulk : !canSave)" @click="bulkMode ? saveBulk() : save()">
               <i class="fa fa-save me-1"></i>
               <span v-if="saving" class="spinner-border spinner-border-sm me-1" role="status"></span>
-              {{ editMode ? 'Update Trophy Fee' : 'Save Trophy Fee' }}
+              {{ editMode ? 'Update Trophy Fee' : bulkMode ? 'Save All Trophy Fees' : 'Save Trophy Fee' }}
             </button>
           </div>
         </div>
@@ -191,9 +268,15 @@ export default defineComponent({
       selectedLocation: null as any,
       showList: true,
       editMode: false,
+      bulkMode: false,
       loading: false,
       saving: false,
       toast: useToast(),
+      bulkData: reactive({
+        location_id: null as any,
+        currency_id: null as any,
+        rows: [] as any[],
+      }),
     }
   },
 
@@ -259,6 +342,17 @@ export default defineComponent({
         !isNaN(Number(this.form.amount))
       )
     },
+    canSaveBulk() {
+      if (!this.bulkData.location_id || !this.bulkData.currency_id) return false
+      if (this.bulkData.rows.length === 0) return false
+      return this.bulkData.rows.every((row: any) => 
+        !!row.species_id && 
+        row.amount !== null && 
+        row.amount !== undefined && 
+        !isNaN(Number(row.amount)) &&
+        Number(row.amount) >= 0
+      )
+    },
   },
 
   mounted() {
@@ -275,6 +369,29 @@ export default defineComponent({
       this.form.name = ''
       this.form.trophy_count_value_id = null
       this.form.weight_class_value_id = null
+    },
+    onBulkModeToggle() {
+      if (this.bulkMode) {
+        // Initialize with 5 empty rows
+        this.bulkData.rows = Array(5).fill(null).map(() => ({
+          species_id: null,
+          amount: null,
+        }))
+      } else {
+        // Clear bulk data
+        this.bulkData.location_id = null
+        this.bulkData.currency_id = null
+        this.bulkData.rows = []
+      }
+    },
+    addBulkRow() {
+      this.bulkData.rows.push({
+        species_id: null,
+        amount: null,
+      })
+    },
+    removeBulkRow(index: number) {
+      this.bulkData.rows.splice(index, 1)
     },
     ...mapActions(useTrophyFeesStore, [
       'fetchTrophyFeePricing',
@@ -401,6 +518,7 @@ export default defineComponent({
 
     resetForm() {
       this.editMode = false
+      this.bulkMode = false
       this.form.id = null
       this.form.species_id = null
       this.form.name = ''
@@ -410,6 +528,9 @@ export default defineComponent({
       this.form.location_id = null
       this.form.currency_id = null
       this.form.amount = null
+      this.bulkData.location_id = null
+      this.bulkData.currency_id = null
+      this.bulkData.rows = []
     },
 
     async editRow(row: any) {
@@ -487,6 +608,55 @@ export default defineComponent({
       }
     },
 
+    async saveBulk() {
+      if (!this.canSaveBulk) {
+        this.toast.init({ message: 'Please fill required fields', color: 'warning' })
+        return
+      }
+
+      this.saving = true
+      let successCount = 0
+      let failCount = 0
+
+      try {
+        for (const row of this.bulkData.rows) {
+          try {
+            const payload: any = {
+              species_id: row.species_id,
+              location_id: this.bulkData.location_id,
+              currency_id: this.bulkData.currency_id,
+              amount: Number(row.amount),
+            }
+            await this.createCombinedTrophyFee(payload)
+            successCount++
+          } catch (error) {
+            console.error('Failed to save row:', row, error)
+            failCount++
+          }
+        }
+
+        if (successCount > 0) {
+          this.toast.init({ 
+            message: `${successCount} trophy fee(s) created${failCount > 0 ? `, ${failCount} failed` : ''}`, 
+            color: failCount > 0 ? 'warning' : 'success' 
+          })
+        } else {
+          this.toast.init({ message: 'Failed to create trophy fees', color: 'danger' })
+        }
+
+        if (successCount > 0) {
+          this.showList = true
+          this.resetForm()
+          this.getPricing()
+        }
+      } catch (error) {
+        handleErrors(error)
+        this.toast.init({ message: 'Failed to save trophy fees', color: 'danger' })
+      } finally {
+        this.saving = false
+      }
+    },
+
     async deleteRow(row: any) {
       const raw = row._raw || {}
       if (!raw.id) return
@@ -514,5 +684,24 @@ export default defineComponent({
 
 .form-trophy-fees-container {
   max-width: 1100px;
+}
+
+.bulk-input-section .table {
+  margin-bottom: 0;
+}
+
+.bulk-input-section .table thead th {
+  background-color: #f8f9fa;
+  font-weight: 600;
+  border-bottom: 2px solid #dee2e6;
+}
+
+.bulk-input-section .table tbody tr:hover {
+  background-color: #f8f9fa;
+}
+
+.bulk-input-section .form-select-sm,
+.bulk-input-section .form-control-sm {
+  font-size: 0.875rem;
 }
 </style>

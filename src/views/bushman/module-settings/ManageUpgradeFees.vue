@@ -39,14 +39,17 @@
                 <template #trigger_condition="{ row }">
                   {{ (row as any).trigger_condition }}
                 </template>
-                <template #item_name="{ row }">
-                  {{ (row as any).item_name }}
+                <template #fee_amount="{ row }">
+                  <span class="text-nowrap">{{ (row as any).fee_amount_display }}</span>
                 </template>
-                <template #amount="{ row }">
-                  {{ (row as any).amount }}
+                <template #currency_code="{ row }">
+                  {{ (row as any).currency_code }}
                 </template>
                 <template #price_structure="{ row }">
                   {{ (row as any).price_structure }}
+                </template>
+                <template #notes="{ row }">
+                  {{ (row as any).notes }}
                 </template>
                 <template #actions="{ row }">
                   <div class="d-flex gap-1">
@@ -94,71 +97,43 @@
                   </div>
                   <div class="col-md-6">
                     <label class="form-label">Trigger Condition <span class="text-danger">*</span></label>
-                    <input v-model="upgradeFeeForm.trigger_condition" class="form-control" placeholder="e.g., Over Trophy Size" required />
+                    <input
+                      v-model.trim="upgradeFeeForm.trigger_condition"
+                      class="form-control"
+                      list="trigger-condition-options"
+                      maxlength="255"
+                      placeholder="e.g., add_species:first"
+                      required
+                    />
+                    <datalist id="trigger-condition-options">
+                      <option value="add_species:first"></option>
+                      <option value="add_species:second"></option>
+                      <option value="add_species"></option>
+                      <option value="variant_upgrade:first->second"></option>
+                      <option value="variant_upgrade:second->third"></option>
+                      <option value="count > 1"></option>
+                      <option value="count > 3"></option>
+                      <option value="quantity_exceeds:1"></option>
+                    </datalist>
+                    <div class="form-text">
+                      Examples: <code>add_species:first</code>, <code>variant_upgrade:first-&gt;second</code>, <code>count &gt; 1</code>
+                    </div>
                   </div>
 
                   <div class="col-md-6">
                     <label class="form-label">Area</label>
                     <select v-model="upgradeFeeForm.area_id" class="form-select">
-                      <option :value="null">Select Area</option>
+                      <option :value="null">All Areas</option>
                       <option v-for="a in areaOptions" :key="a.value" :value="a.value">{{ a.text }}</option>
                     </select>
                   </div>
                   <div class="col-md-6">
                     <label class="form-label">Price Structure</label>
                     <select v-model="upgradeFeeForm.price_structure_id" class="form-select">
-                      <option :value="null">General</option>
+                      <option :value="null">All Price Structures</option>
                       <option v-for="p in priceStructureOptions" :key="p.value" :value="p.value">{{ p.text }}</option>
                     </select>
                   </div>
-
-                  <div class="col-12">
-                    <label class="form-label">Upgrade Fee Item <span class="text-danger">*</span></label>
-                    <div class="btn-group w-100 item-mode-toggle mb-2" role="group">
-                      <input
-                        id="upgrade-item-mode-existing"
-                        v-model="itemMode"
-                        class="btn-check"
-                        type="radio"
-                        value="existing"
-                        autocomplete="off"
-                      />
-                      <label class="btn btn-outline-primary" for="upgrade-item-mode-existing">
-                        <i class="fa fa-list me-2"></i>Use Existing Item
-                      </label>
-
-                      <input
-                        id="upgrade-item-mode-new"
-                        v-model="itemMode"
-                        class="btn-check"
-                        type="radio"
-                        value="new"
-                        autocomplete="off"
-                      />
-                      <label class="btn btn-outline-primary" for="upgrade-item-mode-new">
-                        <i class="fa fa-plus me-2"></i>Create New Item
-                      </label>
-                    </div>
-                  </div>
-
-                  <div v-if="itemMode === 'existing'" class="col-12">
-                    <label class="form-label">Select Upgrade Fee Item <span class="text-danger">*</span></label>
-                    <select v-model="upgradeFeeForm.item_id" class="form-select">
-                      <option :value="null">Choose from existing items...</option>
-                      <option v-for="i in upgradeFeeItems" :key="i.value" :value="i.value">{{ i.text }}</option>
-                    </select>
-                  </div>
-
-                  <template v-else>
-                    <div class="col-md-6">
-                      <label class="form-label">Item Name <span class="text-danger">*</span></label>
-                      <input v-model="upgradeFeeForm.item_name" class="form-control" placeholder="Enter upgrade fee item name" />
-                    </div>
-                    <div class="col-md-6">
-                      <label class="form-label">Item Description</label>
-                      <input v-model="upgradeFeeForm.item_description" class="form-control" placeholder="Optional description" />
-                    </div>
-                  </template>
 
                   <div class="col-md-4">
                     <label class="form-label">Currency <span class="text-danger">*</span></label>
@@ -198,7 +173,6 @@
 <script lang="ts">
 import { defineComponent, reactive } from 'vue'
 import { mapActions } from 'pinia'
-import axios from 'axios'
 import { useToast } from '@/composables/useToast'
 import handleErrors from '../../../stores/bushman/errorHandler'
 import StandardDataTable from '@/components/bootstrap/StandardDataTable.vue'
@@ -219,9 +193,10 @@ export default defineComponent({
       { key: 'species_name', label: 'Species', sortable: true, visible: true },
       { key: 'area_name', label: 'Area', sortable: true, visible: true },
       { key: 'trigger_condition', label: 'Trigger Condition', sortable: true, visible: true },
-      { key: 'item_name', label: 'Item', sortable: true, visible: true },
-      { key: 'amount', label: 'Amount', sortable: true, visible: true },
+      { key: 'fee_amount', label: 'Fee', sortable: true, visible: true },
+      { key: 'currency_code', label: 'Currency', sortable: true, visible: true },
       { key: 'price_structure', label: 'Price Structure', sortable: true, visible: true },
+      { key: 'notes', label: 'Notes', sortable: true, visible: true },
       { key: 'actions', label: 'Actions', sortable: false, visible: true },
     ]
 
@@ -238,9 +213,6 @@ export default defineComponent({
       species_id: null as any,
       area_id: null as any,
       price_structure_id: null as any,
-      item_id: null as any,
-      item_name: '',
-      item_description: '',
       trigger_condition: '',
       fee_amount: null as any,
       currency_id: null as any,
@@ -254,16 +226,15 @@ export default defineComponent({
       loading: false,
       saving: false,
       editMode: false,
-      itemMode: 'existing' as 'existing' | 'new',
       toast: useToast(),
       speciesOptions: [] as any[],
       areaOptions: [] as any[],
       currencyOptions: [] as any[],
       priceStructureOptions: [] as any[],
-      upgradeFeeItems: [] as any[],
       selectedSpecies: null as any,
       selectedArea: null as any,
       selectedPriceStructure: null as any,
+      triggerConditionQuery: '',
     }
   },
 
@@ -315,15 +286,20 @@ export default defineComponent({
           })),
           defaultValue: this.selectedPriceStructure?.value || '',
         },
+        {
+          key: 'trigger_condition',
+          label: 'Trigger Condition',
+          type: 'text',
+          placeholder: 'Search trigger conditions...',
+          defaultValue: this.triggerConditionQuery,
+        },
       ]
     },
     canSubmit() {
       const f = this.upgradeFeeForm
-      const hasItem = this.itemMode === 'existing' ? !!f.item_id : !!f.item_name
       return (
         !!f.species_id &&
         !!f.trigger_condition &&
-        hasItem &&
         f.fee_amount !== null &&
         f.fee_amount !== undefined &&
         !isNaN(Number(f.fee_amount)) &&
@@ -339,7 +315,6 @@ export default defineComponent({
     this.loadAreas()
     this.loadCurrencies()
     this.loadPriceStructures()
-    this.loadUpgradeFeeItems()
   },
 
   methods: {
@@ -360,6 +335,9 @@ export default defineComponent({
         if (this.selectedPriceStructure) {
           params.price_structure_id = this.selectedPriceStructure.value
         }
+        if (this.triggerConditionQuery) {
+          params.trigger_condition = this.triggerConditionQuery
+        }
 
         const response = await this.fetchUpgradeFees(params)
         if (response.status === 200) {
@@ -368,12 +346,20 @@ export default defineComponent({
             id: item.id,
             species_name: item.species?.swahili_name
               ? `${item.species.name} (${item.species.swahili_name})`
-              : item.species?.name || 'N/A',
-            area_name: item.area?.name || 'N/A',
+              : item.species?.name || item.species_name || 'N/A',
+            area_name: item.area?.name || (item.area_id ? `Area-${item.area_id}` : 'All Areas'),
             trigger_condition: item.trigger_condition || '-',
-            item_name: item.item?.name || item.item_name || item.name || 'Upgrade Fee',
-            amount: `${item.currency?.symbol || '$'}${parseFloat(item.fee_amount ?? item.amount ?? 0).toFixed(2)}`,
-            price_structure: item.price_structure?.id ? `PS-${item.price_structure.id}` : 'General',
+            fee_amount: Number(item.fee_amount ?? item.amount ?? 0),
+            fee_amount_display: `${item.currency?.symbol || item.currency?.code || ''}${item.currency?.symbol ? '' : ' '}${parseFloat(
+              item.fee_amount ?? item.amount ?? 0,
+            ).toFixed(2)}`.trim(),
+            currency_code: item.currency?.code || item.currency?.name || (item.currency_id ? `CUR-${item.currency_id}` : 'N/A'),
+            price_structure: item.price_structure?.id
+              ? `PS-${item.price_structure.id}`
+              : item.price_structure_id
+                ? `PS-${item.price_structure_id}`
+                : 'All Price Structures',
+            notes: item.notes || '',
             _raw: item,
           }))
         }
@@ -441,20 +427,6 @@ export default defineComponent({
       }
     },
 
-    async loadUpgradeFeeItems() {
-      try {
-        const url = `${import.meta.env.VITE_APP_BASE_URL}settings/item-groups-items`
-        const response = await axios.get(url, { params: { name: 'Upgrade Fees', is_active: true } })
-        const list = response.data || []
-        this.upgradeFeeItems = list.map((item: any) => ({
-          value: item.id,
-          text: item.name || item.item_name || '',
-        }))
-      } catch (error) {
-        console.warn('Failed to load upgrade fee items', error)
-      }
-    },
-
     handleFiltersUpdate(filters: any) {
       if (filters.species_id) {
         this.selectedSpecies = this.speciesOptions.find((s: any) => s.value === filters.species_id)
@@ -471,6 +443,7 @@ export default defineComponent({
       } else {
         this.selectedPriceStructure = null
       }
+      this.triggerConditionQuery = (filters.trigger_condition || '').toString().trim()
       this.getUpgradeFees()
     },
 
@@ -483,14 +456,10 @@ export default defineComponent({
 
     resetForm() {
       this.editMode = false
-      this.itemMode = 'existing'
       this.upgradeFeeForm.id = null
       this.upgradeFeeForm.species_id = null
       this.upgradeFeeForm.area_id = null
       this.upgradeFeeForm.price_structure_id = null
-      this.upgradeFeeForm.item_id = null
-      this.upgradeFeeForm.item_name = ''
-      this.upgradeFeeForm.item_description = ''
       this.upgradeFeeForm.trigger_condition = ''
       this.upgradeFeeForm.fee_amount = null
       this.upgradeFeeForm.currency_id = null
@@ -509,19 +478,6 @@ export default defineComponent({
       this.upgradeFeeForm.fee_amount = raw.fee_amount ?? raw.amount ?? null
       this.upgradeFeeForm.currency_id = raw.currency_id || raw.currency?.id || null
       this.upgradeFeeForm.notes = raw.notes || ''
-
-      const itemId = raw.item_id || raw.item?.id || null
-      if (itemId) {
-        this.itemMode = 'existing'
-        this.upgradeFeeForm.item_id = itemId
-        this.upgradeFeeForm.item_name = ''
-        this.upgradeFeeForm.item_description = ''
-      } else {
-        this.itemMode = 'new'
-        this.upgradeFeeForm.item_id = null
-        this.upgradeFeeForm.item_name = raw.item_name || raw.name || ''
-        this.upgradeFeeForm.item_description = raw.item_description || ''
-      }
     },
 
     cancelEdit() {
@@ -543,15 +499,6 @@ export default defineComponent({
         area_id: this.upgradeFeeForm.area_id || null,
         price_structure_id: this.upgradeFeeForm.price_structure_id || null,
         notes: this.upgradeFeeForm.notes || '',
-      }
-
-      if (this.itemMode === 'existing') {
-        payload.item_id = this.upgradeFeeForm.item_id
-      } else {
-        payload.item_name = this.upgradeFeeForm.item_name
-        if (this.upgradeFeeForm.item_description) {
-          payload.item_description = this.upgradeFeeForm.item_description
-        }
       }
 
       try {

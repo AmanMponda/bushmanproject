@@ -15,8 +15,9 @@
         <div class="col-xl-12 col-lg-12 col-sm-12 layout-spacing">
           <div class="panel br-6 p-0">
             <div class="custom-table p-3">
-              <StandardDataTable :columns="columns" :data="items" :loading="loading" :disable-search="false"
-                :disable-pagination="false" :action-buttons="pageActions" :show-date-filters="false">
+              <StandardDataTable :columns="columns" :data="filteredItems" :loading="loading" :disable-search="false"
+                :disable-pagination="false" :action-buttons="pageActions" :show-date-filters="false"
+                :custom-filters="tableCustomFilters" @update:filters="handleFiltersUpdate">
                 <template #select="{ row }">
                   <div class="form-check">
                     <input class="form-check-input" type="checkbox" :id="`select-species-${row.id}`"
@@ -30,6 +31,30 @@
 
                 <template #name="{ row }">
                   {{ row.name }}
+                </template>
+
+                <template #animal_type="{ row }">
+                  <span v-if="row.group?.name" class="badge bg-primary">
+                    {{ row.group.name }}
+                  </span>
+                  <span v-else class="text-muted">-</span>
+                </template>
+
+                <template #description="{ row }">
+                  <span class="text-muted">{{ row.description || '-' }}</span>
+                </template>
+
+                <template #key_species="{ row }">
+                  <div class="form-check form-switch m-0">
+                    <input
+                      class="form-check-input"
+                      type="checkbox"
+                      :id="`key-species-${row.id}`"
+                      :checked="isKeySpecies(row)"
+                      :disabled="updatingKeyId === row.id"
+                      @change="toggleKeySpecies(row)"
+                    />
+                  </div>
                 </template>
 
                 <template #is_active="{ row }">
@@ -85,6 +110,18 @@
                 <h6 class="fw-bold text-primary mb-3"><i class="fa fa-info-circle me-2"></i>Species Information</h6>
                 <div class="mb-2">
                   <strong>Name:</strong> {{ currentSpecies.name }}
+                </div>
+                <div class="mb-2" v-if="currentSpecies.description">
+                  <strong>Scientific Name:</strong> {{ currentSpecies.description }}
+                </div>
+                <div class="mb-2" v-if="currentSpecies.group">
+                  <strong>Animal Type:</strong>
+                  <span class="badge bg-primary">{{ currentSpecies.group.name }}</span>
+                </div>
+                <div class="mb-2" v-if="currentSpecies.group?.parent">
+                  <strong>Taxonomy:</strong>
+                  <span class="text-muted">{{ currentSpecies.group.parent.name }}</span> › 
+                  <span class="fw-semibold">{{ currentSpecies.group.name }}</span>
                 </div>
                 <div class="mb-2">
                   <strong>Status:</strong>
@@ -216,6 +253,20 @@
                   <label class="form-label">Species Name <span class="text-danger">*</span></label>
                   <input v-model="sform.name" type="text" class="form-control" required />
                 </div>
+                <div class="col-md-6">
+                  <label class="form-label">Animal Type (Group) <span class="text-danger">*</span></label>
+                  <select v-model="sform.item_group_id" class="form-select" required>
+                    <option :value="null">Select animal type...</option>
+                    <option v-for="group in availableGroups" :key="group.id" :value="group.id">
+                      {{ group.name }}
+                    </option>
+                  </select>
+                  <small class="text-muted">Select species group (e.g., Mammals, Birds) — taxonomy is managed at the group level.</small>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Scientific Name</label>
+                  <input v-model="sform.description" type="text" class="form-control" />
+                </div>
                 <div class="col-md-6 d-flex align-items-end">
                   <div class="form-check form-switch">
                     <input id="species-active" v-model="sform.is_active" class="form-check-input" type="checkbox" />
@@ -253,9 +304,16 @@
               </a>
             </div>
 
-            <CSVInput :column-fields="[
-              { key: 'name', label: 'Name' },
-            ]" :model-value="items" duplicate-key-field="name" @import="handleCsvImport" />
+            <CSVInput
+              :column-fields="[
+                { key: 'name', label: 'Name' },
+                { key: 'description', label: 'Scientific Name' },
+              ]"
+              :model-value="items"
+              duplicate-key-field="name"
+              :allow-duplicates="true"
+              @import="handleCsvImport"
+            />
 
             <!-- Import Progress -->
             <div v-if="importInProgress" class="mt-3">
@@ -355,12 +413,19 @@ const deletingId = ref<number | string | null>(null)
 const bulkDeleting = ref(false)
 const selectedIds = ref<Set<number | string>>(new Set())
 const isDragOver = ref(false)
+const updatingKeyId = ref<number | string | null>(null)
+
+// Taxonomy filter state
+const selectedAnimalType = ref<string>('')
+const availableGroups = ref<any[]>([])
 
 // Species form
 const sform = reactive({
   id: null as number | null,
   name: '',
+  description: '',
   is_active: true,
+  item_group_id: null as number | null,
 })
 
 // Table-like multi-column input state
@@ -389,7 +454,50 @@ const unitForm = reactive({
 // Computed
 const selectedCount = computed(() => selectedIds.value.size)
 
+// Filtered items based on selected animal type
+const filteredItems = computed(() => {
+  if (!selectedAnimalType.value) {
+    return items.value
+  }
+  return items.value.filter((item: any) => {
+    const groupName = item.group?.name || ''
+    return groupName === selectedAnimalType.value
+  })
+})
+
+// Extract unique animal types from loaded species
+const animalTypes = computed(() => {
+  const types = new Set<string>()
+  items.value.forEach((item: any) => {
+    const groupName = item.group?.name
+    if (groupName) {
+      types.add(groupName)
+    }
+  })
+  return Array.from(types).sort()
+})
+
+// Custom filters for the data table
+const tableCustomFilters = computed(() => [
+  {
+    key: 'animal_type',
+    label: 'Animal Type',
+    type: 'select',
+    placeholder: 'All Animal Types',
+    options: animalTypes.value.map((type: string) => ({ 
+      value: type, 
+      label: type 
+    })),
+    defaultValue: '',
+  }
+])
+
 const hasSelected = (id: number | string) => selectedIds.value.has(id)
+
+function handleFiltersUpdate(filters: any) {
+  // Update the selected animal type from the filters
+  selectedAnimalType.value = filters.animal_type || ''
+}
 
 function normalizeIsActive(value: any): boolean {
   if (typeof value === 'boolean') return value
@@ -413,6 +521,17 @@ async function getSpeciesItems() {
     const response = await speciesStore.getSpecies()
     if (response.status === 200) {
       items.value = response.data || []
+      
+      // Extract unique groups from species data
+      const groupsMap = new Map()
+      items.value.forEach((item: any) => {
+        if (item.group && item.group.id) {
+          groupsMap.set(item.group.id, item.group)
+        }
+      })
+      availableGroups.value = Array.from(groupsMap.values()).sort((a, b) => 
+        (a.name || '').localeCompare(b.name || '')
+      )
     }
   } catch (error) {
     console.error('Error fetching species:', error)
@@ -572,6 +691,9 @@ const columns = [
   { key: 'select', label: '', sortable: false, visible: true },
   { key: 'id', label: 'ID', sortable: true, visible: true },
   { key: 'name', label: 'Name', sortable: true, visible: true },
+  { key: 'animal_type', label: 'Animal Type', sortable: true, visible: true },
+  { key: 'description', label: 'Scientific Name', sortable: true, visible: true },
+  { key: 'key_species', label: 'Key Species', sortable: false, visible: true },
   { key: 'is_active', label: 'Status', sortable: true, visible: true },
   { key: 'actions', label: 'Actions', sortable: false, visible: true },
 ]
@@ -598,6 +720,33 @@ function toggleSelect(id: number | string) {
   else set.add(id)
   // force update
   selectedIds.value = new Set(Array.from(set))
+}
+
+function isKeySpecies(row: any) {
+  return row?.subtype === 'MAIN_SPECIE'
+}
+
+async function toggleKeySpecies(row: any) {
+  if (!row || !row.id) return
+  const nextSubtype = isKeySpecies(row) ? 'NORMAL_SPECIE' : 'MAIN_SPECIE'
+  updatingKeyId.value = row.id
+  try {
+    const response = await speciesStore.updateSpecies(row.id, {
+      name: row.name,
+      scientific_name: row.description,
+      is_active: row.is_active,
+      subtype: nextSubtype,
+    })
+    if (response.status === 200) {
+      row.subtype = nextSubtype
+      toast.init({ message: `Species marked as ${nextSubtype === 'MAIN_SPECIE' ? 'key' : 'normal'}`, color: 'success' })
+    }
+  } catch (error: any) {
+    const errors = handleErrors(error.response || error)
+    toast.init({ message: errors.join('\n') || 'Failed to update key species', color: 'danger' })
+  } finally {
+    updatingKeyId.value = null
+  }
 }
 
 function clearSelection() {
@@ -815,18 +964,40 @@ async function handleCsvImport(data: any[]) {
 
   for (const sp of data) {
     try {
+      const name = String(sp.name || '').trim()
+      if (!name) {
+        importResults.value.push({ name: sp.name, ok: false, error: 'Missing name' })
+        continue
+      }
+
+      const existing = items.value.find((item: any) => String(item.name || '').toLowerCase() === name.toLowerCase())
+      const description = String(sp.description || '').trim()
+
       const isActive = true
-      const r = await speciesStore.createSpecies({
-        name: sp.name,
-        is_active: isActive,
-      })
-      importResults.value.push({ name: sp.name, ok: r.status === 201 || r.status === 200 })
-      if (r.status === 201 || r.status === 200) {
-        items.value.unshift({
-          id: r.data?.id ?? Math.random().toString(36).slice(2),
-          name: sp.name,
+      if (existing) {
+        const r = await speciesStore.updateSpecies(existing.id, {
+          name,
+          scientific_name: description,
+          is_active: existing.is_active ?? isActive,
+        })
+        importResults.value.push({ name, ok: r.status === 200, action: 'updated' })
+        if (r.status === 200) {
+          existing.name = name
+        }
+      } else {
+        const r = await speciesStore.createSpecies({
+          name,
+          scientific_name: description,
           is_active: isActive,
         })
+        importResults.value.push({ name, ok: r.status === 201 || r.status === 200, action: 'created' })
+        if (r.status === 201 || r.status === 200) {
+          items.value.unshift({
+            id: r.data?.id ?? Math.random().toString(36).slice(2),
+            name,
+            is_active: isActive,
+          })
+        }
       }
     } catch (err: any) {
       importResults.value.push({ name: sp.name, ok: false, error: handleErrors(err.response || err) })
@@ -850,7 +1021,7 @@ function showSpecies(row?: any) {
   if (row) {
     // Optionally populate sform for editing if needed
   } else {
-    Object.assign(sform, { id: null, name: '', is_active: true })
+    Object.assign(sform, { id: null, name: '', description: '', is_active: true, item_group_id: null })
   }
 }
 
@@ -862,7 +1033,9 @@ function editSpeciesForm(row: any) {
   Object.assign(sform, {
     id: row.id,
     name: row.name || '',
+    description: row.description || '',
     is_active: row.is_active ?? true,
+    item_group_id: row.item_group_id || row.group?.id || null,
   })
 }
 
@@ -873,7 +1046,9 @@ async function onSubmit() {
       // Update existing species (single form mode)
       const requestData = {
         name: sform.name,
+        scientific_name: sform.description,
         is_active: sform.is_active,
+        item_group_id: sform.item_group_id,
       }
       const response = await speciesStore.updateSpecies(sform.id, requestData)
       if (response.status === 200) {

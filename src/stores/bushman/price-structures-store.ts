@@ -20,8 +20,30 @@ export const usePriceStructuresStore = defineStore('price-structures', {
     async get(id: number) {
       this.loading = true
       const url = import.meta.env.VITE_APP_BASE_URL + `settings/price-structures/${id}`
-      const response = await axios.get(url)
-      this.current = response.data?.data || response.data || null
+      const response = await axios.get(url, {
+        params: {
+          with: 'items,companion_hunter_prices,observer_hunter_prices,safari_extras'
+        }
+      })
+      const structure = response.data?.data || response.data || null
+      
+      // Fetch trophy fees separately for this price structure's location
+      if (structure && structure.location_id) {
+        try {
+          const trophyFeesUrl = import.meta.env.VITE_APP_BASE_URL + 'settings/trophy-fees/pricing'
+          const trophyFeesResponse = await axios.get(trophyFeesUrl, {
+            params: {
+              location_id: structure.location_id
+            }
+          })
+          structure.trophy_fees = trophyFeesResponse.data?.data || trophyFeesResponse.data || []
+        } catch (error) {
+          console.warn('Failed to load trophy fees for price structure:', error)
+          structure.trophy_fees = []
+        }
+      }
+      
+      this.current = structure
       this.loading = false
       return response
     },

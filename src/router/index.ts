@@ -17,6 +17,8 @@ const SalesQuotas = () => import ('@/views/bushman/details/QoutaPage.vue')
 const Salespipeline = () => import('@/views/bushman/sales/SalesPipeline.vue');
 const SalesCalendar = () => import ('@/views/bushman/details/Calendar.vue')
 const ManagePriceList = () => import('@/views/bushman/sales/ManagePriceList.vue');
+const SalesRequisitions = () => import('@/views/bushman/sales/Requisitions.vue');
+const SalesRequisitionDetails = () => import('@/views/bushman/sales/RequisitionDetails.vue');
 const PriceStructureAddItem = () => import('@/views/bushman/sales/price-structures/PriceStructureAddItem.vue');
 const PriceStructureAddPrice = () => import('@/views/bushman/sales/price-structures/PriceStructureAddPrice.vue');
 const PriceStructureAddSafariExtra = () => import('@/views/bushman/sales/price-structures/PriceStructureAddSafariExtra.vue');
@@ -30,7 +32,8 @@ const ManageItems = () => import('@/views/bushman/module-settings/ManageItems.vu
 // const ManageCompanionHunterCosts = () => import('@/views/bushman/module-settings/ManageCompanionHunterCosts.vue');
 const ManageTerms = () => import('@/views/bushman/module-settings/ManageTerms.vue');
 const ManageSafariFeeDeposits = () => import('@/views/bushman/module-settings/ManageSafariFeeDeposits.vue');
-// const ManageApprovalChain = () => import('@/views/bushman/module-settings/ManageApprovalChain.vue');
+const ManageApprovalChain = () => import('@/views/bushman/module-settings/ManageApprovalChain.vue');
+const ManageRequisitionTypes = () => import('@/views/bushman/module-settings/ManageRequisitionTypes.vue');
 const ManageAreaSettings = () => import('@/views/bushman/module-settings/ManageArea.vue');
 const ManageHuntingTypes = () => import('@/views/bushman/module-settings/ManageHuntingTypes.vue');
 const ManageSpeciesSettings = () => import('@/views/bushman/module-settings/ManageSpecies.vue');
@@ -135,6 +138,19 @@ const router = createRouter({
       name: "sales-price-list",
       component: ManagePriceList,
       meta: { requiresAuth: true }
+    },
+    {
+      path: "/sales/requisitions",
+      name: "sales-requisitions",
+      component: SalesRequisitions,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/sales/requisitions/:id",
+      name: "sales-requisition-details",
+      component: SalesRequisitionDetails,
+      meta: { requiresAuth: true },
+      props: (route) => ({ id: Number(route.params.id) })
     },
     {
       path: "/sales/price-structures/:id/items/create",
@@ -289,12 +305,18 @@ const router = createRouter({
       component: ManageAccounts,
       meta: { requiresAuth: true }
     },
-    // {
-    //   path: "/module-settings/approval-chain",
-    //   name: "approval-chain",
-    //   component: ManageApprovalChain,
-    //   meta: { requiresAuth: true }
-    // },
+    {
+      path: "/module-settings/approval-chain",
+      name: "approval-chain",
+      component: ManageApprovalChain,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/module-settings/requisition-types",
+      name: "requisition-types",
+      component: ManageRequisitionTypes,
+      meta: { requiresAuth: true }
+    },
     // {
     //   path: "/module-settings/companion-hunter-costs",
     //   name: "companion-hunter-costs",

@@ -1,0 +1,106 @@
+{
+  "document_title": "Tanzania Reptilia Trophy Fees",
+  "category": "C: REPTILIA",
+  "country": "Tanzania",
+  "currency": "TZS",
+  "species": [
+    {
+      "number": 1,
+      "common_name": "Boomslang",
+      "local_name": "Nyoka",
+      "scientific_name": "Dispholidus typhus",
+      "fee_tzs": 230000
+    },
+    {
+      "number": 2,
+      "common_name": "Chameleons",
+      "local_name": "Vinyonga",
+      "scientific_name": "Chamaeleo spp",
+      "fee_tzs": 70000
+    },
+    {
+      "number": 3,
+      "common_name": "Cobra",
+      "local_name": "Koboko",
+      "scientific_name": "Naja spp",
+      "fee_tzs": 230000
+    },
+    {
+      "number": 4,
+      "common_name": "Crocodile Nile",
+      "local_name": "Mamba",
+      "scientific_name": "Crocodilus niloticus",
+      "fee_tzs": 4500000
+    },
+    {
+      "number": 5,
+      "common_name": "Common Egg Eater",
+      "local_name": "Nyoka",
+      "scientific_name": "Dasypeltis scabra",
+      "fee_tzs": 230000
+    },
+    {
+      "number": 6,
+      "common_name": "Geckos",
+      "local_name": "Mijusi",
+      "scientific_name": "Lygodactylus spp, Hemidactylus spp",
+      "fee_tzs": 70000
+    },
+    {
+      "number": 7,
+      "common_name": "Green & Black Mamba",
+      "local_name": "Koboko",
+      "scientific_name": "Dendroaspis spp",
+      "fee_tzs": 200000
+    },
+    {
+      "number": 8,
+      "common_name": "Green snakes",
+      "local_name": "Nyoka wa kijani",
+      "scientific_name": "Philothamnus spp",
+      "fee_tzs": 200000
+    },
+    {
+      "number": 9,
+      "common_name": "Lizard",
+      "local_name": "Mijusi",
+      "scientific_name": "Agama spp, Gerrhosaurus spp",
+      "fee_tzs": 70000
+    },
+    {
+      "number": 10,
+      "common_name": "Nile Monitor",
+      "local_name": "Kenge",
+      "scientific_name": "Varanus niloticus",
+      "fee_tzs": 700000
+    },
+    {
+      "number": 11,
+      "common_name": "Python",
+      "local_name": "Chatu",
+      "scientific_name": "Python spp",
+      "fee_tzs": 800000
+    },
+    {
+      "number": 12,
+      "common_name": "Sand boa",
+      "local_name": "",
+      "scientific_name": "Eryx colubrinus",
+      "fee_tzs": 190000
+    },
+    {
+      "number": 13,
+      "common_name": "Terrapins",
+      "local_name": "Kasa",
+      "scientific_name": "Pelomedusa spp",
+      "fee_tzs": 200000
+    },
+    {
+      "number": 14,
+      "common_name": "Tortoises",
+      "local_name": "Kobe",
+      "scientific_name": "Geochelone spp, Malacocherusspp",
+      "fee_tzs": 80000
+    }
+  ]
+}

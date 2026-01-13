@@ -98,6 +98,9 @@
                     <span v-else-if="row._duplicate" class="badge bg-warning text-dark">
                       <i class="fa fa-copy me-1"></i>Duplicate
                     </span>
+                    <span v-else-if="row._existing" class="badge bg-info text-dark">
+                      <i class="fa fa-pen me-1"></i>Update
+                    </span>
                     <span v-else class="badge bg-success">
                       <i class="fa fa-check me-1"></i>Valid
                     </span>
@@ -145,6 +148,7 @@ interface CsvRow {
   _duplicate?: boolean
   _selected?: boolean
   _notAllowed?: boolean
+  _existing?: boolean
 }
 
 const props = withDefaults(
@@ -155,6 +159,7 @@ const props = withDefaults(
     examplePath?: string
     allowedValues?: string[] // List of allowed values for duplicateKeyField (e.g. species names from licence)
     clearAfterImport?: boolean // When true, clear uploaded file after import (useful for flows that proceed immediately)
+    allowDuplicates?: boolean // When true, allow imports that match existing records (used for updates)
   }>(),
   {
     duplicateKeyField: 'name',
@@ -162,6 +167,7 @@ const props = withDefaults(
     examplePath: '',
     allowedValues: () => [], // Empty means no validation, all values allowed
     clearAfterImport: false,
+    allowDuplicates: false,
   }
 )
 
@@ -308,7 +314,8 @@ function recalculateCsvPreview() {
       const newRow: CsvRow = {
         _duplicate: false,
         _selected: true,
-        _notAllowed: false
+        _notAllowed: false,
+        _existing: false
       }
 
       props.columnFields.forEach((field) => {
@@ -322,9 +329,13 @@ function recalculateCsvPreview() {
       const isNotAllowed = allowedNames !== null && !allowedNames.has(key)
       newRow._notAllowed = isNotAllowed
       
-      const isDuplicate = !newRow[props.duplicateKeyField] || existingNames.has(key) || seenNames.has(key)
-      if (newRow[props.duplicateKeyField]) seenNames.add(key)
+      const hasKey = !!newRow[props.duplicateKeyField]
+      const isExisting = existingNames.has(key)
+      const isDuplicateInFile = seenNames.has(key)
+      const isDuplicate = !hasKey || isDuplicateInFile || (isExisting && !props.allowDuplicates)
+      if (hasKey) seenNames.add(key)
 
+      newRow._existing = isExisting
       newRow._duplicate = isDuplicate
       if (isDuplicate || isNotAllowed) newRow._selected = false
 

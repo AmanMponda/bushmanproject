@@ -331,7 +331,7 @@
                 <span class="fw-semibold">{{ row.specie_name }}</span>
               </template>
               <template #availability="{ row }">
-                <div class="form-check form-switch mb-0 d-flex justify-content-center">
+                <div class="form-check form-switch mb-0 d-flex justify-content-start">
                   <input
                     class="form-check-input"
                     type="checkbox"

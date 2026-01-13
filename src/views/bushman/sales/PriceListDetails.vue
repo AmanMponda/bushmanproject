@@ -255,43 +255,17 @@
                   </div>
                 </div>
               </div>
-
-              <!-- Upgrade Fees Section -->
-              <div v-if="hasUpgradeFees" class="card mb-4">
-                <div class="card-header bg-white">
-                  <h6 class="mb-0">
-                    <i class="fa fa-arrow-up text-primary me-2"></i>
-                    Upgrade Fees
-                  </h6>
-                </div>
-                <div class="card-body">
-                  <div class="table-responsive">
-                    <table class="table table-hover">
-                      <thead>
-                        <tr>
-                          <th>Species</th>
-                          <th class="text-end">Amount</th>
-                          <th>Description</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr v-for="fee in priceListItem.upgrade_fees" :key="fee.id">
-                          <td class="fw-semibold">{{ fee.species_name || fee.species?.name || 'N/A' }}</td>
-                          <td class="text-end fw-bold">
-                            {{ fee.currency_symbol || currencySymbol }}{{ formatAmount(fee.amount) }}
-                          </td>
-                          <td class="text-muted">{{ fee.description || 'N/A' }}</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
             </div>
 
             <!-- Trophy Fees Tab -->
             <div id="trophy_fees" class="tab-pane fade" :class="{ 'show active': activeTab === 'trophy_fees' }">
               <div class="card">
+                <div class="card-header bg-white">
+                  <h6 class="mb-0">
+                    <i class="fa fa-trophy text-warning me-2"></i>
+                    All Available Trophy Fees
+                  </h6>
+                </div>
                 <div class="card-body">
                   <div v-if="priceListItem.trophy_fees && priceListItem.trophy_fees.length > 0">
                     <div class="table-responsive">
@@ -299,6 +273,7 @@
                         <thead>
                           <tr>
                             <th>Species</th>
+                            <th>Animal Type</th>
                             <th>Scientific Name</th>
                             <th class="text-center">Sequence</th>
                             <th class="text-end">Price</th>
@@ -306,8 +281,14 @@
                         </thead>
                         <tbody>
                           <tr v-for="fee in priceListItem.trophy_fees" :key="fee.id">
-                            <td class="fw-semibold">{{ fee.species.name }}</td>
-                            <td class="text-muted fst-italic">{{ fee.species.scientific_name }}</td>
+                            <td class="fw-semibold">{{ fee.species?.name || fee.species_name || 'N/A' }}</td>
+                            <td>
+                              <span v-if="fee.species?.group?.name" class="badge bg-primary">
+                                {{ fee.species.group.name }}
+                              </span>
+                              <span v-else class="text-muted">-</span>
+                            </td>
+                            <td class="text-muted fst-italic">{{ fee.species?.scientific_name || fee.species?.description || '-' }}</td>
                             <td class="text-center">
                               <span class="badge bg-primary">{{ getSequenceLabel(fee.sequence_order) }}</span>
                             </td>
@@ -320,8 +301,59 @@
                     </div>
                   </div>
                   <div v-else class="text-center py-5">
-                    <i class="fa fa-info-circle fa-3x text-muted mb-3"></i>
+                    <i class="fa fa-trophy fa-3x text-muted mb-3"></i>
                     <p class="text-muted">No trophy fees available for this package</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Upgrade Fees Tab -->
+            <div id="upgrade_fees" class="tab-pane fade" :class="{ 'show active': activeTab === 'upgrade_fees' }">
+              <div class="card">
+                <div class="card-header bg-white">
+                  <h6 class="mb-0">
+                    <i class="fa fa-arrow-up text-primary me-2"></i>
+                    Upgrade Fees
+                  </h6>
+                </div>
+                <div class="card-body">
+                  <div v-if="priceListItem.upgrade_fees && priceListItem.upgrade_fees.length > 0">
+                    <div class="alert alert-info mb-3">
+                      <i class="fa fa-info-circle me-2"></i>
+                      <strong>Note:</strong> If additional trophies beyond the standard package are taken, these upgrade fees apply (plus trophy fees).
+                    </div>
+                    <div class="table-responsive">
+                      <table class="table table-hover">
+                        <thead>
+                          <tr>
+                            <th>Species</th>
+                            <th>Animal Type</th>
+                            <th class="text-end">Amount</th>
+                            <th>Description</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr v-for="fee in priceListItem.upgrade_fees" :key="fee.id">
+                            <td class="fw-semibold">{{ fee.species_name || fee.species?.name || 'N/A' }}</td>
+                            <td>
+                              <span v-if="fee.species?.group?.name" class="badge bg-primary">
+                                {{ fee.species.group.name }}
+                              </span>
+                              <span v-else class="text-muted">-</span>
+                            </td>
+                            <td class="text-end fw-bold">
+                              {{ fee.currency_symbol || currencySymbol }}{{ formatAmount(fee.amount) }}
+                            </td>
+                            <td class="text-muted">{{ fee.description || 'N/A' }}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                  <div v-else class="text-center py-5">
+                    <i class="fa fa-arrow-up fa-3x text-muted mb-3"></i>
+                    <p class="text-muted">No upgrade fees available for this package</p>
                   </div>
                 </div>
               </div>
@@ -543,16 +575,7 @@ const tabs = computed(() => {
     },
   ]
 
-  // Add Trophy Fees tab if data exists
-  if (props.priceListItem.trophy_fees && props.priceListItem.trophy_fees.length > 0) {
-    tabList.push({
-      key: 'trophy_fees',
-      label: `Trophy Fees (${props.priceListItem.trophy_fees.length})`,
-      icon: 'fa fa-trophy',
-    })
-  }
-
-  // Add Safari Extras tab if data exists
+  // Add Safari Extras tab before Trophy and Upgrade fees
   if (props.priceListItem.safari_extras && props.priceListItem.safari_extras.length > 0) {
     tabList.push({
       key: 'safari_extras',
@@ -561,7 +584,25 @@ const tabs = computed(() => {
     })
   }
 
-  // Note: Upgrade Fees and Companion & Observer are now in Overview tab, not separate tabs
+  // Add Trophy Fees tab - show all available trophy fees
+  const trophyFeesCount = props.priceListItem.trophy_fees?.length || 0
+  if (trophyFeesCount > 0) {
+    tabList.push({
+      key: 'trophy_fees',
+      label: `Trophy Fees (${trophyFeesCount})`,
+      icon: 'fa fa-trophy',
+    })
+  }
+
+  // Add Upgrade Fees tab if data exists
+  if (props.priceListItem.upgrade_fees && props.priceListItem.upgrade_fees.length > 0) {
+    tabList.push({
+      key: 'upgrade_fees',
+      label: `Upgrade Fees (${props.priceListItem.upgrade_fees.length})`,
+      icon: 'fa fa-arrow-up',
+    })
+  }
+
   return tabList
 })
 

@@ -22,6 +22,13 @@ const birdColumns = [
   { key: 'population', label: 'Price(TZS)', sortable: true, visible: true, class: 'text-start' },
 ]
 
+const reptileColumns = [
+  { key: 'number', label: '#', sortable: true, visible: true, class: 'text-center' },
+  { key: 'common_name', label: 'English Name', sortable: true, visible: true },
+  { key: 'local_name', label: 'Local Name', sortable: true, visible: true },
+  { key: 'fee_tzs', label: 'Fee (TZS)', sortable: true, visible: true, class: 'text-start' },
+]
+
 const huntingBlockColumns = [
   { key: 'code', label: 'Code', sortable: true, visible: true },
   { key: 'name', label: 'Name', sortable: true, visible: true },
@@ -65,6 +72,15 @@ const loadGovernmentFees = async () => {
     }
     governmentFeesData.value.categories.birds = birdsData;
 
+    // Load reptiles data
+    try {
+      const reptilesResponse = await fetch('/assets/data/reptiles.json');
+      const reptilesData = await reptilesResponse.json();
+      governmentFeesData.value.categories.reptiles = reptilesData.species || reptilesData;
+    } catch (err) {
+      console.warn('Failed to load reptiles data', err)
+    }
+
     const tawaResponse = await fetch('/assets/data/tawa_trophy_hunting_fees.json');
     tawaFeesData.value = await tawaResponse.json();
     
@@ -83,6 +99,11 @@ const mammalsRows = computed(() => {
 const birdsRows = computed(() => {
   if (!governmentFeesData.value) return []
   return governmentFeesData.value.categories?.birds || []
+})
+
+const reptilesRows = computed(() => {
+  if (!governmentFeesData.value) return []
+  return governmentFeesData.value.categories?.reptiles || []
 })
 
 const huntingBlockRows = computed(() => {
@@ -162,6 +183,15 @@ onMounted(() => {
               <button 
                 type="button" 
                 class="btn"
+                :class="activeTab === 'reptiles' ? 'btn-info' : 'btn-outline-info'"
+                @click="activeTab = 'reptiles'"
+              >
+                <i class="fas fa-frog fa-fw me-1"></i>
+                Reptiles
+              </button>
+              <button 
+                type="button" 
+                class="btn"
                 :class="activeTab === 'tawa' ? 'btn-warning' : 'btn-outline-warning'"
                 @click="activeTab = 'tawa'"
               >
@@ -236,6 +266,32 @@ onMounted(() => {
             </div> 
           </div>
           <!-- END Birds card -->
+
+          <!-- BEGIN Reptiles card -->
+          <div v-if="activeTab === 'reptiles'" class="card">
+            <div class="card-header bg-info text-white fw-bold">
+              <i class="fas fa-frog fa-fw me-2"></i>
+              Reptiles Fees
+            </div>
+            <div class="card-body">
+              <StandardDataTable
+                :columns="reptileColumns"
+                :data="reptilesRows"
+                :loading="loading"
+                :default-page-size="100"
+                :disable-pagination="false"
+                :show-date-filters="false"
+              >
+                <template #number="{ row }">
+                  <div class="text-center">{{ row.number }}</div>
+                </template>
+                <template #fee_tzs="{ row }">
+                  <div class="text-start fw-bold">{{ formatPrice(row.fee_tzs) }}</div>
+                </template>
+              </StandardDataTable>
+            </div>
+          </div>
+          <!-- END Reptiles card -->
 
           <!-- BEGIN TAWA trophy hunting -->
           <div v-if="activeTab === 'tawa'">

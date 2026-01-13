@@ -8,6 +8,7 @@ export const useAppOptionStore = defineStore("appOption", () => {
 		appBoxedLayout: false,
 		appHeaderHide: false,
 		appHeaderSearchToggled: false,
+		appSidebarMinified: false,
 		appSidebarCollapsed: false,
 		appSidebarMobileToggled: false,
 		appSidebarMobileClosed: false,
