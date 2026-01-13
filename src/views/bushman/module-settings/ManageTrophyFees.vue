@@ -190,10 +190,36 @@
                   </div>
                   <div v-if="form.has_variants" class="col-md-4">
                     <label class="form-label">Weight Class</label>
-                    <select v-model="form.weight_class_value_id" class="form-select" :disabled="editMode">
-                      <option :value="null">Select Weight Class</option>
-                      <option v-for="w in weightClassOptions" :key="w.value" :value="w.value">{{ w.text }}</option>
-                    </select>
+                    <div class="d-flex gap-3 mt-2">
+                      <div class="form-check">
+                        <input
+                          v-model="form.weight_class_applicable"
+                          class="form-check-input"
+                          type="radio"
+                          name="weight_class_radio"
+                          :value="true"
+                          :disabled="editMode"
+                          id="weight_applicable"
+                        />
+                        <label class="form-check-label" for="weight_applicable">
+                          Applicable
+                        </label>
+                      </div>
+                      <div class="form-check">
+                        <input
+                          v-model="form.weight_class_applicable"
+                          class="form-check-input"
+                          type="radio"
+                          name="weight_class_radio"
+                          :value="false"
+                          :disabled="editMode"
+                          id="weight_not_applicable"
+                        />
+                        <label class="form-check-label" for="weight_not_applicable">
+                          Not Applicable
+                        </label>
+                      </div>
+                    </div>
                   </div>
 
                   <div class="col-md-4">
@@ -250,7 +276,7 @@ export default defineComponent({
       name: '',
       has_variants: false,
       trophy_count_value_id: null as any,
-      weight_class_value_id: null as any,
+      weight_class_applicable: null as any,
       location_id: null as any,
       currency_id: null as any,
       amount: null as any,
@@ -368,7 +394,7 @@ export default defineComponent({
       if (this.form.has_variants) return
       this.form.name = ''
       this.form.trophy_count_value_id = null
-      this.form.weight_class_value_id = null
+      this.form.weight_class_applicable = null
     },
     onBulkModeToggle() {
       if (this.bulkMode) {
@@ -524,7 +550,7 @@ export default defineComponent({
       this.form.name = ''
       this.form.has_variants = false
       this.form.trophy_count_value_id = null
-      this.form.weight_class_value_id = null
+      this.form.weight_class_applicable = null
       this.form.location_id = null
       this.form.currency_id = null
       this.form.amount = null
@@ -547,7 +573,7 @@ export default defineComponent({
         this.form.name = data.name || ''
         this.form.has_variants = !!(data.trophy_count || data.weight_class)
         this.form.trophy_count_value_id = data.trophy_count?.attribute_value_id || null
-        this.form.weight_class_value_id = data.weight_class?.attribute_value_id || null
+        this.form.weight_class_applicable = data.weight_class?.is_applicable || null
         this.form.location_id = data.location_id || data.location?.id || null
         this.form.currency_id = data.currency_id || data.currency?.id || null
         this.form.amount = data.amount ? Number(data.amount) : null
@@ -589,8 +615,8 @@ export default defineComponent({
             if (this.form.trophy_count_value_id) {
               payload.trophy_count_value_id = this.form.trophy_count_value_id
             }
-            if (this.form.weight_class_value_id) {
-              payload.weight_class_value_id = this.form.weight_class_value_id
+            if (this.form.weight_class_applicable !== null && this.form.weight_class_applicable !== undefined) {
+              payload.weight_class_applicable = this.form.weight_class_applicable
             }
           }
           await this.createCombinedTrophyFee(payload)

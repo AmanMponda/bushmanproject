@@ -4,8 +4,11 @@ import StandardDataTable from '@/components/bootstrap/StandardDataTable.vue'
 
 const governmentFeesData = ref(null);
 const tawaFeesData = ref(null);
+const mammalsData = ref(null);
+const birdsData = ref(null);
+const reptilesData = ref(null);
 const loading = ref(true);
-const activeTab = ref('mammals'); // 'mammals', 'birds', or 'tawa'
+const activeTab = ref('mammals'); // 'mammals', 'birds', 'reptiles', or 'tawa'
 const activeTawaSection = ref('hunting_blocks'); // Sub-section for TAWA
 
 const columns = [

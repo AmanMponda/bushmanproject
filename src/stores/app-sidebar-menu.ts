@@ -379,7 +379,7 @@ export const useAppSidebarMenuStore = defineStore("appSidebarMenu", () => {
       children: [
         { url: '/sales/price-list', text: 'Price Lists', permission: 'CAN_VIEW_PRICE_LISTS' },
         { url: '/sales/sales-inquiry', text: 'Sales Quotations', permission: 'CAN_VIEW_SALES_INQUIRY' },
-        { url: '/orders', text: 'Orders', permission: 'CAN_VIEW_SALES_CONFIRMATIONS' },
+        { url: '/orders', text: 'Sales Orders', permission: 'CAN_VIEW_SALES_CONFIRMATIONS' },
         { url: '/sales/sales-contracts', text: 'Sales Contracts', permission: 'CAN_VIEW_SALES_CONTRACTS' },
       ],
 

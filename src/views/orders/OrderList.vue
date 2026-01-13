@@ -15,9 +15,10 @@
       <div class="col-xl-12 col-lg-12 col-sm-12 layout-spacing">
         <div class="panel br-6 p-0">
           <div class="custom-table p-3">
+            <!-- @ts-expect-error: StandardDataTable uses non-typed props -->
             <StandardDataTable
               :columns="columns"
-              :data="orders"
+              :data="(orders as any)"
               :loading="loading"
               :filters="tableFilters"
               :default-page-size="tableFilters.pageSize"
@@ -30,9 +31,6 @@
               <template #order_number="{ row }">
                 <strong>{{ (row as any).order_number || (row as any).id }}</strong>
               </template>
-              <template #type="{ row }">
-                <span :class="getTypeClass((row as any).type)">{{ (row as any).type }}</span>
-              </template>
               <template #status="{ row }">
                 <span :class="getStatusClass((row as any).status)">{{ (row as any).status }}</span>
               </template>
@@ -43,15 +41,15 @@
                 {{ getCustomerName((row as any)) }}
               </template>
               <template #total_amount="{ row }">
-                {{ formatCurrency((row as any).total_amount) }}
+                {{ formatCurrency(calculateTotalAmount((row as any))) }}
               </template>
               <template #actions="{ row }">
                 <div class="d-flex gap-1">
                   <button class="btn btn-info btn-sm" title="View" @click="viewOrder(row)">
                     <i class="fa fa-eye"></i>
                   </button>
-                  <button class="btn btn-secondary btn-sm" title="Edit" @click="editOrder(row)">
-                    <i class="fa fa-pen"></i>
+                  <button class="btn btn-success btn-sm" title="Download PDF" @click="downloadOrderPdf(row)">
+                    <i class="fa fa-download"></i>
                   </button>
                   <button class="btn btn-danger btn-sm" title="Delete" @click="confirmDelete(row)">
                     <i class="fa fa-trash"></i>
@@ -73,13 +71,32 @@ import { useOrderStore } from '@/stores/bushman/order-store'
 import { useToast } from '@/composables/useToast'
 import StandardDataTable from '@/components/bootstrap/StandardDataTable.vue'
 import Swal from 'sweetalert2'
+import jsPDF from 'jspdf'
+import 'jspdf-autotable'
+
+interface Order {
+  id: string | number
+  order_number: string
+  status: string
+  order_date: string | null
+  date?: string
+  customer_name?: string
+  total_amount: number
+  type?: string
+  parties?: any[]
+  items?: any[]
+  participants?: any[]
+  logistics?: any[]
+  entity?: any
+  [key: string]: any
+}
 
 const router = useRouter()
 const { init } = useToast()
 const orderStore = useOrderStore()
 
 // Computed state from store
-const orders = computed(() => orderStore.orders)
+const orders = computed((): Order[] => orderStore.orders)
 const loading = computed(() => orderStore.loading)
 const orderTypes = computed(() => orderStore.orderTypes)
 const orderStatuses = computed(() => orderStore.orderStatuses)
@@ -95,11 +112,10 @@ const tableFilters = reactive({
 // Columns Definition
 const columns = computed(() => [
   { key: 'order_number', label: 'Order #', sortable: true, visible: true },
-  { key: 'type', label: 'Type', sortable: true, visible: true },
   { key: 'status', label: 'Status', sortable: true, visible: true },
   { key: 'order_date', label: 'Order Date', sortable: true, visible: true },
-  { key: 'customer_name', label: 'Customer', sortable: true, visible: true },
-  { key: 'total_amount', label: 'Total', sortable: true, visible: true },
+  { key: 'customer_name', label: 'Entity Name', sortable: true, visible: true },
+  { key: 'total_amount', label: 'Total Amount', sortable: true, visible: true },
   { key: 'actions', label: 'Actions', sortable: false, visible: true }
 ])
 
@@ -127,7 +143,8 @@ const customFilters = computed(() => [
 
 // Page Actions
 const pageActions = computed(() => [
-  { label: 'Create Order', icon: 'fa fa-plus', class: 'btn btn-primary', method: () => createOrder() }
+  { label: 'Create Order', icon: 'fa fa-plus', class: 'btn btn-primary', method: () => createOrder() },
+  { label: 'Download Order', icon: 'fa fa-download', class: 'btn btn-success', method: () => downloadSelectedOrder() }
 ])
 
 // Methods
@@ -182,6 +199,32 @@ const getCustomerName = (order: any) => {
   return 'N/A'
 }
 
+const calculateTotalAmount = (order: any): number => {
+  // If items exist with quantity/rate data, calculate from them
+  if (order.items && Array.isArray(order.items) && order.items.length > 0) {
+    console.log(`Order ${order.order_number} has ${order.items.length} items - calculating total`)
+    
+    const subtotal = order.items.reduce((sum: number, item: any) => {
+      return sum + ((item.quantity || 0) * (item.rate || 0))
+    }, 0)
+
+    const totalDiscount = order.items.reduce((sum: number, item: any) => {
+      return sum + (item.discount_amount || 0)
+    }, 0)
+
+    const afterDiscount = subtotal - totalDiscount
+    const vat = afterDiscount * ((order.vat || 0) / 100)
+    const grandTotal = afterDiscount + vat + (order.expense_included || 0)
+
+    console.log(`Order ${order.order_number}: Subtotal=$${subtotal}, Discount=$${totalDiscount}, VAT=$${vat}, Grand Total=$${grandTotal}`)
+    return grandTotal > 0 ? grandTotal : 0
+  }
+
+  // No items - order is empty
+  console.log(`Order ${order.order_number || order.id}: No items (empty order)`)
+  return 0
+}
+
 const handleFiltersUpdate = (newFilters: any) => {
   orderStore.setFilters(newFilters)
   orderStore.listOrders()
@@ -199,6 +242,279 @@ const viewOrder = (row: any) => {
   router.push({ name: 'orders-view', params: { id: row.id } })
 }
 
+const downloadOrderPdf = (row: any) => {
+  try {
+    console.log('PDF clicked for order:', row.order_number)
+    
+    const doc = new jsPDF()
+    const pageWidth = doc.internal.pageSize.getWidth()
+    const pageHeight = doc.internal.pageSize.getHeight()
+    const margin = 15
+    let yPos = margin
+    
+    // Header Background (Blue)
+    doc.setFillColor(13, 110, 253) // Bootstrap primary blue
+    doc.rect(0, 0, pageWidth, 40, 'F')
+    
+    // Title
+    doc.setTextColor(255, 255, 255)
+    doc.setFontSize(24)
+    doc.setFont('Arial', 'bold')
+    doc.text('ORDER', margin, 18)
+    
+    // Subtitle
+    doc.setTextColor(200, 200, 200)
+    doc.setFontSize(10)
+    doc.text(`Order #${row.order_number || row.id}`, margin, 28)
+    
+    // Reset text color
+    doc.setTextColor(0, 0, 0)
+    yPos = 50
+    
+    // Left column - Order Info
+    doc.setFontSize(9)
+    doc.setFont('Arial', 'bold')
+    doc.setTextColor(13, 110, 253)
+    doc.text('ORDER INFORMATION', margin, yPos)
+    
+    yPos += 8
+    doc.setFont('Arial', 'normal')
+    doc.setTextColor(0, 0, 0)
+    
+    const orderInfo = [
+      { label: 'Order Date:', value: row.order_date || row.date || 'N/A' },
+      { label: 'Order Type:', value: row.type || 'N/A' },
+      { label: 'Status:', value: row.status || 'N/A' },
+      { label: 'Customer:', value: getCustomerName(row) }
+    ]
+    
+    orderInfo.forEach((info) => {
+      doc.setFont('Arial', 'bold')
+      doc.text(info.label, margin, yPos)
+      doc.setFont('Arial', 'normal')
+      doc.text(String(info.value), margin + 50, yPos)
+      yPos += 6
+    })
+    
+    yPos += 5
+    
+    // Items Section
+    if (row.items && Array.isArray(row.items) && row.items.length > 0) {
+      if (yPos > pageHeight - 60) {
+        doc.addPage()
+        yPos = margin
+      }
+      
+      doc.setFontSize(9)
+      doc.setFont('Arial', 'bold')
+      doc.setTextColor(13, 110, 253)
+      doc.text('ORDER ITEMS', margin, yPos)
+      
+      yPos += 8
+      
+      const itemTableData = row.items.map((item: any) => [
+        item.name || 'N/A',
+        item.category || 'N/A',
+        String(item.quantity || 0),
+        formatCurrency(item.rate || 0),
+        formatCurrency(item.amount || 0)
+      ])
+      
+      ;(doc as any).autoTable({
+        startY: yPos,
+        head: [['Item Name', 'Category', 'Qty', 'Unit Amount', 'Total']],
+        body: itemTableData,
+        theme: 'grid',
+        margin: margin,
+        styles: { fontSize: 8, cellPadding: 3, lineColor: 200, lineWidth: 0.5 },
+        headStyles: { 
+          fillColor: 13, 
+          textColor: 255, 
+          fontStyle: 'bold',
+          halign: 'left'
+        },
+        columnStyles: {
+          2: { halign: 'center' },
+          3: { halign: 'right' },
+          4: { halign: 'right', fontStyle: 'bold', fillColor: 245 }
+        }
+      })
+      
+      yPos = (doc as any).lastAutoTable.finalY + 8
+    }
+    
+    // Parties Section
+    if (row.parties && Array.isArray(row.parties) && row.parties.length > 0) {
+      if (yPos > pageHeight - 60) {
+        doc.addPage()
+        yPos = margin
+      }
+      
+      doc.setFontSize(9)
+      doc.setFont('Arial', 'bold')
+      doc.setTextColor(13, 110, 253)
+      doc.text('PARTIES', margin, yPos)
+      
+      yPos += 8
+      
+      const partiesTableData = row.parties.map((party: any) => [
+        party.role || 'N/A',
+        party.entity_name || party.entity || 'N/A',
+        party.contact_person || 'N/A',
+        party.contact_phone || 'N/A'
+      ])
+      
+      ;(doc as any).autoTable({
+        startY: yPos,
+        head: [['Role', 'Entity Name', 'Contact Person', 'Phone']],
+        body: partiesTableData,
+        theme: 'grid',
+        margin: margin,
+        styles: { fontSize: 8, cellPadding: 3, lineColor: 200, lineWidth: 0.5 },
+        headStyles: { 
+          fillColor: 13, 
+          textColor: 255, 
+          fontStyle: 'bold',
+          halign: 'left'
+        }
+      })
+      
+      yPos = (doc as any).lastAutoTable.finalY + 8
+    }
+    
+    // Participants Section
+    if (row.participants && Array.isArray(row.participants) && row.participants.length > 0) {
+      const filteredParticipants = row.participants.filter((p: any) => p.party_type !== 'STAFF')
+      
+      if (filteredParticipants.length > 0) {
+        if (yPos > pageHeight - 60) {
+          doc.addPage()
+          yPos = margin
+        }
+        
+        doc.setFontSize(9)
+        doc.setFont('Arial', 'bold')
+        doc.setTextColor(13, 110, 253)
+        doc.text('PARTICIPANTS', margin, yPos)
+        
+        yPos += 8
+        
+        const participantsTableData = filteredParticipants.map((participant: any) => [
+          participant.party_type || 'N/A',
+          String(participant.count || 0)
+        ])
+        
+        ;(doc as any).autoTable({
+          startY: yPos,
+          head: [['Type', 'Count']],
+          body: participantsTableData,
+          theme: 'grid',
+          margin: margin,
+          styles: { fontSize: 8, cellPadding: 3, lineColor: 200, lineWidth: 0.5 },
+          headStyles: { 
+            fillColor: 13, 
+            textColor: 255, 
+            fontStyle: 'bold',
+            halign: 'left'
+          },
+          columnStyles: { 1: { halign: 'center' } }
+        })
+        
+        yPos = (doc as any).lastAutoTable.finalY + 8
+      }
+    }
+    
+    // Logistics Section
+    if (row.logistics && Array.isArray(row.logistics) && row.logistics.length > 0) {
+      if (yPos > pageHeight - 60) {
+        doc.addPage()
+        yPos = margin
+      }
+      
+      doc.setFontSize(9)
+      doc.setFont('Arial', 'bold')
+      doc.setTextColor(13, 110, 253)
+      doc.text('LOGISTICS & ACCOMMODATION', margin, yPos)
+      
+      yPos += 8
+      
+      const logisticsTableData = row.logistics.map((log: any) => [
+        log.description || 'N/A',
+        String(log.quantity || 0),
+        formatCurrency(log.unit_amount || 0),
+        formatCurrency(log.total_amount || 0)
+      ])
+      
+      ;(doc as any).autoTable({
+        startY: yPos,
+        head: [['Description', 'Qty', 'Unit Amount', 'Total Amount']],
+        body: logisticsTableData,
+        theme: 'grid',
+        margin: margin,
+        styles: { fontSize: 8, cellPadding: 3, lineColor: 200, lineWidth: 0.5 },
+        headStyles: { 
+          fillColor: 13, 
+          textColor: 255, 
+          fontStyle: 'bold',
+          halign: 'left'
+        },
+        columnStyles: {
+          1: { halign: 'center' },
+          2: { halign: 'right' },
+          3: { halign: 'right', fontStyle: 'bold', fillColor: 245 }
+        }
+      })
+      
+      yPos = (doc as any).lastAutoTable.finalY + 8
+    }
+    
+    // Summary Section
+    if (row.items && Array.isArray(row.items) && row.items.length > 0) {
+      const totalAmount = calculateTotalAmount(row)
+      if (totalAmount > 0) {
+        if (yPos > pageHeight - 40) {
+          doc.addPage()
+          yPos = margin
+        }
+        
+        yPos += 5
+        doc.setDrawColor(13, 110, 253)
+        doc.setLineWidth(1)
+        doc.line(margin, yPos, pageWidth - margin, yPos)
+        
+        yPos += 8
+        doc.setFontSize(12)
+        doc.setFont('Arial', 'bold')
+        doc.setTextColor(13, 110, 253)
+        doc.text('TOTAL AMOUNT', margin, yPos)
+        doc.text(formatCurrency(totalAmount), pageWidth - margin, yPos, { align: 'right' })
+      }
+    }
+    
+    // Footer
+    const pageCount = (doc as any).internal.pages.length - 1
+    doc.setTextColor(150, 150, 150)
+    doc.setFontSize(8)
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i)
+      doc.text(`Page ${i} of ${pageCount}`, pageWidth / 2, pageHeight - 10, { align: 'center' })
+    }
+    
+    // Save the PDF
+    doc.save(`order-${row.order_number || row.id}.pdf`)
+    
+    console.log('PDF saved successfully')
+    init({ message: 'Order PDF downloaded', color: 'success' })
+  } catch (error: any) {
+    console.error('PDF Error:', error)
+    alert('Error: ' + error.message)
+  }
+}
+
+const downloadSelectedOrder = () => {
+  init({ message: 'Please select an order by clicking the download icon in the actions column', color: 'info' })
+}
+
 const confirmDelete = (row: any) => {
   Swal.fire({
     title: 'Delete Order?',
@@ -212,9 +528,9 @@ const confirmDelete = (row: any) => {
     if (result.isConfirmed) {
       try {
         await orderStore.deleteOrder(row.id)
-        init('Order deleted successfully', 'success')
+        init({ message: 'Order deleted successfully', color: 'success' })
       } catch (e: any) {
-        init(e?.response?.data?.message || 'Error deleting order', 'error')
+        init({ message: e?.response?.data?.message || 'Error deleting order', color: 'danger' })
       }
     }
   })

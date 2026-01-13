@@ -44,6 +44,13 @@
               Links & References
             </div>
 
+            <!-- QUOTATION WORKFLOW GUIDANCE -->
+            <div v-if="!form.quotationId" style="margin-bottom: 16px; padding: 12px; background: #e3f2fd; border-left: 4px solid #2196f3; border-radius: 4px;">
+              <p style="margin: 0; font-size: 14px; color: #1565c0; font-weight: 500;">
+                💡 <strong>Quick Start:</strong> Select a Quotation below to auto-populate items, parties, and pricing information.
+              </p>
+            </div>
+
             <div class="financial-grid">
               <label class="field">
                 <span class="lbl">Sales Enquiry</span>
@@ -59,10 +66,10 @@
               </label>
 
               <label class="field">
-                <span class="lbl">Quotation / Pricing</span>
+                <span class="lbl">Quotation / Pricing <span v-if="!form.quotationId" style="color: #f44336;">*</span></span>
                 <div class="input-wrapper">
                   <span class="input-icon">💼</span>
-                  <select v-model="form.quotationId">
+                  <select v-model="form.quotationId" :style="{ borderColor: !form.quotationId && form.items.length === 0 ? '#f44336' : '' }">
                     <option value="">-- Select Quotation --</option>
                     <option v-for="quote in filteredQuotations" :key="quote.id" :value="String(quote.id)">
                       {{ quote.code || quote.name || `Quote #${quote.id}` }}
@@ -70,6 +77,13 @@
                   </select>
                 </div>
               </label>
+            </div>
+
+            <!-- SUCCESS MESSAGE WHEN QUOTATION SELECTED -->
+            <div v-if="form.quotationId && form.items.length > 0" style="margin-top: 12px; padding: 12px; background: #e8f5e9; border-left: 4px solid #4caf50; border-radius: 4px;">
+              <p style="margin: 0; font-size: 14px; color: #2e7d32; font-weight: 500;">
+                ✓ Quotation loaded! {{ form.items.length }} items auto-populated. Ready to create order.
+              </p>
             </div>
           </div>
 
@@ -81,23 +95,10 @@
             </div>
 
             <label class="field">
-              <span class="lbl">Order Type <span class="req">*</span></span>
-              <div class="input-wrapper">
-                <span class="input-icon">📦</span>
-                <select v-model="form.orderType" required>
-                  <option value="">-- Select Type --</option>
-                  <option v-for="type in orderTypes" :key="type.id || type.code" :value="type.id || type.code">
-                    {{ type.name || type }}
-                  </option>
-                </select>
-              </div>
-            </label>
-
-            <label class="field">
               <span class="lbl">Status <span class="req">*</span></span>
               <div class="input-wrapper">
                 <span class="input-icon">📊</span>
-                <select v-model="form.status" required>
+                <select v-model="form.status" required disabled>
                   <option value="">-- Select Status --</option>
                   <option v-for="status in orderStatuses" :key="status.id || status.code" :value="status.id || status.code">
                     {{ status.name || status }}
@@ -110,7 +111,7 @@
               <span class="lbl">Order Date <span class="req">*</span></span>
               <div class="input-wrapper">
                 <span class="input-icon">📅</span>
-                <input v-model="form.orderDate" type="date" required />
+                <input v-model="form.orderDate" type="date" required disabled />
               </div>
             </label>
           </div>
@@ -127,7 +128,7 @@
                 <span class="lbl">Currency <span class="req">*</span></span>
                 <div class="input-wrapper">
                   <span class="input-icon">💵</span>
-                  <select v-model="form.currency" required>
+                  <select v-model="form.currency" required disabled>
                     <option value="">-- Select Currency --</option>
                     <option v-for="curr in currencies" :key="curr.id" :value="curr.id">
                       {{ curr.label || `${curr.symbol} - ${curr.name}` }}
@@ -151,14 +152,6 @@
                   <input v-model.number="form.vat" type="number" placeholder="0" step="0.01" />
                 </div>
               </label>
-
-              <label class="field">
-                <span class="lbl">Additional Expenses</span>
-                <div class="input-wrapper">
-                  <span class="input-icon">💸</span>
-                  <input v-model.number="form.expenses" type="number" placeholder="0" step="0.01" />
-                </div>
-              </label>
             </div>
           </div>
 
@@ -169,23 +162,10 @@
               Additional Information
             </div>
 
-            <div class="financial-grid">
-              <label class="field">
-                <span class="lbl">Reference Number</span>
-                <div class="input-wrapper">
-                  <span class="input-icon">🏷️</span>
-                  <input v-model="form.reference" type="text" placeholder="External reference (PO, etc.)" />
-                </div>
-              </label>
-
-              <label class="field">
-                <span class="lbl">Remarks</span>
-                <div class="input-wrapper">
-                  <span class="input-icon">📌</span>
-                  <input v-model="form.remarks" type="text" placeholder="Additional notes..." />
-                </div>
-              </label>
-            </div>
+            <label class="field">
+              <span class="lbl">Remarks</span>
+              <textarea v-model="form.remarks" class="textarea" rows="2" placeholder="Add any remarks..."></textarea>
+            </label>
 
             <label class="field">
               <span class="lbl">Order Notes</span>
@@ -251,9 +231,6 @@
             <div class="subsection">
               <div class="subsection-header">
                 <h4>Order Items</h4>
-                <button @click="showItemForm = !showItemForm" class="btn btn-sm btn-primary" type="button">
-                  <i class="fas fa-plus me-1"></i>{{ editItemIdx !== null ? 'Editing...' : 'Add Item' }}
-                </button>
               </div>
 
               <!-- Items Table -->
@@ -261,85 +238,34 @@
                 <table class="data-table">
                   <thead>
                     <tr>
-                      <th style="min-width: 150px">Name</th>
+                      <th style="min-width: 200px">Name</th>
                       <th style="min-width: 120px">Category</th>
-                      <th style="min-width: 80px">Quantity</th>
-                      <th style="min-width: 100px">Rate</th>
-                      <th style="min-width: 100px">Discount</th>
-                      <th style="min-width: 120px">Total</th>
-                      <th style="min-width: 80px">Actions</th>
+                      <th style="min-width: 100px">Quantity</th>
+                      <th style="min-width: 130px">Unit Amount</th>
+                      <th style="min-width: 130px">Total Amount</th>
                     </tr>
                   </thead>
                   <tbody>
-                    <!-- Add Form Row -->
-                    <tr v-if="showItemForm" class="form-row">
-                      <td>
-                        <input v-model="newItem.name" type="text" placeholder="Item name" class="form-input" required />
-                      </td>
-                      <td>
-                        <select v-model="newItem.category" class="form-select">
-                          <option value="">Category</option>
-                          <option v-for="cat in itemCategories" :key="cat.id || cat.value" :value="cat.id || cat.value">
-                            {{ cat.name || cat.label }}
-                          </option>
-                        </select>
-                      </td>
-                      <td>
-                        <input v-model.number="newItem.quantity" type="number" placeholder="Qty" min="1" class="form-input" />
-                      </td>
-                      <td>
-                        <input v-model.number="newItem.rate" type="number" placeholder="Rate" step="0.01" class="form-input" required />
-                      </td>
-                      <td>
-                        <input v-model.number="newItem.discount" type="number" placeholder="Discount" step="0.01" class="form-input" />
-                      </td>
-                      <td class="text-center">
-                        <span class="badge bg-primary">{{ formatCurrency((newItem.quantity * newItem.rate) - (newItem.discount || 0)) }}</span>
-                      </td>
-                      <td class="text-center">
-                        <button @click="addItem" class="btn btn-xs btn-success me-2" type="button" title="Add">
-                          <i class="fas fa-check"></i>
-                        </button>
-                        <button @click="showItemForm = false; resetItemForm()" class="btn btn-xs btn-danger" type="button" title="Clear">
-                          <i class="fas fa-times"></i>
-                        </button>
-                      </td>
-                    </tr>
-
-                    <!-- Existing Items -->
+                    <!-- Items from Quotation -->
                     <tr v-for="(item, idx) in form.items" :key="idx">
                       <td>{{ item.name }}</td>
                       <td>{{ item.category }}</td>
                       <td class="text-center">{{ item.quantity }}</td>
                       <td>{{ formatCurrency(item.rate) }}</td>
-                      <td>{{ item.discount ? formatCurrency(item.discount) : '-' }}</td>
                       <td class="text-center">
-                        <span class="badge bg-info">{{ formatCurrency((item.quantity * item.rate) - (item.discount || 0)) }}</span>
-                      </td>
-                      <td class="text-center">
-                        <!-- @ts-ignore -->
-                        <button @click="editItem(idx)" class="btn btn-xs btn-primary me-1" type="button" title="Edit">
-                          <i class="fas fa-edit"></i>
-                        </button>
-                        <!-- @ts-ignore -->
-                        <button @click="removeItem(idx)" class="btn btn-xs btn-danger" type="button" title="Delete">
-                          <i class="fas fa-trash"></i>
-                        </button>
+                        <span class="badge bg-info">{{ formatCurrency(item.amount || (item.quantity * item.rate)) }}</span>
                       </td>
                     </tr>
                   </tbody>
                 </table>
               </div>
-              <div v-if="form.items.length === 0" class="empty-state mt-3">No items added</div>
+              <div v-if="form.items.length === 0" class="empty-state mt-3">No items from quotation</div>
             </div>
 
             <!-- Parties Subsection -->
             <div class="subsection">
               <div class="subsection-header">
                 <h4>Parties</h4>
-                <button @click="showPartyForm = !showPartyForm" class="btn btn-sm btn-primary" type="button">
-                  <i class="fas fa-plus me-1"></i>{{ editPartyIdx !== null ? 'Editing...' : 'Add Party' }}
-                </button>
               </div>
 
               <!-- Parties Table -->
@@ -347,72 +273,28 @@
                 <table class="data-table">
                   <thead>
                     <tr>
-                      <th style="min-width: 120px">Role</th>
+                      <th style="min-width: 100px">Role</th>
                       <th style="min-width: 150px">Entity Name</th>
                       <th style="min-width: 140px">Contact Person</th>
-                      <th style="min-width: 120px">Phone</th>
-                      <th style="min-width: 180px">Email</th>
-                      <th style="min-width: 80px">Actions</th>
+                      <th style="min-width: 130px">Phone</th>
                     </tr>
                   </thead>
                   <tbody>
-                    <!-- Add Form Row -->
-                    <tr v-if="showPartyForm" class="form-row">
-                      <td>
-                        <select v-model="newParty.role" class="form-select">
-                          <option value="">Role</option>
-                          <option v-for="role in partyRoles" :key="role.id || role.value" :value="role.id || role.value">
-                            {{ role.name || role.label }}
-                          </option>
-                        </select>
-                      </td>
-                      <td>
-                        <select v-model="newParty.entity" class="form-select" required>
-                          <option value="">Entity</option>
-                          <option v-for="ent in entities" :key="ent.id" :value="ent.id">
-                            {{ ent.full_name }}
-                          </option>
-                        </select>
-                      </td>
-                      <td>
-                        <input v-model="newParty.contact_person" type="text" placeholder="Contact Person" class="form-input" />
-                      </td>
-                      <td>
-                        <input v-model="newParty.contact_phone" type="tel" placeholder="Phone" class="form-input" />
-                      </td>
-                      <td>
-                        <input v-model="newParty.email" type="email" placeholder="Email" class="form-input" />
-                      </td>
-                      <td class="text-center">
-                        <button @click="addParty" class="btn btn-xs btn-success me-2" type="button" title="Add">
-                          <i class="fas fa-check"></i>
-                        </button>
-                        <button @click="showPartyForm = false; resetPartyForm()" class="btn btn-xs btn-danger" type="button" title="Clear">
-                          <i class="fas fa-times"></i>
-                        </button>
-                      </td>
-                    </tr>
-
-                    <!-- Existing Parties -->
+                    <!-- Parties from Quotation -->
                     <tr v-for="(party, idx) in form.parties" :key="idx">
-                      <td>{{ party.role }}</td>
+                      <td>
+                        <span class="badge" :class="party.role === 'client' ? 'bg-primary' : party.role === 'supplier' ? 'bg-success' : 'bg-secondary'">
+                          {{ party.role || '-' }}
+                        </span>
+                      </td>
                       <td>{{ party.entity_name || party.entity || '-' }}</td>
                       <td>{{ party.contact_person || '-' }}</td>
                       <td>{{ party.contact_phone || '-' }}</td>
-                      <td>{{ party.email || '-' }}</td>
-                      <td class="text-center">
-                        <button @click="editParty(idx)" class="btn btn-xs btn-primary me-1" type="button" title="Edit">
-                          <i class="fas fa-edit"></i>
-                        </button>
-                        <button @click="removeParty(idx)" class="btn btn-xs btn-danger" type="button" title="Delete">
-                          <i class="fas fa-trash"></i>
-                        </button>
-                      </td>
                     </tr>
                   </tbody>
                 </table>
               </div>
-              <div v-if="form.parties.length === 0" class="empty-state mt-3">No parties added</div>
+              <div v-if="form.parties.length === 0" class="empty-state mt-3">No parties from quotation</div>
             </div>
 
             <!-- Navigation Buttons -->
@@ -435,154 +317,55 @@
             <!-- Participants -->
             <div class="subsection mb-3">
               <h5>Participants</h5>
-              <div class="participant-grid">
-                <div v-for="type in participantTypes" :key="type" class="participant-item">
-                  <label>{{ type }}</label>
-                  <div class="input-group">
-                    <button @click="decrementParticipant(type)" class="btn btn-sm" type="button">−</button>
-                    <input :value="getParticipantCount(type)" @input="setParticipantCount(type, $event)" type="number" class="form-input" />
-                    <button @click="incrementParticipant(type)" class="btn btn-sm" type="button">+</button>
-                  </div>
-                </div>
+              <div class="table-wrapper">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th style="min-width: 200px">Type</th>
+                      <th style="min-width: 150px; text-align: center;">Count</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="participant in form.participants.filter(p => p.party_type !== 'STAFF')" :key="participant.party_type">
+                      <td style="padding: 12px 16px;">{{ participant.party_type }}</td>
+                      <td style="padding: 12px 16px; text-align: center; font-weight: 600;">{{ participant.count }}</td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
-              <div class="total-badge">
-                Total: <span class="badge">{{ totalParticipants }}</span>
-              </div>
+              <div v-if="form.participants.filter(p => p.party_type !== 'STAFF').length === 0" class="empty-state mt-3">No participants from quotation</div>
             </div>
 
             <!-- Logistics -->
             <div class="subsection">
               <div class="subsection-header">
                 <h4>Logistics & Accommodation</h4>
-                <button @click="showLogisticsForm = !showLogisticsForm" class="btn btn-sm btn-primary" type="button">
-                  <i class="fas fa-plus me-1"></i>Add Logistics
-                </button>
-              </div>
-
-              <!-- Add Logistics Form -->
-              <div v-if="showLogisticsForm" class="table-wrapper mt-3">
-                <table class="data-table">
-                  <thead>
-                    <tr>
-                      <th style="min-width: 140px">Type</th>
-                      <th style="min-width: 150px">Location/Route</th>
-                      <th style="min-width: 120px">Date</th>
-                      <th style="min-width: 100px">Details</th>
-                      <th style="min-width: 100px">Rooms/Extra</th>
-                      <th style="min-width: 120px">Amount</th>
-                      <th style="min-width: 100px">Status</th>
-                      <th style="min-width: 80px">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr class="form-row">
-                      <td>
-                        <select v-model="newLogistics.logistics_type" class="form-select" @change="onLogisticsTypeChange">
-                          <option v-for="type in logisticsTypes" :key="type.id" :value="type.id">
-                            {{ type.name }}
-                          </option>
-                        </select>
-                      </td>
-                      <td>
-                        <input v-if="newLogistics.logistics_type === 'HOTEL'" v-model="newLogistics.location" type="text" placeholder="Location" class="form-input" />
-                        <input v-else-if="newLogistics.logistics_type === 'CHARTER'" v-model="newLogistics.from_airport" type="text" placeholder="From" class="form-input" />
-                        <input v-else v-model="newLogistics.from_location" type="text" placeholder="From" class="form-input" />
-                      </td>
-                      <td>
-                        <input v-if="newLogistics.logistics_type === 'HOTEL'" v-model="newLogistics.check_in_date" type="date" class="form-input" />
-                        <input v-else-if="newLogistics.logistics_type === 'CHARTER'" v-model="newLogistics.flight_date" type="date" class="form-input" />
-                        <input v-else v-model="newLogistics.transfer_date" type="date" class="form-input" />
-                      </td>
-                      <td>
-                        <input v-if="newLogistics.logistics_type === 'HOTEL'" v-model.number="newLogistics.nights" type="number" placeholder="Nights" min="1" class="form-input" />
-                        <input v-else-if="newLogistics.logistics_type === 'CHARTER'" v-model.number="newLogistics.seats" type="number" placeholder="Seats" min="1" class="form-input" />
-                        <input v-else v-model="newLogistics.vehicle_type" type="text" placeholder="Vehicle" class="form-input" />
-                      </td>
-                      <td>
-                        <input v-if="newLogistics.logistics_type === 'HOTEL'" v-model.number="newLogistics.rooms" type="number" placeholder="Rooms" min="1" class="form-input" />
-                        <input v-else-if="newLogistics.logistics_type === 'CHARTER'" v-model="newLogistics.to_airport" type="text" placeholder="To" class="form-input" />
-                        <input v-else-if="newLogistics.logistics_type === 'TRANSFER'" v-model="newLogistics.to_location" type="text" placeholder="To" class="form-input" />
-                        <input v-else type="text" placeholder="-" class="form-input" disabled />
-                      </td>
-                      <td>
-                        <input v-model.number="newLogistics.estimated_amount" type="number" placeholder="Amount" step="0.01" class="form-input" />
-                      </td>
-                      <td>
-                        <select v-model="newLogistics.status" class="form-select">
-                          <option v-for="status in logisticsStatuses" :key="status.id || status.code" :value="status.id || status.code">
-                            {{ status.name || status }}
-                          </option>
-                        </select>
-                      </td>
-                      <td class="text-center">
-                        <button @click="addLogistics" class="btn btn-xs btn-success me-2" type="button" title="Add">
-                          <i class="fas fa-check"></i>
-                        </button>
-                        <button @click="showLogisticsForm = false; resetLogisticsForm()" class="btn btn-xs btn-danger" type="button" title="Clear">
-                          <i class="fas fa-times"></i>
-                        </button>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
               </div>
 
               <!-- Logistics List -->
-              <div v-if="form.logistics.length > 0" class="table-wrapper mt-3">
+              <div class="table-wrapper mt-3">
                 <table class="data-table">
                   <thead>
                     <tr>
-                      <th style="min-width: 140px">Type</th>
-                      <th style="min-width: 150px">Location/Route</th>
-                      <th style="min-width: 120px">Date</th>
-                      <th style="min-width: 100px">Details</th>
-                      <th style="min-width: 120px">Amount</th>
-                      <th style="min-width: 100px">Status</th>
-                      <th style="min-width: 80px">Actions</th>
+                      <th style="min-width: 220px">Description</th>
+                      <th style="min-width: 100px">Quantity</th>
+                      <th style="min-width: 130px">Unit Amount</th>
+                      <th style="min-width: 130px">Total Amount</th>
                     </tr>
                   </thead>
                   <tbody>
                     <tr v-for="(logistics, idx) in form.logistics" :key="idx">
-                      <td>
-                        <span v-if="logistics.logistics_type === 'HOTEL'" class="badge bg-primary">🏨 Hotel</span>
-                        <span v-else-if="logistics.logistics_type === 'AIRPORT'" class="badge bg-primary">🛫 Airport</span>
-                        <span v-else-if="logistics.logistics_type === 'CHARTER'" class="badge bg-primary">✈️ Charter</span>
-                        <span v-else-if="logistics.logistics_type === 'TRANSFER'" class="badge bg-primary">🚗 Transfer</span>
-                        <span v-else class="badge bg-primary">📋 Other</span>
-                      </td>
-                      <td>
-                        <span v-if="logistics.logistics_type === 'HOTEL'">{{ logistics.location }}</span>
-                        <span v-else-if="logistics.logistics_type === 'CHARTER'">{{ logistics.from_airport }} → {{ logistics.to_airport }}</span>
-                        <span v-else>{{ logistics.from_location }} → {{ logistics.to_location }}</span>
-                      </td>
-                      <td>
-                        <span v-if="logistics.logistics_type === 'HOTEL'">{{ logistics.check_in_date }}</span>
-                        <span v-else-if="logistics.logistics_type === 'CHARTER'">{{ logistics.flight_date }}</span>
-                        <span v-else>{{ logistics.transfer_date }}</span>
-                      </td>
-                      <td class="small">
-                        <span v-if="logistics.logistics_type === 'HOTEL'">{{ logistics.nights }} nights, {{ logistics.rooms }} rooms</span>
-                        <span v-else-if="logistics.logistics_type === 'CHARTER'">{{ logistics.seats }} seats</span>
-                        <span v-else>{{ logistics.vehicle_type }}</span>
-                      </td>
-                      <td>
-                        <span class="badge bg-info">{{ formatCurrency(logistics.estimated_amount || 0) }}</span>
-                      </td>
-                      <td>
-                        <span class="badge" :class="logistics.status === 'CONFIRMED' ? 'bg-success' : logistics.status === 'BOOKED' ? 'bg-warning' : 'bg-secondary'">
-                          {{ logistics.status }}
-                        </span>
-                      </td>
+                      <td>{{ logistics.description || '-' }}</td>
+                      <td class="text-center">{{ logistics.quantity || 0 }}</td>
+                      <td>{{ formatCurrency(logistics.unit_amount || 0) }}</td>
                       <td class="text-center">
-                        <button @click="removeLogistics(idx)" class="btn btn-xs btn-danger" type="button" title="Delete">
-                          <i class="fas fa-trash"></i>
-                        </button>
+                        <span class="badge bg-info">{{ formatCurrency(logistics.total_amount || (logistics.quantity * logistics.unit_amount) || 0) }}</span>
                       </td>
                     </tr>
                   </tbody>
                 </table>
               </div>
-              <div v-if="form.logistics.length === 0 && !showLogisticsForm" class="empty-state mt-3">No logistics added</div>
+              <div v-if="form.logistics.length === 0" class="empty-state mt-3">No logistics from quotation</div>
             </div>
 
             <!-- Navigation Buttons -->
@@ -614,8 +397,8 @@
                       <th style="min-width: 80px">#</th>
                       <th style="min-width: 120px">Amount Due</th>
                       <th style="min-width: 100px">Type</th>
+                      <th style="min-width: 80px">Due Days</th>
                       <th style="min-width: 140px">Due Type</th>
-                      <th style="min-width: 80px">Days</th>
                       <th style="min-width: 90px">Deposit</th>
                       <th style="min-width: 80px">Actions</th>
                     </tr>
@@ -627,7 +410,7 @@
                         <span class="badge bg-secondary">{{ form.installments.length + 1 }}</span>
                       </td>
                       <td>
-                        <input v-model.number="newInstallment.amountDue" type="number" placeholder="Amount" step="0.01" class="form-input" />
+                        <input v-model.number="newInstallment.amountDue" type="number" placeholder="Amount" step="0.01" class="form-input" style="max-width: 120px;" />
                       </td>
                       <td>
                         <select v-model="newInstallment.amountDueType" class="form-select">
@@ -637,14 +420,14 @@
                         </select>
                       </td>
                       <td>
+                        <input v-model.number="newInstallment.dueDays" type="number" placeholder="Days" min="0" class="form-input" style="max-width: 80px;" />
+                      </td>
+                      <td>
                         <select v-model="newInstallment.dueDaysType" class="form-select">
                           <option v-for="type in installmentDaysTypes" :key="type.value || type.id" :value="type.value || type.id">
                             {{ type.label || type.name }}
                           </option>
                         </select>
-                      </td>
-                      <td>
-                        <input v-model.number="newInstallment.dueDays" type="number" placeholder="Days" min="0" class="form-input" />
                       </td>
                       <td class="text-center">
                         <div class="form-checkbox-wrapper justify-center">
@@ -671,8 +454,8 @@
                         <span v-else class="badge bg-warning">{{ inst.amountDue }}%</span>
                       </td>
                       <td>{{ inst.amountDueType }}</td>
-                      <td>{{ inst.dueDaysType }}</td>
                       <td class="text-center">{{ inst.dueDays }}</td>
+                      <td>{{ inst.dueDaysType }}</td>
                       <td class="text-center">
                         <i v-if="inst.isDeposit" class="fas fa-check text-success"></i>
                         <i v-else class="fas fa-times text-muted"></i>
@@ -707,36 +490,71 @@
             </div>
 
             <div class="subsection">
-              <div class="form-grid">
-                <input v-model="form.preferences.food_preferences" type="text" placeholder="Food Preferences" class="form-input" />
-                <input v-model="form.preferences.beverage_preferences" type="text" placeholder="Beverage Preferences" class="form-input" />
-                <select v-model="form.preferences.alcohol_preferences" class="form-select">
-                  <option value="">Alcohol Preference</option>
-                  <option value="YES">Yes</option>
-                  <option value="NO">No</option>
-                  <option value="LIMITED">Limited</option>
-                </select>
+              <!-- DIETARY PREFERENCES SUBSECTION -->
+              <div class="subsection-group">
+                <h5 style="display: flex; align-items: center; gap: 0.5rem; color: #333; margin-bottom: 0.8rem; font-size: 0.95rem; font-weight: 600;">
+                  <i class="fas fa-utensils" style="color: #ff6b35;"></i>
+                  Dietary & Beverage Preferences
+                </h5>
+
+                <!-- Row 1: Food & Beverage in horizontal layout -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+                  <div class="form-section" style="display: flex; flex-direction: column; height: 100px;">
+                    <label class="form-label">Food Preferences</label>
+                    <textarea v-model="form.preferences.food_preferences" placeholder="Food preferences, restrictions..." class="form-textarea" rows="2" style="flex: 1; resize: none;"></textarea>
+                  </div>
+                  <div class="form-section" style="display: flex; flex-direction: column; height: 100px;">
+                    <label class="form-label">Beverage Preferences</label>
+                    <textarea v-model="form.preferences.beverage_preferences" placeholder="Beverage preferences..." class="form-textarea" rows="2" style="flex: 1; resize: none;"></textarea>
+                  </div>
+                </div>
+
+                <!-- Row 2: Alcohol Preference & Allergies Input in horizontal layout -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 0;">
+                  <div class="form-section" style="display: flex; flex-direction: column; height: 100px;">
+                    <label class="form-label">Alcohol Preference</label>
+                    <select v-model="form.preferences.alcohol_preferences" class="form-select" style="flex: 1;">
+                      <option value="">-- Select --</option>
+                      <option value="YES">Yes</option>
+                      <option value="NO">No</option>
+                      <option value="LIMITED">Limited</option>
+                    </select>
+                  </div>
+                  <div class="form-section" style="display: flex; flex-direction: column; height: 120px;">
+                    <label class="form-label">Allergies</label>
+                    <div style="display: flex; gap: 4px; align-items: flex-start; flex: 1; flex-direction: column;">
+                      <div style="display: flex; gap: 4px; width: 100%;">
+                        <input v-model="newAllergy" type="text" placeholder="e.g., Peanuts, Dairy..." class="form-input" style="flex: 1;" />
+                        <button @click="addAllergy" class="btn btn-xs btn-primary" type="button" style="padding: 3px 10px; flex-shrink: 0; height: 40px;">
+                          <i class="fas fa-plus"></i>
+                        </button>
+                      </div>
+                      <div style="flex: 1; width: 100%;">
+                        <div v-if="form.preferences.allergies && form.preferences.allergies.length > 0" class="allergy-tags" style="margin-top: 0.5rem;">
+                          <span v-for="(allergy, idx) in form.preferences.allergies" :key="idx" class="tag">
+                            {{ allergy }}
+                            <button @click="removeAllergy(idx)" class="tag-remove" type="button">&times;</button>
+                          </span>
+                        </div>
+                        <div v-else class="text-muted" style="font-size: 0.8rem; margin-top: 0.3rem;">No allergies</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              <div class="form-section">
-                <label class="form-label">Allergies</label>
-                <div class="form-grid">
-                  <input v-model="newAllergy" type="text" placeholder="Add allergy" class="form-input" />
-                  <button @click="addAllergy" class="btn btn-sm btn-primary" type="button">
-                    <i class="fas fa-plus me-1"></i>Add
-                  </button>
-                </div>
-                <div v-if="form.preferences.allergies && form.preferences.allergies.length > 0" class="allergy-tags">
-                  <span v-for="(allergy, idx) in form.preferences.allergies" :key="idx" class="tag">
-                    {{ allergy }}
-                    <button @click="removeAllergy(idx)" class="tag-remove" type="button">&times;</button>
-                  </span>
-                </div>
-              </div>
+              <!-- SPECIAL REQUESTS SUBSECTION -->
+              <div class="subsection-group">
+                <h5 style="display: flex; align-items: center; gap: 0.5rem; color: #333; margin: 0 0 0.8rem 0; font-size: 0.95rem; font-weight: 600;">
+                  <i class="fas fa-sticky-note" style="color: #3498db;"></i>
+                  Special Requests & Notes
+                </h5>
 
-              <div class="form-section">
-                <label class="form-label">Special Requests</label>
-                <textarea v-model="form.preferences.special_requests" placeholder="Any special requests or notes..." class="form-textarea" rows="4"></textarea>
+                <div class="form-section" style="margin-bottom: 0;">
+                  <label class="form-label">Special Requests</label>
+                  <textarea v-model="form.preferences.special_requests" placeholder="Add any special requests, accommodations, preferences, or important notes..." class="form-textarea" rows="2"></textarea>
+                  <small class="text-muted" style="display: block; margin-top: 0.5rem;">This information will be shared with all relevant parties</small>
+                </div>
               </div>
             </div>
 
@@ -793,18 +611,16 @@ const showSections = reactive({
 const form = reactive({
   // BASIC INFO
   orderNumber: '',
-  orderType: '',
-  status: '',
+  orderType: 'SALES', // Default to SALES orders
+  status: 'DRAFT', // Default to DRAFT status
   orderDate: new Date().toISOString().split('T')[0],
-  currency: '',
+  currency: '1', // Default currency (adjust if needed)
   exchangeRate: 1.0,
   vat: 0,
-  expenses: 0,
   
   // REFERENCES
   enquiryId: '',
   quotationId: '',
-  reference: '',
   remarks: '',
   notes: '',
   
@@ -913,6 +729,18 @@ const filteredQuotations = computed(() => {
 
 const totalParticipants = computed(() => {
   return form.participants.reduce((sum, p) => sum + p.count, 0)
+})
+
+const selectedQuotation = computed(() => {
+  if (!form.quotationId) return null
+  return quotations.value.find((q: any) => q.id === parseInt(form.quotationId as string))
+})
+
+const isQuotationLocked = computed(() => {
+  if (!selectedQuotation.value) return false
+  // Check if quotation status is LOCKED
+  const status = selectedQuotation.value.status
+  return status === 'LOCKED'
 })
 
 // Methods
@@ -1223,10 +1051,23 @@ const submit = async () => {
 
   if (!confirmation.isConfirmed) return
 
-  if (!form.orderType || !form.status || !form.orderDate || !form.currency) {
+  // Validate required fields
+  const missingFields = []
+  if (!form.orderType) missingFields.push('Order Type')
+  if (!form.status) missingFields.push('Status')
+  if (!form.orderDate) missingFields.push('Order Date')
+  if (!form.currency) missingFields.push('Currency')
+  if (!isEdit.value && form.items.length === 0 && !form.quotationId) missingFields.push('Items (select a Quotation or add items manually)')
+
+  if (missingFields.length > 0) {
     Swal.fire({
       title: 'Missing Required Fields',
-      text: 'Please fill all required fields',
+      html: `<div style="text-align: left;">
+        <p>Please fill the following required fields:</p>
+        <ul style="margin: 10px 0; padding-left: 20px;">
+          ${missingFields.map(f => `<li>${f}</li>`).join('')}
+        </ul>
+      </div>`,
       icon: 'warning',
     })
     return
@@ -1244,8 +1085,6 @@ const submit = async () => {
       currency_id: form.currency ? parseInt(form.currency as string) : null,
       exchange_rate: form.exchangeRate,
       vat: form.vat,
-      expenses: form.expenses,
-      reference: form.reference || null,
       remarks: form.remarks || null,
       notes: form.notes || null,
       enquiry_id: form.enquiryId ? parseInt(form.enquiryId as string) : null,
@@ -1255,7 +1094,8 @@ const submit = async () => {
         item_category_id: item.category ? parseInt(item.category as string) : null,
         quantity: item.quantity,
         rate: item.rate,
-        line_total: item.quantity * item.rate,
+        discount: item.discount || 0,
+        line_total: (item.quantity * item.rate) - (item.discount || 0),
       })),
       parties: form.parties.map(party => ({
         role: party.role,
@@ -1264,7 +1104,24 @@ const submit = async () => {
         contact_email: party.email || null,
       })),
       participants: participantsData,
-      logistics: logisticsData,
+      logistics: logisticsData.map(log => ({
+        logistics_type: log.logistics_type,
+        location: log.location || null,
+        check_in_date: log.check_in_date || null,
+        nights: log.nights || 0,
+        rooms: log.rooms || 0,
+        from_airport: log.from_airport || null,
+        to_airport: log.to_airport || null,
+        flight_date: log.flight_date || null,
+        seats: log.seats || 0,
+        from_location: log.from_location || null,
+        to_location: log.to_location || null,
+        transfer_date: log.transfer_date || null,
+        vehicle_type: log.vehicle_type || null,
+        estimated_amount: log.estimated_amount || 0,
+        status: log.status || 'PLANNED',
+        description: log.description || null
+      })),
       preferences: form.preferences,
       installments: form.installments.map(inst => ({
         sequence_no: inst.sequenceNo,
@@ -1302,10 +1159,8 @@ const resetForm = () => {
   form.currency = ''
   form.exchangeRate = 1.0
   form.vat = 0
-  form.expenses = 0
   form.enquiryId = ''
   form.quotationId = ''
-  form.reference = ''
   form.remarks = ''
   form.notes = ''
   form.items = []
@@ -1377,10 +1232,8 @@ const loadExistingOrder = async () => {
       form.currency = order.currency
       form.exchangeRate = order.exchangeRate || 1.0
       form.vat = order.vat || 0
-      form.expenses = order.expenses || 0
       form.enquiryId = order.enquiryId
       form.quotationId = order.quotationId
-      form.reference = order.reference || ''
       form.remarks = order.remarks || ''
       form.notes = order.notes || ''
       form.items = order.items || []
@@ -1444,15 +1297,38 @@ watch(
         
         console.log('Total pricing items found:', pricingItems.length, pricingItems)
         
-        // Transform pricing items to order items format
-        form.items = pricingItems.map((pItem: any) => ({
-          name: pItem.description || '',
-          category: pItem.item_type || '',
-          quantity: pItem.quantity || 1,
-          rate: pItem.rate || 0,
-          discount: 0,
-          amount: pItem.amount || 0
-        }))
+        // Log the first item to see all available fields
+        if (pricingItems.length > 0) {
+          console.log('Sample item fields:', Object.keys(pricingItems[0]))
+          console.log('Complete first item object:', pricingItems[0])
+        }
+        
+        // Transform pricing items to order items format - extract quantity and rate from line items
+        form.items = pricingItems.map((pItem: any) => {
+          console.log('Full item data:', pItem)
+          // Try multiple possible field names for rate
+          let unitRate = pItem.rate || pItem.unit_price || pItem.unit_rate || pItem.rate_amount || pItem.price || pItem.unit_cost || 0
+          const qty = pItem.quantity || pItem.qty || pItem.line_qty || 1
+          const totalAmount = pItem.amount || pItem.total || pItem.line_total || pItem.total_amount || (qty * unitRate)
+          
+          // If rate is 0 but we have amount, calculate rate from amount/quantity
+          if (unitRate === 0 && totalAmount > 0 && qty > 0) {
+            unitRate = totalAmount / qty
+          }
+          
+          const discount = pItem.discount || pItem.discount_amount || pItem.line_discount || 0
+          
+          console.log(`Mapped: name=${pItem.item_name}, qty=${qty}, rate=${unitRate}, amount=${totalAmount}`)
+          
+          return {
+            name: pItem.item_name || pItem.description || '',
+            category: pItem.item_type || pItem.category || '',
+            quantity: qty,
+            rate: unitRate,
+            discount: discount,
+            amount: totalAmount
+          }
+        })
         
         console.log(`Auto-populated ${form.items.length} items from pricing #${pricingId}`)
         
@@ -1460,70 +1336,174 @@ watch(
         console.log('Fetching parties for pricing ID:', pricingId)
         const pricingParties = await orderStore.fetchPricingParties(pricingId)
         console.log('Pricing parties fetched:', pricingParties)
+        console.log('Number of parties:', pricingParties.length)
+        
+        // Log first party to see structure
+        if (pricingParties.length > 0) {
+          console.log('Sample party fields:', Object.keys(pricingParties[0]))
+          console.log('Complete first party object:', pricingParties[0])
+        }
         
         // Transform pricing parties to order parties format
-        form.parties = pricingParties.map((party: any) => ({
-          role: party.role || 'CLIENT',
-          entity: party.entity_id?.toString() || '',
-          entity_name: party.entity_name || party.name || '',
-          contact_person: party.contact_person || '',
-          contact_phone: party.phone || party.contact_phone || '',
-          email: party.email || ''
-        }))
+        form.parties = pricingParties.map((party: any) => {
+          console.log('Mapping party:', party)
+          return {
+            role: party.role || 'CLIENT',
+            entity: party.entity_id?.toString() || '',
+            entity_name: party.entity_name || party.name || party.entity || '',
+            contact_person: party.contact_person || party.contact || '',
+            contact_phone: party.phone || party.contact_phone || party.telephone || '',
+            email: party.email || party.contact_email || ''
+          }
+        })
         
         console.log(`Auto-populated ${form.parties.length} parties from pricing #${pricingId}`)
         console.log('Form parties after auto-population:', form.parties)
+        console.log('Form parties after auto-population:', form.parties)
         
         // ===== AUTO-POPULATE LOGISTICS & PARTICIPANTS =====
-        console.log('Fetching logistics for pricing ID:', pricingId)
-        const pricingLogistics = await orderStore.fetchPricingLogistics(pricingId)
-        console.log('Pricing logistics fetched:', pricingLogistics)
+        // Use the new smart endpoint that extracts all data from quotation
+        console.log('Fetching complete quotation data for pricing ID:', pricingId)
         
-        // Auto-populate participants counts
-        if (pricingLogistics.participants) {
-          const participants = pricingLogistics.participants
-          form.participants = []
+        try {
+          // Try the new endpoint first - returns intelligently parsed data
+          const baseUrl = import.meta.env.VITE_APP_BASE_URL || ''
+          const response = await fetch(`${baseUrl}orders/load-from-quotation/${pricingId}`, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          })
           
-          // Add hunter participants
-          if (participants.hunter > 0) {
-            form.participants.push({ party_type: 'HUNTER', count: participants.hunter })
+          if (response.ok) {
+            const quotationData = await response.json()
+            const data = quotationData.data || quotationData
+            
+            console.log('Quotation data fetched from new endpoint:', data)
+            
+            // Auto-populate Order Type and Status from quotation
+            if (data.order_type) {
+              // Find the order type ID that matches the returned order_type value
+              const orderTypeObj = orderTypes.value.find((ot: any) => 
+                ot.id === data.order_type || ot.name?.toUpperCase() === data.order_type?.toUpperCase() || ot.value === data.order_type
+              )
+              if (orderTypeObj) {
+                form.orderType = orderTypeObj.id || orderTypeObj.value
+                console.log(`Auto-populated orderType: ${orderTypeObj.name} (${form.orderType})`)
+              } else {
+                // If no exact match, try to use the value directly
+                form.orderType = data.order_type
+                console.log(`Auto-populated orderType: ${data.order_type}`)
+              }
+            }
+            if (data.order_status) {
+              const statusObj = orderStatuses.value.find((s: any) => 
+                s.id === data.order_status || s.name?.toUpperCase() === data.order_status?.toUpperCase()
+              )
+              if (statusObj) {
+                form.status = statusObj.id
+                console.log(`Auto-populated status: ${statusObj.name} (${statusObj.id})`)
+              }
+            }
+
+            // Auto-populate currency from quotation
+            console.log('Checking for currency in data:', { currency: data.currency, currency_id: data.currency_id, currencyId: data.currencyId })
+            const currencyField = data.currency || data.currency_id || data.currencyId
+            if (currencyField) {
+              const currencyObj = currencies.value.find((c: any) => 
+                c.id === currencyField || c.code?.toUpperCase() === currencyField?.toString()?.toUpperCase() || c.symbol === currencyField
+              )
+              if (currencyObj) {
+                form.currency = currencyObj.id
+                console.log(`Auto-populated currency: ${currencyObj.name} (${currencyObj.id})`)
+              } else {
+                form.currency = currencyField
+                console.log(`Auto-populated currency: ${currencyField}`)
+              }
+            } else {
+              console.log('No currency field found in quotation data')
+            }
+
+            // Auto-populate order date from quotation
+            if (data.order_date) {
+              form.orderDate = data.order_date
+              console.log(`Auto-populated orderDate: ${data.order_date}`)
+            } else {
+              console.log('No order_date field found in quotation data')
+            }
+            
+            // Auto-populate participants from intelligent extraction
+            if (data.participants && Array.isArray(data.participants)) {
+              form.participants = data.participants.map((p: any) => ({
+                party_type: p.type || p.party_type,
+                count: p.count || 0
+              }))
+              console.log(`Auto-populated ${form.participants.length} participants from quotation:`, form.participants)
+            }
+            
+            // Auto-populate logistics from intelligent extraction
+            if (data.logistics && Array.isArray(data.logistics)) {
+              form.logistics = data.logistics.map((logItem: any) => {
+                // Extract fields using new pricing structure
+                const description = logItem.description || logItem.item_name || logItem.remarks || ''
+                const quantity = logItem.quantity || logItem.qty || logItem.line_qty || 0
+                const unitAmount = logItem.unit_amount || logItem.rate || logItem.unit_price || logItem.unit_cost || 0
+                const totalAmount = logItem.total_amount || logItem.amount || logItem.total || logItem.line_total || (quantity * unitAmount) || 0
+                
+                return {
+                  description: description,
+                  quantity: quantity,
+                  unit_amount: unitAmount,
+                  total_amount: totalAmount,
+                  is_estimate: logItem.is_estimate || false,
+                  is_optional: logItem.is_optional || false
+                }
+              })
+              console.log(`Auto-populated ${form.logistics.length} logistics from quotation:`, form.logistics)
+            }
+          } else {
+            // Fallback to old method if new endpoint not available
+            console.log('New endpoint not available, falling back to legacy method')
+            const pricingLogistics = await orderStore.fetchPricingLogistics(pricingId)
+            console.log('Pricing logistics fetched (legacy):', pricingLogistics)
+            
+            // Auto-populate participants counts from legacy endpoint
+            if (pricingLogistics.participants) {
+              const participants = pricingLogistics.participants
+              form.participants = []
+              
+              // Add hunter participants
+              if (participants.hunter > 0) {
+                form.participants.push({ party_type: 'HUNTER', count: participants.hunter })
+              }
+              // Add observer participants
+              if (participants.observer > 0) {
+                form.participants.push({ party_type: 'OBSERVER', count: participants.observer })
+              }
+              // Add companion participants
+              if (participants.companion > 0) {
+                form.participants.push({ party_type: 'COMPANION', count: participants.companion })
+              }
+              
+              console.log(`Auto-populated participants from pricing #${pricingId}:`, form.participants)
+            }
+            
+            // Auto-populate logistics items from legacy endpoint
+            if (pricingLogistics.logistics && Array.isArray(pricingLogistics.logistics)) {
+              form.logistics = pricingLogistics.logistics.map((logItem: any) => ({
+                description: logItem.description || logItem.item_name || logItem.remarks || '',
+                quantity: logItem.quantity || logItem.qty || logItem.line_qty || 0,
+                unit_amount: logItem.unit_amount || logItem.rate || logItem.unit_price || logItem.unit_cost || 0,
+                total_amount: logItem.total_amount || logItem.amount || logItem.total || logItem.line_total || 0,
+                is_estimate: logItem.is_estimate || false,
+                is_optional: logItem.is_optional || false
+              }))
+              
+              console.log(`Auto-populated ${form.logistics.length} logistics from pricing #${pricingId}`)
+            }
           }
-          // Add observer participants
-          if (participants.observer > 0) {
-            form.participants.push({ party_type: 'OBSERVER', count: participants.observer })
-          }
-          // Add companion participants
-          if (participants.companion > 0) {
-            form.participants.push({ party_type: 'COMPANION', count: participants.companion })
-          }
-          // Add staff participants
-          if (participants.staff > 0) {
-            form.participants.push({ party_type: 'STAFF', count: participants.staff })
-          }
-          
-          console.log(`Auto-populated participants from pricing #${pricingId}:`, form.participants)
-        }
-        
-        // Auto-populate logistics items
-        if (pricingLogistics.logistics && Array.isArray(pricingLogistics.logistics)) {
-          form.logistics = pricingLogistics.logistics.map((logItem: any) => ({
-            logistics_type: logItem.logistics_type || 'HOTEL',
-            location: logItem.location || '',
-            check_in_date: logItem.check_in_date || '',
-            nights: logItem.nights || 0,
-            rooms: logItem.rooms || 0,
-            from_airport: logItem.from_airport || '',
-            to_airport: logItem.to_airport || '',
-            flight_date: logItem.flight_date || '',
-            seats: logItem.seats || 0,
-            from_location: logItem.from_location || '',
-            to_location: logItem.to_location || '',
-            transfer_date: logItem.transfer_date || '',
-            vehicle_type: logItem.vehicle_type || '',
-            description: logItem.description || ''
-          }))
-          
-          console.log(`Auto-populated ${form.logistics.length} logistics from pricing #${pricingId}`)
+        } catch (err: any) {
+          console.error('Error fetching quotation data:', err.message)
         }
       } catch (err: any) {
         console.error('Error fetching pricing items/parties/logistics:', err?.message || err)
@@ -1552,7 +1532,7 @@ onMounted(() => {
 <style scoped>
 /* Layout */
 .order-form-page {
-  padding: 16px;
+  padding: 12px;
   background: #f5f7fa;
   min-height: 100vh;
 }
@@ -1562,9 +1542,9 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 20px;
-  margin-bottom: 24px;
-  padding: 20px;
+  gap: 16px;
+  margin-bottom: 16px;
+  padding: 14px 16px;
   background: white;
   border-radius: 12px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
@@ -1609,7 +1589,7 @@ onMounted(() => {
 .grid {
   display: grid;
   grid-template-columns: 420px 1fr;
-  gap: 20px;
+  gap: 14px;
   align-items: start;
 }
 
@@ -1625,8 +1605,8 @@ onMounted(() => {
 .panel-header {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 18px 20px;
+  gap: 12px;
+  padding: 12px 14px;
   background: #f8fafc;
   border-bottom: 2px solid #e2e8f0;
 }
@@ -1662,17 +1642,17 @@ onMounted(() => {
 }
 
 .form {
-  padding: 12px;
+  padding: 8px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 6px;
   background: #fafbfc;
 }
 
 .form-section {
   background: white;
   border-radius: 8px;
-  padding: 10px 12px;
+  padding: 8px 10px;
   border: 1px solid #e2e8f0;
   overflow: hidden;
   box-sizing: border-box;
@@ -1713,7 +1693,7 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 
 .field:last-child {
@@ -1773,6 +1753,11 @@ onMounted(() => {
   background-position: right 2px center;
 }
 
+.input-wrapper select:disabled {
+  background-image: none;
+  padding-right: 4px;
+}
+
 .textarea {
   border: 1px solid #e2e8f0;
   border-radius: 8px;
@@ -1790,7 +1775,7 @@ onMounted(() => {
 
 /* Tabs Card */
 .tabs-card {
-  padding: 16px 20px;
+  padding: 12px 14px;
   background: white;
   border-bottom: 1px solid #e2e8f0;
 }
@@ -1842,7 +1827,7 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .subsection-header h4 {
@@ -1864,6 +1849,42 @@ onMounted(() => {
   border-bottom: none;
 }
 
+.subsection-group {
+  background: #f9fafb;
+  border-left: 4px solid #e2e8f0;
+  padding: 10px 12px;
+  border-radius: 6px;
+  margin-bottom: 10px;
+}
+
+.subsection-group:last-child {
+  margin-bottom: 0;
+}
+
+.subsection-group h5 {
+  margin: 0 0 12px 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f172a;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.subsection-group .form-section {
+  background: white;
+  border: 1px solid #e2e8f0;
+  padding: 12px;
+  border-radius: 6px;
+  margin-bottom: 12px;
+}
+
+.subsection-group .form-section:last-child {
+  margin-bottom: 0;
+}
+
 .btn-count {
   font-size: 11px;
   color: #64748b;
@@ -1876,7 +1897,7 @@ onMounted(() => {
 }
 
 .section-content {
-  padding: 12px;
+  padding: 8px;
   background: #fafbfc;
 }
 
@@ -1884,22 +1905,23 @@ onMounted(() => {
   background: white;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
-  padding: 14px;
-  margin-bottom: 12px;
+  padding: 10px;
+  margin-bottom: 8px;
 }
 
 .section-navigation {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  margin-top: 10px;
 }
 
 .section-inner-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .section-inner-header h4 {
@@ -2301,8 +2323,8 @@ onMounted(() => {
 .allergy-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 10px;
+  gap: 6px;
+  margin-top: 6px;
 }
 
 .tag {
@@ -2335,7 +2357,7 @@ onMounted(() => {
 .form-label {
   display: block;
   font-weight: 600;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
   color: #334155;
   font-size: 13px;
 }
@@ -2357,7 +2379,7 @@ onMounted(() => {
 }
 
 .table-wrapper {
-  overflow-x: auto;
+  overflow-x: visible;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
 }
@@ -2374,7 +2396,7 @@ onMounted(() => {
 }
 
 .data-table th {
-  padding: 12px 16px;
+  padding: 8px 12px;
   text-align: left;
   font-weight: 600;
   font-size: 12px;
@@ -2384,7 +2406,7 @@ onMounted(() => {
 }
 
 .data-table td {
-  padding: 12px 16px;
+  padding: 8px 12px;
   border-bottom: 1px solid #f1f5f9;
   font-size: 13px;
 }
@@ -2399,7 +2421,7 @@ onMounted(() => {
 }
 
 .data-table .form-row td {
-  padding: 8px 12px;
+  padding: 6px 10px;
   vertical-align: middle;
 }
 
@@ -2431,13 +2453,20 @@ onMounted(() => {
   color: #cbd5e1;
 }
 
+.text-muted {
+  color: #64748b;
+  font-size: 12px;
+}
+
 .justify-center {
   justify-content: center;
 }
 
 .btn-xs {
-  padding: 4px 8px;
+  padding: 3px 6px;
   font-size: 10px;
+  height: 26px;
+  min-height: 26px;
 }
 
 .form-checkbox-wrapper {
