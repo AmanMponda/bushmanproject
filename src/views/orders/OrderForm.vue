@@ -24,6 +24,34 @@
       </div>
     </div>
 
+    <!-- PAYMENT SUMMARY BANNER (Only show when editing) -->
+    <div v-if="isEdit && paymentSummary" class="payment-summary-banner">
+      <div class="summary-card">
+        <div class="summary-item">
+          <div class="summary-label">Total Due</div>
+          <div class="summary-value">{{ formatCurrency(paymentSummary.total_due) }}</div>
+        </div>
+        <div class="summary-item">
+          <div class="summary-label">Total Paid</div>
+          <div class="summary-value paid">{{ formatCurrency(paymentSummary.total_paid) }}</div>
+        </div>
+        <div class="summary-item">
+          <div class="summary-label">Remaining</div>
+          <div class="summary-value remaining">{{ formatCurrency(paymentSummary.total_remaining) }}</div>
+        </div>
+        <div class="summary-item">
+          <div class="summary-label">Status</div>
+          <div class="summary-badge" :style="{ backgroundColor: getStatusColor(paymentSummary.status) }">
+            {{ getStatusLabel(paymentSummary.status) }}
+          </div>
+        </div>
+      </div>
+      <div class="progress-bar">
+        <div class="progress" :style="{ width: paymentSummary.payment_percentage + '%' }"></div>
+      </div>
+      <div class="progress-text">{{ paymentSummary.payment_percentage }}% Paid</div>
+    </div>
+
     <!-- 2-Column Grid Layout -->
     <section class="grid">
       <!-- LEFT PANEL: Order Details -->
@@ -235,7 +263,7 @@
 
               <!-- Items Table -->
               <div class="table-wrapper mt-3">
-                <table class="data-table">
+                <table class="data-table parties-table">
                   <thead>
                     <tr>
                       <th style="min-width: 200px">Name</th>
@@ -273,10 +301,9 @@
                 <table class="data-table">
                   <thead>
                     <tr>
-                      <th style="min-width: 100px">Role</th>
-                      <th style="min-width: 150px">Entity Name</th>
-                      <th style="min-width: 140px">Contact Person</th>
-                      <th style="min-width: 130px">Phone</th>
+                      <th>Role</th>
+                      <th>Entity Name</th>
+                      <th>Phone</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -288,7 +315,6 @@
                         </span>
                       </td>
                       <td>{{ party.entity?.full_name || party.entity_name || party.entity || '-' }}</td>
-                      <td>{{ party.contact_person || '-' }}</td>
                       <td>{{ party.contact_phone || '-' }}</td>
                     </tr>
                   </tbody>
@@ -368,10 +394,6 @@
                             <input v-model="editLogistics.from_location" placeholder="From" class="form-input" style="margin: 0; flex: 1; font-size: 12px;" />
                             <input v-model="editLogistics.to_location" placeholder="To" class="form-input" style="margin: 0; flex: 1; font-size: 12px;" />
                           </div>
-                          <div style="display: flex; gap: 8px;">
-                            <input v-model.number="editLogistics.passengers_hunters" type="number" placeholder="Hunters" min="0" class="form-input" style="margin: 0; width: 70px; font-size: 12px;" />
-                            <input v-model.number="editLogistics.passengers_observers" type="number" placeholder="Observers" min="0" class="form-input" style="margin: 0; width: 70px; font-size: 12px;" />
-                          </div>
                         </div>
 
                         <!-- OTHER/Default -->
@@ -421,7 +443,6 @@
                         <div style="font-size: 11px; color: #666; margin-top: 4px;">
                           <span v-if="logistics.rooms">{{ logistics.rooms }} room(s), {{ logistics.nights }} night(s)</span>
                           <span v-else-if="logistics.seats">{{ logistics.seats }} seats</span>
-                          <span v-else-if="logistics.passengers_hunters">{{ logistics.passengers_hunters }} hunter(s), {{ logistics.passengers_observers }} observer(s)</span>
                         </div>
                       </td>
                       <td>
@@ -447,6 +468,7 @@
                   </tbody>
                 </table>
               </div>
+              <div v-if="form.logistics.length === 0 && editingLogistics.length === 0" class="empty-state mt-3">No logistics added yet</div>
               <div v-if="form.logistics.length === 0 && editingLogistics.length === 0" class="empty-state mt-3">No logistics added yet</div>
             </div>
 
@@ -632,13 +654,74 @@
               </div>
             </div>
 
+            <!-- PAYMENT TRACKING SECTION (Only shown when editing existing order) -->
+            <div v-if="isEdit && paymentSummary" style="margin-top: 24px; padding: 16px; background: #f0f9ff; border-radius: 6px; border-left: 4px solid #3b82f6;">
+              <h5 style="margin: 0 0 14px 0; font-size: 14px; font-weight: 600; color: #0c4a6e;">
+                <i class="fas fa-credit-card" style="margin-right: 8px;"></i>Payment Status & Recording
+              </h5>
+              
+              <div v-if="paymentSummary.installment_count > 0" class="installment-payments-list">
+                <div v-for="(inst, idx) in paymentSummary.installments || []" :key="idx" class="payment-item">
+                  <div class="payment-header">
+                    <div class="payment-title">
+                      {{ inst.narration }}
+                      <span v-if="inst.is_fully_paid" class="payment-badge completed">PAID</span>
+                      <span v-else-if="inst.status === 'PARTIALLY_PAID'" class="payment-badge partial">{{ inst.payment_percentage }}% PAID</span>
+                      <span v-else class="payment-badge notstarted">NOT PAID</span>
+                    </div>
+                  </div>
+                  
+                  <div class="payment-details">
+                    <div class="detail">
+                      <span class="detail-label">Due:</span>
+                      <span class="detail-value">{{ formatCurrency(inst.amount_due) }}</span>
+                    </div>
+                    <div class="detail">
+                      <span class="detail-label">Paid:</span>
+                      <span class="detail-value">{{ formatCurrency(inst.amount_paid) }}</span>
+                    </div>
+                    <div class="detail">
+                      <span class="detail-label">Remaining:</span>
+                      <span class="detail-value">{{ formatCurrency(inst.remaining_balance) }}</span>
+                    </div>
+                  </div>
+                  
+                  <div class="payment-progress">
+                    <div class="progress-bar">
+                      <div class="progress" :style="{ width: inst.payment_percentage + '%', backgroundColor: getStatusColor(inst.status) }"></div>
+                    </div>
+                    <div class="progress-label">{{ inst.payment_percentage }}% Paid</div>
+                  </div>
+                  
+                  <div class="payment-actions">
+                    <button 
+                      @click="openPaymentModal(inst)"
+                      :disabled="inst.is_fully_paid"
+                      class="btn btn-primary btn-sm"
+                      type="button"
+                    >
+                      <i class="fas fa-plus"></i> Record Payment
+                    </button>
+                    <button 
+                      v-if="inst.payment_count > 0"
+                      @click="openPaymentHistory(inst)"
+                      class="btn btn-secondary btn-sm"
+                      type="button"
+                    >
+                      <i class="fas fa-history"></i> History ({{ inst.payment_count }})
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <!-- Navigation Buttons -->
             <div class="section-navigation mt-4">
               <button @click="goToPreviousSection" class="btn btn-secondary" type="button" :disabled="getCurrentSectionIndex() === 0">
                 <i class="fas fa-arrow-left me-2"></i>Previous
               </button>
-              <button @click="goToNextSection" class="btn btn-primary" type="button" :disabled="getCurrentSectionIndex() === sectionOrder.length - 1">
-                Next<i class="fas fa-arrow-right ms-2"></i>
+              <button @click="submit" class="btn btn-success" type="button" :disabled="saving">
+                <i class="fas fa-save me-2"></i>{{ saving ? 'Saving...' : isEdit ? 'Update Order' : 'Save Order' }}
               </button>
             </div>
           </div>
@@ -652,48 +735,63 @@
             <div class="subsection">
               <!-- DIETARY PREFERENCES SUBSECTION -->
               <div class="subsection-group">
-                <h5 style="display: flex; align-items: center; gap: 0.5rem; color: #333; margin-bottom: 0.8rem; font-size: 0.95rem; font-weight: 600;">
+                <h5 style="display: flex; align-items: center; gap: 0.5rem; color: #333; margin-bottom: 1.2rem; font-size: 0.95rem; font-weight: 600;">
                   <i class="fas fa-utensils" style="color: #ff6b35;"></i>
                   Dietary & Beverage Preferences
                 </h5>
 
                 <!-- Row 1: Food & Beverage in horizontal layout -->
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
-                  <div class="form-section" style="display: flex; flex-direction: column; height: 100px;">
+                  <div class="form-section" style="display: flex; flex-direction: column; height: 100px; position: relative;">
                     <label class="form-label">Food Preferences</label>
-                    <textarea v-model="form.preferences.food_preferences" placeholder="Food preferences, restrictions..." class="form-textarea" rows="2" style="flex: 1; resize: none;"></textarea>
+                    <div style="position: relative; flex: 1; display: flex;">
+                      <textarea v-model="form.preferences.food_preferences" @input="formatBulletText('food')" placeholder="Enter each preference on a new line..." class="form-textarea" rows="2" style="flex: 1; resize: none; background: white; position: relative; z-index: 2;"></textarea>
+                    </div>
                   </div>
-                  <div class="form-section" style="display: flex; flex-direction: column; height: 100px;">
+                  <div class="form-section" style="display: flex; flex-direction: column; height: 100px; position: relative;">
                     <label class="form-label">Beverage Preferences</label>
-                    <textarea v-model="form.preferences.beverage_preferences" placeholder="Beverage preferences..." class="form-textarea" rows="2" style="flex: 1; resize: none;"></textarea>
+                    <div style="position: relative; flex: 1; display: flex;">
+                      <textarea v-model="form.preferences.beverage_preferences" @input="formatBulletText('beverage')" placeholder="Enter each preference on a new line..." class="form-textarea" rows="2" style="flex: 1; resize: none; background: white; position: relative; z-index: 2;"></textarea>
+                    </div>
                   </div>
                 </div>
 
                 <!-- Row 2: Alcohol Preference & Allergies Input in horizontal layout -->
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 0;">
-                  <div class="form-section" style="display: flex; flex-direction: column; height: 100px;">
+                  <div class="form-section" style="display: flex; flex-direction: column; height: 100px; position: relative;">
                     <label class="form-label">Alcohol Preference</label>
-                    <textarea v-model="form.preferences.alcohol_preferences" placeholder="Alcohol preferences, restrictions..." class="form-textarea" rows="2" style="flex: 1; resize: none;"></textarea>
-                  </div>
-                  <div class="form-section" style="display: flex; flex-direction: column; height: 120px;">
-                    <label class="form-label">Allergies</label>
-                    <div style="display: flex; gap: 4px; align-items: flex-start; flex: 1; flex-direction: column;">
-                      <div style="display: flex; gap: 4px; width: 100%;">
-                        <input v-model="newAllergy" type="text" placeholder="e.g., Peanuts, Dairy..." class="form-input" style="flex: 1;" />
-                        <button @click="addAllergy" class="btn btn-xs btn-primary" type="button" style="padding: 3px 10px; flex-shrink: 0; height: 40px;">
-                          <i class="fas fa-plus"></i>
-                        </button>
-                      </div>
-                      <div style="flex: 1; width: 100%;">
-                        <div v-if="form.preferences.allergies && form.preferences.allergies.length > 0" class="allergy-tags" style="margin-top: 0.5rem;">
-                          <span v-for="(allergy, idx) in form.preferences.allergies" :key="idx" class="tag">
-                            {{ allergy }}
-                            <button @click="removeAllergy(idx)" class="tag-remove" type="button">&times;</button>
-                          </span>
-                        </div>
-                        <div v-else class="text-muted" style="font-size: 0.8rem; margin-top: 0.3rem;">No allergies</div>
-                      </div>
+                    <div style="position: relative; flex: 1; display: flex;">
+                      <textarea v-model="form.preferences.alcohol_preferences" @input="formatBulletText('alcohol')" placeholder="Enter each preference on a new line..." class="form-textarea" rows="2" style="flex: 1; resize: none; background: white; position: relative; z-index: 2;"></textarea>
                     </div>
+                  </div>
+
+                  <!-- Allergies Input -->
+                  <div class="form-section" style="display: flex; flex-direction: column;">
+                    <label class="form-label" style="margin-bottom: 0.6rem; font-weight: 500; color: #555;">
+                      ⚠️ Allergies
+                    </label>
+                    <div style="display: flex; gap: 0.6rem; align-items: center; margin-bottom: 0.8rem;">
+                      <input 
+                        v-model="newAllergy" 
+                        type="text" 
+                        placeholder="e.g., Peanuts, Dairy, Shellfish..." 
+                        class="form-input" 
+                        style="flex: 1; padding: 0.65rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9rem;" />
+                      <button 
+                        @click="addAllergy" 
+                        class="btn btn-primary" 
+                        type="button" 
+                        style="padding: 0.65rem 1rem; flex-shrink: 0; height: auto; border-radius: 4px;">
+                        <i class="fas fa-plus"></i> Add
+                      </button>
+                    </div>
+                    <div v-if="form.preferences.allergies && form.preferences.allergies.length > 0" class="allergy-tags" style="display: flex; flex-wrap: wrap; gap: 0.6rem;">
+                      <span v-for="(allergy, idx) in form.preferences.allergies" :key="idx" class="tag" style="display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.5rem 0.8rem; background: #fff3cd; border: 1px solid #ffc107; border-radius: 20px; font-size: 0.85rem; color: #856404;">
+                        {{ allergy }}
+                        <button @click="removeAllergy(idx)" class="tag-remove" type="button" style="background: none; border: none; color: #856404; cursor: pointer; font-size: 1.1rem; padding: 0; line-height: 1;">&times;</button>
+                      </span>
+                    </div>
+                    <div v-else class="text-muted" style="font-size: 0.85rem; color: #999; margin-top: 0.3rem;">No allergies added</div>
                   </div>
                 </div>
               </div>
@@ -718,14 +816,202 @@
               <button @click="goToPreviousSection" class="btn btn-secondary" type="button" :disabled="getCurrentSectionIndex() === 0">
                 <i class="fas fa-arrow-left me-2"></i>Previous
               </button>
-              <button @click="submit" class="btn btn-success" type="button">
-                <i class="fas fa-save me-2"></i>Save Order
+              <button @click="goToNextSection" class="btn btn-primary" type="button" :disabled="getCurrentSectionIndex() === sectionOrder.length - 1">
+                Next<i class="fas fa-arrow-right ms-2"></i>
               </button>
             </div>
           </div>
         </div>
       </aside>
     </section>
+
+    <!-- PAYMENT MODAL -->
+    <div v-if="showPaymentModal" class="modal-overlay" @click="closePaymentModal">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header">
+          <h3>Record Payment</h3>
+          <button class="btn-close" @click="closePaymentModal" type="button">✕</button>
+        </div>
+        
+        <div class="modal-body" v-if="selectedInstallmentForPayment">
+          <!-- Installment Info -->
+          <div class="info-section">
+            <div class="info-row">
+              <span class="label">Installment:</span>
+              <span class="value">{{ selectedInstallmentForPayment.narration }}</span>
+            </div>
+            <div class="info-row">
+              <span class="label">Amount Due:</span>
+              <span class="value">{{ formatCurrency(selectedInstallmentForPayment.amount_due) }}</span>
+            </div>
+            <div class="info-row">
+              <span class="label">Amount Paid:</span>
+              <span class="value">{{ formatCurrency(selectedInstallmentForPayment.amount_paid) }}</span>
+            </div>
+            <div class="info-row">
+              <span class="label">Remaining Balance:</span>
+              <span class="value" style="color: #dc3545;">{{ formatCurrency(selectedInstallmentForPayment.remaining_balance) }}</span>
+            </div>
+          </div>
+
+          <!-- Payment Form -->
+          <div class="form-group">
+            <label>Amount Paid <span class="req">*</span></label>
+            <input 
+              v-model.number="newPayment.amount_paid"
+              type="number" 
+              placeholder="Enter amount to pay"
+              step="0.01"
+              :max="selectedInstallmentForPayment.remaining_balance"
+              min="0"
+              class="form-input"
+            />
+            <small>Max: {{ formatCurrency(selectedInstallmentForPayment.remaining_balance) }}</small>
+          </div>
+
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Journal Voucher ID <span class="req">*</span></label>
+              <input 
+                v-model.number="newPayment.journal_voucher_id"
+                type="number"
+                placeholder="Enter voucher ID"
+                class="form-input"
+              />
+            </div>
+
+            <div class="form-group">
+              <label>Bank Account <span class="req">*</span></label>
+              <input 
+                v-model.number="newPayment.account_id"
+                type="number"
+                placeholder="Enter account ID"
+                class="form-input"
+              />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Narration</label>
+            <textarea 
+              v-model="newPayment.narration"
+              placeholder="Payment description"
+              class="form-textarea"
+              rows="2"
+            ></textarea>
+          </div>
+
+          <div class="form-section-title">Payment Method</div>
+
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Instrument Type <span class="req">*</span></label>
+              <select v-model="newPayment.instrument_type" class="form-input">
+                <option value="CASH">Cash</option>
+                <option value="CHEQUE">Cheque</option>
+                <option value="BANK_TRANSFER">Bank Transfer</option>
+                <option value="ONLINE">Online</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label>Reference/Check Number</label>
+              <input 
+                v-model="newPayment.instrument_number"
+                type="text"
+                placeholder="e.g., CHK-001, TXN-123"
+                class="form-input"
+              />
+            </div>
+          </div>
+
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Payment Date</label>
+              <input 
+                v-model="newPayment.instrument_date"
+                type="date"
+                class="form-input"
+              />
+            </div>
+
+            <div class="form-group">
+              <label>Payee Name</label>
+              <input 
+                v-model="newPayment.payee"
+                type="text"
+                placeholder="Who made the payment?"
+                class="form-input"
+              />
+            </div>
+          </div>
+
+          <div class="form-group" v-if="newPayment.instrument_type === 'BANK_TRANSFER'">
+            <label>Bank ID</label>
+            <input 
+              v-model.number="newPayment.bank_id"
+              type="number"
+              placeholder="Enter bank ID"
+              class="form-input"
+            />
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button @click="closePaymentModal" type="button" class="btn btn-secondary">Cancel</button>
+          <button @click="recordPayment" type="button" class="btn btn-primary" :disabled="saving">
+            {{ saving ? 'Recording...' : 'Record Payment' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAYMENT HISTORY MODAL -->
+    <div v-if="showPaymentHistory" class="modal-overlay" @click="showPaymentHistory = false">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header">
+          <h3>Payment History</h3>
+          <button class="btn-close" @click="showPaymentHistory = false" type="button">✕</button>
+        </div>
+        
+        <div class="modal-body">
+          <div v-if="paymentHistory.length === 0" class="empty-state">
+            <p>No payments recorded yet</p>
+          </div>
+          <div v-else class="history-list">
+            <div v-for="(payment, idx) in paymentHistory" :key="idx" class="history-item">
+              <div class="history-date">{{ new Date(payment.date).toLocaleDateString() }}</div>
+              <div class="history-details">
+                <div class="detail-row">
+                  <span class="label">Amount:</span>
+                  <span class="value">{{ formatCurrency(payment.amount) }}</span>
+                </div>
+                <div class="detail-row">
+                  <span class="label">Method:</span>
+                  <span class="value">{{ payment.instrument_type }}</span>
+                </div>
+                <div v-if="payment.instrument_number" class="detail-row">
+                  <span class="label">Reference:</span>
+                  <span class="value">{{ payment.instrument_number }}</span>
+                </div>
+                <div v-if="payment.narration" class="detail-row">
+                  <span class="label">Narration:</span>
+                  <span class="value">{{ payment.narration }}</span>
+                </div>
+                <div v-if="payment.payee" class="detail-row">
+                  <span class="label">Payee:</span>
+                  <span class="value">{{ payment.payee }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button @click="showPaymentHistory = false" type="button" class="btn btn-secondary">Close</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -756,6 +1042,27 @@ const showInstallmentForm = ref(false)
 const newAllergy = ref('')
 const originalSidebarState = ref(false)
 
+// Payment Management State
+const paymentSummary = ref<any>(null)
+const paymentHistory = ref<any[]>([])
+const showPaymentModal = ref(false)
+const selectedInstallmentForPayment = ref<any>(null)
+const showPaymentHistory = ref(false)
+const loadingPayments = ref(false)
+
+const newPayment = reactive({
+  amount_paid: 0,
+  journal_voucher_id: null,
+  account_id: null,
+  narration: '',
+  reference_number: '',
+  instrument_type: 'CASH',
+  instrument_number: '',
+  instrument_date: new Date().toISOString().split('T')[0],
+  payee: '',
+  bank_id: null,
+})
+
 const showSections = reactive({
   items: false,
   logistics: false,
@@ -766,10 +1073,10 @@ const showSections = reactive({
 const form = reactive({
   // BASIC INFO
   orderNumber: '',
-  orderType: 'SALES', // Default to SALES orders
-  status: 'DRAFT', // Default to DRAFT status
+  orderType: '', // Will be populated from backend
+  status: '', // Will be populated from backend
   orderDate: new Date().toISOString().split('T')[0],
-  currency: '1', // Default currency (adjust if needed)
+  currency: '', // Will be populated from backend
   exchangeRate: 1.0,
   vat: 0,
   
@@ -846,15 +1153,15 @@ const newLogistics = reactive({
   estimated_amount: 0,
   actual_amount: 0,
   // Status & Notes
-  status: 'PLANNED',
+  status: '', // Will be populated from backend
   notes: '',
 })
 
 const newInstallment = reactive({
   sequenceNo: 1,
   amountDue: 0,
-  amountDueType: 'FIXED',
-  dueDaysType: 'AFTER_CONFIRMATION',
+  amountDueType: '', // Will be populated from backend
+  dueDaysType: '', // Will be populated from backend
   dueDays: 0,
   isDeposit: false,
 })
@@ -899,18 +1206,12 @@ const logisticsTypes = computed(() => {
     }
   })
   
-  // If backend returns data, use mapped values; otherwise use fallback
+  // If backend returns data, use mapped values; otherwise return empty
   if (mapped.length > 0) {
     return mapped
   }
   
-  return [
-    { id: 1, key: 'AIRPORT', name: 'AIRPORT' },
-    { id: 2, key: 'CHARTER', name: 'CHARTER' },
-    { id: 3, key: 'HOTEL', name: 'HOTEL' },
-    { id: 4, key: 'TRANSFER', name: 'TRANSFER' },
-    { id: 5, key: 'OTHER', name: 'OTHER' },
-  ]
+  return [] // No hardcoded fallback - must fetch from backend
 })
 
 const logisticsStatuses = computed(() => {
@@ -937,21 +1238,17 @@ const logisticsStatuses = computed(() => {
     }
   })
   
-  // If backend returns data, use mapped values; otherwise use fallback
+  // If backend returns data, use mapped values; otherwise return empty
   if (mapped.length > 0) {
     return mapped
   }
   
-  return [
-    { id: 1, key: 'PLANNED', name: 'PLANNED' },
-    { id: 2, key: 'BOOKED', name: 'BOOKED' },
-    { id: 3, key: 'COSTED', name: 'COSTED' },
-  ]
+  return [] // No hardcoded fallback - must fetch from backend
 })
 const participantTypes = computed(() => 
   orderStore.participantTypes && orderStore.participantTypes.length > 0 
     ? orderStore.participantTypes.map((p: any) => p.id || p.code || p)
-    : ['HUNTER', 'OBSERVER', 'COMPANION', 'STAFF']
+    : [] // No hardcoded fallback - must fetch from backend
 )
 const installmentAmountTypes = computed(() => orderStore.installmentAmountTypes || [])
 const installmentDaysTypes = computed(() => orderStore.installmentDaysTypes || [])
@@ -1337,6 +1634,189 @@ const removeAllergy = (idx: number) => {
   if (form.preferences.allergies) {
     form.preferences.allergies.splice(idx, 1)
     toast.success('Allergy removed')
+  }
+}
+
+// Payment Management Methods
+const loadPaymentSummary = async () => {
+  if (!isEdit.value) return
+  
+  try {
+    loadingPayments.value = true
+    const response = await fetch(`/api/v1.0/orders/${id.value}/payment-summary`)
+    
+    if (!response.ok) throw new Error('Failed to load payment summary')
+    
+    const data = await response.json()
+    if (data.success) {
+      paymentSummary.value = data.data
+    }
+  } catch (error) {
+    console.error('Error loading payment summary:', error)
+  } finally {
+    loadingPayments.value = false
+  }
+}
+
+const loadInstallmentPaymentHistory = async (installmentId: number) => {
+  if (!isEdit.value) return
+  
+  try {
+    loadingPayments.value = true
+    const response = await fetch(`/api/v1.0/orders/${id.value}/installments/${installmentId}/payments`)
+    
+    if (!response.ok) throw new Error('Failed to load payment history')
+    
+    const data = await response.json()
+    if (data.success) {
+      paymentHistory.value = data.data || []
+    }
+  } catch (error) {
+    console.error('Error loading payment history:', error)
+    paymentHistory.value = []
+  } finally {
+    loadingPayments.value = false
+  }
+}
+
+const openPaymentModal = (installment: any) => {
+  selectedInstallmentForPayment.value = installment
+  newPayment.amount_paid = 0
+  newPayment.narration = installment.narration || ''
+  newPayment.reference_number = ''
+  newPayment.instrument_number = ''
+  newPayment.instrument_date = new Date().toISOString().split('T')[0]
+  newPayment.payee = ''
+  newPayment.journal_voucher_id = null
+  newPayment.account_id = null
+  newPayment.bank_id = null
+  newPayment.instrument_type = 'CASH'
+  showPaymentModal.value = true
+}
+
+const recordPayment = async () => {
+  if (!selectedInstallmentForPayment.value) return
+  
+  // Validate payment amount
+  const remaining = selectedInstallmentForPayment.value.remaining_balance
+  if (newPayment.amount_paid <= 0 || newPayment.amount_paid > remaining) {
+    toast.error(`Please enter amount between 1 and ${remaining}`)
+    return
+  }
+  
+  if (!newPayment.journal_voucher_id || !newPayment.account_id) {
+    toast.error('Please fill in Journal Voucher and Account')
+    return
+  }
+  
+  try {
+    saving.value = true
+    const response = await fetch(
+      `/api/v1.0/orders/${id.value}/installments/${selectedInstallmentForPayment.value.installment_id}/pay`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount_paid: newPayment.amount_paid,
+          journal_voucher_id: newPayment.journal_voucher_id,
+          account_id: newPayment.account_id,
+          narration: newPayment.narration,
+          reference_number: newPayment.reference_number,
+          instrument_type: newPayment.instrument_type,
+          instrument_number: newPayment.instrument_number,
+          instrument_date: newPayment.instrument_date,
+          payee: newPayment.payee,
+          bank_id: newPayment.bank_id,
+        }),
+      }
+    )
+    
+    if (!response.ok) throw new Error('Failed to record payment')
+    
+    const data = await response.json()
+    if (data.success) {
+      toast.success('Payment recorded successfully')
+      showPaymentModal.value = false
+      // Refresh payment data
+      await loadPaymentSummary()
+      await loadInstallmentPaymentHistory(selectedInstallmentForPayment.value.installment_id)
+    }
+  } catch (error) {
+    console.error('Error recording payment:', error)
+    toast.error('Failed to record payment')
+  } finally {
+    saving.value = false
+  }
+}
+
+const openPaymentHistory = async (installment: any) => {
+  selectedInstallmentForPayment.value = installment
+  await loadInstallmentPaymentHistory(installment.installment_id)
+  showPaymentHistory.value = true
+}
+
+const closePaymentModal = () => {
+  showPaymentModal.value = false
+  selectedInstallmentForPayment.value = null
+}
+
+const getStatusColor = (status: string): string => {
+  const colors: any = {
+    'NOT_STARTED': '#dc3545',
+    'PARTIALLY_PAID': '#ffc107',
+    'COMPLETED': '#28a745',
+    'OVERDUE': '#ff6b6b',
+  }
+  return colors[status] || '#6c757d'
+}
+
+const getStatusLabel = (status: string): string => {
+  const labels: any = {
+    'NOT_STARTED': 'Not Started',
+    'PARTIALLY_PAID': 'Partial',
+    'COMPLETED': 'Completed',
+    'OVERDUE': 'Overdue',
+  }
+  return labels[status] || status
+}
+
+const formatBulletText = (type: 'food' | 'beverage' | 'alcohol') => {
+  let text = ''
+  
+  if (type === 'food') {
+    text = form.preferences.food_preferences
+  } else if (type === 'beverage') {
+    text = form.preferences.beverage_preferences
+  } else if (type === 'alcohol') {
+    text = form.preferences.alcohol_preferences
+  }
+  
+  // Split by newlines
+  const lines = text.split('\n')
+  
+  // Process each line to ensure it has a bullet point
+  const formattedLines = lines.map(line => {
+    const trimmed = line.trim()
+    // If line is empty, keep it empty
+    if (!trimmed) return ''
+    // If line already starts with bullet, keep it
+    if (trimmed.startsWith('•')) return trimmed
+    // Otherwise add bullet
+    return '• ' + trimmed
+  })
+  
+  // Join back with newlines
+  const formatted = formattedLines.join('\n')
+  
+  // Only update if text changed
+  if (formatted !== text) {
+    if (type === 'food') {
+      form.preferences.food_preferences = formatted
+    } else if (type === 'beverage') {
+      form.preferences.beverage_preferences = formatted
+    } else if (type === 'alcohol') {
+      form.preferences.alcohol_preferences = formatted
+    }
   }
 }
 
@@ -1834,10 +2314,395 @@ onMounted(() => {
 
   loadDropdownData()
   loadExistingOrder()
+  
+  // Load payment data if editing existing order
+  if (isEdit.value) {
+    loadPaymentSummary()
+  }
 })
 </script>
 
 <style scoped>
+/* Textarea with bullet points styling */
+.form-textarea {
+  line-height: 1.6;
+  font-family: inherit;
+}
+
+/* Payment Summary Banner */
+.payment-summary-banner {
+  margin-bottom: 16px;
+  padding: 16px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border-left: 4px solid #3b82f6;
+}
+
+.summary-card {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.summary-item {
+  padding: 12px;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.summary-label {
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.summary-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.summary-value.paid {
+  color: #10b981;
+}
+
+.summary-value.remaining {
+  color: #dc3545;
+}
+
+.summary-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 20px;
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 8px;
+  background: #e2e8f0;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+
+.progress {
+  height: 100%;
+  background: linear-gradient(90deg, #3b82f6, #10b981);
+  transition: width 0.3s ease;
+}
+
+.progress-text {
+  text-align: right;
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+/* Modal Styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+  max-width: 500px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.btn-close {
+  background: none;
+  border: none;
+  font-size: 20px;
+  color: #64748b;
+  cursor: pointer;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-close:hover {
+  color: #1e293b;
+}
+
+.modal-body {
+  padding: 16px;
+}
+
+.modal-footer {
+  display: flex;
+  gap: 8px;
+  padding: 16px;
+  border-top: 1px solid #e2e8f0;
+  justify-content: flex-end;
+}
+
+.info-section {
+  background: #f8fafc;
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  border: 1px solid #e2e8f0;
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  font-size: 14px;
+}
+
+.info-row .label {
+  font-weight: 500;
+  color: #64748b;
+}
+
+.info-row .value {
+  color: #1e293b;
+  font-weight: 600;
+}
+
+.form-group {
+  margin-bottom: 12px;
+}
+
+.form-group label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: #1e293b;
+  margin-bottom: 4px;
+}
+
+.form-group small {
+  display: block;
+  font-size: 11px;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.form-input,
+.form-textarea {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+  background: white;
+}
+
+.form-input:focus,
+.form-textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.form-section-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 12px 0 8px 0;
+  padding: 0;
+}
+
+.req {
+  color: #dc3545;
+  font-weight: 600;
+}
+
+/* Payment Items List */
+.installment-payments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.payment-item {
+  background: white;
+  border: 1px solid #dbeafe;
+  border-radius: 8px;
+  padding: 12px;
+  transition: all 0.2s ease;
+}
+
+.payment-item:hover {
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.15);
+}
+
+.payment-header {
+  margin-bottom: 8px;
+}
+
+.payment-title {
+  font-weight: 600;
+  color: #1e293b;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.payment-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: 600;
+  color: white;
+}
+
+.payment-badge.completed {
+  background: #10b981;
+}
+
+.payment-badge.partial {
+  background: #f59e0b;
+}
+
+.payment-badge.notstarted {
+  background: #ef4444;
+}
+
+.payment-details {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 12px;
+}
+
+.detail {
+  display: flex;
+  justify-content: space-between;
+}
+
+.detail-label {
+  color: #64748b;
+  font-weight: 500;
+}
+
+.detail-value {
+  color: #1e293b;
+  font-weight: 600;
+}
+
+.payment-progress {
+  margin-bottom: 8px;
+}
+
+.progress-label {
+  font-size: 11px;
+  color: #64748b;
+  text-align: right;
+  margin-top: 2px;
+}
+
+.payment-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.btn-sm {
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.history-item {
+  padding: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.history-date {
+  font-size: 12px;
+  font-weight: 600;
+  color: #3b82f6;
+  margin-bottom: 8px;
+}
+
+.history-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+}
+
+.detail-row .label {
+  color: #64748b;
+  font-weight: 500;
+}
+
+.detail-row .value {
+  color: #1e293b;
+  font-weight: 500;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 24px;
+  color: #64748b;
+  font-size: 14px;
+}
+
 /* Layout */
 .order-form-page {
   padding: 12px;
@@ -2702,6 +3567,30 @@ onMounted(() => {
   width: 100%;
   border-collapse: collapse;
   background: white;
+}
+
+.data-table.parties-table {
+  table-layout: fixed;
+}
+
+.data-table.parties-table th,
+.data-table.parties-table td {
+  width: 33.3333%;
+}
+
+.data-table.parties-table th:nth-child(1),
+.data-table.parties-table td:nth-child(1) {
+  text-align: left;
+}
+
+.data-table.parties-table th:nth-child(2),
+.data-table.parties-table td:nth-child(2) {
+  text-align: center;
+}
+
+.data-table.parties-table th:nth-child(3),
+.data-table.parties-table td:nth-child(3) {
+  text-align: right;
 }
 
 .data-table thead {

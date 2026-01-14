@@ -51,6 +51,9 @@ const PipelineItemView = () => import('@/views/bushman/sales/sales-pipeline/Pipe
 const OrdersList = () => import('@/views/orders/OrderList.vue');
 const OrderForm = () => import('@/views/orders/OrderForm.vue');
 const OrderDetails = () => import('@/views/orders/OrderDetails.vue');
+const ContractList = () => import('@/views/contracts/ContractList.vue');
+const ContractForm = () => import('@/views/contracts/ContractForm.vue');
+const ContractDetails = () => import('@/views/contracts/ContractDetails.vue');
 // const LoginPage = () => import('@/views/auth/PageLogin.vue');
 // const CompanyDashboard = () => import('@/views/auth/CompanyDashboard.vue');
 // const ComingSoon = () => import('@/views/auth/ComingSoon.vue');
@@ -394,12 +397,32 @@ const router = createRouter({
       meta: { requiresAuth: true }
     },
 
-    // Sales routes (placeholders)
+    // Contract routes
     {
-      path: "/sales/sales-contracts",
-      name: "sales-contracts",
-      component: ComingSoon,
+      path: "/contracts",
+      name: "contracts-list",
+      component: ContractList,
       meta: { requiresAuth: true }
+    },
+    {
+      path: "/contracts/create",
+      name: "contracts-create",
+      component: ContractForm,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/contracts/:id",
+      name: "contracts-view",
+      component: ContractDetails,
+      meta: { requiresAuth: true },
+      props: (route) => ({ id: Number(route.params.id) })
+    },
+    {
+      path: "/contracts/:id/edit",
+      name: "contracts-edit",
+      component: ContractForm,
+      meta: { requiresAuth: true },
+      props: (route) => ({ id: Number(route.params.id) })
     },
 
     // Other main sections (placeholders)
