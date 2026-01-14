@@ -185,25 +185,60 @@ const getTypeClass = (type: string) => {
 }
 
 const getCustomerName = (order: any) => {
-  // Get customer from order parties where role = 'CUSTOMER'
+  // First check if entity_name is directly on the order object (from API response)
+  if (order.entity_name && order.entity_name !== 'N/A') {
+    return order.entity_name
+  }
+  
+  // Get customer from order parties
   if (order.parties && Array.isArray(order.parties)) {
-    const customer = order.parties.find((p: any) => p.role === 'CUSTOMER' || p.party_role_id === 1)
-    if (customer?.entity?.full_name) {
-      return customer.entity.full_name
+    // Try to find party with 'CUSTOMER' role first (most common)
+    let customer = order.parties.find((p: any) => p.role === 'CUSTOMER' || p.role === 'CLIENT')
+    
+    // If not found, try case-insensitive search
+    if (!customer) {
+      customer = order.parties.find((p: any) => 
+        p.role?.toUpperCase?.() === 'CUSTOMER' || p.role?.toUpperCase?.() === 'CLIENT'
+      )
+    }
+    
+    // If still not found, just use the first party
+    if (!customer && order.parties.length > 0) {
+      customer = order.parties[0]
+    }
+    
+    if (customer) {
+      // Check entity.full_name first (if entity relationship is loaded)
+      if (customer.entity?.full_name) {
+        return customer.entity.full_name
+      }
+      // Fallback to entity_name if available
+      if (customer.entity_name) {
+        return customer.entity_name
+      }
+      // Fallback to contact_name if no entity info
+      if (customer.contact_name) {
+        return customer.contact_name
+      }
     }
   }
-  // Fallback to entity name if available
+  
+  // Fallback to order entity name if available
   if (order.entity?.full_name) {
     return order.entity.full_name
   }
+  
   return 'N/A'
 }
 
 const calculateTotalAmount = (order: any): number => {
+  // First, use the total_amount if already calculated by backend
+  if (order.total_amount && order.total_amount > 0) {
+    return order.total_amount
+  }
+
   // If items exist with quantity/rate data, calculate from them
   if (order.items && Array.isArray(order.items) && order.items.length > 0) {
-    console.log(`Order ${order.order_number} has ${order.items.length} items - calculating total`)
-    
     const subtotal = order.items.reduce((sum: number, item: any) => {
       return sum + ((item.quantity || 0) * (item.rate || 0))
     }, 0)
@@ -216,12 +251,10 @@ const calculateTotalAmount = (order: any): number => {
     const vat = afterDiscount * ((order.vat || 0) / 100)
     const grandTotal = afterDiscount + vat + (order.expense_included || 0)
 
-    console.log(`Order ${order.order_number}: Subtotal=$${subtotal}, Discount=$${totalDiscount}, VAT=$${vat}, Grand Total=$${grandTotal}`)
     return grandTotal > 0 ? grandTotal : 0
   }
 
   // No items - order is empty
-  console.log(`Order ${order.order_number || order.id}: No items (empty order)`)
   return 0
 }
 
@@ -235,17 +268,31 @@ const createOrder = () => {
 }
 
 const editOrder = (row: any) => {
-  router.push({ name: 'orders-edit', params: { id: row.id } })
+  // Try to get numeric ID first, then try order_number
+  let orderId = row.id
+  if (!orderId || typeof orderId !== 'number') {
+    // Try to extract numeric ID from order_number if it's missing
+    // As a last resort, we may need to fetch the order first
+    if (row.order_number) {
+      init({ message: 'Error: Order ID not available. Please refresh the page.', color: 'warning' })
+      return
+    }
+  }
+  router.push({ name: 'orders-edit', params: { id: orderId } })
 }
 
 const viewOrder = (row: any) => {
-  router.push({ name: 'orders-view', params: { id: row.id } })
+  // Try to get numeric ID first
+  let orderId = row.id
+  if (!orderId || typeof orderId !== 'number') {
+    init({ message: 'Error: Order ID not available. Please refresh the page.', color: 'warning' })
+    return
+  }
+  router.push({ name: 'orders-view', params: { id: orderId } })
 }
 
 const downloadOrderPdf = (row: any) => {
   try {
-    console.log('PDF clicked for order:', row.order_number)
-    
     const doc = new jsPDF()
     const pageWidth = doc.internal.pageSize.getWidth()
     const pageHeight = doc.internal.pageSize.getHeight()
@@ -503,10 +550,8 @@ const downloadOrderPdf = (row: any) => {
     // Save the PDF
     doc.save(`order-${row.order_number || row.id}.pdf`)
     
-    console.log('PDF saved successfully')
     init({ message: 'Order PDF downloaded', color: 'success' })
   } catch (error: any) {
-    console.error('PDF Error:', error)
     alert('Error: ' + error.message)
   }
 }
@@ -516,6 +561,14 @@ const downloadSelectedOrder = () => {
 }
 
 const confirmDelete = (row: any) => {
+  // Must have numeric ID to delete
+  const orderId = row.id
+  
+  if (!orderId || typeof orderId !== 'number') {
+    init({ message: 'Error: Order ID not available. Please refresh the page.', color: 'danger' })
+    return
+  }
+
   Swal.fire({
     title: 'Delete Order?',
     text: `Are you sure you want to delete order #${row.order_number}?`,
@@ -527,8 +580,9 @@ const confirmDelete = (row: any) => {
   }).then(async (result) => {
     if (result.isConfirmed) {
       try {
-        await orderStore.deleteOrder(row.id)
+        await orderStore.deleteOrder(orderId)
         init({ message: 'Order deleted successfully', color: 'success' })
+        await orderStore.listOrders()
       } catch (e: any) {
         init({ message: e?.response?.data?.message || 'Error deleting order', color: 'danger' })
       }

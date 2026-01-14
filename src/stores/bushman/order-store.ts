@@ -104,7 +104,7 @@ export const useOrderStore = defineStore('order', {
           status: this.filters.status || undefined,
           page: this.filters.page,
           per_page: this.filters.per_page,
-          include: 'parties,parties.entity,items',
+          include: 'parties,parties.entity,items,items.item,items.unitOfMeasurement',
           ...params
         }
 
@@ -120,11 +120,9 @@ export const useOrderStore = defineStore('order', {
         const response: any = await axios.request(config)
         const responseData = response.data.data || response.data || []
         this.orders = Array.isArray(responseData) ? responseData : []
-        console.log('Orders loaded:', this.orders)
         return response
       } catch (err: any) {
         this.error = err?.response?.data?.message || 'Error loading orders'
-        console.error('Error loading orders:', this.error, err.response)
         throw err
       } finally {
         this.loading = false
@@ -151,7 +149,6 @@ export const useOrderStore = defineStore('order', {
         return response
       } catch (err: any) {
         this.error = err?.response?.data?.message || 'Error loading order'
-        console.error('Error loading order:', this.error)
         throw err
       } finally {
         this.loading = false
@@ -177,7 +174,6 @@ export const useOrderStore = defineStore('order', {
         return response
       } catch (err: any) {
         this.error = err?.response?.data?.message || 'Error creating order'
-        console.error('Error creating order:', this.error)
         throw err
       } finally {
         this.loading = false
@@ -214,7 +210,6 @@ export const useOrderStore = defineStore('order', {
         return response
       } catch (err: any) {
         this.error = err?.response?.data?.message || 'Error updating order'
-        console.error('Error updating order:', this.error)
         throw err
       } finally {
         this.loading = false
@@ -246,7 +241,6 @@ export const useOrderStore = defineStore('order', {
         return response
       } catch (err: any) {
         this.error = err?.response?.data?.message || 'Error deleting order'
-        console.error('Error deleting order:', this.error)
         throw err
       } finally {
         this.loading = false
@@ -269,7 +263,6 @@ export const useOrderStore = defineStore('order', {
         return response
       } catch (err: any) {
         this.error = err?.response?.data?.message || 'Error loading order items'
-        console.error('Error loading order items:', this.error)
         throw err
       } finally {
         this.loading = false
@@ -294,7 +287,6 @@ export const useOrderStore = defineStore('order', {
         this.orderTypes = response.data.data || response.data || []
         return response
       } catch (err: any) {
-        console.error('Error loading order types:', err?.response?.data?.message || err.message)
         // Fail silently and return empty array
         this.orderTypes = []
       } finally {
@@ -320,7 +312,6 @@ export const useOrderStore = defineStore('order', {
         this.orderStatuses = response.data.data || response.data || []
         return response
       } catch (err: any) {
-        console.error('Error loading order statuses:', err?.response?.data?.message || err.message)
         // Fail silently and return empty array
         this.orderStatuses = []
       } finally {
@@ -346,7 +337,6 @@ export const useOrderStore = defineStore('order', {
         this.logisticsTypes = response.data.data || response.data || []
         return response
       } catch (err: any) {
-        console.error('Error loading logistics types:', err?.response?.data?.message || err.message)
         // Fail silently and return empty array
         this.logisticsTypes = []
       } finally {
@@ -372,7 +362,6 @@ export const useOrderStore = defineStore('order', {
         this.logisticsStatuses = response.data.data || response.data || []
         return response
       } catch (err: any) {
-        console.error('Error loading logistics statuses:', err?.response?.data?.message || err.message)
         // Fail silently and return empty array
         this.logisticsStatuses = []
       } finally {
@@ -398,7 +387,6 @@ export const useOrderStore = defineStore('order', {
         this.enquiries = response.data.data || response.data || []
         return response
       } catch (err: any) {
-        console.error('Error loading enquiries:', err?.response?.data?.message || err.message)
         this.enquiries = []
       } finally {
         this.loading = false
@@ -433,7 +421,6 @@ export const useOrderStore = defineStore('order', {
         this.quotations = enquiryData.pricings || []
         return response
       } catch (err: any) {
-        console.error(`Error loading quotations for enquiry ${enquiryId}:`, err?.response?.data?.message || err.message)
         this.quotations = []
       } finally {
         this.loading = false
@@ -460,7 +447,6 @@ export const useOrderStore = defineStore('order', {
         this.quotations = response.data.data || response.data || []
         return response
       } catch (err: any) {
-        console.error('Error loading quotations:', err?.response?.data?.message || err.message)
         this.quotations = []
       } finally {
         this.loading = false
@@ -485,7 +471,6 @@ export const useOrderStore = defineStore('order', {
         this.currencies = response.data.data || response.data || []
         return response
       } catch (err: any) {
-        console.error('Error loading currencies:', err?.response?.data?.message || err.message)
         this.currencies = []
       } finally {
         this.loading = false
@@ -529,7 +514,6 @@ export const useOrderStore = defineStore('order', {
         this.dietaryPreferences = response.data.data || response.data || []
         return response
       } catch (err: any) {
-        console.error('Error loading dietary preferences:', err?.response?.data?.message || err.message)
         this.dietaryPreferences = []
       } finally {
         this.loading = false
@@ -553,7 +537,6 @@ export const useOrderStore = defineStore('order', {
         this.allergies = response.data.data || response.data || []
         return response
       } catch (err: any) {
-        console.error('Error loading allergies:', err?.response?.data?.message || err.message)
         this.allergies = []
       } finally {
         this.loading = false
@@ -577,7 +560,6 @@ export const useOrderStore = defineStore('order', {
         this.partyRoles = response.data.data || response.data || []
         return response
       } catch (err: any) {
-        console.error('Error loading party roles:', err?.response?.data?.message || err.message)
         this.partyRoles = []
       } finally {
         this.loading = false
@@ -601,7 +583,6 @@ export const useOrderStore = defineStore('order', {
         this.participantTypes = response.data.data || response.data || []
         return response
       } catch (err: any) {
-        console.error('Error loading participant types:', err?.response?.data?.message || err.message)
         this.participantTypes = []
       } finally {
         this.loading = false
@@ -625,7 +606,6 @@ export const useOrderStore = defineStore('order', {
         this.itemCategories = response.data.data || response.data || []
         return response
       } catch (err: any) {
-        console.error('Error loading item categories:', err?.response?.data?.message || err.message)
         this.itemCategories = []
       } finally {
         this.loading = false
@@ -649,7 +629,6 @@ export const useOrderStore = defineStore('order', {
         this.entities = response.data.data || response.data || []
         return response
       } catch (err: any) {
-        console.error('Error loading entities:', err?.response?.data?.message || err.message)
         this.entities = []
       } finally {
         this.loading = false
@@ -673,7 +652,6 @@ export const useOrderStore = defineStore('order', {
         this.unitOfMeasurements = response.data.data || response.data || []
         return response
       } catch (err: any) {
-        console.error('Error loading unit of measurements:', err?.response?.data?.message || err.message)
         this.unitOfMeasurements = []
       } finally {
         this.loading = false
@@ -698,7 +676,6 @@ export const useOrderStore = defineStore('order', {
         this.installmentSetups = response.data.data || response.data || []
         return response
       } catch (err: any) {
-        console.error('Error loading installments:', err?.response?.data?.message || err.message)
         this.installmentSetups = []
       } finally {
         this.loading = false
@@ -724,7 +701,6 @@ export const useOrderStore = defineStore('order', {
         return response
       } catch (err: any) {
         this.error = err?.response?.data?.message || 'Error creating installment'
-        console.error('Error creating installment:', this.error)
         throw err
       } finally {
         this.loading = false
@@ -755,7 +731,6 @@ export const useOrderStore = defineStore('order', {
         return response
       } catch (err: any) {
         this.error = err?.response?.data?.message || 'Error updating installment'
-        console.error('Error updating installment:', this.error)
         throw err
       } finally {
         this.loading = false
@@ -779,7 +754,6 @@ export const useOrderStore = defineStore('order', {
         return response
       } catch (err: any) {
         this.error = err?.response?.data?.message || 'Error deleting installment'
-        console.error('Error deleting installment:', this.error)
         throw err
       } finally {
         this.loading = false
@@ -807,7 +781,6 @@ export const useOrderStore = defineStore('order', {
         ]
         return response
       } catch (err: any) {
-        console.error('Error loading installment days types:', err?.response?.data?.message || err.message)
         // Fallback to enum values
         this.installmentDaysTypes = [
           { value: 'AFTER_INVOICE', label: 'After Invoice' },
@@ -837,7 +810,6 @@ export const useOrderStore = defineStore('order', {
         ]
         return response
       } catch (err: any) {
-        console.error('Error loading installment amount types:', err?.response?.data?.message || err.message)
         // Fallback to enum values
         this.installmentAmountTypes = [
           { value: 'FIXED', label: 'Fixed Amount' },
@@ -875,7 +847,6 @@ export const useOrderStore = defineStore('order', {
         return response.data.data
       } catch (err: any) {
         this.error = err?.response?.data?.message || 'Error loading enquiry with quotations'
-        console.error('Error fetching enquiry with quotations:', this.error)
         throw err
       } finally {
         this.loading = false
@@ -938,7 +909,6 @@ export const useOrderStore = defineStore('order', {
         return createdOrder
       } catch (err: any) {
         this.error = err?.response?.data?.message || 'Error creating order from quotation'
-        console.error('Error creating order from quotation:', this.error)
         throw err
       } finally {
         this.loading = false
@@ -981,7 +951,6 @@ export const useOrderStore = defineStore('order', {
         return updatedOrder
       } catch (err: any) {
         this.error = err?.response?.data?.message || 'Error linking quotation to order'
-        console.error('Error linking quotation to order:', this.error)
         throw err
       } finally {
         this.loading = false
@@ -1002,8 +971,6 @@ export const useOrderStore = defineStore('order', {
         // Changed to fetch the full pricing record which includes items_by_type
         const url = `${baseUrl}sales-enquiries/pricing/${pricingId}`
 
-        console.log('Fetching pricing from URL:', url)
-
         const config = {
           method: 'get',
           url,
@@ -1013,7 +980,6 @@ export const useOrderStore = defineStore('order', {
         }
 
         const response: any = await axios.request(config)
-        console.log('Pricing response:', response.data)
         
         // Extract items from the pricing object
         const pricingData = response.data.data || response.data
@@ -1021,7 +987,6 @@ export const useOrderStore = defineStore('order', {
         
         // Check if items are in items_by_type (grouped by type)
         if (pricingData.items_by_type && typeof pricingData.items_by_type === 'object') {
-          console.log('Extracting items from items_by_type')
           Object.values(pricingData.items_by_type).forEach((typeItems: any) => {
             if (Array.isArray(typeItems)) {
               allItems.push(...typeItems)
@@ -1030,22 +995,16 @@ export const useOrderStore = defineStore('order', {
         }
         // Check if items are in a direct items array
         else if (Array.isArray(pricingData.items)) {
-          console.log('Using direct items array')
           allItems = pricingData.items
         }
         // Check for pricing_items array
         else if (Array.isArray(pricingData.pricing_items)) {
-          console.log('Using pricing_items array')
           allItems = pricingData.pricing_items
         }
         
-        console.log(`Retrieved ${allItems.length} pricing items`)
         return allItems
       } catch (err: any) {
         this.error = err?.response?.data?.message || 'Error fetching pricing items'
-        console.error('Error fetching pricing items:', this.error)
-        console.error('Full error response:', err?.response?.data)
-        console.error('Error status:', err?.response?.status)
         return []
       } finally {
         this.loading = false
@@ -1065,8 +1024,6 @@ export const useOrderStore = defineStore('order', {
         const baseUrl = import.meta.env.VITE_APP_BASE_URL || ''
         const url = `${baseUrl}sales-enquiries/pricing/${pricingId}/parties`
 
-        console.log('Fetching pricing parties from URL:', url)
-
         const config = {
           method: 'get',
           url,
@@ -1076,34 +1033,26 @@ export const useOrderStore = defineStore('order', {
         }
 
         const response: any = await axios.request(config)
-        console.log('Pricing parties response:', response.data)
         
         const partiesData = response.data.data || response.data
         let allParties: any[] = []
         
         // Check if parties are in a direct parties array
         if (Array.isArray(partiesData.parties)) {
-          console.log('Using direct parties array')
           allParties = partiesData.parties
         }
         // Check if it's a single party object
         else if (partiesData.entity_id) {
-          console.log('Using single party object')
           allParties = [partiesData]
         }
         // Check if parties are in array format
         else if (Array.isArray(partiesData)) {
-          console.log('Using array format')
           allParties = partiesData
         }
         
-        console.log(`Retrieved ${allParties.length} pricing parties`)
         return allParties
       } catch (err: any) {
         this.error = err?.response?.data?.message || 'Error fetching pricing parties'
-        console.error('Error fetching pricing parties:', this.error)
-        console.error('Full error response:', err?.response?.data)
-        console.error('Error status:', err?.response?.status)
         return []
       } finally {
         this.loading = false
@@ -1123,8 +1072,6 @@ export const useOrderStore = defineStore('order', {
         const baseUrl = import.meta.env.VITE_APP_BASE_URL || ''
         const url = `${baseUrl}sales-enquiries/pricing/${pricingId}/logistics`
 
-        console.log('Fetching pricing logistics from URL:', url)
-
         const config = {
           method: 'get',
           url,
@@ -1134,21 +1081,266 @@ export const useOrderStore = defineStore('order', {
         }
 
         const response: any = await axios.request(config)
-        console.log('Pricing logistics response:', response.data)
         
         const logisticsData = response.data.data || response.data
-        console.log('Extracted logistics data:', logisticsData)
         
         return logisticsData
       } catch (err: any) {
         this.error = err?.response?.data?.message || 'Error fetching pricing logistics'
-        console.error('Error fetching pricing logistics:', this.error)
-        console.error('Full error response:', err?.response?.data)
-        console.error('Error status:', err?.response?.status)
         return { participants: {}, logistics: [] }
       } finally {
         this.loading = false
       }
+    },
+
+    // ==================== PAYMENT PLAN TEMPLATES ====================
+
+    /**
+     * Get all available payment plan templates
+     * Used for quick setup of installment plans
+     */
+    getPaymentPlanTemplates(): any[] {
+      return [
+        {
+          id: 'four_stage',
+          name: '4-Stage Payment Plan',
+          description: 'Standard 4-stage payment plan for trophy hunt bookings',
+          stages: [
+            {
+              sequenceNo: 1,
+              name: 'Total Deposit',
+              narration: 'Initial deposit upon booking confirmation',
+              amountDue: 15,
+              amountDueType: 'PERCENTAGE',
+              dueDays: 0,
+              dueDaysType: 'AFTER_CONFIRMATION',
+              isDeposit: true,
+              description: 'Due immediately upon booking confirmation. This secures your booking slot.'
+            },
+            {
+              sequenceNo: 2,
+              name: '2nd Deposit',
+              narration: 'Second deposit payment',
+              amountDue: 20,
+              amountDueType: 'PERCENTAGE',
+              dueDays: 365,
+              dueDaysType: 'AFTER_CONFIRMATION',
+              isDeposit: true,
+              description: 'Due one year prior to departure. This confirms your commitment and helps with planning.'
+            },
+            {
+              sequenceNo: 3,
+              name: 'Final Payment',
+              narration: 'Final payment due before departure',
+              amountDue: 50,
+              amountDueType: 'PERCENTAGE',
+              dueDays: 90,
+              dueDaysType: 'AFTER_DELIVERY',
+              isDeposit: false,
+              description: 'Due 90 days prior to your trip departure. This is the main payment for the hunt.'
+            },
+            {
+              sequenceNo: 4,
+              name: 'Trophy Deposit',
+              narration: 'Trophy mounting and shipping deposit',
+              amountDue: 15,
+              amountDueType: 'PERCENTAGE',
+              dueDays: 45,
+              dueDaysType: 'AFTER_CONFIRMATION',
+              isDeposit: true,
+              description: 'Due 45 days prior to departure. Covers trophy mounting, shipping, and insurance costs.'
+            }
+          ]
+        },
+        {
+          id: 'three_stage',
+          name: '3-Stage Payment Plan',
+          description: 'Simplified 3-stage payment plan',
+          stages: [
+            {
+              sequenceNo: 1,
+              name: 'Deposit',
+              narration: 'Initial deposit',
+              amountDue: 30,
+              amountDueType: 'PERCENTAGE',
+              dueDays: 0,
+              dueDaysType: 'AFTER_CONFIRMATION',
+              isDeposit: true,
+              description: 'Due upon booking.'
+            },
+            {
+              sequenceNo: 2,
+              name: 'Second Payment',
+              narration: 'Second payment',
+              amountDue: 30,
+              amountDueType: 'PERCENTAGE',
+              dueDays: 180,
+              dueDaysType: 'AFTER_CONFIRMATION',
+              isDeposit: false,
+              description: 'Due 6 months before departure.'
+            },
+            {
+              sequenceNo: 3,
+              name: 'Final Payment',
+              narration: 'Final payment',
+              amountDue: 40,
+              amountDueType: 'PERCENTAGE',
+              dueDays: 30,
+              dueDaysType: 'AFTER_DELIVERY',
+              isDeposit: false,
+              description: 'Due 30 days before departure.'
+            }
+          ]
+        },
+        {
+          id: 'two_stage',
+          name: '50-50 Payment Plan',
+          description: 'Simple split payment: 50% deposit and 50% final payment',
+          stages: [
+            {
+              sequenceNo: 1,
+              name: 'Deposit',
+              narration: 'Initial 50% deposit',
+              amountDue: 50,
+              amountDueType: 'PERCENTAGE',
+              dueDays: 0,
+              dueDaysType: 'AFTER_CONFIRMATION',
+              isDeposit: true,
+              description: 'Due upon booking.'
+            },
+            {
+              sequenceNo: 2,
+              name: 'Final Payment',
+              narration: 'Final 50% payment',
+              amountDue: 50,
+              amountDueType: 'PERCENTAGE',
+              dueDays: 30,
+              dueDaysType: 'AFTER_DELIVERY',
+              isDeposit: false,
+              description: 'Due 30 days before departure.'
+            }
+          ]
+        }
+      ]
+    },
+
+    /**
+     * Get a specific payment plan template by ID
+     */
+    getPaymentPlanTemplate(templateId: string): any | null {
+      const templates = this.getPaymentPlanTemplates()
+      return templates.find((t: any) => t.id === templateId) || null
+    },
+
+    /**
+     * Apply a payment plan template to generate installments
+     * Calculates fixed amounts from percentages if needed
+     */
+    applyPaymentPlanTemplate(template: any, totalAmount: number = 0): any[] {
+      return template.stages.map((stage: any) => {
+        let finalAmount = stage.amountDue
+
+        // Calculate fixed amount if using percentage
+        if (stage.amountDueType === 'PERCENTAGE' && totalAmount > 0) {
+          finalAmount = (stage.amountDue / 100) * totalAmount
+        }
+
+        return {
+          ...stage,
+          amountDue: finalAmount
+        }
+      })
+    },
+
+    /**
+     * Validate installment setup
+     * Ensures installments total to 100% (if using percentages) or validates amounts
+     */
+    validateInstallmentSetup(installments: any[]): { valid: boolean; errors: string[] } {
+      const errors: string[] = []
+
+      if (installments.length === 0) {
+        errors.push('At least one installment must be defined')
+        return { valid: false, errors }
+      }
+
+      // Check if using percentages
+      const hasPercentages = installments.some((i: any) => i.amountDueType === 'PERCENTAGE')
+      const hasFixedAmounts = installments.some((i: any) => i.amountDueType === 'FIXED')
+
+      if (hasPercentages && hasFixedAmounts) {
+        errors.push('Cannot mix FIXED and PERCENTAGE amount types in the same payment plan')
+      }
+
+      if (hasPercentages) {
+        const totalPercentage = installments.reduce((sum: number, i: any) => {
+          return sum + (i.amountDueType === 'PERCENTAGE' ? i.amountDue : 0)
+        }, 0)
+
+        if (Math.abs(totalPercentage - 100) > 0.01) {
+          errors.push(`Percentages must total 100% (current total: ${totalPercentage.toFixed(2)}%)`)
+        }
+      }
+
+      if (hasFixedAmounts) {
+        const totalAmount = installments.reduce((sum: number, i: any) => {
+          return sum + (i.amountDueType === 'FIXED' ? i.amountDue : 0)
+        }, 0)
+
+        if (totalAmount <= 0) {
+          errors.push('Total fixed amounts must be greater than 0')
+        }
+      }
+
+      // Check sequence numbers are correct
+      const sequences = installments.map((i: any) => i.sequenceNo).sort((a: number, b: number) => a - b)
+      for (let i = 0; i < sequences.length; i++) {
+        if (sequences[i] !== i + 1) {
+          errors.push('Installment sequence numbers must be consecutive starting from 1')
+          break
+        }
+      }
+
+      return {
+        valid: errors.length === 0,
+        errors
+      }
+    },
+
+    /**
+     * Calculate total order amount from items
+     */
+    calculateOrderTotal(items: any[]): number {
+      return items.reduce((sum: number, item: any) => {
+        const itemTotal = (item.quantity || 1) * (item.rate || 0)
+        const discount = itemTotal * ((item.discount || 0) / 100)
+        return sum + (itemTotal - discount)
+      }, 0)
+    },
+
+    /**
+     * Get total installment percentage
+     */
+    getTotalInstallmentPercentage(installments: any[]): number {
+      return installments.reduce((sum: number, inst: any) => {
+        return inst.amountDueType === 'PERCENTAGE' ? sum + inst.amountDue : sum
+      }, 0)
+    },
+
+    /**
+     * Get total fixed installment amount
+     */
+    getTotalFixedInstallmentAmount(installments: any[]): number {
+      return installments.reduce((sum: number, inst: any) => {
+        return inst.amountDueType === 'FIXED' ? sum + inst.amountDue : sum
+      }, 0)
+    },
+
+    /**
+     * Sort installments by due days
+     */
+    sortInstallmentsByDueDays(installments: any[]): any[] {
+      return [...installments].sort((a: any, b: any) => a.dueDays - b.dueDays)
     },
 
     clearError(): void {
