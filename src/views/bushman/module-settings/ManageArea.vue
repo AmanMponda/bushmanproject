@@ -16,27 +16,23 @@
         <div class="col-xl-12 col-lg-12 col-sm-12 layout-spacing">
           <div class="panel br-6 p-0">
             <div class="custom-table p-3">
-              <StandardDataTable
-                :columns="columns"
-                :data="items"
-                :loading="loading"
-                :disable-search="false"
-                :disable-pagination="false"
-                :action-buttons="pageActions"
-              >
+              <StandardDataTable :columns="columns" :data="items" :loading="loading" :disable-search="false"
+                :disable-pagination="false" :action-buttons="pageActions">
                 <template #name="slotProps">
-                  {{ (slotProps.row as any)?.name || (slotProps.row as any)?.location_name || (slotProps.row as any)?.location?.name || 'N/A' }}
+                  {{ (slotProps.row as any)?.name || (slotProps.row as any)?.location_name || (slotProps.row as
+                    any)?.location?.name || 'N/A' }}
                 </template>
                 <template #code="slotProps">
-                  {{ (slotProps.row as any)?.code || (slotProps.row as any)?.location_code || (slotProps.row as any)?.location?.code || 'N/A' }}
+                  {{ (slotProps.row as any)?.code || (slotProps.row as any)?.location_code || (slotProps.row as
+                    any)?.location?.code || 'N/A' }}
                 </template>
-<template #species="slotProps">
+                <template #species="slotProps">
                   <span v-if="(slotProps.row as any)?.species_count !== undefined">
                     {{ (slotProps.row as any).species_count }} species
                   </span>
                   <span v-else class="text-muted">Loading...</span>
                 </template>
-<template #actions="slotProps">
+                <template #actions="slotProps">
                   <div class="d-flex gap-1">
                     <button class="btn btn-primary btn-sm" title="View Details" @click="viewAreaDetails(slotProps.row)">
                       <i class="fa fa-eye"></i>
@@ -49,15 +45,15 @@
                     </button>
                   </div>
                 </template>
-</StandardDataTable>
-</div>
-</div>
-</div>
-</div>
-</template>
+              </StandardDataTable>
+            </div>
+          </div>
+        </div>
+      </div>
+    </template>
 
-<!-- Area Details View with Map -->
-<template v-else-if="showAreaDetails && areaDetails">
+    <!-- Area Details View with Map -->
+    <template v-else-if="showAreaDetails && areaDetails">
       <div class="p-2">
         <div class="d-flex justify-content-between align-items-center mb-3">
           <div>
@@ -78,7 +74,6 @@
             <button class="btn btn-secondary" @click="goBackToList">Back</button>
           </div>
         </div>
-
         <div class="row g-3">
           <!-- Map Section (Left) -->
           <div class="col-lg-4">
@@ -97,7 +92,7 @@
                 </div>
                 <div v-else style="height: 350px; width: 100%;">
                   <div id="leaflet-map" style="width: 100%; height: 100%;"></div>
-                </div> 
+                </div>
               </div>
             </div>
           </div>
@@ -143,17 +138,16 @@
               </div>
             </div>
           </div>
-
         </div>
       </div>
     </template>
-
-<!-- Add Species View -->
-<template v-else-if="showAddSpecies && selectedArea">
+    <!-- Add Species View -->
+    <template v-else-if="showAddSpecies && selectedArea">
       <div class="p-2">
         <div class="d-flex justify-content-between align-items-center mb-3">
           <div>
-            <h3 class="fw-bold mb-1">{{ selectedArea.location_name || selectedArea.location?.name || 'Hunting Area' }}</h3>
+            <h3 class="fw-bold mb-1">{{ selectedArea.location_name || selectedArea.location?.name || 'Hunting Area' }}
+            </h3>
             <div class="text-muted">
               <span v-if="selectedArea.location_code || selectedArea.location?.code">
                 Code: {{ selectedArea.location_code || selectedArea.location?.code }}
@@ -168,26 +162,24 @@
             <button class="btn btn-secondary" @click="goBackToList">Back</button>
           </div>
         </div>
-
         <div class="card mb-4">
           <div class="card-body">
             <h6 class="fw-bold mb-3">Add Species to Area</h6>
-            <form class="row g-3" @submit.prevent="addSpeciesToArea">
-              <div class="col-md-6">
-                <label class="form-label">Species</label>
-                <select v-model="speciesForm.specie" class="form-select" required>
-                  <option :value="null" disabled>Select species</option>
-                  <option v-for="s in speciesOptions" :key="s.value" :value="s.value">{{ s.text }}</option>
-                </select>
+            <form class="row g-3" @submit.prevent>
+              <div class="col-12">
+                <label class="form-label">Add multiple species</label>
+                <MultiRowTableInput v-model="multipleSpeciesRows" :fields="[
+                  { key: 'specie_id', label: 'Species', type: 'select', options: speciesOptions.map(s => ({ value: s.value, text: s.text })), required: true, headerStyle: 'width: 60%' }
+                ]" add-button-label="Add row" />
               </div>
+
               <div class="col-md-12">
-                <button type="submit" class="btn btn-primary" :disabled="savingSpecies || !speciesForm.specie">
-                  <span v-if="savingSpecies" class="spinner-border spinner-border-sm me-1"></span>
-                  <i class="fa fa-plus me-1"></i> Add Species
+                <button type="button" class="btn btn-primary" @click="addMultipleSpeciesToArea" :disabled="addingMultiple">
+                  <span v-if="addingMultiple" class="spinner-border spinner-border-sm me-1"></span>
+                  <i class="fa fa-plus me-1"></i> Add Selected Species
                 </button>
               </div>
             </form>
-
             <div v-if="savingSpecies" class="mt-3">
               <div class="progress">
                 <div class="progress-bar progress-bar-striped progress-bar-animated" style="width: 100%;">
@@ -195,20 +187,13 @@
                 </div>
               </div>
             </div>
-
             <hr class="my-4" />
-
             <ManageAreaCsvInput
               :column-fields="[{ key: 'specie_id', label: 'Specie ID' }, { key: 'name', label: 'Species Name' }]"
-              duplicate-key-field="specie_id"
-              :model-value="existingCsvModel"
-              :example-path="'/assets/uploadsguide/species-upload.csv'"
-              :download-headers="['specie_id', 'name']"
-              :download-rows="speciesTemplateRows"
-              download-filename="species-upload.csv"
-              @import="handleAreaCsvImport"
-            />
-
+              duplicate-key-field="specie_id" :model-value="existingCsvModel"
+              :example-path="'/assets/uploadsguide/species-upload.csv'" :download-headers="['specie_id', 'name']"
+              :download-rows="speciesTemplateRows" download-filename="species-upload.csv"
+              @import="handleAreaCsvImport" />
             <div v-if="csvImporting" class="mt-3">
               <div class="card border-primary">
                 <div class="card-body">
@@ -218,11 +203,8 @@
                     <span class="text-muted">{{ csvImportDone }} / {{ csvImportTotal }}</span>
                   </div>
                   <div class="progress mb-3" style="height: 8px;">
-                    <div
-                      class="progress-bar progress-bar-striped progress-bar-animated"
-                      role="progressbar"
-                      :style="{ width: csvImportPercent + '%' }"
-                    ></div>
+                    <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar"
+                      :style="{ width: csvImportPercent + '%' }"></div>
                   </div>
                   <!-- Real-time success/failure counts -->
                   <div class="row text-center">
@@ -252,10 +234,8 @@
 
             <div v-if="showCsvImportResults && !csvImporting" class="mt-3">
               <div class="card" :class="csvImportFailCount > 0 ? 'border-warning' : 'border-success'">
-                <div
-                  class="card-header d-flex align-items-center justify-content-between py-2"
-                  :class="csvImportFailCount > 0 ? 'bg-warning bg-opacity-10' : 'bg-success bg-opacity-10'"
-                >
+                <div class="card-header d-flex align-items-center justify-content-between py-2"
+                  :class="csvImportFailCount > 0 ? 'bg-warning bg-opacity-10' : 'bg-success bg-opacity-10'">
                   <span class="fw-semibold">
                     <i class="fa fa-check-circle text-success me-2" v-if="csvImportFailCount === 0"></i>
                     <i class="fa fa-exclamation-triangle text-warning me-2" v-else></i>
@@ -279,10 +259,12 @@
                   <div v-if="csvImportFailCount > 0" class="mt-3">
                     <p class="small text-muted mb-2">Failed items (first 10):</p>
                     <ul class="list-group list-group-flush small">
-                      <li v-for="(r, i) in csvImportResults.filter(x => !x.ok).slice(0, 10)" :key="i" class="list-group-item py-1 px-2">
+                      <li v-for="(r, i) in csvImportResults.filter(x => !x.ok).slice(0, 10)" :key="i"
+                        class="list-group-item py-1 px-2">
                         <i class="fa fa-times text-danger me-1"></i>
                         {{ r.label || r.id || r.name || 'Row ' + (i + 1) }}
-                        <span v-if="r.error" class="text-muted"> - {{ Array.isArray(r.error) ? r.error.join(', ') : r.error }}</span>
+                        <span v-if="r.error" class="text-muted"> - {{ Array.isArray(r.error) ? r.error.join(', ') :
+                          r.error }}</span>
                       </li>
                     </ul>
                   </div>
@@ -294,12 +276,13 @@
       </div>
     </template>
 
-<!-- Area Species View -->
-<template v-else-if="showAreaSpecies && selectedArea">
+    <!-- Area Species View -->
+    <template v-else-if="showAreaSpecies && selectedArea">
       <div class="p-2">
         <div class="d-flex justify-content-between align-items-center mb-3">
           <div>
-            <h3 class="fw-bold mb-1">{{ selectedArea.location_name || selectedArea.location?.name || 'Hunting Area' }}</h3>
+            <h3 class="fw-bold mb-1">{{ selectedArea.location_name || selectedArea.location?.name || 'Hunting Area' }}
+            </h3>
             <div class="text-muted">
               <span v-if="selectedArea.location_code || selectedArea.location?.code">
                 Code: {{ selectedArea.location_code || selectedArea.location?.code }}
@@ -311,34 +294,28 @@
             <div class="text-muted small">Manage species for this hunting area</div>
           </div>
           <div class="d-flex gap-2">
+            <button class="btn btn-success" @click="openAddSpeciesFromArea"><i class="fa fa-plus me-1"></i> Add Species</button>
+            <button class="btn btn-outline-success" @click="exportAreaSpeciesPdf"><i class="fa fa-file-pdf me-1"></i> Export PDF</button>
             <button class="btn btn-secondary" @click="goBackToList">Back</button>
           </div>
         </div>
         <div class="card mb-4">
           <div class="card-body">
-            <StandardDataTable
-              :key="selectedArea?.id || 'species-table'"
-              :columns="speciesColumns"
-              :data="allSpeciesForArea"
-              :loading="loadingSpecies"
-              :disable-search="false"
-              :show-date-filters="false"
-            >
-              <template #specie_id="{ row }">
-                <span class="text-muted">#{{ row.specie_id }}</span>
+            <StandardDataTable :key="selectedArea?.id || 'species-table'" :columns="speciesColumns"
+              :data="filteredAllSpeciesForArea" :loading="loadingSpecies" :disable-search="false" :show-date-filters="false"
+              :custom-filters="areaTableCustomFilters" @update:filters="handleAreaFiltersUpdate">
+              <template #sn="{ row, index }">
+                <span class="text-muted">{{ index + 1 }}</span>
               </template>
               <template #specie_name="{ row }">
                 <span class="fw-semibold">{{ row.specie_name }}</span>
               </template>
-              <template #availability="{ row }">
-                <div class="form-check form-switch mb-0 d-flex justify-content-start">
-                  <input
-                    class="form-check-input"
-                    type="checkbox"
-                    :checked="isSpeciesInArea(row.specie_id)"
-                    :disabled="isTogglingSpecies(row.specie_id)"
-                    @change="toggleSpeciesInArea(row, $event)"
-                  />
+              
+              <template #actions="{ row }">
+                <div class="d-flex gap-1">
+                  <button class="btn btn-danger btn-sm" title="Remove from area" @click="deleteAreaSpecies(row)">
+                    <i class="fa fa-trash"></i>
+                  </button>
                 </div>
               </template>
             </StandardDataTable>
@@ -347,112 +324,122 @@
       </div>
     </template>
 
-<!-- Create/Edit Form -->
-<template v-else>
-  <div class="p-2 form-full-height">
-    <h3 class="fw-bold mb-1" style="font-size: 1rem;">{{ editMode ? 'Edit Hunting Area' : 'Create New Location & Hunting Area' }}</h3>
+    <!-- Create/Edit Form -->
+    <template v-else>
+      <div class="p-2 form-full-height">
+        <h3 class="fw-bold mb-1" style="font-size: 1rem;">{{ editMode ? 'Edit Hunting Area' : 'Create New Location &         Hunting Area' }}</h3>
 
-    <form @submit.prevent="onAreaSubmit" class="w-100">
-      <div class="card h-100">
-        <div class="card-body p-2 form-content-scroll">
-          <!-- Edit Mode: Select existing location -->
-          <template v-if="editMode">
-            <div class="mb-1">
-              <label class="form-label mb-1" style="font-size: 0.8rem;">Location <span class="text-danger">*</span></label>
-              <select v-model="areaForm.location_id" class="form-select form-select-sm" required>
-                <option :value="null" disabled>Select a location</option>
-                <option v-for="loc in locationOptions" :key="loc.value" :value="loc.value">
-                  {{ loc.text }}
-                </option>
-              </select>
-            </div>
-
-            <div class="mb-1">
-              <label class="form-label mb-1" style="font-size: 0.8rem;">Hunting Area Description</label>
-              <textarea v-model="areaForm.description" class="form-control form-control-sm" rows="1"
-                placeholder="Optional "></textarea>
-            </div>
-          </template>
-
-          <!-- Create Mode: Fill location and hunting area details -->
-          <template v-else>
-            <div class="row g-1">
-              <div class="col-md-6">
-                <label class="form-label mb-1" style="font-size: 0.8rem;">Location Name <span class="text-danger">*</span></label>
-                <input v-model="areaForm.location_name" type="text" class="form-control form-control-sm" placeholder="e.g., Maswa"
-                  required />
-              </div>
-              <div class="col-md-6">
-                <label class="form-label mb-1" style="font-size: 0.8rem;">Location Code <span class="text-danger">*</span></label>
-                <input v-model="areaForm.location_code" type="text" class="form-control form-control-sm" placeholder="e.g, MS"
-                  required />
-              </div>
-            </div>
-
-            <div class="mb-1 mt-1">
-              <label class="form-label mb-1" style="font-size: 0.8rem;">Hunting Area Description</label>
-              <textarea v-model="areaForm.description" class="form-control form-control-sm" rows="1"
-                placeholder="Optional"></textarea>
-              <small class="form-text d-block" style="font-size: 0.7rem; margin-top: 0.25rem;">description for hunting area</small>
-            </div>
-
-            <hr class="my-1" />
-
-            <h6 class="fw-bold mb-1" style="font-size: 0.9rem;">Geo-Location</h6>
-
-            <div class="mb-1">
-              <label class="form-label mb-1" style="font-size: 0.8rem;">Coordinates Type <span class="text-danger">*</span></label>
-              <select v-model="areaForm.coordinates_type" class="form-select form-select-sm" required>
-                <option value="POINT">POINT</option>
-                <option value="POLYGON">POLYGON</option>
-                <option value="LINESTRING">LINESTRING</option>
-              </select>
-            </div>
-
-            <!-- POINT coordinates: Use lat/lng inputs -->
-            <template v-if="areaForm.coordinates_type === 'POINT'">
-              <div class="row g-1">
-                <div class="col-md-6">
-                  <label class="form-label mb-1" style="font-size: 0.8rem;">Latitude <span class="text-danger">*</span></label>
-                  <input v-model="areaForm.coordinate_lat" type="number" step="any" min="-90" max="90"
-                    class="form-control form-control-sm" placeholder="e.g. -3.56789" required />
-                  <small class="form-text d-block mt-1">Range: -90 to 90</small>
+        <form @submit.prevent="onAreaSubmit" class="w-100">
+          <div class="card h-100">
+            <div class="card-body p-2 form-content-scroll">
+              <!-- Edit Mode: Select existing location -->
+              <template v-if="editMode">
+                <div class="mb-1">
+                  <label class="form-label mb-1" style="font-size: 0.8rem;">Location <span
+                      class="text-danger">*</span></label>
+                  <select v-model="areaForm.location_id" class="form-select form-select-sm" required>
+                    <option :value="null" disabled>Select a location</option>
+                    <option v-for="loc in locationOptions" :key="loc.value" :value="loc.value">
+                      {{ loc.text }}
+                    </option>
+                  </select>
                 </div>
-                <div class="col-md-6">
-                  <label class="form-label mb-1" style="font-size: 0.8rem;">Longitude <span class="text-danger">*</span></label>
-                  <input v-model="areaForm.coordinate_lng" type="number" step="any" min="-180" max="180"
-                    class="form-control form-control-sm" placeholder="e.g. 35.12345" required />
-                  <small class="form-text d-block mt-1">Range: -180 to 180</small>
+
+                <div class="mb-1">
+                  <label class="form-label mb-1" style="font-size: 0.8rem;">Hunting Area Description</label>
+                  <textarea v-model="areaForm.description" class="form-control form-control-sm" rows="1"
+                    placeholder="Optional "></textarea>
                 </div>
-              </div>
-            </template>
+              </template>
 
-            <!-- POLYGON or LINESTRING: Use JSON input -->
-            <template v-else>
-              <div class="mb-1 mt-1">
-                <label class="form-label mb-1" style="font-size: 0.8rem;">Coordinates (JSON) <span class="text-danger">*</span></label>
-                <textarea v-model="areaForm.coordinates" class="form-control form-control-sm font-monospace" rows="2"
-                  placeholder='e.g., {"type":"Polygon","coordinates":[[[35.10,-3.56],[35.12,-3.58],[35.14,-3.57],[35.10,-3.56]]]}'
-                  required></textarea>
-                <small class="form-text d-block mt-1">
-                  Enter valid GeoJSON format. For {{ areaForm.coordinates_type }}, provide coordinates as JSON string.
-                </small>
-              </div>
-            </template>
-          </template>
+              <!-- Create Mode: Fill location and hunting area details -->
+              <template v-else>
+                <div class="row g-1">
+                  <div class="col-md-6">
+                    <label class="form-label mb-1" style="font-size: 0.8rem;">Location Name <span
+                        class="text-danger">*</span></label>
+                    <input v-model="areaForm.location_name" type="text" class="form-control form-control-sm"
+                      placeholder="e.g., Maswa" required />
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label mb-1" style="font-size: 0.8rem;">Location Code <span
+                        class="text-danger">*</span></label>
+                    <input v-model="areaForm.location_code" type="text" class="form-control form-control-sm"
+                      placeholder="e.g, MS" required />
+                  </div>
+                </div>
 
-          <div class="d-flex gap-2 mt-1">
-            <button type="submit" class="btn btn-primary btn-sm" :disabled="saving || !isAreaFormValid">
-              <span v-if="saving" class="spinner-border spinner-border-sm me-1"></span>
-              {{ editMode ? 'Update' : 'Create' }}
-            </button>
-            <button type="button" class="btn btn-secondary btn-sm" @click="cancelEdit">Cancel</button>
+                <div class="mb-1 mt-1">
+                  <label class="form-label mb-1" style="font-size: 0.8rem;">Hunting Area Description</label>
+                  <textarea v-model="areaForm.description" class="form-control form-control-sm" rows="1"
+                    placeholder="Optional"></textarea>
+                  <small class="form-text d-block" style="font-size: 0.7rem; margin-top: 0.25rem;">description for
+                    hunting area</small>
+                </div>
+
+                <hr class="my-1" />
+
+                <h6 class="fw-bold mb-1" style="font-size: 0.9rem;">Geo-Location</h6>
+
+                <div class="mb-1">
+                  <label class="form-label mb-1" style="font-size: 0.8rem;">Coordinates Type <span
+                      class="text-danger">*</span></label>
+                  <select v-model="areaForm.coordinates_type" class="form-select form-select-sm" required>
+                    <option value="POINT">POINT</option>
+                    <option value="POLYGON">POLYGON</option>
+                    <option value="LINESTRING">LINESTRING</option>
+                  </select>
+                </div>
+
+                <!-- POINT coordinates: Use lat/lng inputs -->
+                <template v-if="areaForm.coordinates_type === 'POINT'">
+                  <div class="row g-1">
+                    <div class="col-md-6">
+                      <label class="form-label mb-1" style="font-size: 0.8rem;">Latitude <span
+                          class="text-danger">*</span></label>
+                      <input v-model="areaForm.coordinate_lat" type="number" step="any" min="-90" max="90"
+                        class="form-control form-control-sm" placeholder="e.g. -3.56789" required />
+                      <small class="form-text d-block mt-1">Range: -90 to 90</small>
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label mb-1" style="font-size: 0.8rem;">Longitude <span
+                          class="text-danger">*</span></label>
+                      <input v-model="areaForm.coordinate_lng" type="number" step="any" min="-180" max="180"
+                        class="form-control form-control-sm" placeholder="e.g. 35.12345" required />
+                      <small class="form-text d-block mt-1">Range: -180 to 180</small>
+                    </div>
+                  </div>
+                </template>
+
+                <!-- POLYGON or LINESTRING: Use JSON input -->
+                <template v-else>
+                  <div class="mb-1 mt-1">
+                    <label class="form-label mb-1" style="font-size: 0.8rem;">Coordinates (JSON) <span
+                        class="text-danger">*</span></label>
+                    <textarea v-model="areaForm.coordinates" class="form-control form-control-sm font-monospace"
+                      rows="2"
+                      placeholder='e.g., {"type":"Polygon","coordinates":[[[35.10,-3.56],[35.12,-3.58],[35.14,-3.57],[35.10,-3.56]]]}'
+                      required></textarea>
+                    <small class="form-text d-block mt-1">
+                      Enter valid GeoJSON format. For {{ areaForm.coordinates_type }}, provide coordinates as JSON
+                      string.
+                    </small>
+                  </div>
+                </template>
+              </template>
+
+              <div class="d-flex gap-2 mt-1">
+                <button type="submit" class="btn btn-primary btn-sm" :disabled="saving || !isAreaFormValid">
+                  <span v-if="saving" class="spinner-border spinner-border-sm me-1"></span>
+                  {{ editMode ? 'Update' : 'Create' }}
+                </button>
+                <button type="button" class="btn btn-secondary btn-sm" @click="cancelEdit">Cancel</button>
+              </div>
+            </div>
           </div>
-        </div>
+        </form>
       </div>
-    </form>
-  </div>
-</template>
+    </template>
   </div>
 </template>
 
@@ -468,6 +455,9 @@ import { useToast } from '@/composables/useToast'
 import handleErrors from '@/stores/bushman/errorHandler'
 import Swal from 'sweetalert2'
 import ManageAreaCsvInput from './ManageAreaCsvInput.vue'
+import MultiRowTableInput from '../reusables/MultiRowTableInput.vue'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 
@@ -488,12 +478,14 @@ const columns = [
   { key: 'actions', label: 'Actions' },
 ]
 const speciesColumns = [
-  { key: 'specie_id', label: 'ID', sortable: true, visible: true },
+  { key: 'sn', label: 'S/No', sortable: false, visible: true },
+  { key: 'specie_id', label: 'ID', sortable: true, visible: false },
   { key: 'specie_name', label: 'Species', sortable: true, visible: true },
-  { key: 'availability', label: 'Availability', sortable: false, visible: true },
+  { key: 'actions', label: 'Actions', sortable: false, visible: true },
 ]
 
 const items = ref<any[]>([])
+const speciesList = ref<any[]>([])
 const speciesOptions = ref<any[]>([])
 const locationOptions = ref<any[]>([])
 const selectedArea = ref<any>(null)
@@ -501,6 +493,17 @@ const areaDetails = ref<any>(null)
 const showHuntingAreaList = ref(true)
 const showAreaSpecies = ref(false)
 const showAreaDetails = ref(false)
+
+// Area-specific filters
+const areaSpeciesTypeFilter = ref<string>('')
+const areaAnimalTypes = computed(() => {
+  const types = new Set<string>()
+  speciesList.value.forEach((s: any) => {
+    const g = s.group?.name || s.group_name || ''
+    if (g) types.add(g)
+  })
+  return Array.from(types).sort()
+})
 const showAddSpecies = ref(false)
 const loading = ref(false)
 const loadingSpecies = ref(false)
@@ -581,28 +584,43 @@ const areaSpeciesIdSet = computed(() => {
 })
 
 const allSpeciesForArea = computed(() => {
-  if (speciesOptions.value.length === 0) {
-    return areaSpecies.value
-  }
-
-  const rows = speciesOptions.value.map((opt: any) => ({
-    specie_id: opt.value,
-    specie_name: opt.text,
-  }))
-
-  const knownIds = new Set(rows.map((row: any) => String(row.specie_id)))
-  areaSpecies.value.forEach((item: any) => {
-    const id = String(item.specie_id)
-    if (!knownIds.has(id)) {
-      rows.push({
-        specie_id: item.specie_id,
-        specie_name: item.specie_name || item.name || `Species #${item.specie_id}`,
-      })
+  // Only include species assigned to this area (areaSpecies should already contain assigned species)
+  return (areaSpecies.value || []).map((item: any, idx: number) => {
+    const id = item.specie_id ?? item.id
+    const species = speciesList.value.find((s: any) => String(s.id) === String(id)) || {}
+    return {
+      specie_id: id,
+      specie_name: item.specie_name ?? species.name ?? item.name ?? `Species #${id}`,
+      scientific_name: item.scientific_name ?? species.scientific_name ?? null,
+      animal_type: species.group?.name || species.group_name || null,
     }
   })
+})
 
+const filteredAllSpeciesForArea = computed(() => {
+  let rows = allSpeciesForArea.value
+  if (areaSpeciesTypeFilter.value) {
+    rows = rows.filter((r: any) => String(r.animal_type || '') === String(areaSpeciesTypeFilter.value))
+  }
   return rows
 })
+
+// Filters for the area species StandardDataTable
+const areaTableCustomFilters = computed(() => [
+  {
+    key: 'animal_type',
+    label: 'Animal Type',
+    type: 'select',
+    placeholder: 'All Animal Types',
+    options: [{ value: '', label: 'All Animal Types' }, ...areaAnimalTypes.value.map((t: string) => ({ value: t, label: t }))],
+    defaultValue: '',
+  }
+])
+
+function handleAreaFiltersUpdate(filters: any) {
+  areaSpeciesTypeFilter.value = filters.animal_type || ''
+}
+
 
 const speciesTemplateRows = computed(() => {
   return speciesOptions.value.map((opt: any) => ({
@@ -756,10 +774,102 @@ async function viewAreaSpecies(rowData: any) {
   loadAreaSpecies(rowData.id)
 }
 
+function openAddSpeciesFromArea() {
+  // Open the Add Species form for the current selected area
+  if (!selectedArea.value) return
+  showAreaSpecies.value = false
+  showAreaDetails.value = false
+  showAddSpecies.value = true
+  speciesForm.specie = null
+  csvUploaded.value = false
+  // Ensure we have the latest area species list
+  loadAreaSpecies(selectedArea.value.id)
+}
+
 
 function cancelEdit() {
   resetForm()
   toggleFormAndList()
+}
+
+// Multi row add state
+const multipleSpeciesRows = ref([{ _id: 1, specie_id: '' }])
+const addingMultiple = ref(false)
+const addingTotal = ref(0)
+const addingDone = ref(0)
+
+async function addMultipleSpeciesToArea() {
+  if (!selectedArea.value) return
+  const rows = (multipleSpeciesRows.value || []).filter((r: any) => r.specie_id)
+  if (rows.length === 0) {
+    toast.init({ message: 'No species selected to add', color: 'info' })
+    return
+  }
+
+  // Deduplicate by specie_id and exclude those already in area
+  const existing = new Set(areaSpecies.value.map((s: any) => String(s.specie_id)))
+  const toAdd: Array<{ specie_id: string; specie_name: string }> = []
+  for (const r of rows) {
+    const id = String(r.specie_id)
+    if (!id) continue
+    if (existing.has(id)) continue
+    if (!toAdd.some((t: any) => String(t.specie_id) === id)) {
+      const name = (speciesOptions.value.find((s: any) => String(s.value) === id)?.text) || r.specie_name || `Species #${id}`
+      toAdd.push({ specie_id: id, specie_name: name })
+    }
+  }
+
+  if (toAdd.length === 0) {
+    toast.init({ message: 'No new species to add', color: 'info' })
+    return
+  }
+
+  addingMultiple.value = true
+  addingTotal.value = toAdd.length
+  addingDone.value = 0
+
+  const succeeded: string[] = []
+  const failed: Array<{ id: string; name: string; error?: any }> = []
+
+  for (const item of toAdd) {
+    try {
+      await huntingAreaStore.addHuntingAreaSpecies({ hunting_area_id: selectedArea.value.id, specie_id: item.specie_id })
+      succeeded.push(item.specie_name)
+    } catch (err: any) {
+      console.error('Failed to add species', err)
+      failed.push({ id: item.specie_id, name: item.specie_name, error: err })
+    } finally {
+      addingDone.value += 1
+    }
+  }
+
+  addingMultiple.value = false
+  addingTotal.value = 0
+  addingDone.value = 0
+
+  // refresh
+  await loadAreaSpecies(selectedArea.value.id)
+
+  // Show a SweetAlert summary of the operation
+  if (failed.length === 0) {
+    await Swal.fire({
+      title: 'Added',
+      html: `Successfully added <strong>${succeeded.length}</strong> species to the area.`,
+      icon: 'success',
+      confirmButtonText: 'OK',
+    })
+  } else {
+    const failedList = failed.map(f => `<li>${f.name}</li>`).join('')
+    await Swal.fire({
+      title: 'Partial Success',
+      html: `Added <strong>${succeeded.length}</strong> species. Failed to add <strong>${failed.length}</strong> species:<ul style="text-align:left">${failedList}</ul>`,
+      icon: 'warning',
+      confirmButtonText: 'OK',
+    })
+  }
+
+  // Reset the multi-row input to a single empty row
+  multipleSpeciesRows.value = [{ _id: (multipleSpeciesRows.value?.[multipleSpeciesRows.value.length - 1]?._id || 0) + 1, specie_id: '' }]
 }
 
 function resetForm() {
@@ -1133,6 +1243,37 @@ async function createNewLocationWithHuntingArea() {
   }
 }
 
+// Export species list for the current area as formatted PDF
+function exportAreaSpeciesPdf() {
+  const rows = filteredAllSpeciesForArea.value || []
+  if (!rows.length) {
+    toast.init({ message: 'No species available for this area', color: 'info' })
+    return
+  }
+
+  const doc = new jsPDF({ unit: 'pt', format: 'a4' })
+  doc.setFontSize(16)
+  const title = `${selectedArea.value?.location_name || selectedArea.value?.location?.name || 'Area'} - Species List`
+  doc.text(title, 40, 50)
+  doc.setFontSize(10)
+  doc.text(`Generated: ${new Date().toLocaleString()}`, 40, 66)
+
+  const head = [['S/No', 'Species', 'Scientific Name']]
+  const body = rows.map((r: any, i: number) => [i + 1, r.specie_name || '-', r.scientific_name || '-'])
+
+  autoTable(doc as any, {
+    head,
+    body,
+    startY: 90,
+    margin: { left: 40, right: 40 },
+    styles: { fontSize: 9 },
+    headStyles: { fillColor: [41, 128, 185], textColor: 255, halign: 'center' }
+  })
+
+  doc.save(`area-${selectedArea.value?.id || 'species'}-${Date.now()}.pdf`)
+  toast.init({ message: 'PDF exported', color: 'success' })
+}
+
 function normalizeSpeciesList(list: any[]) {
   return (list || []).map((item: any) => ({
     id: item.id ?? item.specie_id ?? item.specie?.id,
@@ -1142,8 +1283,51 @@ function normalizeSpeciesList(list: any[]) {
 }
 
 function setAreaSpeciesFromList(list: any[]) {
-  areaSpecies.value = normalizeSpeciesList(list)
-  loadingSpecies.value = false
+  // Handle several possible payload shapes robustly:
+  // - [{ id, name, scientific_name, subtype? }, ...]
+  // - [{ specie_id, specie_name, ... }, ...]
+  // - [1,2,3] (array of IDs)
+  try {
+    const normalized = (list || []).map((item: any) => {
+      if (item == null) return null
+      // If primitive ID
+      if (typeof item === 'number' || typeof item === 'string') {
+        return { specie_id: Number(item), specie_name: `Species #${item}`, scientific_name: null }
+      }
+      // If nested structure { specie: { id, name }, ... }
+      if (item.specie && (item.specie.id || item.specie.name)) {
+        return {
+          specie_id: item.specie.id ?? item.specie_id ?? item.id,
+          specie_name: item.specie.name ?? item.specie_name ?? item.name,
+          scientific_name: item.specie.scientific_name ?? item.scientific_name ?? null,
+          subtype: item.subtype ?? item.specie?.subtype ?? null,
+        }
+      }
+      // If plain object with id/name
+      if (item.id || item.name) {
+        return {
+          specie_id: item.id ?? item.specie_id ?? null,
+          specie_name: item.name ?? item.specie_name ?? null,
+          scientific_name: item.scientific_name ?? null,
+          subtype: item.subtype ?? null,
+        }
+      }
+      // Fallback to keys we know
+      return {
+        specie_id: item.specie_id ?? item.id ?? null,
+        specie_name: item.specie_name ?? item.name ?? null,
+        scientific_name: item.scientific_name ?? null,
+        subtype: item.subtype ?? null,
+      }
+    }).filter((x: any) => x && x.specie_id !== null)
+
+    areaSpecies.value = normalized
+  } catch (e) {
+    // Fallback to naive mapping
+    areaSpecies.value = normalizeSpeciesList(list)
+  } finally {
+    loadingSpecies.value = false
+  }
 }
 
 function isSpeciesInArea(specieId: any): boolean {
@@ -1203,7 +1387,7 @@ async function loadAreaSpecies(areaId: any) {
   loadingSpecies.value = true
   try {
     const resp = await huntingAreaStore.listHuntingAreaSpecies(areaId)
-    
+
     // Handle new payload structure: { success: true, data: [{ hunting_area_id, area_name, species: [...] }] }
     let list = []
     if (resp.data?.data && Array.isArray(resp.data.data)) {
@@ -1219,7 +1403,7 @@ async function loadAreaSpecies(areaId: any) {
       // Another fallback
       list = resp.data
     }
-    
+
     setAreaSpeciesFromList(list)
   } catch (error) {
     toast.init({ message: 'Failed to load species for this area', color: 'danger' })
@@ -1402,7 +1586,7 @@ async function getAreas() {
           let speciesCount = 0
           try {
             const speciesResponse = await huntingAreaStore.listHuntingAreaSpecies(area.id)
-            
+
             // Handle new payload structure: { success: true, data: [{ hunting_area_id, area_name, species: [...] }] }
             if (speciesResponse.data?.data && Array.isArray(speciesResponse.data.data)) {
               // Find the hunting area matching our areaId
@@ -1477,6 +1661,8 @@ async function getSpeciesItems() {
   try {
     const response = await quotaStore.getSpeciesList()
     const list = Array.isArray(response.data) ? response.data : response.data?.data || []
+    // Keep a full list for lookups, and expose simple options for selects
+    speciesList.value = list
     speciesOptions.value = list.map((item: any) => ({ value: item.id, text: item.name }))
   } catch (error) {
     // ignore load failure here

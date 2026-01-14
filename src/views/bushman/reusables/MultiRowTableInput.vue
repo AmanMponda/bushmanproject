@@ -129,8 +129,8 @@ function addRow() {
       newRow[field.key] = ''
     }
   }
-  // Prepend the new row so it appears at the top of the table
-  emit('update:modelValue', [newRow, ...props.modelValue])
+  // Append the new row so it appears at the bottom of the table
+  emit('update:modelValue', [...props.modelValue, newRow])
 }
 
 function removeRow(index: number) {

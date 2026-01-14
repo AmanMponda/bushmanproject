@@ -25,8 +25,8 @@
                   </div>
                 </template>
 
-                <template #id="{ row }">
-                  {{ row.id }}
+                <template #sn="{ row }">
+                  {{ getSerial(row) }}
                 </template>
 
                 <template #name="{ row }">
@@ -55,12 +55,6 @@
                       @change="toggleKeySpecies(row)"
                     />
                   </div>
-                </template>
-
-                <template #is_active="{ row }">
-                  <span class="badge" :class="row.is_active ? 'bg-success' : 'bg-secondary'">
-                    {{ row.is_active ? 'Active' : 'Inactive' }}
-                  </span>
                 </template>
 
                 <template #actions="{ row }">
@@ -458,6 +452,7 @@ const updatingKeyId = ref<number | string | null>(null)
 
 // Taxonomy filter state
 const selectedAnimalType = ref<string>('')
+const keySpeciesFilter = ref<string>('') // '', 'yes', 'no'
 const availableGroups = ref<any[]>([])
 
 // Species form
@@ -495,15 +490,24 @@ const unitForm = reactive({
 // Computed
 const selectedCount = computed(() => selectedIds.value.size)
 
-// Filtered items based on selected animal type
+// Filtered items based on selected animal type and key species filter
 const filteredItems = computed(() => {
-  if (!selectedAnimalType.value) {
-    return items.value
+  let list = items.value || []
+
+  if (selectedAnimalType.value) {
+    list = list.filter((item: any) => {
+      const groupName = item.group?.name || ''
+      return groupName === selectedAnimalType.value
+    })
   }
-  return items.value.filter((item: any) => {
-    const groupName = item.group?.name || ''
-    return groupName === selectedAnimalType.value
-  })
+
+  if (keySpeciesFilter.value === 'yes') {
+    list = list.filter((item: any) => isKeySpecies(item))
+  } else if (keySpeciesFilter.value === 'no') {
+    list = list.filter((item: any) => !isKeySpecies(item))
+  }
+
+  return list
 })
 
 // Extract unique animal types from loaded species
@@ -525,10 +529,22 @@ const tableCustomFilters = computed(() => [
     label: 'Animal Type',
     type: 'select',
     placeholder: 'All Animal Types',
-    options: animalTypes.value.map((type: string) => ({ 
+    options: [{ value: '', label: 'All Animal Types' }, ...animalTypes.value.map((type: string) => ({ 
       value: type, 
       label: type 
-    })),
+    }))],
+    defaultValue: '',
+  },
+  {
+    key: 'key_species',
+    label: 'Key Species',
+    type: 'select',
+    placeholder: 'All',
+    options: [
+      { value: '', label: 'All' },
+      { value: 'yes', label: 'Only key species' },
+      { value: 'no', label: 'Exclude key species' },
+    ],
     defaultValue: '',
   }
 ])
@@ -536,8 +552,9 @@ const tableCustomFilters = computed(() => [
 const hasSelected = (id: number | string) => selectedIds.value.has(id)
 
 function handleFiltersUpdate(filters: any) {
-  // Update the selected animal type from the filters
+  // Update the selected animal type and key species filter from the filters
   selectedAnimalType.value = filters.animal_type || ''
+  keySpeciesFilter.value = filters.key_species || ''
 }
 
 function normalizeIsActive(value: any): boolean {
@@ -730,12 +747,11 @@ const speciesTableFields = computed(() => [
 
 const columns = [
   { key: 'select', label: '', sortable: false, visible: true },
-  { key: 'id', label: 'ID', sortable: true, visible: true },
+  { key: 'sn', label: 'SN', sortable: false, visible: true },
   { key: 'name', label: 'Name', sortable: true, visible: true },
   { key: 'animal_type', label: 'Animal Type', sortable: true, visible: true },
   { key: 'description', label: 'Scientific Name', sortable: true, visible: true },
   { key: 'key_species', label: 'Key Species', sortable: false, visible: true },
-  { key: 'is_active', label: 'Status', sortable: true, visible: true },
   { key: 'actions', label: 'Actions', sortable: false, visible: true },
 ]
 
@@ -743,6 +759,7 @@ const pageActions = computed(() => {
   const actions: any[] = []
   actions.push({ label: 'Add Species', icon: 'fa fa-plus', class: 'btn btn-primary', method: () => showSpecies() })
   actions.push({ label: 'Export', icon: 'fa fa-file-excel', class: 'btn btn-success', method: () => exportSpeciesCSV() })
+  actions.push({ label: 'Print Key Species', icon: 'fa fa-print', class: 'btn btn-outline-secondary', method: () => printKeySpecies() })
   // Add Delete Selected only when there is at least one selected item
   if (selectedCount.value > 0) {
     actions.push({
@@ -761,6 +778,12 @@ function toggleSelect(id: number | string) {
   else set.add(id)
   // force update
   selectedIds.value = new Set(Array.from(set))
+}
+
+// Compute a serial number (1-based) across the current filtered list
+function getSerial(row: any) {
+  const idx = filteredItems.value.findIndex((it: any) => it.id === row.id)
+  return idx >= 0 ? idx + 1 : ''
 }
 
 function isKeySpecies(row: any) {
@@ -990,6 +1013,74 @@ function exportSpeciesCSV() {
     document.body.removeChild(link)
     URL.revokeObjectURL(url)
   }
+}
+
+function printKeySpecies() {
+  const keySpecies = (items.value || []).filter((it: any) => isKeySpecies(it))
+  if (keySpecies.length === 0) {
+    toast.init({ message: 'No key species to print', color: 'info' })
+    return
+  }
+
+  const rows = keySpecies.map((it: any, index: number) => {
+    const animalType = it.group?.name || '-'
+    const scientific = it.description || '-'
+    return `<tr>
+      <td>${index + 1}</td>
+      <td>${String(it.name || '')}</td>
+      <td>${String(animalType)}</td>
+      <td>${String(scientific)}</td>
+    </tr>`
+  }).join('')
+
+  const logoSrc = '/assets/img/Bushman%20Logo.png'
+  const html = `<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Key Species</title>
+    <style>
+      body { font-family: Arial, sans-serif; color: #111; margin: 24px; }
+      .header { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+      .logo { height: 40px; }
+      h1 { font-size: 18px; margin: 0; }
+      .meta { font-size: 12px; color: #555; margin-bottom: 16px; }
+      table { width: 100%; border-collapse: collapse; }
+      th, td { border: 1px solid #ccc; padding: 6px 8px; font-size: 12px; }
+      th { background: #f2f2f2; text-align: left; }
+      @media print { body { margin: 12mm; } }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <img src="${logoSrc}" alt="Bushman Logo" class="logo" />
+      <h1>Key Species</h1>
+    </div>
+    <div class="meta">Generated: ${new Date().toLocaleString()}</div>
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Name</th>
+          <th>Animal Type</th>
+          <th>Scientific Name</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </body>
+</html>`
+
+  const printWindow = window.open('', '_blank', 'width=900,height=700')
+  if (!printWindow) {
+    toast.init({ message: 'Popup blocked. Allow popups to print.', color: 'warning' })
+    return
+  }
+  printWindow.document.open()
+  printWindow.document.write(html)
+  printWindow.document.close()
+  printWindow.focus()
+  printWindow.print()
 }
 
 async function handleCsvImport(data: any[]) {
