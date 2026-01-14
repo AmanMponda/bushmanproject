@@ -30,6 +30,7 @@
               <router-link to="/module-settings/approval-chain" class="ms-1">Open Approval Chain</router-link>
             </div>
 
+
             <StandardDataTable
               :columns="columns"
               :data="rows"
@@ -176,6 +177,7 @@ const form = ref({
   approval_chain_module_id: null as number | null,
   is_active: true,
 })
+
 
 const handleFiltersUpdate = (filters: any) => {
   tableFilters.value = { ...tableFilters.value, ...filters }

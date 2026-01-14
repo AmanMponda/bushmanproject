@@ -304,6 +304,47 @@
               </a>
             </div>
 
+            <!-- Animal Type Selection -->
+            <div class="mb-3">
+              <label class="form-label fw-semibold">
+                <i class="fa fa-layer-group me-1"></i>
+                Select Animal Type <span class="text-danger">*</span>
+              </label>
+              <div class="btn-group w-100" role="group">
+                <button
+                  type="button"
+                  class="btn"
+                  :class="selectedAnimalType === 'Mammals' ? 'btn-primary' : 'btn-outline-primary'"
+                  @click="selectedAnimalType = 'Mammals'"
+                >
+                  <i class="fa fa-paw me-1"></i>
+                  Mammals
+                </button>
+                <button
+                  type="button"
+                  class="btn"
+                  :class="selectedAnimalType === 'Birds' ? 'btn-primary' : 'btn-outline-primary'"
+                  @click="selectedAnimalType = 'Birds'"
+                >
+                  <i class="fa fa-dove me-1"></i>
+                  Birds
+                </button>
+                <button
+                  type="button"
+                  class="btn"
+                  :class="selectedAnimalType === 'Reptiles' ? 'btn-primary' : 'btn-outline-primary'"
+                  @click="selectedAnimalType = 'Reptiles'"
+                >
+                  <i class="fa fa-dragon me-1"></i>
+                  Reptiles
+                </button>
+              </div>
+              <small class="text-muted d-block mt-1">
+                <i class="fa fa-info-circle me-1"></i>
+                This determines the item_group_id for imported species
+              </small>
+            </div>
+
             <CSVInput
               :column-fields="[
                 { key: 'name', label: 'Name' },
@@ -957,6 +998,16 @@ async function handleCsvImport(data: any[]) {
     return
   }
 
+  // Validate that an animal type is selected
+  if (!selectedAnimalType.value) {
+    toast.init({ message: 'Please select an animal type (Mammals, Birds, or Reptiles) before importing', color: 'warning' })
+    return
+  }
+
+  // Find the item_group_id based on selected animal type
+  const selectedGroup = availableGroups.value.find((g: any) => g.name === selectedAnimalType.value)
+  const itemGroupId = selectedGroup?.id || null
+
   importInProgress.value = true
   importTotal.value = data.length
   importProcessed.value = 0
@@ -979,6 +1030,7 @@ async function handleCsvImport(data: any[]) {
           name,
           scientific_name: description,
           is_active: existing.is_active ?? isActive,
+          item_group_id: itemGroupId,
         })
         importResults.value.push({ name, ok: r.status === 200, action: 'updated' })
         if (r.status === 200) {
@@ -989,6 +1041,7 @@ async function handleCsvImport(data: any[]) {
           name,
           scientific_name: description,
           is_active: isActive,
+          item_group_id: itemGroupId,
         })
         importResults.value.push({ name, ok: r.status === 201 || r.status === 200, action: 'created' })
         if (r.status === 201 || r.status === 200) {

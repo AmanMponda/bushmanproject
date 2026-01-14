@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { toRefs } from 'vue'
+import { toRefs, computed } from 'vue'
+import Datepicker from '@/components/plugins/Datepicker.vue'
 
 type Props = {
   isEditMode: boolean
@@ -15,12 +16,7 @@ type Props = {
   dimensionTypes: any[]
   dimensionValues: any[]
   vatOptions: any[]
-  formTabs: string[]
-  materialsTotal: number
-  accountsTotal: number
   grandTotal: number
-  getTabIcon: (tab: string) => string
-  getTabCount: (tab: string) => number
   getCurrencySymbol: () => string
   formatAmount: (value: number) => string
 }
@@ -40,641 +36,761 @@ const {
   dimensionTypes,
   dimensionValues,
   vatOptions,
-  formTabs,
-  materialsTotal,
-  accountsTotal,
   grandTotal,
 } = toRefs(props)
 
-const getTabIcon = props.getTabIcon
-const getTabCount = props.getTabCount
 const getCurrencySymbol = props.getCurrencySymbol
 const formatAmount = props.formatAmount
 
 const form = defineModel<any>('form', { required: true })
-const activeFormTab = defineModel<string>('activeFormTab', { required: true })
+const activeFormTab = defineModel<string>('activeFormTab', { required: true, default: 'sources' })
 
 const emit = defineEmits<{
   (e: 'cancel'): void
   (e: 'reset'): void
   (e: 'save', asDraft: boolean): void
   (e: 'clear-error'): void
-  (e: 'add-material'): void
-  (e: 'remove-material', key: string): void
-  (e: 'add-account'): void
-  (e: 'remove-account', key: string): void
-  (e: 'add-dimension'): void
-  (e: 'remove-dimension', key: string): void
+  (e: 'add-item'): void
+  (e: 'remove-item', itemKey: string): void
+  (e: 'add-material', itemKey: string): void
+  (e: 'remove-material', itemKey: string, materialKey: string): void
+  (e: 'add-account', itemKey: string): void
+  (e: 'remove-account', itemKey: string, accountKey: string): void
+  (e: 'add-dimension', itemKey: string): void
+  (e: 'remove-dimension', itemKey: string, dimensionKey: string): void
 }>()
 
 const saveDraft = () => emit('save', true)
-const submitForm = () => emit('save', false)
+
+
+const onAddItem = () => {
+  emit('add-item')
+}
+
+// Computed total for a specific item
+const getItemTotal = (item: any) => {
+  let total = 0
+  
+  // Add main item amount (qty * rate) if no child materials
+  if (item.quantity && item.rate && (!item.materials || item.materials.length === 0)) {
+    total += Number(item.quantity || 0) * Number(item.rate || 0)
+  }
+  
+  // Sum up child materials
+  if (item.materials && item.materials.length > 0) {
+    total += item.materials.reduce((sum: number, m: any) => {
+      const lineTotal = Number(m.quantity || 0) * Number(m.rate || 0)
+      return sum + lineTotal
+    }, 0)
+  }
+  
+  // Sum up accounts
+  if (item.accounts) {
+    total += item.accounts.reduce((sum: number, a: any) => sum + (Number(a.amount) || 0), 0)
+  }
+  return total
+}
+
+// Grouped dimension options: show values grouped by type for single-select UX
+const groupedDimensionOptions = computed(() => {
+  const groups: { typeId: number; typeName: string; values: any[] }[] = []
+  for (const type of dimensionTypes.value || []) {
+    const values = (dimensionValues.value || []).filter((v: any) => v.dimension_type_id === type.id)
+    if (values.length > 0) {
+      groups.push({ typeId: type.id, typeName: type.name, values })
+    }
+  }
+  return groups
+})
+
+// When user selects a dimension value, auto-fill the type
+const onDimensionValueChange = (line: any, valueId: number | null) => {
+  if (!valueId) {
+    line.dimensionTypeId = null
+    line.dimensionValueId = null
+    return
+  }
+  const selectedValue = (dimensionValues.value || []).find((v: any) => v.id === valueId)
+  if (selectedValue) {
+    line.dimensionTypeId = selectedValue.dimension_type_id
+    line.dimensionValueId = valueId
+  }
+}
+
+// Get display name for a dimension value (includes type prefix)
+const getDimensionDisplayName = (line: any) => {
+  if (!line.dimensionValueId) return ''
+  const value = (dimensionValues.value || []).find((v: any) => v.id === line.dimensionValueId)
+  const type = (dimensionTypes.value || []).find((t: any) => t.id === line.dimensionTypeId)
+  if (value && type) return `${type.name} › ${value.name}`
+  return value?.name || ''
+}
+
+// When user selects an item, auto-fill unit if item has default unit
+const onMaterialItemChange = (line: any, itemId: number | null) => {
+  line.itemId = itemId
+  if (!itemId) return
+  const selectedItem = (itemsOptions.value || []).find((i: any) => i.id === itemId)
+  if (selectedItem?.unit_of_measurement_id && !line.unitId) {
+    line.unitId = selectedItem.unit_of_measurement_id
+  } else if (selectedItem?.default_unit_id && !line.unitId) {
+    line.unitId = selectedItem.default_unit_id
+  }
+}
+
+// When user selects main item, auto-fill unit and inherit requisition currency
+const onMainItemChange = (item: any) => {
+  if (!item.itemId) return
+  const selectedItem = (itemsOptions.value || []).find((i: any) => i.id === item.itemId)
+  if (selectedItem?.unit_of_measurement_id && !item.unitId) {
+    item.unitId = selectedItem.unit_of_measurement_id
+  } else if (selectedItem?.default_unit_id && !item.unitId) {
+    item.unitId = selectedItem.default_unit_id
+  }
+
+}
+
+// Check if an item has child materials (BOM structure)
+const getItemHasMaterials = (itemId: number | null) => {
+  if (!itemId) return false
+  const selectedItem = (itemsOptions.value || []).find((i: any) => i.id === itemId)
+  // Check if item has children/materials property indicating BOM
+  return selectedItem?.has_materials || selectedItem?.has_children || selectedItem?.is_parent || false
+}
+
+// Toggle item expansion - only one item expanded at a time (accordion behavior)
+const toggleItemExpansion = (item: any, itemIndex: number) => {
+  if (!form.value.items || form.value.items.length <= 1) return
+  
+  // If clicking the currently expanded item, just toggle it
+  if (item._expanded) {
+    item._expanded = false
+  } else {
+    // Collapse all other items and expand this one
+    form.value.items.forEach((itm: any, idx: number) => {
+      itm._expanded = idx === itemIndex
+    })
+  }
+}
+
+// When user enters an amount at item level, update dimensions
+const onItemAmountChange = (item: any) => {
+  if (!item.amount || item.amount <= 0) return
+  
+  // If no dimensions exist, create one with 100%
+  if (!item.dimensions || item.dimensions.length === 0) {
+    item.dimensions = []
+  }
+  
+  // Update all dimensions with the amount and set first one to 100%
+  item.dimensions.forEach((dim: any, index: number) => {
+    dim.amount = item.amount
+    if (index === 0) {
+      dim.percentage = 100
+    }
+  })
+  
+  // If there are no dimensions at all, we need at least one
+  // Parent component should handle adding the dimension entry
+}
 </script>
 
 <template>
-  <main class="content">
-    <!-- Page Title Row -->
-    <div class="page-head">
-      <div class="page-head-left">
-        <div class="crumbs">
-          <span class="crumb-icon"><i class="fa fa-file-text"></i></span>
-          SALES / <span>REQUISITIONS</span>
+  <div class="ps-page">
+    <main class="content">
+      <!-- Page Title Row -->
+      <div class="page-head">
+        <div class="page-head-left">
+          <div class="crumbs">
+            <span class="crumb-icon"><i class="fa fa-file-text"></i></span>
+            SALES / <span>REQUISITIONS</span>
+          </div>
+          <h1>{{ isEditMode ? 'Edit Requisition' : 'Create Requisition' }}</h1>
+          <p class="subtitle">Fill in the requisition details and add line items for materials or expenses.</p>
         </div>
-        <h1>{{ isEditMode ? 'Edit Requisition' : 'Create Requisition' }}</h1>
-        <p class="subtitle">Fill in the requisition details and add line items for materials or expenses.</p>
+
+        <div class="head-actions">
+          <button class="btn ghost" type="button" @click="emit('cancel')">
+            <span class="btn-icon"><i class="fa fa-arrow-left"></i></span> Back
+          </button>
+          <button class="btn ghost" type="button" @click="emit('reset')">
+            <span class="btn-icon"><i class="fa fa-refresh"></i></span> Reset
+          </button>
+          <button class="btn secondary" type="button" @click="saveDraft" :disabled="savingForm">
+            <span class="btn-icon"><i class="fa fa-save"></i></span> Save Draft
+          </button>
+          
+        </div>
       </div>
 
-      <div class="head-actions">
-        <button class="btn ghost" type="button" @click="emit('cancel')">
-          <span class="btn-icon"><i class="fa fa-arrow-left"></i></span> Back
-        </button>
-        <button class="btn ghost" type="button" @click="emit('reset')">
-          <span class="btn-icon"><i class="fa fa-refresh"></i></span> Reset
-        </button>
-        <button class="btn secondary" type="button" @click="saveDraft" :disabled="savingForm">
-          <span class="btn-icon"><i class="fa fa-save"></i></span> Save Draft
-        </button>
-        <button class="btn primary" type="button" @click="submitForm" :disabled="savingForm">
-          <span v-if="savingForm" class="spinner-border spinner-border-sm me-1"></span>
-          <span class="btn-icon" v-else><i class="fa fa-check"></i></span> {{ isEditMode ? 'Save Changes' : 'Submit' }}
-        </button>
+      <!-- Error Alert -->
+      <div v-if="errorMessage" class="alert alert-danger alert-dismissible fade show mx-3" role="alert">
+        <i class="fa fa-exclamation-triangle me-2"></i>
+        {{ errorMessage }}
+        <button type="button" class="btn-close" @click="emit('clear-error')"></button>
       </div>
-    </div>
 
-    <!-- Error Alert -->
-    <div v-if="errorMessage" class="alert alert-danger alert-dismissible fade show mx-3" role="alert">
-      <i class="fa fa-exclamation-triangle me-2"></i>
-      {{ errorMessage }}
-      <button type="button" class="btn-close" @click="emit('clear-error')"></button>
-    </div>
-
-    <!-- 2-column layout -->
-    <section class="grid">
-      <!-- LEFT: Requisition Details Form -->
-      <aside class="panel left-panel">
-        <div class="panel-header">
-          <div class="panel-icon"><i class="fa fa-file-text"></i></div>
-          <div class="panel-title-text">
-            <h3>Requisition Details</h3>
-            <p>Fill in the basic information</p>
-          </div>
-        </div>
-
-        <div class="form">
-          <!-- Identification Section -->
-          <div class="form-section">
-            <div class="section-title">
-              <span class="section-icon"><i class="fa fa-tag"></i></span>
-              Identification
-            </div>
-
-            <label class="field">
-              <span class="lbl">Type <span class="req">*</span></span>
-              <div class="input-wrapper">
-                <span class="input-icon"><i class="fa fa-list"></i></span>
-                <select v-model="form.requisitionTypeId">
-                  <option :value="null">Select type...</option>
-                  <option v-for="type in requisitionTypes" :key="type.id" :value="type.id">{{ type.name }}</option>
-                </select>
-              </div>
-            </label>
-
-            <label class="field">
-              <span class="lbl">Fund Direction <span class="req">*</span></span>
-              <div class="input-wrapper">
-                <span class="input-icon"><i class="fa fa-exchange"></i></span>
-                <select v-model="form.fundDirection">
-                  <option value="EXPENSE">Expense</option>
-                  <option value="WITHDRAW">Withdraw</option>
-                </select>
-              </div>
-            </label>
-
-            <label class="field">
-              <span class="lbl">Branch</span>
-              <div class="input-wrapper">
-                <span class="input-icon"><i class="fa fa-building"></i></span>
-                <select v-model="form.branchId">
-                  <option :value="null">Select branch...</option>
-                  <option v-for="branch in branches" :key="branch.id" :value="branch.id">
-                    {{ branch.name }}
-                  </option>
-                </select>
-              </div>
-            </label>
-          </div>
-
-          <!-- Dates Section -->
-          <div class="form-section">
-            <div class="section-title">
-              <span class="section-icon"><i class="fa fa-calendar"></i></span>
-              Dates
-            </div>
-            
-            <div class="date-row">
-              <label class="field">
-                <span class="lbl">Requisition Date</span>
-                <div class="input-wrapper">
-                  <span class="input-icon"><i class="fa fa-calendar"></i></span>
-                  <input type="date" v-model="form.date" />
-                </div>
-              </label>
-
-              <label class="field">
-                <span class="lbl">Required Date <span class="req">*</span></span>
-                <div class="input-wrapper">
-                  <span class="input-icon"><i class="fa fa-calendar"></i></span>
-                  <input type="date" v-model="form.requiredDate" />
-                </div>
-              </label>
-            </div>
-          </div>
-
-          <!-- Currency & Tax Section -->
-          <div class="form-section">
-            <div class="section-title">
-              <span class="section-icon"><i class="fa fa-money"></i></span>
-              Currency & Tax
-            </div>
-            
-            <label class="field">
-              <span class="lbl">Currency <span class="req">*</span></span>
-              <div class="input-wrapper">
-                <span class="input-icon"><i class="fa fa-dollar"></i></span>
-                <select v-model="form.currencyId">
-                  <option :value="null" disabled>Select currency...</option>
-                  <option v-for="currency in currencies" :key="currency.id" :value="currency.id">
-                    {{ currency.symbol ? `${currency.name} (${currency.symbol})` : currency.name }}
-                  </option>
-                </select>
-              </div>
-            </label>
-
-            <label class="field">
-              <span class="lbl">Tax Method</span>
-              <div class="input-wrapper">
-                <span class="input-icon"><i class="fa fa-percent"></i></span>
-                <select v-model="form.taxMethod">
-                  <option value="EXCLUSIVE">Exclusive</option>
-                  <option value="INCLUSIVE">Inclusive</option>
-                  <option value="EXEMPT">Exempt</option>
-                </select>
-              </div>
-            </label>
-
-            <div class="discount-row" v-if="form.discountMethod">
-              <label class="field">
-                <span class="lbl">Discount</span>
-                <div class="input-wrapper">
-                  <span class="input-icon"><i class="fa fa-tag"></i></span>
-                  <select v-model="form.discountMethod" class="discount-type">
-                    <option :value="null">No discount</option>
-                    <option value="PERCENT">Percentage</option>
-                    <option value="LS">Lump Sum</option>
-                  </select>
-                </div>
-              </label>
-              <label class="field" v-if="form.discountMethod">
-                <span class="lbl">Amount</span>
-                <div class="input-wrapper">
-                  <span class="input-icon"><i class="fa fa-dollar"></i></span>
-                  <input type="number" v-model.number="form.discountAmount" min="0" step="0.01" placeholder="0.00" />
-                </div>
-              </label>
-            </div>
-          </div>
-
-          <!-- Remarks Section -->
-          <div class="form-section">
-            <div class="section-title">
-              <span class="section-icon"><i class="fa fa-sticky-note"></i></span>
-              Additional Info
-            </div>
-            
-            <label class="field">
-              <span class="lbl">Remarks</span>
-              <div class="input-wrapper textarea-wrapper">
-                <span class="input-icon"><i class="fa fa-comment"></i></span>
-                <textarea v-model="form.remarks" rows="3" placeholder="Add any notes or special instructions..."></textarea>
-              </div>
-            </label>
-          </div>
-
-          <!-- Summary Section -->
-          <div class="form-section summary-section">
-            <div class="section-title">
-              <span class="section-icon"><i class="fa fa-calculator"></i></span>
-              Summary
-            </div>
-            
-            <div class="summary-row">
-              <span class="summary-label">Materials Total</span>
-              <span class="summary-value">{{ getCurrencySymbol() }}{{ formatAmount(materialsTotal) }}</span>
-            </div>
-            <div class="summary-row">
-              <span class="summary-label">Accounts Total</span>
-              <span class="summary-value">{{ getCurrencySymbol() }}{{ formatAmount(accountsTotal) }}</span>
-            </div>
-            <div class="summary-row total">
-              <span class="summary-label">Grand Total</span>
-              <span class="summary-value">{{ getCurrencySymbol() }}{{ formatAmount(grandTotal) }}</span>
-            </div>
-          </div>
-        </div>
-      </aside>
-
-      <!-- CENTER: Line Items -->
-      <section class="panel center-panel">
-        <div class="panel-header center-header">
-          <div class="panel-icon"><i class="fa fa-list-alt"></i></div>
-          <div class="panel-title-text">
-            <h3>Line Items</h3>
-            <p>Add materials, account allocations, or funding sources</p>
-          </div>
-        </div>
-
-        <!-- Tabs Card -->
-        <div class="inner-card tabs-card">
-          <div class="tabs">
-            <button
-              v-for="tab in formTabs"
-              :key="tab"
-              class="tab"
-              :class="{ active: activeFormTab === tab }"
-              @click="activeFormTab = tab"
-            >
-              <span class="tab-icon">{{ getTabIcon(tab) }}</span>
-              <span class="tab-text">{{ tab }}</span>
-              <span class="tab-count" v-if="getTabCount(tab) > 0">{{ getTabCount(tab) }}</span>
-            </button>
-          </div>
-        </div>
-
-        <!-- MATERIALS TAB -->
-        <div class="inner-card table-card" v-if="String(activeFormTab) === 'Materials'">
-          <div class="table-header">
-            <div class="lines-info">
-              <h3>Material Items</h3>
-              <span class="line-count">
-                <span class="count-number">{{ form.materials.length }}</span> items
-              </span>
-            </div>
-            <button class="btn btn-sm btn-primary" type="button" @click="emit('add-material')">
-              <i class="fa fa-plus me-1"></i> Add Material
-            </button>
-          </div>
-
-          <div class="table-responsive" v-if="form.materials.length > 0">
-            <table class="rates-table">
-              <thead>
-                <tr>
-                  <th style="width: 25%">Item <span class="req">*</span></th>
-                  <th style="width: 15%">Unit <span class="req">*</span></th>
-                  <th style="width: 10%">Qty <span class="req">*</span></th>
-                  <th style="width: 20%">Amount</th>
-                  <th style="width: 15%">Description</th>
-                  <th style="width: 5%" class="text-center">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="line in form.materials" :key="line._key" class="rate-row">
-                  <td>
-                    <select v-model="line.itemId" class="form-select form-select-sm">
-                      <option :value="null">Select item...</option>
-                      <option v-for="item in itemsOptions" :key="item.id" :value="item.id">
-                        {{ item.code ? `${item.code} - ` : '' }}{{ item.name }}
-                      </option>
-                    </select>
-                  </td>
-                  <td>
-                    <select v-model="line.unitId" class="form-select form-select-sm">
-                      <option :value="null">Select unit...</option>
-                      <option v-for="unit in unitsOptions" :key="unit.id" :value="unit.id">
-                        {{ unit.name }}
-                      </option>
-                    </select>
-                  </td>
-                  <td>
-                    <input 
-                      type="number" 
-                      v-model.number="line.quantity" 
-                      min="0" 
-                      step="1"
-                      class="form-control form-control-sm text-end"
-                    />
-                  </td>
-                  <td>
-                    <div class="amount-input-group">
-                      <span class="input-group-text">{{ getCurrencySymbol() }}</span>
-                      <input 
-                        type="number" 
-                        v-model.number="line.amount" 
-                        min="0" 
-                        step="0.01"
-                        class="form-control form-control-sm text-end"
-                      />
-                    </div>
-                  </td>
-                  <td>
-                    <input 
-                      type="text" 
-                      v-model="line.description" 
-                      class="form-control form-control-sm"
-                      placeholder="Description..."
-                    />
-                  </td>
-                  <td class="text-center">
-                    <button
-                      type="button"
-                      class="btn btn-sm btn-outline-danger"
-                      @click="emit('remove-material', line._key)"
-                      :disabled="form.materials.length <= 1"
-                      title="Remove"
-                    >
-                      <i class="fa fa-trash"></i>
-                    </button>
-                  </td>
-                </tr>
-              </tbody>
-              <tfoot>
-                <tr class="total-row">
-                  <td colspan="3" class="text-end fw-bold">Materials Total:</td>
-                  <td class="text-end fw-bold">{{ getCurrencySymbol() }}{{ formatAmount(materialsTotal) }}</td>
-                  <td colspan="3"></td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-
-          <div v-else class="empty-state">
-            <div class="empty-illustration">
-              <div class="empty-icon"><i class="fa fa-cube fa-3x"></i></div>
-            </div>
-            <div class="empty-content">
-              <div class="empty-text">No materials added yet</div>
-              <div class="empty-hint">Click "Add Material" to add items to your requisition</div>
-              <button class="btn btn-add" type="button" @click="emit('add-material')">
-                <span class="btn-icon"><i class="fa fa-plus"></i></span> Add Material
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- ACCOUNTS TAB -->
-        <div class="inner-card table-card" v-if="String(activeFormTab) === 'Accounts'">
-          <div class="table-header">
-            <div class="lines-info">
-              <h3>Account Allocations</h3>
-              <span class="line-count">
-                <span class="count-number">{{ form.accounts.length }}</span> items
-              </span>
-            </div>
-            <button class="btn btn-sm btn-primary" type="button" @click="emit('add-account')">
-              <i class="fa fa-plus me-1"></i> Add Account
-            </button>
-          </div>
-
-          <div class="table-responsive" v-if="form.accounts.length > 0">
-            <table class="rates-table">
-              <thead>
-                <tr>
-                  <th style="width: 35%">Account <span class="req">*</span></th>
-                  <th style="width: 20%">Amount <span class="req">*</span></th>
-                  <th style="width: 35%">Description</th>
-                  <th style="width: 10%" class="text-center">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="line in form.accounts" :key="line._key" class="rate-row">
-                  <td>
-                    <select v-model="line.accountId" class="form-select form-select-sm">
-                      <option :value="null">Select account...</option>
-                      <option v-for="account in accounts" :key="account.id" :value="account.id">
-                        {{ account.code ? `${account.code} - ` : '' }}{{ account.name }}
-                      </option>
-                    </select>
-                  </td>
-                  <td>
-                    <div class="amount-input-group">
-                      <span class="input-group-text">{{ getCurrencySymbol() }}</span>
-                      <input 
-                        type="number" 
-                        v-model.number="line.amount" 
-                        min="0" 
-                        step="0.01"
-                        class="form-control form-control-sm text-end"
-                      />
-                    </div>
-                  </td>
-                  <td>
-                    <input 
-                      type="text" 
-                      v-model="line.description" 
-                      class="form-control form-control-sm"
-                      placeholder="Description..."
-                    />
-                  </td>
-                  <td class="text-center">
-                    <button
-                      type="button"
-                      class="btn btn-sm btn-outline-danger"
-                      @click="emit('remove-account', line._key)"
-                      title="Remove"
-                    >
-                      <i class="fa fa-trash"></i>
-                    </button>
-                  </td>
-                </tr>
-              </tbody>
-              <tfoot>
-                <tr class="total-row">
-                  <td colspan="2" class="text-end fw-bold">Accounts Total:</td>
-                  <td class="text-end fw-bold">{{ getCurrencySymbol() }}{{ formatAmount(accountsTotal) }}</td>
-                  <td></td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-
-          <div v-else class="empty-state">
-            <div class="empty-illustration">
-              <div class="empty-icon"><i class="fa fa-book fa-3x"></i></div>
-            </div>
-            <div class="empty-content">
-              <div class="empty-text">No accounts added yet</div>
-              <div class="empty-hint">Click "Add Account" to add account allocations</div>
-              <button class="btn btn-add" type="button" @click="emit('add-account')">
-                <span class="btn-icon"><i class="fa fa-plus"></i></span> Add Account
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Sources (center tab) - duplicate of left-panel funding inputs so they remain visible when tab is active -->
-        <div class="inner-card form-card" v-if="String(activeFormTab) === 'Sources'">
-          <div class="table-header">
-            <div class="lines-info">
-              <h3>Funding Source</h3>
-              <span class="line-count">Enter a single shared funding source for the requisition</span>
+      <!-- 2-column layout -->
+      <section class="grid">
+        <!-- LEFT: Requisition Details Form -->
+        <aside class="panel left-panel">
+          <div class="panel-header">
+            <div class="panel-icon"><i class="fa fa-file-text"></i></div>
+            <div class="panel-title-text">
+              <h3>Requisition Details</h3>
+              <p>Fill in the basic information</p>
             </div>
           </div>
 
           <div class="form">
+            <!-- Identification Section -->
             <div class="form-section">
+              <div class="section-title">
+                <span class="section-icon"><i class="fa fa-tag"></i></span>
+                Identification
+              </div>
+
               <label class="field">
-                <span class="lbl">Source Type <span class="req">*</span></span>
+                <span class="lbl">Type <span class="req">*</span></span>
                 <div class="input-wrapper">
-                  <span class="input-icon"><i class="fa fa-money-bill"></i></span>
-                  <select v-model="form.source.sourceType">
-                    <option :value="null" disabled>Select source type...</option>
-                    <option value="CASH">Cash</option>
-                    <option value="STORE">Store</option>
-                    <option value="VENDOR">Vendor</option>
-                    <option value="SERVICE_PROVIDER">Service Provider</option>
+                  <span class="input-icon"><i class="fa fa-list"></i></span>
+                  <select v-model="form.requisitionTypeId">
+                    <option :value="null">Select type...</option>
+                    <option v-for="type in requisitionTypes" :key="type.id" :value="type.id">{{ type.name }}</option>
                   </select>
                 </div>
               </label>
 
               <label class="field">
-                <span class="lbl">Payee</span>
+                <span class="lbl">Fund Direction <span class="req">*</span></span>
                 <div class="input-wrapper">
-                  <span class="input-icon"><i class="fa fa-user"></i></span>
-                  <input v-model="form.source.payee" type="text" class="form-control" placeholder="Payee name..." />
+                  <span class="input-icon"><i class="fa fa-exchange"></i></span>
+                  <select v-model="form.fundDirection">
+                    <option value="EXPENSE">Expense</option>
+                    <option value="WITHDRAW">Withdraw</option>
+                  </select>
                 </div>
               </label>
 
+
+            </div>
+
+            <!-- Dates Section -->
+            <div class="form-section">
+              <div class="section-title">
+                <span class="section-icon"><i class="fa fa-calendar"></i></span>
+                Dates
+              </div>
+
+              <div class="date-row">
+                <label class="field">
+                  <span class="lbl">Required Date <span class="req">*</span></span>
+                  <div class="input-wrapper">
+                    <span class="input-icon"><i class="fa fa-calendar"></i></span>
+                    <Datepicker class="date-picker-lg" v-model="form.requiredDate" model-type="yyyy-MM-dd" />
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            <!-- Currency & Tax Section -->
+            <div class="form-section">
+              <div class="section-title">
+                <span class="section-icon"><i class="fa fa-money"></i></span>
+                Currency & Tax
+              </div>
+
               <label class="field">
-                <span class="lbl">Source Account</span>
+                <span class="lbl">Currency <span class="req">*</span></span>
                 <div class="input-wrapper">
-                  <span class="input-icon"><i class="fa fa-university"></i></span>
-                  <select v-model="form.source.sourceAccountId">
-                    <option :value="null">Select account...</option>
-                    <option v-for="account in accounts" :key="account.id" :value="account.id">
-                      {{ account.code ? `${account.code} - ` : '' }}{{ account.name }}
+                  <span class="input-icon"><i class="fa fa-dollar"></i></span>
+                  <select v-model="form.currencyId">
+                    <option :value="null" disabled>Select currency...</option>
+                    <option v-for="currency in currencies" :key="currency.id" :value="currency.id">
+                      {{ currency.symbol ? `${currency.name} (${currency.symbol})` : currency.name }}
                     </option>
                   </select>
                 </div>
               </label>
 
               <label class="field">
-                <span class="lbl">Payment Mode</span>
+                <span class="lbl">Tax Method</span>
                 <div class="input-wrapper">
-                  <span class="input-icon"><i class="fa fa-credit-card"></i></span>
-                  <select v-model="form.source.modeOfPayment">
-                    <option :value="null">Select...</option>
-                    <option value="CASH">Cash</option>
-                    <option value="TT">TT</option>
-                    <option value="CREDIT">Credit</option>
+                  <span class="input-icon"><i class="fa fa-percent"></i></span>
+                  <select v-model="form.taxMethod">
+                    <option value="EXCLUSIVE">Exclusive</option>
+                    <option value="INCLUSIVE">Inclusive</option>
+                    <option value="EXEMPT">Exempt</option>
                   </select>
                 </div>
               </label>
 
+              <div class="discount-row" v-if="form.discountMethod">
+                <label class="field">
+                  <span class="lbl">Discount</span>
+                  <div class="input-wrapper">
+                    <span class="input-icon"><i class="fa fa-tag"></i></span>
+                    <select v-model="form.discountMethod" class="discount-type">
+                      <option :value="null">No discount</option>
+                      <option value="PERCENT">Percentage</option>
+                      <option value="LS">Lump Sum</option>
+                    </select>
+                  </div>
+                </label>
+                <label class="field" v-if="form.discountMethod">
+                  <span class="lbl">Amount</span>
+                  <div class="input-wrapper">
+                    <span class="input-icon"><i class="fa fa-dollar"></i></span>
+                    <input type="number" v-model.number="form.discountAmount" min="0" step="0.01" placeholder="0.00" />
+                  </div>
+                </label>
+              </div>
+            </div>
 
+            <!-- Remarks Section -->
+            <div class="form-section">
+              <div class="section-title">
+                <span class="section-icon"><i class="fa fa-sticky-note"></i></span>
+                Additional Info
+              </div>
 
               <label class="field">
-                <span class="lbl">Description</span>
+                <span class="lbl">Remarks</span>
                 <div class="input-wrapper textarea-wrapper">
-                  <span class="input-icon"><i class="fa fa-align-left"></i></span>
-                  <textarea v-model="form.source.description" rows="2" placeholder="Notes about this funding source..."></textarea>
+                  <span class="input-icon"><i class="fa fa-comment"></i></span>
+                  <textarea v-model="form.remarks" rows="3"
+                    placeholder="Add any notes or special instructions..."></textarea>
                 </div>
-              </label> 
+              </label>
             </div>
-          </div>
-        </div>
 
-        <!-- DIMENSIONS TAB (now part of line-items tabs) -->
-          <div class="inner-card table-card dimensions-panel" v-if="String(activeFormTab) === 'Dimensions'">
-            <div class="table-header">
-              <div class="lines-info">
-                <h3>Dimension Allocation</h3>
-                <span class="line-count">
-                  <span class="count-number">{{ form.dimensions.length }}</span> items
-                </span>
+            <!-- Summary Section -->
+            <div class="form-section summary-section">
+              <div class="section-title">
+                <span class="section-icon"><i class="fa fa-calculator"></i></span>
+                Summary
               </div>
-              <button class="btn btn-sm btn-primary" type="button" @click="emit('add-dimension')">
-                <i class="fa fa-plus me-1"></i> Add Dimension
+
+              <div class="summary-row total">
+                <span class="summary-label">Grand Total</span>
+                <span class="summary-value">{{ getCurrencySymbol() }}{{ formatAmount(grandTotal) }}</span>
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        <!-- CENTER: Requisition Line Items -->
+        <section class="panel center-panel">
+          <div class="panel-header center-header">
+            <div class="panel-icon"><i class="fa fa-list-alt"></i></div>
+            <div class="panel-title-text">
+              <h3>Line Items & Sources</h3>
+              <p>Manage requisition items and funding sources</p>
+            </div>
+          </div>
+
+          <!-- Tab Navigation -->
+          <div class="inner-card tabs-card">
+            <div class="tabs">
+              <button type="button" class="tab" :class="{ active: activeFormTab === 'sources' }"
+                @click="activeFormTab = 'sources'">
+                <span class="tab-icon">💳</span>
+                <span class="tab-text">Sources</span>
+              </button>
+              <button type="button" class="tab" :class="{ active: activeFormTab === 'items' }"
+                @click="activeFormTab = 'items'">
+                <span class="tab-icon">📦</span>
+                <span class="tab-text">Items</span>
+                <span class="tab-count" v-if="form.items && form.items.length > 0">{{ form.items.length }}</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- ITEMS TAB -->
+          <div v-if="activeFormTab === 'items'" class="tab-content">
+            <div class="items-header">
+              <button class="btn btn-sm btn-primary" type="button" @click="onAddItem">
+                <i class="fa fa-plus me-1"></i> Add Item
               </button>
             </div>
 
-            <div class="table-responsive" v-if="form.dimensions.length > 0">
-              <table class="rates-table compact">
-                <thead>
-                  <tr>
-                    <th style="width: 30%">Type</th>
-                    <th style="width: 30%">Value</th>
-                    <th style="width: 20%">Amount</th>
-                    <th style="width: 15%">%</th>
-                    <th style="width: 5%" class="text-center">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="line in form.dimensions" :key="line._key" class="rate-row">
-                    <td>
-                      <select v-model="line.dimensionTypeId" class="form-select form-select-sm" @change="line.dimensionValueId = null">
-                        <option :value="null">Type...</option>
-                        <option v-for="type in dimensionTypes" :key="type.id" :value="type.id">
-                          {{ type.name }}
-                        </option>
-                      </select>
-                    </td>
-                    <td>
-                      <select v-model="line.dimensionValueId" class="form-select form-select-sm">
-                        <option :value="null">Value...</option>
-                        <option v-for="value in dimensionValues.filter(v => v.dimension_type_id === line.dimensionTypeId)" :key="value.id" :value="value.id">
-                          {{ value.name }}
-                        </option>
-                      </select>
-                    </td>
-                    <td>
-                      <div class="amount-input-group">
-                        <span class="input-group-text">{{ getCurrencySymbol() }}</span>
-                        <input 
-                          type="number" 
-                          v-model.number="line.amount" 
-                          min="0" 
-                          step="0.01"
-                          class="form-control form-control-sm text-end"
-                        />
+            <!-- List of Requisition Items -->
+            <div v-if="form.items && form.items.length > 0" class="items-list">
+              <div v-for="(item, itemIndex) in form.items" :key="item._key" class="requisition-item-card" :class="{ 'card-collapsed': form.items.length > 1 && !item._expanded }">
+                <!-- Item Header - Compact for multiple items -->
+                <div 
+                  class="item-header" 
+                  :class="{ 'item-header-compact': Number(form.items.length) > 1 && Number(itemIndex) > 0, 'item-header-clickable': Number(form.items.length) > 1 }"
+                  @click="Number(form.items.length) > 1 && toggleItemExpansion(item, Number(itemIndex))"
+                >
+                  <div class="item-header-left">
+                    <i v-if="Number(form.items.length) > 1" class="fa toggle-icon" :class="item._expanded ? 'fa-chevron-down' : 'fa-chevron-right'"></i>
+                    <span class="item-number">#{{ Number(itemIndex) + 1 }}</span>
+                    <h4 v-if="Number(form.items.length) === 1 || Number(itemIndex) === 0" class="item-title">Requisition Item</h4>
+                    <span class="item-total-badge">{{ getCurrencySymbol() }}{{ formatAmount(getItemTotal(item)) }}</span>
+                  </div>
+                  <button
+                    type="button"
+                    class="btn btn-xs btn-outline-danger"
+                    @click.stop="emit('remove-item', item._key)"
+                    :disabled="form.items.length <= 1"
+                    title="Remove Item"
+                  >
+                    <i class="fa fa-trash"></i>
+                  </button>
+                </div>
+
+                <!-- Item Body -->
+                <div v-show="form.items.length === 1 || item._expanded" class="item-body">
+
+
+                                    <!-- Item Configuration Section -->
+                  <div class="form-section compact">
+                    <div class="section-title compact-title">
+                      <span class="section-icon"><i class="fa fa-cog"></i></span>
+                      Item Configuration
+                    </div>
+                    
+                    <div class="row g-2">
+
+                      
+                      <div class="col-md-3">
+                        <label class="field compact-field">
+                          <span class="lbl">Cost Center <span class="req">*</span></span>
+                          <div class="input-wrapper">
+                            <span class="input-icon"><i class="fa fa-building"></i></span>
+                            <select 
+                              v-model="item.costCenter"
+                              class="form-control form-control-sm"
+                            >
+                              <option :value="null">Select cost center...</option>
+                              <optgroup v-for="group in groupedDimensionOptions" :key="group.typeId" :label="group.typeName">
+                                <option v-for="val in group.values" :key="val.id" :value="val.id">
+                                  {{ val.name }}
+                                </option>
+                              </optgroup>
+                            </select>
+                          </div>
+                        </label>
                       </div>
-                    </td>
-                    <td>
-                      <input 
-                        type="number" 
-                        v-model.number="line.percentage" 
-                        min="0" 
-                        max="100"
-                        step="0.01"
-                        class="form-control form-control-sm text-end"
-                      />
-                    </td>
-                    <td class="text-center">
-                      <button
-                        type="button"
-                        class="btn btn-sm btn-outline-danger"
-                        @click="emit('remove-dimension', line._key)"
-                        title="Remove"
-                      >
-                      <i class="fa fa-trash"></i>
-                    </button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+                      <div class="col-md-3">
+                        <label class="field compact-field">
+                          <span class="lbl">VAT</span>
+                          <div class="input-wrapper">
+                            <span class="input-icon"><i class="fa fa-percent"></i></span>
+                            <select v-model="item.vatId" class="form-control form-control-sm">
+                              <option :value="null">No VAT</option>
+                              <option v-for="vat in vatOptions" :key="vat.id" :value="vat.id">
+                                {{ vat.name }}
+                              </option>
+                            </select>
+                          </div>
+                        </label>
+                      </div>
+                      <div class="col-md-3">
+                        <label class="field compact-field">
+                          <span class="lbl">Discount Amount</span>
+                          <div class="input-wrapper">
+                            <span class="input-icon">{{ getCurrencySymbol() }}</span>
+                            <input 
+                              v-model.number="item.discountAmount" 
+                              type="number" 
+                              min="0" 
+                              step="0.01" 
+                              class="form-control form-control-sm" 
+                              placeholder="0.00"
+                            />
+                          </div>
+                        </label>
+                      </div>
+                      
+                      <div class="col-md-3">
+                        <label class="field compact-field">
+                          <span class="lbl">Discount Method</span>
+                          <div class="input-wrapper">
+                            <span class="input-icon"><i class="fa fa-tags"></i></span>
+                            <select v-model="item.discountMethod" class="form-control form-control-sm">
+                              <option :value="null">No discount</option>
+                              <option value="PERCENT">Percentage (%)</option>
+                              <option value="LS">Lump Sum</option>
+                            </select>
+                          </div>
+                        </label>
+                      </div>
+                      
+                      <div class="col-12">
+                        <label class="field compact-field">
+                          <span class="lbl">Remarks</span>
+                          <div class="input-wrapper">
+                            <span class="input-icon"><i class="fa fa-comment"></i></span>
+                            <textarea 
+                              v-model="item.remarks" 
+                              rows="2" 
+                              class="form-control form-control-sm" 
+                              placeholder="Additional notes for this item..."
+                            ></textarea>
+                          </div>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
 
-          <div v-else class="empty-state compact">
-            <div class="empty-content">
-              <div class="empty-text">No dimensions added yet</div>
-              <div class="empty-hint">Click "Add Dimension" to allocate amounts</div>
-              <button class="btn btn-add" type="button" @click="emit('add-dimension')">
-                <span class="btn-icon"><i class="fa fa-plus"></i></span> Add Dimension
+                  <!-- Main Item Selection -->
+                  <div class="form-section compact">
+                    <div class="section-title compact-title">
+                      <span class="section-icon"><i class="fa fa-cube"></i></span>
+                      Main Item
+                    </div>
+                    
+                    <div class="row g-2">
+                      <div class="col-md-3">
+                        <label class="field compact-field">
+                          <span class="lbl">Item <span class="req">*</span></span>
+                          <div class="input-wrapper">
+                            <span class="input-icon"><i class="fa fa-box"></i></span>
+                            <select 
+                              v-model="item.itemId"
+                              @change="onMainItemChange(item)"
+                              class="form-control form-control-sm"
+                            >
+                              <option :value="null">Select item...</option>
+                              <option v-for="itm in itemsOptions" :key="itm.id" :value="itm.id">
+                                {{ itm.code ? `${itm.code} - ` : '' }}{{ itm.name }}
+                              </option>
+                            </select>
+                          </div>
+                        </label>
+                      </div>
+                      
+                      <div class="col-md-3">
+                        <label class="field compact-field">
+                          <span class="lbl">Unit</span>
+                          <div class="input-wrapper">
+                            <span class="input-icon"><i class="fa fa-balance-scale"></i></span>
+                            <select v-model="item.unitId" class="form-control form-control-sm">
+                              <option :value="null">Unit...</option>
+                              <option v-for="unit in unitsOptions" :key="unit.id" :value="unit.id">
+                                {{ unit.name }}
+                              </option>
+                            </select>
+                          </div>
+                        </label>
+                      </div>
+                      
+                      <div class="col-md-3">
+                        <label class="field compact-field">
+                          <span class="lbl">Quantity</span>
+                          <div class="input-wrapper">
+                            <span class="input-icon"><i class="fa fa-sort-numeric-asc"></i></span>
+                            <input 
+                              v-model.number="item.quantity" 
+                              type="number" 
+                              min="0" 
+                              step="1" 
+                              class="form-control form-control-sm text-end" 
+                              placeholder="0"
+                            />
+                          </div>
+                        </label>
+                      </div>
+                      
+                      <div class="col-md-3">
+                        <label class="field compact-field">
+                          <span class="lbl">Rate</span>
+                          <div class="input-wrapper">
+                            <span class="input-icon">{{ getCurrencySymbol() }}</span>
+                            <input 
+                              v-model.number="item.rate" 
+                              type="number" 
+                              min="0" 
+                              step="0.01" 
+                              class="form-control form-control-sm text-end" 
+                              placeholder="0.00"
+                            />
+                          </div>
+                        </label>
+                      </div>
+                      
+                    </div>
+                    
+                    <!-- Item has child materials info -->
+                    <div v-if="getItemHasMaterials(item.itemId)" class="alert alert-info mt-2 py-2 small">
+                      <i class="fa fa-info-circle me-1"></i>
+                      This item has child materials. Add them in the Materials section below.
+                    </div>
+                  </div>
+
+
+
+                <!-- Sub-sections -->
+                <div class="item-sections">
+
+                  <!-- Materials Section (Child Items) -->
+                  <div class="collapsible-section" :class="{ expanded: item._materialsExpanded }">
+                    <div class="section-header collapsible-header" @click="item._materialsExpanded = !item._materialsExpanded">
+                      <div class="section-title-group">
+                        <i class="fa fa-cubes section-icon"></i>
+                        <h5 class="section-title-text">Child Materials</h5>
+                        <span class="badge-count" v-if="item.materials && item.materials.length > 0">{{ item.materials.length }}</span>
+                        <span v-if="!item.materials || item.materials.length === 0" class="text-muted small ms-2">(Optional - for items with sub-components)</span>
+                      </div>
+                      <button 
+                        type="button" 
+                        class="btn-add-section" 
+                        @click.stop="emit('add-material', item._key)"
+                        title="Add Child Material"
+                      >
+                        <i class="fa fa-plus"></i>
+                      </button>
+                    </div>
+                    <div v-show="item._materialsExpanded" class="section-content">
+                      <div v-if="item.materials && item.materials.length > 0" class="section-table-wrapper">
+                        <table class="compact-table">
+                          <thead>
+                            <tr>
+                              <th style="width: 25%">Item</th>
+                              <th style="width: 12%">Unit</th>
+                              <th style="width: 10%">Qty</th>
+                              <th style="width: 12%">Rate</th>
+                              <th style="width: 22%">Description</th>
+                              <th style="width: 7%"></th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr v-for="mat in item.materials" :key="mat._key">
+                              <td>
+                                <select 
+                                  :value="mat.itemId" 
+                                  @change="onMaterialItemChange(mat, ($event.target as HTMLSelectElement).value ? Number(($event.target as HTMLSelectElement).value) : null)"
+                                  class="form-control form-control-sm"
+                                >
+                                  <option :value="null">Select...</option>
+                                  <option v-for="itm in itemsOptions" :key="itm.id" :value="itm.id">
+                                    {{ itm.code ? `${itm.code} - ` : '' }}{{ itm.name }}
+                                  </option>
+                                </select>
+                              </td>
+                              <td>
+                                <select v-model="mat.unitId" class="form-control form-control-sm">
+                                  <option :value="null">Unit...</option>
+                                  <option v-for="unit in unitsOptions" :key="unit.id" :value="unit.id">
+                                    {{ unit.name }}
+                                  </option>
+                                </select>
+                              </td>
+                              <td>
+                                <input v-model.number="mat.quantity" type="number" min="0" step="1" class="form-control form-control-sm text-end" placeholder="0" />
+                              </td>
+                              <td>
+                                <input v-model.number="mat.rate" type="number" min="0" step="0.01" class="form-control form-control-sm text-end" placeholder="0.00" />
+                              </td>
+                              <td>
+                                <input v-model="mat.description" type="text" class="form-control form-control-sm" placeholder="Notes..." />
+                              </td>
+                              <td>
+                                <button type="button" class="btn btn-xs btn-outline-danger" @click="emit('remove-material', item._key, mat._key)" title="Remove">
+                                  <i class="fa fa-trash"></i>
+                                </button>
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                      <div v-else class="section-empty">
+                        <span class="text-muted">No child materials. If this item has sub-components, add them here.</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                </div>
+              </div>
+            </div>
+            <div v-else class="empty-state-large">
+              <div class="empty-icon"><i class="fa fa-inbox fa-4x"></i></div>
+              <h3>No Items Yet</h3>
+              <p>Add requisition items to start building your requisition</p>
+              <button class="btn btn-primary" type="button" @click="onAddItem">
+                <i class="fa fa-plus me-2"></i> Add First Item
               </button>
             </div>
           </div>
-        </div>
+
+          <!-- SOURCES TAB -->
+          <div v-if="activeFormTab === 'sources'" class="tab-content">
+            <div class="inner-card form-card">
+              <div class="table-header">
+                <div class="lines-info">
+                  <h3>Funding Source</h3>
+                  <span class="line-count">Specify the funding source for this requisition</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="form p-4">
+              <div class="form-section">
+                <label class="field">
+                  <span class="lbl">Source Type <span class="req">*</span></span>
+                  <div class="input-wrapper">
+                    <span class="input-icon"><i class="fa fa-money-bill"></i></span>
+                    <select v-model="form.source.sourceType">
+                      <option :value="null" disabled>Select source type...</option>
+                      <option value="CASH">Cash</option>
+                      <option value="STORE">Store</option>
+                      <option value="VENDOR">Vendor</option>
+                      <option value="SERVICE_PROVIDER">Service Provider</option>
+                    </select>
+                  </div>
+                </label>
+
+                <label class="field">
+                  <span class="lbl">Payee</span>
+                  <div class="input-wrapper">
+                    <span class="input-icon"><i class="fa fa-user"></i></span>
+                    <input v-model="form.source.payee" type="text" class="form-control" placeholder="Payee name..." />
+                  </div>
+                </label>
+
+                <label class="field">
+                  <span class="lbl">Source Account</span>
+                  <div class="input-wrapper">
+                    <span class="input-icon"><i class="fa fa-university"></i></span>
+                    <select v-model="form.source.sourceAccountId">
+                      <option :value="null">Select account...</option>
+                      <option v-for="account in accounts" :key="account.id" :value="account.id">
+                        {{ account.code ? `${account.code} - ` : '' }}{{ account.name }}
+                      </option>
+                    </select>
+                  </div>
+                </label>
+
+                <label class="field">
+                  <span class="lbl">Payment Mode</span>
+                  <div class="input-wrapper">
+                    <span class="input-icon"><i class="fa fa-credit-card"></i></span>
+                    <select v-model="form.source.modeOfPayment">
+                      <option :value="null">Select...</option>
+                      <option value="CASH">Cash</option>
+                      <option value="TT">TT</option>
+                      <option value="CREDIT">Credit</option>
+                    </select>
+                  </div>
+                </label>
+
+                <label class="field">
+                  <span class="lbl">Description</span>
+                  <div class="input-wrapper textarea-wrapper">
+                    <span class="input-icon"><i class="fa fa-align-left"></i></span>
+                    <textarea v-model="form.source.description" rows="3"
+                      placeholder="Notes about this funding source..."></textarea>
+                  </div>
+                </label>
+              </div>
+            </div>
+          </div>
+        </section>
       </section>
-    </section>
-  </main>
+    </main>
+  </div>
 </template>
 
 <style scoped>
@@ -703,7 +819,7 @@ const submitForm = () => emit('save', false)
   --radius-lg: 16px;
 }
 
-.requisition-page {
+.ps-page {
   background: var(--bg);
   min-height: 100vh;
   color: var(--text);
@@ -951,6 +1067,13 @@ h1 {
   font-weight: 600;
 }
 
+.btn.btn-primary {
+  background: #2563eb;
+  border-color: #1e40af;
+  color: white;
+  font-weight: 600;
+}
+
 .btn.primary:hover:not(:disabled) {
   background: #1e40af;
 }
@@ -1140,6 +1263,12 @@ h1 {
   margin-bottom: 0;
 }
 
+.date-picker-lg :deep(.dp__input) {
+  height: 48px;
+  font-size: 15px;
+  padding: 12px 14px;
+}
+
 /* Allow date picker popover to float above and outside the left panel */
 .left-panel {
   overflow: visible !important;
@@ -1222,11 +1351,11 @@ h1 {
   box-shadow: var(--shadow-sm);
 }
 
-.switch input:checked + .slider {
+.switch input:checked+.slider {
   background: #2563eb;
 }
 
-.switch input:checked + .slider:before {
+.switch input:checked+.slider:before {
   transform: translateX(22px);
 }
 
@@ -1536,7 +1665,7 @@ h1 {
   transition: all 0.2s ease;
 }
 
-.custom-name-toggle input:checked + .toggle-indicator {
+.custom-name-toggle input:checked+.toggle-indicator {
   background: #dbeafe;
   color: #2563eb;
 }
@@ -1658,11 +1787,26 @@ h1 {
   border-bottom: 2px solid var(--border);
 }
 
-.data-table th.col-item { width: 35%; }
-.data-table th.col-type { width: 15%; }
-.data-table th.col-hunting { width: 20%; }
-.data-table th.col-days { width: 15%; text-align: center; }
-.data-table th.col-action { width: 50px; }
+.data-table th.col-item {
+  width: 35%;
+}
+
+.data-table th.col-type {
+  width: 15%;
+}
+
+.data-table th.col-hunting {
+  width: 20%;
+}
+
+.data-table th.col-days {
+  width: 15%;
+  text-align: center;
+}
+
+.data-table th.col-action {
+  width: 50px;
+}
 
 .data-table tbody tr {
   transition: all 0.15s ease;
@@ -1939,9 +2083,69 @@ h1 {
 }
 
 .package-select:focus {
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px var(--primary-light);
   outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+}
+
+.lbl {
+  font-size: 12px;
+  color: #0f172a;
+  font-weight: 600;
+}
+
+.req {
+  color: var(--danger);
+}
+
+.field-hint {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+  font-style: italic;
+}
+
+.input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+/* Amount Field Styling */
+.amount-wrapper {
+  position: relative;
+}
+
+.currency-symbol {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-weight: 700;
+  color: #2563eb;
+  font-size: 16px;
+  z-index: 2;
+}
+
+.amount-input {
+  padding-left: 50px !important;
+  font-weight: 700;
+  font-size: 18px !important;
+  background: #f8fafc;
+  border: 2px solid #2563eb !important;
+}
+
+.amount-input:focus {
+  background: #ffffff;
+  border-color: #2563eb !important;
+  box-shadow: 0 0 0 3px #dbeafe !important;
+}
+
+.field-hint {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+  display: block;
 }
 
 .add-package-btn {
@@ -2266,7 +2470,7 @@ h1 {
     grid-template-columns: 280px 1fr;
     gap: 16px;
   }
-  
+
   .progress-steps {
     display: none;
   }
@@ -2276,13 +2480,602 @@ h1 {
   .grid {
     grid-template-columns: 1fr;
   }
-  
+
   .center-panel {
     order: -1;
   }
-  
+
   .content {
     padding: 16px;
   }
+
+}
+
+/* Requisition Item Cards */
+.items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.requisition-item-card {
+  background: #ffffff;
+  border: 2px solid #e2e8f0;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
+}
+
+.requisition-item-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+.requisition-item-card.card-collapsed {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.requisition-item-card.card-collapsed:hover {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+}
+
+.item-header {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: white;
+  padding: 12px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.item-header-clickable {
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.2s ease;
+}
+
+.item-header-clickable:hover {
+  background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+}
+
+.item-header-clickable.item-header-compact:hover {
+  background: linear-gradient(135deg, #475569 0%, #334155 100%);
+}
+
+.item-header-compact {
+  padding: 8px 16px;
+  background: linear-gradient(135deg, #64748b 0%, #475569 100%);
+}
+
+.item-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.toggle-icon {
+  font-size: 12px;
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.item-number {
+  font-size: 14px;
+  font-weight: 800;
+  background: rgba(255, 255, 255, 0.25);
+  padding: 4px 10px;
+  border-radius: 6px;
+}
+
+.item-title {
+  font-size: 15px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.item-total-badge {
+  font-size: 15px;
+  font-weight: 800;
+  background: rgba(255, 255, 255, 0.25);
+  padding: 4px 12px;
+  border-radius: 6px;
+}
+
+.item-body {
+  padding: 12px;
+}
+
+/* Compact Form Styles */
+.form-section.compact {
+  padding: 12px;
+  margin-bottom: 8px;
+}
+
+.section-title.compact-title {
+  font-size: 11px;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+}
+
+.field.compact-field {
+  margin-bottom: 8px;
+}
+
+.field.compact-field .lbl {
+  font-size: 11px;
+  margin-bottom: 3px;
+}
+
+.field.compact-field .field-hint {
+  font-size: 10px;
+  margin-top: 2px;
+}
+
+.field.compact-field .input-wrapper input,
+.field.compact-field .input-wrapper select {
+  font-size: 13px;
+  padding: 6px 10px;
+  padding-left: 32px;
+}
+
+.field.compact-field .input-icon {
+  font-size: 12px;
+  left: 10px;
+}
+
+.items-header {
+  margin-bottom: 16px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.tab-content {
+  background: white;
+  padding: 20px;
+  border-radius: 0 0 12px 12px;
+}
+
+.item-card {
+  background: #ffffff;
+  border: 2px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
+}
+
+.item-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
+}
+
+.item-header {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: white;
+  padding: 16px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.item-title {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.item-total {
+  font-size: 20px;
+  font-weight: 800;
+  margin: 0;
+}
+
+.item-body {
+  padding: 20px;
+}
+
+.item-meta-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+  padding-bottom: 24px;
+  border-bottom: 2px solid #f1f5f9;
+}
+
+.item-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.item-section {
+  margin-bottom: 0;
+}
+
+.item-section:last-child {
+  margin-bottom: 0;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+/* Collapsible Section Styles */
+.collapsible-section {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #ffffff;
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+
+.collapsible-section:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.collapsible-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 16px;
+  cursor: pointer;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  margin-bottom: 0;
+  transition: all 0.2s ease;
+}
+
+.collapsible-header:hover {
+  background: #f1f5f9;
+}
+
+.section-title-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.section-icon {
+  font-size: 16px;
+  color: #64748b;
+}
+
+.section-title-text {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.badge-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 7px;
+  background: #dbeafe;
+  color: #1e40af;
+  border-radius: 11px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.btn-add-section {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  font-size: 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-add-section:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.section-content {
+  padding: 16px;
+  background: #ffffff;
+}
+
+.section-table-wrapper {
+  overflow-x: auto;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+}
+
+.collapsible-section.expanded {
+  border-color: #3b82f6;
+  box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.15);
+}
+
+.collapsible-section.expanded .collapsible-header {
+  background: #eff6ff;
+  border-bottom-color: #bfdbfe;
+}
+
+.section-empty {
+  padding: 24px;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 13px;
+  background: #f8fafc;
+  border-radius: 6px;
+}
+
+.section-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.section-table th,
+.compact-table th {
+  background: #f8fafc;
+  color: #475569;
+  font-weight: 600;
+  font-size: 13px;
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.section-empty {
+  padding: 24px;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 13px;
+  background: #f8fafc;
+  border-radius: 6px;
+}
+
+.section-table td,
+.compact-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.section-table tbody tr:hover,
+.compact-table tbody tr:hover {
+  background: #f8fafc;
+}
+
+.compact-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.section-table tbody tr:hover,
+.compact-table tbody tr:hover {
+  background: #f8fafc;
+}
+
+.compact-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.action-cell {
+  width: 60px;
+  text-align: center;
+}
+
+.remove-btn {
+  color: #ef4444;
+  background: transparent;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.remove-btn:hover {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.requisition-item-card {
+  background: white;
+  border: 2px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+  transition: box-shadow 0.2s ease;
+}
+
+.requisition-item-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: #f8fafc;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.item-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.item-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: #2563eb;
+  color: white;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.item-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.item-total-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  background: #dbeafe;
+  color: #1e40af;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.item-body {
+  padding: 20px;
+}
+
+.item-meta {
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.field-sm {
+  margin-bottom: 0;
+}
+
+.field-sm .lbl {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #64748b;
+  margin-bottom: 4px;
+  display: block;
+}
+
+.item-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.item-section {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.section-header h5 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+}
+
+.btn-xs {
+  padding: 4px 8px;
+  font-size: 11px;
+}
+
+.section-table {
+  overflow-x: auto;
+}
+
+.compact-table {
+  width: 100%;
+  font-size: 13px;
+  border-collapse: collapse;
+}
+
+.compact-table thead {
+  background: #f1f5f9;
+}
+
+.compact-table th {
+  padding: 8px 12px;
+  text-align: left;
+  font-weight: 600;
+  color: #475569;
+  border-bottom: 2px solid #e2e8f0;
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.compact-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.compact-table tbody tr:hover {
+  background: #f8fafc;
+}
+
+.compact-table .form-select,
+.compact-table .form-control {
+  font-size: 13px;
+  padding: 4px 8px;
+}
+
+.section-empty {
+  padding: 20px;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 13px;
+}
+
+.empty-state-large {
+  padding: 80px 20px;
+  text-align: center;
+  background: white;
+  border-radius: 12px;
+}
+
+.empty-state-large .empty-icon {
+  color: #cbd5e1;
+  margin-bottom: 20px;
+}
+
+.empty-state-large h3 {
+  font-size: 20px;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 8px;
+}
+
+.empty-state-large p {
+  font-size: 14px;
+  color: #64748b;
+  margin-bottom: 24px;
 }
 </style>

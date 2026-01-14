@@ -366,12 +366,6 @@ export const useAppSidebarMenuStore = defineStore("appSidebarMenu", () => {
       permission: 'CAN_VIEW_SALES_PIPELINE'
     },
     {
-      url: '/sales/requisitions',
-      icon: 'fa fa-file-alt',
-      text: 'Requisitions',
-      permission: 'CAN_VIEW_SALES'
-    },
-    {
       url: '/sales',
       icon: 'fa fa-shopping-cart',
       text: 'Sales',
@@ -383,6 +377,12 @@ export const useAppSidebarMenuStore = defineStore("appSidebarMenu", () => {
         { url: '/sales/sales-contracts', text: 'Sales Contracts', permission: 'CAN_VIEW_SALES_CONTRACTS' },
       ],
 
+    },
+    {
+      url: '/sales/requisitions',
+      icon: 'fa fa-file-alt',
+      text: 'Requisitions',
+      permission: 'CAN_VIEW_SALES'
     },
     {
       url: '/operations',
@@ -449,6 +449,7 @@ export const useAppSidebarMenuStore = defineStore("appSidebarMenu", () => {
         { url: '/module-settings/documents', text: 'Documents', permission: 'CAN_VIEW_MODULE_SETTINGS' },
         { url: '/module-settings/approval-chain', text: 'Approval Chain', permission: 'CAN_VIEW_APPROVAL_CHAIN' },
         { url: '/module-settings/requisition-types', text: 'Requisition Types', permission: 'CAN_VIEW_MODULE_SETTINGS' },
+        { url: '/module-settings/cost-centers', text: 'Cost Centers', permission: 'CAN_VIEW_MODULE_SETTINGS' },
         // { url: '/module-settings/safari-fee-deposits', text: 'Deposits Planning', permission: 'CAN_VIEW_SAFARI_FEE_DEPOSITS' },
         // { url: '/module-settings/sales-extra-services', text: 'Extra Services', permission: 'CAN_VIEW_SALES_EXTRA_SERVICES' },
 

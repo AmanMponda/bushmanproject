@@ -79,6 +79,29 @@ export const usePriceStructuresStore = defineStore('price-structures', {
       const response = await axios.post(url, payload)
       return response
     },
+    // Upgrade Fees
+    async createUpgradeFee(payload: any) {
+      const url = import.meta.env.VITE_APP_BASE_URL + `settings/upgrade-fees`
+      const response = await axios.post(url, payload)
+      return response
+    },
+    async updateUpgradeFee(id: number, payload: any) {
+      const url = import.meta.env.VITE_APP_BASE_URL + `settings/upgrade-fees/${id}`
+      const response = await axios.put(url, payload)
+      return response
+    },
+    async deleteUpgradeFee(id: number) {
+      const url = import.meta.env.VITE_APP_BASE_URL + `settings/upgrade-fees/${id}`
+      const response = await axios.delete(url)
+      return response
+    },
+    async getUpgradeFeeMetadata(priceStructureId: number) {
+      const url = import.meta.env.VITE_APP_BASE_URL + `settings/upgrade-fees/creation-metadata`
+      const response = await axios.get(url, {
+        params: { price_structure_id: priceStructureId }
+      })
+      return response
+    },
     async getHuntLengths() {
       const url = import.meta.env.VITE_APP_BASE_URL + import.meta.env.VITE_APP_HUNT_LENGTHS_URL
       const response = await axios.get(url)

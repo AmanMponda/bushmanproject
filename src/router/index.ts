@@ -22,6 +22,7 @@ const SalesRequisitionDetails = () => import('@/views/bushman/sales/RequisitionD
 const PriceStructureAddItem = () => import('@/views/bushman/sales/price-structures/PriceStructureAddItem.vue');
 const PriceStructureAddPrice = () => import('@/views/bushman/sales/price-structures/PriceStructureAddPrice.vue');
 const PriceStructureAddSafariExtra = () => import('@/views/bushman/sales/price-structures/PriceStructureAddSafariExtra.vue');
+const PriceStructureAddUpgradeFee = () => import('@/views/bushman/sales/price-structures/PriceStructureAddUpgradeFee.vue');
 const ManageQuotasSettings = () => import('@/views/bushman/module-settings/ManageQuota.vue');
 const ManageRegulatoryPackage = () => import('@/views/bushman/module-settings/ManageRegulatoryPackage.vue');
 const ManageSalesPackage = () => import('@/views/bushman/module-settings/ManageSalesPackage.vue');
@@ -34,6 +35,7 @@ const ManageTerms = () => import('@/views/bushman/module-settings/ManageTerms.vu
 const ManageSafariFeeDeposits = () => import('@/views/bushman/module-settings/ManageSafariFeeDeposits.vue');
 const ManageApprovalChain = () => import('@/views/bushman/module-settings/ManageApprovalChain.vue');
 const ManageRequisitionTypes = () => import('@/views/bushman/module-settings/ManageRequisitionTypes.vue');
+const ManageCostCenters = () => import('@/views/bushman/module-settings/ManageCostCenters.vue');
 const ManageAreaSettings = () => import('@/views/bushman/module-settings/ManageArea.vue');
 const ManageHuntingTypes = () => import('@/views/bushman/module-settings/ManageHuntingTypes.vue');
 const ManageSpeciesSettings = () => import('@/views/bushman/module-settings/ManageSpecies.vue');
@@ -179,6 +181,12 @@ const router = createRouter({
       component: PriceStructureAddSafariExtra,
       meta: { requiresAuth: true }
     },
+    {
+      path: "/sales/price-structures/:id/upgrade-fees/create",
+      name: "price-structure-upgrade-fee-create",
+      component: PriceStructureAddUpgradeFee,
+      meta: { requiresAuth: true }
+    },
 
 
     {
@@ -315,6 +323,12 @@ const router = createRouter({
       path: "/module-settings/requisition-types",
       name: "requisition-types",
       component: ManageRequisitionTypes,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/module-settings/cost-centers",
+      name: "cost-centers",
+      component: ManageCostCenters,
       meta: { requiresAuth: true }
     },
     // {

@@ -35,6 +35,21 @@ type RequisitionItem = {
   unitName?: string
 }
 
+type RequisitionItemForm = {
+  _key: string
+  currencyId: number | null
+  vatId: number | null
+  discountAmount: number
+  discountMethod: DiscountMethod | null
+  taxMethod: TaxMethod | null
+  remarks: string
+  materials: MaterialLine[]
+  accounts: AccountLine[]
+  dimensions: DimensionLine[]
+  _materialsExpanded?: boolean
+  _accountsExpanded?: boolean
+}
+
 type ApprovalRecord = {
   id: number
   level: number
@@ -113,8 +128,7 @@ type MaterialLine = {
   itemId: number | null
   unitId: number | null
   quantity: number
-  // We now capture the total amount per line directly for space efficiency
-  amount: number
+  rate: number
   currencyId: number | null
   description: string
 } 
@@ -179,9 +193,51 @@ const dimensionValues = ref<DimensionValue[]>([])
 const vatOptions = ref<OptionItem[]>([])
 
 // Form tabs
-const formTabs = ['Sources','Materials', 'Accounts', 'Dimensions'] as string[]
-type FormTab = 'Sources' | 'Materials' | 'Accounts' | 'Dimensions'
-const activeFormTab = ref<FormTab>('Sources')
+type FormTab = 'sources' | 'items'
+const activeFormTab = ref<FormTab>('sources')
+
+const generateKey = () => crypto.randomUUID()
+
+const createEmptyItem = (): RequisitionItemForm => ({
+  _key: generateKey(),
+  currencyId: form.currencyId,
+  vatId: null,
+  discountAmount: 0,
+  discountMethod: null,
+  taxMethod: 'EXCLUSIVE',
+  remarks: '',
+  materials: [
+    {
+      _key: generateKey(),
+      itemId: null,
+      unitId: null,
+      quantity: 1,
+      rate: 0,
+      currencyId: form.currencyId,
+      description: '',
+    },
+  ],
+  accounts: [
+    {
+      _key: generateKey(),
+      accountId: null,
+      currencyId: form.currencyId,
+      amount: 0,
+      description: '',
+    },
+  ],
+  dimensions: [
+    {
+      _key: generateKey(),
+      dimensionTypeId: null,
+      dimensionValueId: null,
+      amount: null,
+      percentage: null,
+    },
+  ],
+  _materialsExpanded: true,
+  _accountsExpanded: false,
+})
 
 const userLabel = (value: any): string => {
   if (!value) return ''
@@ -220,16 +276,8 @@ const form = reactive({
   date: new Date().toISOString().slice(0, 10),
   requiredDate: '',
   remarks: '',
-  
-  // Item-level settings (applied to requisition_items)
   taxMethod: 'EXCLUSIVE' as TaxMethod,
-  discountMethod: null as DiscountMethod | null,
-  discountAmount: 0,
-  vatId: null as number | null,
-  
-  // Line items
-  materials: [] as MaterialLine[],
-  accounts: [] as AccountLine[],
+
   // Single shared source for the whole requisition
   source: {
     _key: '',
@@ -241,40 +289,33 @@ const form = reactive({
     exchangeRate: 1,
     description: '',
   } as SourceLine,
-  dimensions: [] as DimensionLine[],
-  
-  // Legacy - kept for backwards compatibility
-  items: [
-    {
-      id: 1,
-      description: '',
-      quantity: 1,
-      rate: 0,
-      itemId: null,
-      unitId: null,
-    },
-  ] as RequisitionItem[],
+
+  // Requisition items (each manages its own materials/accounts/dimensions)
+  items: [] as RequisitionItemForm[],
 })
 
-// Initialize form with default lines
-const initializeFormLines = () => {
-  if (form.materials.length === 0) {
-    addMaterialLine()
-  }
-}
+// Avoid v-model assignment to a const reactive object (Vue compiler generates `form = $event` otherwise).
+const formModel = computed({
+  get: () => form,
+  set: (value) => Object.assign(form, value),
+})
 
 // Computed values
 const materialsTotal = computed(() => {
-  return form.materials.reduce((sum, line) => {
-    // Prefer explicit line.amount; fallback to quantity*rate if older data exists
-    const lineAmount = (line as any).amount !== undefined ? Number((line as any).amount || 0) : Number((line as any).quantity || 0) * Number((line as any).rate || 0)
-    return sum + lineAmount
+  return form.items.reduce((sum, item) => {
+    const itemMaterialsTotal = (item.materials || []).reduce((subSum, line) => {
+      const lineAmount =
+        Number((line as any).quantity || 0) * Number((line as any).rate || 0)
+      return subSum + lineAmount
+    }, 0)
+    return sum + itemMaterialsTotal
   }, 0)
 })
 
 const accountsTotal = computed(() => {
-  return form.accounts.reduce((sum, line) => {
-    return sum + (line.amount || 0)
+  return form.items.reduce((sum, item) => {
+    const itemAccountsTotal = (item.accounts || []).reduce((subSum, line) => subSum + (line.amount || 0), 0)
+    return sum + itemAccountsTotal
   }, 0)
 })
 
@@ -288,47 +329,64 @@ const getCurrencySymbol = () => {
   return currency?.symbol || currency?.code || ''
 }
 
-// Line item management
-const generateKey = () => crypto.randomUUID()
+const findItemOrThrow = (itemKey: string) => {
+  const item = form.items.find((i) => i._key === itemKey)
+  if (!item) throw new Error('Item not found')
+  return item
+}
 
-const addMaterialLine = () => {
-  form.materials.push({
+const addItem = () => {
+  form.items.push(createEmptyItem())
+}
+
+const removeItem = (itemKey: string) => {
+  if (form.items.length <= 1) return
+  const index = form.items.findIndex((i) => i._key === itemKey)
+  if (index >= 0) form.items.splice(index, 1)
+}
+
+const addMaterialLine = (itemKey: string) => {
+  const item = findItemOrThrow(itemKey)
+  item.materials.push({
     _key: generateKey(),
     itemId: null,
     unitId: null,
     quantity: 1,
-    amount: 0,
-    currencyId: form.currencyId,
+    rate: 0,
+    currencyId: item.currencyId ?? form.currencyId,
     description: '',
   })
-} 
-
-const removeMaterialLine = (key: string) => {
-  if (form.materials.length <= 1) return
-  const index = form.materials.findIndex(l => l._key === key)
-  if (index >= 0) form.materials.splice(index, 1)
 }
 
-const addAccountLine = () => {
-  form.accounts.push({
+const removeMaterialLine = (itemKey: string, materialKey: string) => {
+  const item = findItemOrThrow(itemKey)
+  if (item.materials.length <= 1) return
+  const index = item.materials.findIndex((l) => l._key === materialKey)
+  if (index >= 0) item.materials.splice(index, 1)
+}
+
+const addAccountLine = (itemKey: string) => {
+  const item = findItemOrThrow(itemKey)
+  if (item.accounts.length > 0) return
+  item.accounts.push({
     _key: generateKey(),
     accountId: null,
-    currencyId: form.currencyId,
+    currencyId: item.currencyId ?? form.currencyId,
     amount: 0,
     description: '',
   })
 }
 
-const removeAccountLine = (key: string) => {
-  const index = form.accounts.findIndex(l => l._key === key)
-  if (index >= 0) form.accounts.splice(index, 1)
+const removeAccountLine = (itemKey: string, accountKey: string) => {
+  const item = findItemOrThrow(itemKey)
+  const index = item.accounts.findIndex((l) => l._key === accountKey)
+  if (index >= 0) item.accounts.splice(index, 1)
 }
 
-// Sources are now a single shared source stored in form.source. Remove multi-source helpers.
-// (Left in place for reference; no-op add/remove removed.)
-
-const addDimensionLine = () => {
-  form.dimensions.push({
+const addDimensionLine = (itemKey: string) => {
+  const item = findItemOrThrow(itemKey)
+  if (item.dimensions.length > 0) return
+  item.dimensions.push({
     _key: generateKey(),
     dimensionTypeId: null,
     dimensionValueId: null,
@@ -337,43 +395,22 @@ const addDimensionLine = () => {
   })
 }
 
-const removeDimensionLine = (key: string) => {
-  const index = form.dimensions.findIndex(l => l._key === key)
-  if (index >= 0) form.dimensions.splice(index, 1)
-}
-
-// Get filtered dimension values based on selected type
-const getFilteredDimensionValues = (typeId: number | null) => {
-  if (!typeId) return []
-  return dimensionValues.value.filter(v => v.dimension_type_id === typeId)
-}
-
-// Tab icon mapping
-const getTabIcon = (tab: string) => {
-  switch (tab as FormTab) {
-    case 'Materials': return '📦'
-    case 'Accounts': return '📊'
-    case 'Sources': return '💳'
-    default: return '📋'
-  }
-}
-
-const getTabCount = (tab: string) => {
-  switch (tab as FormTab) {
-    case 'Materials': return form.materials.length
-    case 'Accounts': return form.accounts.length
-    case 'Sources': return form.source && form.source.sourceType ? 1 : 0
-    default: return 0
-  }
+const removeDimensionLine = (itemKey: string, dimensionKey: string) => {
+  const item = findItemOrThrow(itemKey)
+  const index = item.dimensions.findIndex((l) => l._key === dimensionKey)
+  if (index >= 0) item.dimensions.splice(index, 1)
 }
 
 // Watch currency changes to update line items
 watch(() => form.currencyId, (newCurrencyId) => {
-  form.materials.forEach(line => {
-    line.currencyId = newCurrencyId
-  })
-  form.accounts.forEach(line => {
-    line.currencyId = newCurrencyId
+  form.items.forEach((item) => {
+    item.currencyId = newCurrencyId
+    item.materials.forEach((line) => {
+      line.currencyId = item.currencyId ?? newCurrencyId
+    })
+    item.accounts.forEach((line) => {
+      line.currencyId = item.currencyId ?? newCurrencyId
+    })
   })
   // Force single shared source currency to the requisition currency and reset exchange rate to 1
   if (form.source) {
@@ -476,13 +513,7 @@ const tableActionButtons = ref([
     tooltip: 'Create a new requisition',
     method: () => openCreateForm(),
   },
-  {
-    label: '',
-    icon: 'fa fa-th',
-    class: 'btn btn-outline-secondary',
-    tooltip: 'Toggle grid',
-    method: () => {},
-  },
+
 ])
 
 const handleFiltersUpdate = (filters: any) => {
@@ -503,15 +534,9 @@ const resetForm = () => {
   form.date = new Date().toISOString().slice(0, 10)
   form.requiredDate = ''
   form.remarks = ''
-  form.taxMethod = 'EXCLUSIVE'
-  form.discountMethod = null
-  form.discountAmount = 0
-  form.vatId = null
-  
-  // Reset line items
-  form.materials = []
-  form.accounts = []
-  form.dimensions = []
+
+  // Reset items
+  form.items = []
   form.source = {
     _key: generateKey(),
     sourceType: null,
@@ -522,24 +547,12 @@ const resetForm = () => {
     exchangeRate: 1,
     description: '',
   }
-  
-  // Add initial material line
-  addMaterialLine()
-  
+
+  // Ensure at least one item exists
+  addItem()
+
   // Reset active tab to Sources so funding inputs are visible on open
-  activeFormTab.value = 'Sources'
-  
-  // Legacy
-  form.items = [
-    {
-      id: 1,
-      description: '',
-      quantity: 1,
-      rate: 0,
-      itemId: null,
-      unitId: null,
-    },
-  ]
+  activeFormTab.value = 'sources'
 }
 
 const mapApproval = (approval: any): ApprovalRecord => {
@@ -730,19 +743,48 @@ const loadMetadata = async () => {
     
     // Map dimension types and values if available
     const dimTypes = metadata.dimension_types || metadata.accounting_dimension_types || []
-    dimensionTypes.value = (Array.isArray(dimTypes) ? dimTypes : []).map((dt: any) => ({
+    const mappedDimTypes = (Array.isArray(dimTypes) ? dimTypes : []).map((dt: any) => ({
       id: dt.id,
       code: dt.code || '',
       name: dt.name || `Dimension ${dt.id}`,
     }))
     
     const dimValues = metadata.dimension_values || metadata.accounting_dimension_values || []
-    dimensionValues.value = (Array.isArray(dimValues) ? dimValues : []).map((dv: any) => ({
+    const mappedDimValues = (Array.isArray(dimValues) ? dimValues : []).map((dv: any) => ({
       id: dv.id,
       dimension_type_id: dv.dimension_type_id,
       code: dv.code || '',
       name: dv.name || `Value ${dv.id}`,
     }))
+
+    dimensionTypes.value = mappedDimTypes
+    dimensionValues.value = mappedDimValues
+
+    // Fallback: if metadata does not include dimensions, load directly from endpoints
+    if (dimensionTypes.value.length === 0 || dimensionValues.value.length === 0) {
+      try {
+        const [typesRes, valuesRes] = await Promise.all([
+          requisitionService.listDimensionTypes({ active_only: true }),
+          requisitionService.listDimensionValues({ active_only: true }),
+        ])
+        const rawTypes = (typesRes as any)?.data || typesRes || []
+        const rawValues = (valuesRes as any)?.data || valuesRes || []
+
+        dimensionTypes.value = (Array.isArray(rawTypes) ? rawTypes : []).map((dt: any) => ({
+          id: dt.id,
+          code: dt.code || '',
+          name: dt.name || `Dimension ${dt.id}`,
+        }))
+        dimensionValues.value = (Array.isArray(rawValues) ? rawValues : []).map((dv: any) => ({
+          id: dv.id,
+          dimension_type_id: dv.dimension_type_id,
+          code: dv.code || '',
+          name: dv.name || `Value ${dv.id}`,
+        }))
+      } catch (dimError) {
+        console.error('Failed to load accounting dimensions:', dimError)
+      }
+    }
     
     // Map VAT options if available
     const vats = metadata.value_added_taxes || metadata.vat || []
@@ -809,33 +851,34 @@ const openEditForm = (req: Requisition) => {
   form.date = req.date
   form.requiredDate = req.requiredDate
   form.remarks = req.remarks
-  
-  // Map items to materials for edit
-  form.materials = req.items.map((item) => ({
+
+  // Map legacy API items into per-item structures (1 requisition-item per legacy line)
+  form.items = (req.items || []).map((line) => ({
     _key: generateKey(),
-    itemId: item.itemId,
-    unitId: item.unitId,
-    quantity: item.quantity,
-    // Calculate existing line total (quantity * rate) into amount so users edit totals directly
-    amount: Number(item.quantity || 1) * Number(item.rate || 0),
     currencyId: form.currencyId,
-    description: item.description,
+    vatId: null,
+    discountAmount: 0,
+    discountMethod: null,
+    taxMethod: 'EXCLUSIVE',
+    remarks: '',
+    materials: [
+      {
+        _key: generateKey(),
+        itemId: line.itemId,
+        unitId: line.unitId,
+        quantity: line.quantity || 1,
+        rate: Number(line.rate || 0),
+        currencyId: form.currencyId,
+        description: line.description || '',
+      },
+    ],
+    accounts: [],
+    dimensions: [],
+    _materialsExpanded: true,
+    _accountsExpanded: false,
   }))
-  
-  // Ensure at least one material line
-  if (form.materials.length === 0) {
-    addMaterialLine()
-  }
-  
-  // Legacy items for backwards compatibility
-  form.items = req.items.map((item, index) => ({
-    id: index + 1,
-    description: item.description,
-    quantity: item.quantity,
-    rate: item.rate,
-    itemId: item.itemId,
-    unitId: item.unitId,
-  }))
+
+  if (form.items.length === 0) addItem()
   
   // Map existing single source (if any) into the shared form.source
   const existingSource = (req as any).sources && (req as any).sources.length > 0 ? (req as any).sources[0] : null
@@ -887,48 +930,66 @@ const validateForm = () => {
     errorMessage.value = 'Currency is required.'
     return false
   }
-  
-  // Validate materials
-  const hasValidMaterials = form.materials.some(m => m.itemId && (Number((m as any).amount || 0) > 0))
-  const hasValidAccounts = form.accounts.some(a => a.accountId && a.amount > 0)
-  
-  if (!hasValidMaterials && !hasValidAccounts) {
-    errorMessage.value = 'Add at least one material or account line with valid data.'
+
+  const itemHasValidLines = (item: RequisitionItemForm) => {
+    const hasValidMaterials = (item.materials || []).some((m) => m.itemId && m.unitId && Number(m.quantity || 0) > 0 && Number(m.rate || 0) > 0)
+    const hasValidAccounts = (item.accounts || []).some((a) => a.accountId && a.amount > 0)
+    return hasValidMaterials || hasValidAccounts
+  }
+
+  if (!form.items.some(itemHasValidLines)) {
+    errorMessage.value = 'Add at least one item with a valid material or account line.'
     return false
   }
-  
-  // Validate each material line that has data
-  for (const material of form.materials) {
-    if ((material as any).amount || material.itemId) {
-      if (!material.itemId) {
-        errorMessage.value = 'Please select an item for all material lines.'
-        return false
+
+  for (const [index, item] of form.items.entries()) {
+    // Validate each material line that has data
+    for (const material of item.materials || []) {
+      if (material.rate || material.itemId || material.unitId || material.quantity) {
+        if (!material.itemId) {
+          errorMessage.value = `Item ${index + 1}: please select a material item.`
+          return false
+        }
+        if (!material.unitId) {
+          errorMessage.value = `Item ${index + 1}: please select a unit for all material lines.`
+          return false
+        }
+        if (Number(material.quantity || 0) <= 0) {
+          errorMessage.value = `Item ${index + 1}: material quantity must be greater than zero.`
+          return false
+        }
+        if (Number(material.rate || 0) <= 0) {
+          errorMessage.value = `Item ${index + 1}: material rate must be greater than zero.`
+          return false
+        }
       }
-      if (!material.unitId) {
-        errorMessage.value = 'Please select a unit for all material lines.'
-        return false
+    }
+
+    // Validate each account line that has data
+    for (const account of item.accounts || []) {
+      if (account.accountId || account.amount > 0) {
+        if (!account.accountId) {
+          errorMessage.value = `Item ${index + 1}: please select an account for all account lines.`
+          return false
+        }
+        if (account.amount <= 0) {
+          errorMessage.value = `Item ${index + 1}: account amount must be greater than zero.`
+          return false
+        }
       }
-      if (Number((material as any).amount || 0) <= 0) {
-        errorMessage.value = 'Amount must be greater than zero for each material line.'
-        return false
+    }
+
+    // Validate each dimension line that has data
+    for (const dim of item.dimensions || []) {
+      if (dim.dimensionTypeId || dim.dimensionValueId || dim.amount !== null || dim.percentage !== null) {
+        if (!dim.dimensionValueId) {
+          errorMessage.value = `Item ${index + 1}: please select a dimension value.`
+          return false
+        }
       }
     }
   }
-  
-  // Validate each account line that has data
-  for (const account of form.accounts) {
-    if (account.accountId || account.amount > 0) {
-      if (!account.accountId) {
-        errorMessage.value = 'Please select an account for all account lines.'
-        return false
-      }
-      if (account.amount <= 0) {
-        errorMessage.value = 'Amount must be greater than zero.'
-        return false
-      }
-    }
-  }
-  
+
   return true
 }
 
@@ -939,12 +1000,60 @@ const saveForm = async (asDraft = false) => {
   errorMessage.value = ''
   
   try {
-    // Filter out empty material lines
-    const validMaterials = form.materials.filter(m => m.itemId && m.unitId && m.quantity > 0)
-    const validAccounts = form.accounts.filter(a => a.accountId && a.amount > 0)
     // Single shared source - include it only if it has a type
     const validSources = form.source && form.source.sourceType ? [form.source] : []
-    
+
+    const validItems = form.items
+      .map((item: any) => {
+        const materials = (item.materials || []).filter((m: any) => m.itemId && m.unitId && Number(m.quantity || 0) > 0 && Number(m.rate || 0) > 0)
+        const accounts = (item.accounts || []).filter((a: any) => a.accountId && a.amount > 0)
+        const dimensions = (item.dimensions || []).filter((d: any) => d.dimensionValueId)
+
+        // If there are absolutely no entries and no main item selected, skip
+        if (materials.length === 0 && accounts.length === 0 && !item.itemId) return null
+
+        // If no child materials exist but main item is present, derive a material from the main item
+        const materialsFinal = materials.length > 0
+          ? materials
+          : (item.itemId ? [{
+              itemId: item.itemId,
+              unitId: item.unitId,
+              quantity: item.quantity && item.quantity > 0 ? item.quantity : 1,
+              rate: item.rate || 0,
+              description: item.description || '',
+            }] : [])
+
+        return {
+          currency_id: form.currencyId,
+          value_added_tax_id: item.vatId,
+          discount_amount: item.discountAmount || null,
+          discount_method: item.discountMethod,
+          tax_method: form.taxMethod,
+          remarks: item.remarks,
+          materials: materialsFinal.map((m: any) => ({
+            item_id: m.itemId,
+            unit_of_measurement_id: m.unitId,
+            quantity: m.quantity && m.quantity > 0 ? m.quantity : 1,
+            rate: m.rate || 0,
+            currency_id: form.currencyId,
+            description: m.description || '' ,
+          })),
+          accounts: accounts.map((a: any) => ({
+            account_id: a.accountId,
+            currency_id: form.currencyId,
+            amount: a.amount,
+            description: a.description,
+          })),
+          dimensions: dimensions.map((d: any) => ({
+            dimension_type_id: d.dimensionTypeId,
+            dimension_value_id: d.dimensionValueId,
+            amount: d.amount,
+            percentage: d.percentage,
+          })),
+        }
+      })
+      .filter(Boolean)
+     
     const payload = {
       company_id: 1,
       branch_id: form.branchId || 1,
@@ -956,44 +1065,7 @@ const saveForm = async (asDraft = false) => {
       remarks: form.remarks,
       status: asDraft ? 'DRAFT' : 'SUBMITTED',
       
-      // Requisition items with materials and accounts
-      items: validMaterials.length > 0 ? [{
-        currency_id: form.currencyId,
-        value_added_tax_id: form.vatId,
-        discount_amount: form.discountAmount || null,
-        discount_method: form.discountMethod,
-        tax_method: form.taxMethod,
-        remarks: form.remarks,
-        materials: validMaterials.map((m) => ({
-          item_id: m.itemId,
-          unit_of_measurement_id: m.unitId,
-          // Derive rate from total amount (rate = amount / quantity) and ensure quantity is at least 1
-          quantity: m.quantity && m.quantity > 0 ? m.quantity : 1,
-          rate: (Number(m.amount || 0) || 0) / (m.quantity && m.quantity > 0 ? m.quantity : 1),
-          currency_id: m.currencyId || form.currencyId,
-          description: m.description,
-        })),
-
-        accounts: validAccounts.map((a) => ({
-          account_id: a.accountId,
-          currency_id: a.currencyId || form.currencyId,
-          amount: a.amount,
-          description: a.description,
-        })),
-      }] : validAccounts.length > 0 ? [{
-        currency_id: form.currencyId,
-        value_added_tax_id: form.vatId,
-        discount_amount: form.discountAmount || null,
-        discount_method: form.discountMethod,
-        tax_method: form.taxMethod,
-        remarks: form.remarks,
-        accounts: validAccounts.map((a) => ({
-          account_id: a.accountId,
-          currency_id: a.currencyId || form.currencyId,
-          amount: a.amount,
-          description: a.description,
-        })),
-      }] : [],
+      items: validItems,
       
       // Requisition sources
       sources: validSources.map((s) => ({
@@ -1041,24 +1113,7 @@ const cancelForm = () => {
   resetForm()
 }
 
-const removeItem = (index: number) => {
-  if (form.items.length === 1) return
-  form.items.splice(index, 1)
-}
-
-const addItem = () => {
-  const nextId = form.items.length
-    ? Math.max(...form.items.map((item) => item.id)) + 1
-    : 1
-  form.items.push({
-    id: nextId,
-    description: '',
-    quantity: 1,
-    rate: 0,
-    itemId: null,
-    unitId: null,
-  })
-}
+// Item add/remove handled via itemKey helpers above.
 
 const viewRequisition = (req: any) => {
   const id = Number(req?.id)
@@ -1110,7 +1165,7 @@ onUnmounted(() => {
     <!-- CREATE/EDIT FORM VIEW -->
     <RequisitionForm
       v-if="showForm"
-      v-model:form="form"
+      v-model:form="formModel"
       v-model:activeFormTab="activeFormTab"
       :is-edit-mode="isEditMode"
       :saving-form="savingForm"
@@ -1125,12 +1180,7 @@ onUnmounted(() => {
       :dimension-types="dimensionTypes"
       :dimension-values="dimensionValues"
       :vat-options="vatOptions"
-      :form-tabs="formTabs"
-      :materials-total="materialsTotal"
-      :accounts-total="accountsTotal"
       :grand-total="grandTotal"
-      :get-tab-icon="getTabIcon"
-      :get-tab-count="getTabCount"
       :get-currency-symbol="getCurrencySymbol"
       :format-amount="formatAmount"
       @cancel="cancelForm"
@@ -1143,6 +1193,8 @@ onUnmounted(() => {
       @remove-account="removeAccountLine"
       @add-dimension="addDimensionLine"
       @remove-dimension="removeDimensionLine"
+      @add-item="addItem"
+      @remove-item="removeItem"
     />
 
     <!-- LIST VIEW -->

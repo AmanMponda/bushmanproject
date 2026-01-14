@@ -95,6 +95,12 @@
               placeholder="Search..." 
             />
           </div>
+          <div v-if="activeView === 'upgrade-fees'" class="action-buttons">
+            <button class="btn-add" @click="goToAddUpgradeFee">
+              <i class="fa fa-plus"></i>
+              Add Upgrade Fee
+            </button>
+          </div>
 
         </div>
 
@@ -214,9 +220,9 @@
           <table v-else-if="activeView === 'upgrade-fees'" class="modern-table">
             <thead>
               <tr>
+                <th>Package Name</th>
                 <th>Species</th>
-                <th>Animal Type</th>
-                <th>Description</th>
+                <th>Trigger Condition</th>
                 <th class="text-end">Amount</th>
                 <th class="text-center">Actions</th>
               </tr>
@@ -224,15 +230,14 @@
             <tbody>
               <tr v-for="fee in filteredUpgradeFees" :key="fee.id">
                 <td>
-                  <div class="item-name">{{ fee.species?.name || fee.species_name || 'N/A' }}</div>
+                  <div class="item-name">{{ fee.package_name || '-' }}</div>
                 </td>
                 <td>
-                  <span v-if="fee.species?.group?.name" class="badge bg-primary">{{ fee.species.group.name }}</span>
-                  <span v-else>-</span>
+                  <div class="item-name">{{ fee.species_name || 'N/A' }}</div>
                 </td>
-                <td class="text-muted">{{ fee.description || '-' }}</td>
+                <td class="text-muted">{{ fee.trigger_condition || '-' }}</td>
                 <td class="text-end">
-                  <span class="amount">{{ fee.currency_symbol || '$' }}{{ fee.amount }}</span>
+                  <span class="amount">{{ fee.amount || '0.00' }}</span>
                 </td>
                 <td class="text-center">
                   <button class="btn-icon btn-danger" @click="deleteUpgradeFee(fee)" title="Delete">
@@ -291,6 +296,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { usePriceStructuresStore } from '@/stores/bushman/price-structures-store'
 import { useSettingsStore } from '@/stores/bushman/settings-store'
 import { useToast } from '@/composables/useToast'
@@ -311,6 +317,7 @@ const emit = defineEmits<{
   'edit': [id: number]
 }>()
 
+const router = useRouter()
 const store = usePriceStructuresStore()
 const settingsStore = useSettingsStore()
 const toast = useToast()
@@ -393,9 +400,9 @@ const filteredUpgradeFees = computed(() => {
   return fees.filter((fee: any) =>
     fee.species?.name?.toLowerCase().includes(term) ||
     fee.species_name?.toLowerCase().includes(term) ||
-    fee.species?.group?.name?.toLowerCase().includes(term) ||
-    fee.description?.toLowerCase().includes(term) ||
-    fee.amount?.toString().includes(term)
+    fee.trigger_condition?.toLowerCase().includes(term) ||
+    fee.notes?.toLowerCase().includes(term) ||
+    fee.fee_amount?.toString().includes(term)
   )
 })
 
@@ -538,6 +545,10 @@ const deleteUpgradeFee = async (fee: any) => {
   } catch {
     toast.init({ message: 'Failed to delete upgrade fee', color: 'danger' })
   }
+}
+
+const goToAddUpgradeFee = () => {
+  router.push({ name: 'price-structure-upgrade-fee-create', params: { id: props.id } })
 }
 
 onMounted(async () => {
