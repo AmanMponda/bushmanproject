@@ -1,8 +1,10 @@
-// @ts-nocheck - TypeScript cannot infer 'this' type in Pinia actions accessing state
+// @ts-nocheck
 import { defineStore } from 'pinia'
 import axios from 'axios'
 
-const API_BASE = `${(import.meta.env.VITE_APP_BASE_URL || '').replace(/\/+$/, '')}/contract-management`
+const getApiBase = () => (import.meta.env.VITE_APP_BASE_URL || '').replace(/\/+$/, '')
+const CM_BASE = () => `${getApiBase()}/contract-management`
+const CONTRACTS_BASE = () => `${getApiBase()}/contract-management`
 
 interface ContractState {
   contracts: any[]
@@ -62,14 +64,12 @@ export const useContractStore = defineStore('contract', {
   },
 
   actions: {
-    // ==================== CONTRACTS CRUD ====================
-    
     async listContracts(params: any = {}): Promise<any> {
       this.loading = true
       this.error = null
       try {
         const queryParams: any = {
-          search: this.filters.search,
+          search: this.filters.search || undefined,
           type: this.filters.type || undefined,
           status: this.filters.status || undefined,
           page: this.filters.page,
@@ -77,30 +77,58 @@ export const useContractStore = defineStore('contract', {
           include: 'parties,parties.entity,versions,billingSchedules,links',
           ...params
         }
-
-        console.log('🔍 Fetching contracts with params:', queryParams)
-        console.log('📍 API URL:', API_BASE)
-
-        const config = {
-          method: 'get',
-          url: API_BASE,
-          params: queryParams,
-          headers: {
-            'Content-Type': 'application/json'
+        const url = `${CONTRACTS_BASE()}/`
+        console.log('📋 Fetching contracts from:', url, 'with params:', queryParams)
+        const response: any = await axios.get(url, { params: queryParams })
+        console.log('✅ Contracts API Response:', response)
+        console.log('🔍 Full response.data.data:', response.data?.data)
+        console.log('🔍 Keys in response.data.data:', Object.keys(response.data?.data || {}))
+        
+        // Handle different API response structures
+        let responseData = []
+        const dataObj = response.data?.data
+        
+        if (dataObj) {
+          // Try to find array in various possible locations
+          if (Array.isArray(dataObj)) {
+            console.log('✅ response.data.data is already an array')
+            responseData = dataObj
+          } else if (dataObj.data && Array.isArray(dataObj.data)) {
+            console.log('✅ Found array at response.data.data.data')
+            responseData = dataObj.data
+          } else if (dataObj.items && Array.isArray(dataObj.items)) {
+            console.log('✅ Found array at response.data.data.items')
+            responseData = dataObj.items
+          } else if (dataObj.contracts && Array.isArray(dataObj.contracts)) {
+            console.log('✅ Found array at response.data.data.contracts')
+            responseData = dataObj.contracts
+          } else if (dataObj.results && Array.isArray(dataObj.results)) {
+            console.log('✅ Found array at response.data.data.results')
+            responseData = dataObj.results
+          } else {
+            // If it's an object, try to find first array property
+            for (const [key, value] of Object.entries(dataObj)) {
+              if (Array.isArray(value)) {
+                console.log(`✅ Found array at response.data.data.${key}`)
+                responseData = value
+                break
+              }
+            }
           }
         }
-
-        const response: any = await axios.request(config)
-        console.log('📦 API Response:', response.data)
         
-        const responseData = response.data.data || response.data || []
+        console.log('📊 Final extracted data:', responseData)
+        console.log('📊 First contract sample:', responseData[0])
+        if (responseData[0]) {
+          console.log('📊 First contract keys:', Object.keys(responseData[0]))
+          console.log('📊 Status value in first contract:', responseData[0].status || 'MISSING')
+        }
+        console.log('📊 Contracts loaded:', Array.isArray(responseData) ? responseData.length : 0, 'items')
         this.contracts = Array.isArray(responseData) ? responseData : []
-        
-        console.log('✅ Contracts stored:', this.contracts.length, 'contracts')
         return response
       } catch (err: any) {
-        console.error('❌ Error fetching contracts:', err.message)
-        console.error('❌ Error response:', err.response?.data)
+        console.error('❌ Error loading contracts:', err)
+        console.error('Response:', err.response?.data)
         this.error = err?.response?.data?.message || 'Error loading contracts'
         throw err
       } finally {
@@ -112,18 +140,7 @@ export const useContractStore = defineStore('contract', {
       this.loading = true
       this.error = null
       try {
-        const config = {
-          method: 'get',
-          url: `${API_BASE}/${id}`,
-          params: {
-            include: 'parties,parties.entity,versions,billingSchedules,links'
-          },
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        }
-
-        const response: any = await axios.request(config)
+        const response: any = await axios.get(`${CONTRACTS_BASE()}/${id}`, { params: { include: 'parties,parties.entity,versions,billingSchedules,links' } })
         this.currentContract = response.data.data || response.data
         return response
       } catch (err: any) {
@@ -138,16 +155,7 @@ export const useContractStore = defineStore('contract', {
       this.loading = true
       this.error = null
       try {
-        const config = {
-          method: 'post',
-          url: API_BASE,
-          data: payload,
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        }
-
-        const response: any = await axios.request(config)
+        const response: any = await axios.post(`${CONTRACTS_BASE()}/`, payload, { headers: { 'Content-Type': 'application/json' } })
         const newContract = response.data.data || response.data
         this.contracts.push(newContract)
         return response
@@ -163,29 +171,11 @@ export const useContractStore = defineStore('contract', {
       this.loading = true
       this.error = null
       try {
-        const config = {
-          method: 'put',
-          url: `${API_BASE}/${id}`,
-          data: payload,
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        }
-
-        const response: any = await axios.request(config)
+        const response: any = await axios.put(`${CONTRACTS_BASE()}/${id}`, payload, { headers: { 'Content-Type': 'application/json' } })
         const updatedContract = response.data.data || response.data
-        
-        // Update in list
         const index = this.contracts.findIndex((c: any) => c.id === id)
-        if (index !== -1) {
-          this.contracts[index] = updatedContract
-        }
-        
-        // Update current
-        if (this.currentContract?.id === id) {
-          this.currentContract = updatedContract
-        }
-        
+        if (index !== -1) this.contracts[index] = updatedContract
+        if (this.currentContract?.id === id) this.currentContract = updatedContract
         return response
       } catch (err: any) {
         this.error = err?.response?.data?.message || 'Error updating contract'
@@ -199,24 +189,9 @@ export const useContractStore = defineStore('contract', {
       this.loading = true
       this.error = null
       try {
-        const config = {
-          method: 'delete',
-          url: `${API_BASE}/${id}`,
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        }
-
-        const response: any = await axios.request(config)
-        
-        // Remove from list
+        const response: any = await axios.delete(`${CONTRACTS_BASE()}/${id}`)
         this.contracts = this.contracts.filter((c: any) => c.id !== id)
-        
-        // Clear current if it was deleted
-        if (this.currentContract?.id === id) {
-          this.currentContract = null
-        }
-        
+        if (this.currentContract?.id === id) this.currentContract = null
         return response
       } catch (err: any) {
         this.error = err?.response?.data?.message || 'Error deleting contract'
@@ -226,116 +201,11 @@ export const useContractStore = defineStore('contract', {
       }
     },
 
-    // ==================== CONTRACT PARTIES ====================
-
-    async getContractParties(contractId: number): Promise<any> {
-      this.loading = true
-      this.error = null
-      try {
-        const config = {
-          method: 'get',
-          url: `${API_BASE}/${contractId}/parties`,
-          params: {
-            include: 'entity'
-          },
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        }
-
-        const response: any = await axios.request(config)
-        return response
-      } catch (err: any) {
-        this.error = err?.response?.data?.message || 'Error loading contract parties'
-        throw err
-      } finally {
-        this.loading = false
-      }
-    },
-
-    async addContractParty(contractId: number, payload: any): Promise<any> {
-      this.loading = true
-      this.error = null
-      try {
-        const config = {
-          method: 'post',
-          url: `${API_BASE}/${contractId}/parties`,
-          data: payload,
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        }
-
-        const response: any = await axios.request(config)
-        return response
-      } catch (err: any) {
-        this.error = err?.response?.data?.message || 'Error adding contract party'
-        throw err
-      } finally {
-        this.loading = false
-      }
-    },
-
-    async updateContractParty(contractId: number, partyId: number, payload: any): Promise<any> {
-      this.loading = true
-      this.error = null
-      try {
-        const config = {
-          method: 'put',
-          url: `${API_BASE}/${contractId}/parties/${partyId}`,
-          data: payload,
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        }
-
-        const response: any = await axios.request(config)
-        return response
-      } catch (err: any) {
-        this.error = err?.response?.data?.message || 'Error updating contract party'
-        throw err
-      } finally {
-        this.loading = false
-      }
-    },
-
-    async removeContractParty(contractId: number, partyId: number): Promise<any> {
-      this.loading = true
-      this.error = null
-      try {
-        const config = {
-          method: 'delete',
-          url: `${API_BASE}/${contractId}/parties/${partyId}`,
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        }
-
-        const response: any = await axios.request(config)
-        return response
-      } catch (err: any) {
-        this.error = err?.response?.data?.message || 'Error removing contract party'
-        throw err
-      } finally {
-        this.loading = false
-      }
-    },
-
-    // ==================== CONTRACT VERSIONS ====================
-
     async getContractVersions(contractId: number): Promise<any> {
       this.loading = true
       this.error = null
       try {
-        const config = {
-          method: 'get',
-          url: `${API_BASE}/${contractId}/versions`,
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        }
-
-        const response: any = await axios.request(config)
+        const response: any = await axios.get(`${CONTRACTS_BASE()}/${contractId}/versions`)
         return response
       } catch (err: any) {
         this.error = err?.response?.data?.message || 'Error loading contract versions'
@@ -349,16 +219,7 @@ export const useContractStore = defineStore('contract', {
       this.loading = true
       this.error = null
       try {
-        const config = {
-          method: 'post',
-          url: `${API_BASE}/${contractId}/versions`,
-          data: payload,
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        }
-
-        const response: any = await axios.request(config)
+        const response: any = await axios.post(`${CONTRACTS_BASE()}/${contractId}/versions`, payload)
         return response
       } catch (err: any) {
         this.error = err?.response?.data?.message || 'Error creating contract version'
@@ -368,179 +229,45 @@ export const useContractStore = defineStore('contract', {
       }
     },
 
-    // ==================== CONTRACT BILLING SCHEDULES ====================
-
-    async getContractBillingSchedules(contractId: number): Promise<any> {
+    async updateVersion(contractId: number, versionId: number, payload: any): Promise<any> {
       this.loading = true
       this.error = null
       try {
-        const config = {
-          method: 'get',
-          url: `${API_BASE}/${contractId}/billing-schedules`,
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        }
-
-        const response: any = await axios.request(config)
+        const response: any = await axios.put(`${CONTRACTS_BASE()}/${contractId}/versions/${versionId}`, payload)
         return response
       } catch (err: any) {
-        this.error = err?.response?.data?.message || 'Error loading billing schedules'
+        this.error = err?.response?.data?.message || 'Error updating contract version'
         throw err
       } finally {
         this.loading = false
       }
     },
 
-    async addBillingSchedule(contractId: number, payload: any): Promise<any> {
+    async deleteVersion(contractId: number, versionId: number): Promise<any> {
       this.loading = true
       this.error = null
       try {
-        const config = {
-          method: 'post',
-          url: `${API_BASE}/${contractId}/billing-schedules`,
-          data: payload,
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        }
-
-        const response: any = await axios.request(config)
+        const response: any = await axios.delete(`${CONTRACTS_BASE()}/${contractId}/versions/${versionId}`)
         return response
       } catch (err: any) {
-        this.error = err?.response?.data?.message || 'Error adding billing schedule'
+        this.error = err?.response?.data?.message || 'Error deleting contract version'
         throw err
       } finally {
         this.loading = false
       }
     },
 
-    async updateBillingSchedule(contractId: number, scheduleId: number, payload: any): Promise<any> {
-      this.loading = true
-      this.error = null
-      try {
-        const config = {
-          method: 'put',
-          url: `${API_BASE}/${contractId}/billing-schedules/${scheduleId}`,
-          data: payload,
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        }
-
-        const response: any = await axios.request(config)
-        return response
-      } catch (err: any) {
-        this.error = err?.response?.data?.message || 'Error updating billing schedule'
-        throw err
-      } finally {
-        this.loading = false
-      }
+    async downloadVersionFile(contractId: number, versionId: number) {
+      return axios.get(`${CONTRACTS_BASE()}/${contractId}/versions/${versionId}/file`, { responseType: 'blob' })
     },
-
-    async removeBillingSchedule(contractId: number, scheduleId: number): Promise<any> {
-      this.loading = true
-      this.error = null
-      try {
-        const config = {
-          method: 'delete',
-          url: `${API_BASE}/${contractId}/billing-schedules/${scheduleId}`,
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        }
-
-        const response: any = await axios.request(config)
-        return response
-      } catch (err: any) {
-        this.error = err?.response?.data?.message || 'Error removing billing schedule'
-        throw err
-      } finally {
-        this.loading = false
-      }
-    },
-
-    // ==================== CONTRACT LINKS ====================
-
-    async getContractLinks(contractId: number): Promise<any> {
-      this.loading = true
-      this.error = null
-      try {
-        const config = {
-          method: 'get',
-          url: `${API_BASE}/${contractId}/links`,
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        }
-
-        const response: any = await axios.request(config)
-        return response
-      } catch (err: any) {
-        this.error = err?.response?.data?.message || 'Error loading contract links'
-        throw err
-      } finally {
-        this.loading = false
-      }
-    },
-
-    async addContractLink(contractId: number, payload: any): Promise<any> {
-      this.loading = true
-      this.error = null
-      try {
-        const config = {
-          method: 'post',
-          url: `${API_BASE}/${contractId}/links`,
-          data: payload,
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        }
-
-        const response: any = await axios.request(config)
-        return response
-      } catch (err: any) {
-        this.error = err?.response?.data?.message || 'Error adding contract link'
-        throw err
-      } finally {
-        this.loading = false
-      }
-    },
-
-    async removeContractLink(contractId: number, linkId: number): Promise<any> {
-      this.loading = true
-      this.error = null
-      try {
-        const config = {
-          method: 'delete',
-          url: `${API_BASE}/${contractId}/links/${linkId}`,
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        }
-
-        const response: any = await axios.request(config)
-        return response
-      } catch (err: any) {
-        this.error = err?.response?.data?.message || 'Error removing contract link'
-        throw err
-      } finally {
-        this.loading = false
-      }
-    },
-
-    // ==================== CONTRACT TYPES ====================
 
     async fetchContractTypes(): Promise<any> {
       this.loading = true
-      this.error = null
       try {
-        const response: any = await axios.get(`${API_BASE}/contract-types`)
+        const response: any = await axios.get(`${CM_BASE()}/contract-types`)
         this.contractTypes = response.data.data || response.data || []
-        console.log('✅ Contract Types:', this.contractTypes)
         return response
       } catch (err: any) {
-        console.error('❌ Error fetching contract types:', err.message)
         this.contractTypes = []
         throw err
       } finally {
@@ -548,18 +275,13 @@ export const useContractStore = defineStore('contract', {
       }
     },
 
-    // ==================== CONTRACT STATUSES ====================
-
     async fetchContractStatuses(): Promise<any> {
       this.loading = true
-      this.error = null
       try {
-        const response: any = await axios.get(`${API_BASE}/contract-statuses`)
+        const response: any = await axios.get(`${CM_BASE()}/contract-statuses`)
         this.contractStatuses = response.data.data || response.data || []
-        console.log('✅ Contract Statuses:', this.contractStatuses)
         return response
       } catch (err: any) {
-        console.error('❌ Error fetching contract statuses:', err.message)
         this.contractStatuses = []
         throw err
       } finally {
@@ -567,17 +289,13 @@ export const useContractStore = defineStore('contract', {
       }
     },
 
-    // ==================== PARTY ROLES ====================
-
     async fetchPartyRoles(): Promise<any> {
       this.loading = true
       try {
-        const response: any = await axios.get(`${API_BASE}/party-roles`)
+        const response: any = await axios.get(`${CM_BASE()}/party-roles`)
         this.partyRoles = response.data.data || response.data || []
-        console.log('✅ Party Roles:', this.partyRoles)
         return response
       } catch (err: any) {
-        console.error('❌ Error fetching party roles:', err.message)
         this.partyRoles = []
         throw err
       } finally {
@@ -585,17 +303,13 @@ export const useContractStore = defineStore('contract', {
       }
     },
 
-    // ==================== CURRENCIES ====================
-
     async fetchCurrencies(): Promise<any> {
       this.loading = true
       try {
-        const response: any = await axios.get(`${API_BASE}/currencies`)
+        const response: any = await axios.get(`${CM_BASE()}/currencies`)
         this.currencies = response.data.data || response.data || []
-        console.log('✅ Currencies:', this.currencies)
         return response
       } catch (err: any) {
-        console.error('❌ Error fetching currencies:', err.message)
         this.currencies = []
         throw err
       } finally {
@@ -603,32 +317,20 @@ export const useContractStore = defineStore('contract', {
       }
     },
 
-    // ==================== ENTITIES ====================
-
     async fetchEntities(params: any = {}): Promise<any> {
       this.loading = true
       try {
-        const apiBase = (import.meta.env.VITE_APP_BASE_URL || '').replace(/\/+$/, '')
-        const config = {
-          method: 'get',
-          url: `${apiBase}/entities/`,
-          params,
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        }
-
-        const response: any = await axios.request(config)
+        const apiBase = getApiBase()
+        const response: any = await axios.get(`${apiBase}/entities/`, { params })
         this.entities = response.data.data || response.data || []
         return response
       } catch (err: any) {
         this.entities = []
+        throw err
       } finally {
         this.loading = false
       }
     },
-
-    // ==================== FILTERS ====================
 
     setFilters(newFilters: any): void {
       this.filters = { ...this.filters, ...newFilters }

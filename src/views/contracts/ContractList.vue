@@ -32,7 +32,7 @@
                 <strong>{{ (row as any).contract_number || (row as any).id }}</strong>
               </template>
               <template #status="{ row }">
-                <span :class="getStatusClass((row as any).status)">{{ (row as any).status }}</span>
+                {{ (row as any).status }}
               </template>
               <template #start_date="{ row }">
                 {{ formatDate((row as any).start_date) }}
@@ -99,7 +99,13 @@ const tableFilters = reactive({
 // Columns Definition
 const columns = computed(() => [
   { key: 'contract_number', label: 'Contract #', sortable: true, visible: true },
-  { key: 'status', label: 'Status', sortable: true, visible: true },
+  { 
+    key: 'status', 
+    label: 'Status', 
+    sortable: true, 
+    visible: true,
+    formatter: (value: string) => value || 'DRAFT'
+  },
   { key: 'start_date', label: 'Start Date', sortable: true, visible: true },
   { key: 'title', label: 'Title', sortable: true, visible: true },
   { key: 'contract_type', label: 'Type', sortable: true, visible: true },

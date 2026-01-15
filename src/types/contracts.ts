@@ -124,7 +124,7 @@ export interface IContractVersion {
   contractId: number
   versionNo: number
   status: ContractVersionStatusEnum
-  templateName?: string
+  templateId?: number
   filePath?: string
   generatedAt: string
   signedAt?: string

@@ -92,8 +92,6 @@
                   <input v-model="form.signedDate" type="date" />
                 </div>
               </label>
-
-
             </div>
           </div>
         </div>
@@ -117,16 +115,8 @@
               :class="['tab', { active: showSections.parties }]"
               type="button"
             >
-              <span class="tab-icon">👥</span>
+              <span class="tab-icon">�</span>
               <span class="tab-text">Parties</span>
-            </button>
-            <button
-              @click="toggleSection('versions')"
-              :class="['tab', { active: showSections.versions }]"
-              type="button"
-            >
-              <span class="tab-icon">📄</span>
-              <span class="tab-text">Versions</span>
             </button>
             <button
               @click="toggleSection('additionalDetails')"
@@ -174,48 +164,6 @@
                 </table>
               </div>
               <div v-else class="empty-state mt-3">No parties added yet</div>
-            </div>
-          </div>
-
-          <!-- VERSIONS SECTION -->
-          <div v-if="showSections.versions" class="expandable-section">
-            <div class="subsection">
-              <div class="subsection-header">
-                <h4>Contract Versions</h4>
-                <button class="btn btn-sm btn-primary" @click="addVersion" type="button">+ Add Version</button>
-              </div>
-
-              <!-- Versions Table -->
-              <div v-if="form.versions.length > 0" class="table-wrapper mt-3">
-                <table class="data-table">
-                  <thead>
-                    <tr>
-                      <th style="min-width: 80px">Version</th>
-                      <th style="min-width: 100px">Status</th>
-                      <th style="min-width: 150px">Template</th>
-                      <th style="min-width: 100px">Generated</th>
-                      <th style="min-width: 60px">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr v-for="(version, idx) in form.versions" :key="idx">
-                      <td>#{{ version.versionNo }}</td>
-                      <td><span class="badge bg-info">{{ version.status }}</span></td>
-                      <td>{{ version.templateName || '-' }}</td>
-                      <td>{{ formatDate(version.generatedAt) }}</td>
-                      <td style="display:flex; gap:6px; align-items:center;">
-                          <input :id="`file-${idx}`" type="file" style="display:none" @change="(e) => onFileSelected(e, idx)" />
-                          <button class="btn btn-xs" @click.prevent="triggerFileSelect(idx)" type="button" style="background:#f3f4f6">Choose</button>
-                          <button class="btn btn-xs btn-outline" @click.prevent="handleDownloadVersion(version)" type="button">Download</button>
-                          <button v-if="version.status !== 'SIGNED' && version.status !== 'SUPERSEDED'" class="btn btn-xs btn-success" @click.prevent="handleSignVersion(version)" type="button">Sign</button>
-                          <button class="btn btn-xs btn-secondary" @click.prevent="handleSupersedeVersion(version)" type="button">Supersede</button>
-                          <button class="btn btn-xs btn-danger" @click.prevent="handleDeleteVersion(idx, version)" type="button">Delete</button>
-                        </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-              <div v-else class="empty-state mt-3">No versions added yet</div>
             </div>
           </div>
 
@@ -271,8 +219,7 @@ import { useOrderStore } from '@/stores/bushman/order-store'
 import { useToast } from '@/composables/useToast'
 import { useAppOptionStore } from '@/stores/app-option'
 import Swal from 'sweetalert2'
-import contractService from '@/services/contractService'
-import axios from 'axios'
+import ContractVersions from './ContractVersions.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -291,6 +238,7 @@ const contractStatuses = computed(() => contractStore.contractStatuses)
 // Form state
 const isEdit = computed(() => !!route.params.id)
 const saving = ref(false)
+const savedContractId = ref<number | null>(null)
 
 const form = reactive({
   contractNumber: '',
@@ -309,13 +257,13 @@ const form = reactive({
   specialTerms: '',
   additionalNote: '',
   parties: [] as any[],
-  versions: [] as any[],
-  links: [] as any[]
+  links: [] as any[],
+  salesConfirmationProposalId: null as number | null,
+  entityId: null as number | null
 })
 
 const showSections = reactive({
   parties: true,
-  versions: false,
   additionalDetails: false
 })
 
@@ -419,6 +367,19 @@ const onOrderSelect = async () => {
       relationType: 'CREATED_FROM'
     }]
     
+    // Debug: Check what fields are available in order
+    console.log('🔍 Order fields available:', Object.keys(order))
+    console.log('� Full order object:', order)
+    
+    // Set required fields from order - use order.id as fallback
+    form.salesConfirmationProposalId = order.sales_confirmation_proposal_id || order.quotation_id || order.proposal_id || order.id
+    form.entityId = order.entity_id || order.buyer_entity_id || order.seller_entity_id || (order.entity?.id) || order.id
+    
+    console.log('✅ Mapped required fields:', {
+      salesConfirmationProposalId: form.salesConfirmationProposalId,
+      entityId: form.entityId
+    })
+    
     orderDataLoaded.value = true
     const partyCount = form.parties.length
     console.log('✨ Order loaded successfully with', partyCount, 'parties')
@@ -440,227 +401,11 @@ const toggleSection = (section: string) => {
   })
 }
 
-const addVersion = () => {
-  form.versions.push({
-    versionNo: (form.versions.length || 0) + 1,
-    status: 'DRAFT',
-    templateName: '',
-    filePath: '',
-    generatedAt: new Date().toISOString(),
-    _file: null
-  })
-}
+// Versions are managed by `ContractVersions.vue` component (isolated)
 
-const removeVersion = (idx: number) => {
-  form.versions.splice(idx, 1)
-}
+ 
 
-const editVersion = (idx: number) => {
-  const version = form.versions[idx]
-  const newTemplateName = prompt('Enter version template name:', version.templateName || '')
-  if (newTemplateName !== null) {
-    form.versions[idx].templateName = newTemplateName
-  }
-}
-
-const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
-const ALLOWED_TYPES = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
-
-const onFileSelected = (evt: Event, idx: number) => {
-  const input = evt.target as HTMLInputElement
-  if (!input.files || input.files.length === 0) return
-  const file = input.files[0]
-  if (!ALLOWED_TYPES.includes(file.type)) {
-    init({ message: 'Invalid file type. Only PDF / DOC / DOCX allowed', color: 'danger' })
-    return
-  }
-  if (file.size > MAX_FILE_SIZE) {
-    init({ message: 'File too large. Maximum is 10MB', color: 'danger' })
-    return
-  }
-  form.versions[idx]._file = file
-  form.versions[idx].filePath = file.name
-}
-
-const triggerFileSelect = (idx: number) => {
-  const el = document.getElementById('file-' + idx) as HTMLInputElement | null
-  el?.click()
-}
-
-const handleDownloadVersion = async (version: any) => {
-  await downloadVersionFile(route.params.id, version)
-}
-
-const handleSignVersion = async (version: any) => {
-  if (!isEdit.value) return init({ message: 'Save contract first before signing', color: 'warning' })
-  await signVersion(Number(route.params.id), version)
-}
-
-const handleSupersedeVersion = async (version: any) => {
-  if (!isEdit.value) return init({ message: 'Save contract first', color: 'warning' })
-  await supersedePrevious(Number(route.params.id), version)
-}
-
-const handleDeleteVersion = async (idx: number, version: any) => {
-  if (isEdit.value) {
-    await deleteVersion(Number(route.params.id), idx)
-  } else {
-    removeVersion(idx)
-  }
-}
-
-const uploadVersionToServer = async (contractId: number, version: any) => {
-  try {
-    const fd = new FormData()
-    if (version.templateName) fd.append('template_name', version.templateName)
-    if (version.generatedAt) fd.append('generated_at', new Date(version.generatedAt).toISOString().slice(0, 19).replace('T', ' '))
-    if (version._file) fd.append('file', version._file)
-
-    // If version already exists on server (has id) update, otherwise create
-    if (version.id) {
-      await contractService.updateVersion(contractId, version.id, fd)
-    } else {
-      await contractService.createVersion(contractId, fd)
-    }
-    init({ message: `Version ${version.versionNo} uploaded`, color: 'success' })
-  } catch (error: any) {
-    console.error('Error uploading version file', error)
-    init({ message: `Upload failed: ${error.message || 'server error'}`, color: 'danger' })
-  }
-}
-
-const fetchVersions = async (contractId: number) => {
-  try {
-    const res = await contractService.listVersions(contractId)
-    const data = res.data || res.data?.data || res
-    // normalize
-    form.versions = (data.data || data || []).map((v: any, idx: number) => ({
-      id: v.id,
-      versionNo: v.version_no || v.versionNo || idx + 1,
-      status: v.status,
-      templateName: v.template_name || v.templateName,
-      filePath: v.file_path || v.filePath || '',
-      generatedAt: v.generated_at || v.generatedAt,
-      signedAt: v.signed_at || v.signedAt,
-      createdBy: v.createdBy || v.created_by || null,
-      _file: null
-    }))
-  } catch (error) {
-    console.error('Failed to load versions', error)
-  }
-}
-
-const downloadVersionFile = async (contractId: number, version: any) => {
-  try {
-    if (!version.id) {
-      // local staged file
-      if (version._file) {
-        const url = URL.createObjectURL(version._file)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = version._file.name
-        a.click()
-        URL.revokeObjectURL(url)
-      } else {
-        init({ message: 'No file available for download', color: 'warning' })
-      }
-      return
-    }
-
-    const resp = await contractService.generatePdf(Number(contractId), Number(version.id))
-    const blob = resp.data || resp
-    const url = window.URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    const filename = version.filePath ? version.filePath.split('/').pop() : `contract_v${version.versionNo}.pdf`
-    a.download = filename
-    a.click()
-    window.URL.revokeObjectURL(url)
-  } catch (error: any) {
-    console.error('Download failed', error)
-    init({ message: 'Download failed', color: 'danger' })
-  }
-}
-
-const signVersion = async (contractId: number, version: any) => {
-  try {
-    if (!version.id) return init({ message: 'Version must be saved to sign', color: 'warning' })
-    await contractService.updateVersion(contractId, version.id, { status: 'SIGNED', signed_at: new Date().toISOString() })
-    version.status = 'SIGNED'
-    init({ message: `Version ${version.versionNo} signed`, color: 'success' })
-    // Auto-supersede previous versions
-    try {
-      await axios.post(`${(import.meta.env.VITE_APP_BASE_URL || '').replace(/\/+$/, '')}/contracts/${contractId}/versions/${version.id}/supersede`)
-    } catch (e) {
-      // not critical
-      console.warn('Supersede call failed', e)
-    }
-  } catch (error: any) {
-    console.error('Sign failed', error)
-    init({ message: 'Signing failed', color: 'danger' })
-  }
-}
-
-const supersedePrevious = async (contractId: number, version: any) => {
-  try {
-    if (!version.id) return init({ message: 'Version must be saved to supersede', color: 'warning' })
-    await axios.post(`${(import.meta.env.VITE_APP_BASE_URL || '').replace(/\/+$/, '')}/contracts/${contractId}/versions/${version.id}/supersede`)
-    // mark local copies
-    form.versions.forEach((v: any) => {
-      if (v.id && v.id !== version.id && v.status !== 'SUPERSEDED') v.status = 'SUPERSEDED'
-    })
-    init({ message: 'Previous versions marked as superseded', color: 'success' })
-  } catch (error: any) {
-    console.error('Supersede failed', error)
-    init({ message: 'Supersede failed', color: 'danger' })
-  }
-}
-
-const deleteVersion = async (contractId: number, versionIdx: number) => {
-  const v = form.versions[versionIdx]
-  const confirmed = await Swal.fire({
-    icon: 'warning',
-    title: 'Delete Version',
-    text: `Are you sure you want to delete version ${v.versionNo}? This cannot be undone.`,
-    showCancelButton: true,
-    confirmButtonColor: '#dc2626'
-  })
-  if (!confirmed.isConfirmed) return
-  try {
-    if (v.id) {
-      await axios.delete(`${(import.meta.env.VITE_APP_BASE_URL || '').replace(/\/+$/, '')}/contracts/${contractId}/versions/${v.id}`)
-    }
-    form.versions.splice(versionIdx, 1)
-    init({ message: `Version ${v.versionNo} deleted`, color: 'success' })
-  } catch (error: any) {
-    console.error('Delete failed', error)
-    init({ message: 'Delete failed', color: 'danger' })
-  }
-}
-
-const resetForm = () => {
-  Object.assign(form, {
-    contractNumber: '',
-    contractTypeId: '',
-    title: '',
-    status: 'DRAFT',
-    startDate: '',
-    endDate: '',
-    signedDate: '',
-    referenceExternal: '',
-    governingLaw: '',
-    jurisdiction: '',
-    legalJurisdiction: '',
-    additionalInformation: '',
-    financialSummary: '',
-    specialTerms: '',
-    additionalNote: '',
-    parties: [],
-    versions: [],
-    links: []
-  })
-}
-
+// Version-specific logic moved to `ContractVersions.vue` component
 const submit = async () => {
   try {
     saving.value = true
@@ -703,8 +448,9 @@ const submit = async () => {
       special_terms: form.specialTerms || null,
       additional_note: form.additionalNote || null,
       parties: form.parties,
-      versions: form.versions,
-      links: form.links
+      links: form.links,
+      sales_confirmation_proposal_id: form.salesConfirmationProposalId,
+      entity_id: form.entityId
     }
 
     console.log('📤 SENDING PAYLOAD TO BACKEND:', JSON.stringify(payload, null, 2))
@@ -720,14 +466,7 @@ const submit = async () => {
           Swal.showLoading()
             try {
               await contractStore.updateContract(Number(route.params.id), payload)
-              // Upload any staged version files or create new versions
-              const contractId = Number(route.params.id)
-              for (const v of form.versions) {
-                if (v._file || !v.id) {
-                  // upload or create
-                  await uploadVersionToServer(contractId, v)
-                }
-              }
+              // Versions are managed separately by the ContractVersions component
               Swal.fire({
                 icon: 'success',
                 title: 'Contract Updated!',
@@ -757,21 +496,15 @@ const submit = async () => {
             const result = await contractStore.createContract(payload)
             // extract created id
             const createdId = result?.data?.data?.id || result?.data?.id || result?.id
-            // upload staged versions (if any)
-            if (createdId) {
-              for (const v of form.versions) {
-                if (v._file || !v.id) {
-                  await uploadVersionToServer(createdId, v)
-                }
-              }
-            }
+            // Store the newly created contract ID so Version 1 file management appears
+            savedContractId.value = createdId
+            // Refresh the contracts list so the new contract appears in ContractList
+            await contractStore.listContracts()
             Swal.fire({
               icon: 'success',
               title: 'Contract Created!',
-              text: `${form.title} has been created successfully.`,
+              text: `${form.title} has been created successfully. You can now upload the contract file for Version 1.`,
               confirmButtonColor: '#2563eb'
-            }).then(() => {
-              router.push({ name: 'contracts-list' })
             })
           } catch (error: any) {
             console.error('❌ Contract Creation Error:', error)
@@ -886,7 +619,6 @@ onMounted(async () => {
         specialTerms: contract.special_terms,
         additionalNote: contract.additional_note,
         parties: contract.parties || [],
-        versions: contract.versions || [],
         billingSchedules: contract.billing_schedules || [],
         links: contract.links || []
       })

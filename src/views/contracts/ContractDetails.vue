@@ -62,26 +62,6 @@
               <i class="fa fa-file-alt me-2"></i>Versions
             </button>
           </li>
-          <li class="nav-item" role="presentation">
-            <button 
-              class="nav-link"
-              :class="{ active: activeTab === 'billing' }"
-              @click="activeTab = 'billing'"
-              role="tab"
-            >
-              <i class="fa fa-credit-card me-2"></i>Billing Schedule
-            </button>
-          </li>
-          <li class="nav-item" role="presentation">
-            <button 
-              class="nav-link"
-              :class="{ active: activeTab === 'links' }"
-              @click="activeTab = 'links'"
-              role="tab"
-            >
-              <i class="fa fa-link me-2"></i>Related Links
-            </button>
-          </li>
         </ul>
       </div>
 
@@ -89,123 +69,73 @@
       <div class="tabs-content bg-white rounded-bottom p-4">
         <!-- TAB 1: CONTRACT SUMMARY -->
         <div v-if="activeTab === 'summary'" class="tab-pane">
-          <div class="row">
-            <!-- Left Column: Contract Information -->
-            <div class="col-lg-8">
-              <!-- Header Card -->
-              <div class="card mb-4">
-                <div class="card-header bg-primary text-white">
-                  <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                      <h5 class="mb-1">{{ contract.title }}</h5>
-                      <small>{{ contract.contract_number }}</small>
-                    </div>
-                    <div class="text-end">
-                      <span :class="getStatusBadge(contract.status)" class="badge me-2">{{ contract.status }}</span>
-                    </div>
-                  </div>
+          <!-- Header Card -->
+          <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+              <div class="d-flex justify-content-between align-items-center">
+                <div>
+                  <h5 class="mb-1">{{ contract.title }}</h5>
+                  <small>{{ contract.contract_number }}</small>
                 </div>
-                <div class="card-body">
-                  <div class="row mb-4">
-                    <div class="col-md-6">
-                      <h6 class="text-muted mb-3"><i class="fa fa-calendar me-2"></i>Dates</h6>
-                      <div class="info-item">
-                        <span class="label">Start Date:</span>
-                        <strong>{{ formatDate(contract.start_date) }}</strong>
-                      </div>
-                      <div class="info-item">
-                        <span class="label">End Date:</span>
-                        <strong>{{ formatDate(contract.end_date) }}</strong>
-                      </div>
-                      <div class="info-item">
-                        <span class="label">Signed Date:</span>
-                        <strong>{{ formatDate(contract.signed_date) }}</strong>
-                      </div>
-                      <div class="info-item">
-                        <span class="label">Created:</span>
-                        <strong>{{ formatDateTime(contract.created_at) }}</strong>
-                      </div>
-                    </div>
-                    <div class="col-md-6">
-                      <h6 class="text-muted mb-3"><i class="fa fa-file-contract me-2"></i>Contract Details</h6>
-                      <div class="info-item">
-                        <span class="label">Type:</span>
-                        <strong>{{ getContractTypeName() }}</strong>
-                      </div>
-                      <div class="info-item">
-                        <span class="label">Governing Law:</span>
-                        <strong>{{ contract.governing_law || 'N/A' }}</strong>
-                      </div>
-                      <div class="info-item">
-                        <span class="label">Jurisdiction:</span>
-                        <strong>{{ contract.jurisdiction || 'N/A' }}</strong>
-                      </div>
-                      <div class="info-item">
-                        <span class="label">Auto Renewal:</span>
-                        <strong>{{ contract.auto_renew ? `Yes (${contract.renewal_term_months} months)` : 'No' }}</strong>
-                      </div>
-                    </div>
-                  </div>
-
-                  <!-- Additional Information -->
-                  <hr />
-                  <div class="row mt-4">
-                    <div class="col-md-6" v-if="contract.financial_summary">
-                      <h6 class="text-muted mb-3"><i class="fa fa-dollar-sign me-2"></i>Financial Summary</h6>
-                      <p class="small">{{ contract.financial_summary }}</p>
-                    </div>
-                    <div class="col-md-6" v-if="contract.special_terms">
-                      <h6 class="text-muted mb-3"><i class="fa fa-clipboard me-2"></i>Special Terms</h6>
-                      <p class="small">{{ contract.special_terms }}</p>
-                    </div>
-                  </div>
-
-                  <div v-if="contract.additional_note" class="alert alert-light mt-3">
-                    <h6 class="text-muted mb-2"><i class="fa fa-sticky-note me-2"></i>Notes</h6>
-                    <p class="small mb-0">{{ contract.additional_note }}</p>
-                  </div>
+                <div class="text-end">
+                  <span :class="getStatusBadge(contract.status)" class="badge me-2">{{ contract.status }}</span>
                 </div>
               </div>
             </div>
-
-            <!-- Right Column: Quick Actions -->
-            <div class="col-lg-4">
-              <div class="card sticky-top" style="top: 20px;">
-                <div class="card-header bg-info text-white">
-                  <h5 class="mb-0"><i class="fa fa-bolt me-2"></i>Quick Actions</h5>
-                </div>
-                <div class="card-body p-0">
-                  <div class="list-group list-group-flush">
-                    <button 
-                      @click="editContract"
-                      class="list-group-item list-group-item-action d-flex align-items-center"
-                    >
-                      <i class="fa fa-edit me-3 text-primary"></i>
-                      <span>Edit Contract</span>
-                    </button>
-                    <button 
-                      @click="downloadPdf"
-                      class="list-group-item list-group-item-action d-flex align-items-center"
-                    >
-                      <i class="fa fa-download me-3 text-success"></i>
-                      <span>Download PDF</span>
-                    </button>
-                    <button 
-                      @click="viewHistory"
-                      class="list-group-item list-group-item-action d-flex align-items-center"
-                    >
-                      <i class="fa fa-history me-3 text-warning"></i>
-                      <span>View History</span>
-                    </button>
-                    <button 
-                      @click="deleteContract"
-                      class="list-group-item list-group-item-action d-flex align-items-center"
-                    >
-                      <i class="fa fa-trash me-3 text-danger"></i>
-                      <span>Delete Contract</span>
-                    </button>
+            <div class="card-body">
+              <div class="row mb-4">
+                <div class="col-md-6">
+                  <h6 class="text-muted mb-3"><i class="fa fa-calendar me-2"></i>Dates</h6>
+                  <div class="info-item">
+                    <span class="label">Start Date:</span>
+                    <strong>{{ formatDate(contract.start_date) }}</strong>
+                  </div>
+                  <div class="info-item">
+                    <span class="label">End Date:</span>
+                    <strong>{{ formatDate(contract.end_date) }}</strong>
+                  </div>
+                  <div class="info-item">
+                    <span class="label">Signed Date:</span>
+                    <strong>{{ formatDate(contract.signed_date) }}</strong>
+                  </div>
+                  <div class="info-item">
+                    <span class="label">Created:</span>
+                    <strong>{{ formatDateTime(contract.created_at) }}</strong>
                   </div>
                 </div>
+                <div class="col-md-6">
+                  <h6 class="text-muted mb-3"><i class="fa fa-file-contract me-2"></i>Contract Details</h6>
+                  <div class="info-item">
+                    <span class="label">Type:</span>
+                    <strong>{{ getContractTypeName() }}</strong>
+                  </div>
+                  <div class="info-item">
+                    <span class="label">Governing Law:</span>
+                    <strong>{{ contract.governing_law || 'N/A' }}</strong>
+                  </div>
+                  <div class="info-item">
+                    <span class="label">Jurisdiction:</span>
+                    <strong>{{ contract.jurisdiction || 'N/A' }}</strong>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Additional Information -->
+              <hr />
+              <div class="row mt-4">
+                <div class="col-md-6" v-if="contract.financial_summary">
+                  <h6 class="text-muted mb-3"><i class="fa fa-dollar-sign me-2"></i>Financial Summary</h6>
+                  <p class="small">{{ contract.financial_summary }}</p>
+                </div>
+                <div class="col-md-6" v-if="contract.special_terms">
+                  <h6 class="text-muted mb-3"><i class="fa fa-clipboard me-2"></i>Special Terms</h6>
+                  <p class="small">{{ contract.special_terms }}</p>
+                </div>
+              </div>
+
+              <div v-if="contract.additional_note" class="alert alert-light mt-3">
+                <h6 class="text-muted mb-2"><i class="fa fa-sticky-note me-2"></i>Notes</h6>
+                <p class="small mb-0">{{ contract.additional_note }}</p>
               </div>
             </div>
           </div>
@@ -278,74 +208,6 @@
           </div>
           <div v-else class="alert alert-info">
             No versions found for this contract.
-          </div>
-        </div>
-
-        <!-- TAB 4: BILLING SCHEDULE -->
-        <div v-if="activeTab === 'billing'" class="tab-pane">
-          <div v-if="contract.billing_schedules && contract.billing_schedules.length > 0" class="table-responsive">
-            <table class="table table-hover">
-              <thead class="table-light">
-                <tr>
-                  <th>Sequence</th>
-                  <th>Label</th>
-                  <th>Type</th>
-                  <th>Amount Type</th>
-                  <th>Amount</th>
-                  <th>Due Days</th>
-                  <th>Due Type</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="schedule in contract.billing_schedules" :key="schedule.id">
-                  <td><strong>#{{ schedule.sequence_no }}</strong></td>
-                  <td>{{ schedule.label || 'N/A' }}</td>
-                  <td>
-                    <span class="badge bg-info">{{ schedule.schedule_type }}</span>
-                  </td>
-                  <td>{{ schedule.amount_type }}</td>
-                  <td class="text-end">{{ formatCurrency(schedule.amount) }}</td>
-                  <td class="text-center">{{ schedule.due_days }}</td>
-                  <td>{{ schedule.due_days_type }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <div v-else class="alert alert-info">
-            No billing schedules configured for this contract.
-          </div>
-        </div>
-
-        <!-- TAB 5: LINKS -->
-        <div v-if="activeTab === 'links'" class="tab-pane">
-          <div v-if="contract.links && contract.links.length > 0" class="table-responsive">
-            <table class="table table-hover">
-              <thead class="table-light">
-                <tr>
-                  <th>Object Type</th>
-                  <th>Object ID</th>
-                  <th>Relation Type</th>
-                  <th>Created</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="link in contract.links" :key="link.id">
-                  <td>
-                    <span class="badge bg-secondary">{{ link.object_type }}</span>
-                  </td>
-                  <td>
-                    <a href="#" @click.prevent="navigateToObject(link)">
-                      #{{ link.object_id }}
-                    </a>
-                  </td>
-                  <td>{{ link.relation_type }}</td>
-                  <td>{{ formatDateTime(link.created_at) }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <div v-else class="alert alert-info">
-            No linked objects found for this contract.
           </div>
         </div>
       </div>
