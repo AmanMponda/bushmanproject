@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { toRefs, computed } from 'vue'
+import { toRefs, computed, ref, nextTick } from 'vue'
 import Datepicker from '@/components/plugins/Datepicker.vue'
+import vSelect from 'vue-select'
+import 'vue-select/dist/vue-select.css'
 
 type Props = {
   isEditMode: boolean
@@ -68,18 +70,36 @@ const sourceSelection = computed<string | null>({
       source.sourceType = null
       source.sourceId = null
       source.accountId = null
+      source.payee = ''
       return
     }
     const [type, idValue] = value.split(':')
     const parsedId = Number(idValue || 0) || null
     source.sourceType = type as any
+    
+    // Auto-populate payee based on source selection
     if (type === 'CASH') {
       source.accountId = parsedId
       source.sourceId = parsedId
-      return
+      const account = (accounts.value || []).find((a: any) => a.id === parsedId)
+      if (account && !source.payee) {
+        source.payee = account.name
+      }
+    } else if (type === 'STORE') {
+      source.accountId = null
+      source.sourceId = parsedId
+      const location = (locations.value || []).find((l: any) => l.id === parsedId)
+      if (location && !source.payee) {
+        source.payee = location.name
+      }
+    } else if (type === 'PARTIES') {
+      source.accountId = null
+      source.sourceId = parsedId
+      const entity = (entities.value || []).find((e: any) => e.id === parsedId)
+      if (entity && !source.payee) {
+        source.payee = entity.name
+      }
     }
-    source.accountId = null
-    source.sourceId = parsedId
   },
 })
 
@@ -140,6 +160,261 @@ const groupedDimensionOptions = computed(() => {
   }
   return groups
 })
+
+const itemAccountOptions = computed(() => {
+  const options: any[] = []
+  
+  // Items group
+  if (itemsOptions.value && itemsOptions.value.length > 0) {
+    options.push({ label: '📦 Items', value: null, $isDisabled: true, isHeader: true })
+    itemsOptions.value.forEach((itm: any) => {
+      options.push({
+        label: itm.name,
+        value: `ITEM:${itm.id}`,
+        code: itm.code || null,
+        name: itm.name,
+        searchText: `${itm.name} ${itm.code || ''} item`
+      })
+    })
+  }
+  
+  // Accounts group
+  if (accounts.value && accounts.value.length > 0) {
+    options.push({ label: '💰 Accounts', value: null, $isDisabled: true, isHeader: true })
+    accounts.value.forEach((acc: any) => {
+      options.push({
+        label: acc.name,
+        value: `ACCOUNT:${acc.id}`,
+        code: acc.code || null,
+        name: acc.name,
+        searchText: `${acc.name} ${acc.code || ''} account`
+      })
+    })
+  }
+  
+  return options
+})
+
+const costCenterOptions = computed(() => {
+  const options: any[] = []
+  for (const type of dimensionTypes.value || []) {
+    const values = (dimensionValues.value || []).filter((v: any) => v.dimension_type_id === type.id)
+    if (values.length > 0) {
+      options.push({
+        label: type.name,
+        value: `GROUP:${type.id}`,
+        isHeader: true,
+        groupKey: `TYPE:${type.id}`,
+        icon: 'fa fa-sitemap',
+      })
+    }
+    for (const val of values) {
+      options.push({
+        label: val.name,
+        value: val.id,
+        groupKey: `TYPE:${type.id}`,
+        icon: 'fa fa-dot-circle-o',
+        searchText: `${type.name} ${val.name}`,
+      })
+    }
+  }
+  return options
+})
+
+const sourceOptions = computed(() => {
+  const options = []
+
+  // Cash accounts with group label
+  if (accounts.value && accounts.value.length > 0) {
+    options.push({ label: "💰 Accounts", value: null, $isDisabled: true, isHeader: true })
+    accounts.value.forEach((account: any) => {
+      options.push({
+        label: account.code ? `${account.name} (${account.code})` : account.name,
+        value: `CASH:${account.id}`,
+        accountName: account.name,
+        code: account.code || null,
+        searchText: account.code ? `${account.name} ${account.code} cash` : `${account.name} cash`
+      })
+    })
+  }
+
+  // Store locations with group label
+  if (locations.value && locations.value.length > 0) {
+    options.push({ label: '🏪 Stores', value: null, $isDisabled: true, isHeader: true })
+    locations.value.forEach((location: any) => {
+      options.push({
+        label: location.name,
+        value: `STORE:${location.id}`,
+        accountName: location.name,
+        code: null,
+        searchText: `${location.name} store location`
+      })
+    })
+  }
+
+  // Party entities with group label
+  if (entities.value && entities.value.length > 0) {
+    options.push({ label: '👥 Parties', value: null, $isDisabled: true, isHeader: true })
+    entities.value.forEach((entity: any) => {
+      options.push({
+        label: entity.name,
+        value: `PARTIES:${entity.id}`,
+        accountName: entity.name,
+        code: null,
+        searchText: `${entity.name} party`
+      })
+    })
+  }
+
+  return options
+})
+
+// Custom filter for source options search
+const filterSourceOptions = (options: any[], search: string) => {
+  const searchLower = (search || '').toLowerCase().trim()
+  if (!searchLower) return options
+
+  return options.filter((option: any) => {
+    if (option.isHeader) {
+      // Show header if any child items match
+      const headerType = option.label.includes('Cash') ? 'cash'
+        : option.label.includes('Store') ? 'store'
+        : 'party'
+      return options.some((opt: any) => {
+        if (opt.isHeader) return false
+        const optType = opt.value?.split(':')[0]?.toLowerCase()
+        const matchesType = (headerType === 'cash' && optType === 'cash') ||
+          (headerType === 'store' && optType === 'store') ||
+          (headerType === 'party' && optType === 'parties')
+        if (!matchesType) return false
+        const searchText = (opt.searchText || opt.label || '').toLowerCase()
+        return searchText.includes(searchLower)
+      })
+    }
+    const searchText = (option.searchText || option.label || '').toLowerCase()
+    return searchText.includes(searchLower)
+  })
+}
+
+const isSelectableOption = (option: any) => !option?.isHeader
+
+// Custom filter for item/account options search
+const filterItemAccountOptions = (options: any[], search: string) => {
+  const searchLower = (search || '').toLowerCase().trim()
+  if (!searchLower) return options
+
+  return options.filter((option: any) => {
+    if (option.isHeader) {
+      // Show header if any child items match
+      const headerType = option.label.includes('Items') ? 'items' : 'accounts'
+      return options.some((opt: any) => {
+        if (opt.isHeader) return false
+        const optType = opt.value?.split(':')[0]?.toLowerCase()
+        const matchesType = (headerType === 'items' && optType === 'item') ||
+          (headerType === 'accounts' && optType === 'account')
+        if (!matchesType) return false
+        const searchText = (opt.searchText || opt.label || '').toLowerCase()
+        return searchText.includes(searchLower)
+      })
+    }
+    const searchText = (option.searchText || option.label || '').toLowerCase()
+    return searchText.includes(searchLower)
+  })
+}
+
+// Ref for source v-select so we can reposition on search
+const sourceSelect = ref<any>(null)
+
+// When searching, recalculate dropdown position after list updates
+const onSourceSearch = async (search: string) => {
+  await nextTick()
+  setTimeout(() => {
+    // Find visible dropdown menu
+    const menus = Array.from(document.querySelectorAll<HTMLElement>('.vs__dropdown-menu'))
+    const visible = menus.find(m => m.offsetParent !== null)
+    if (visible) {
+      // Reposition using our positioner
+      try {
+        dropdownPosition(visible, sourceSelect.value, {})
+      } catch (e) {
+        // ignore
+      }
+    }
+  }, 16)
+}
+
+// Calculate dropdown position to prefer opening upward and anchor bottom to input top
+const dropdownPosition = (dropdownList: HTMLElement, component: any, { width, top, left }: any) => {
+  try {
+    const triggerEl: HTMLElement | null = component && component.$el ? component.$el as HTMLElement : null
+    if (!triggerEl) return
+
+    const rect = triggerEl.getBoundingClientRect()
+    const GAP = 0
+    const MAX_HEIGHT = 300
+
+    // Determine available space
+    const spaceAbove = rect.top
+    const spaceBelow = window.innerHeight - rect.bottom
+
+    // Prefer opening upward when there is any room above; otherwise open downward
+    if (spaceAbove > GAP) {
+      const maxHeight = Math.min(MAX_HEIGHT, Math.max(40, spaceAbove - GAP))
+      const anchorBottom = Math.round(window.innerHeight - rect.top + GAP)
+
+      dropdownList.style.position = 'absolute'
+      dropdownList.style.top = 'auto'
+      dropdownList.style.bottom = `${anchorBottom}px`
+      dropdownList.style.left = `${Math.round(window.scrollX + rect.left)}px`
+      dropdownList.style.width = `${Math.round(rect.width)}px`
+      dropdownList.style.maxHeight = `${Math.round(maxHeight)}px`
+      dropdownList.style.height = 'auto'
+      dropdownList.style.overflowY = 'auto'
+      dropdownList.style.zIndex = '9999'
+      dropdownList.style.boxSizing = 'border-box'
+      dropdownList.style.visibility = 'visible'
+      dropdownList.style.display = 'block'
+    } else {
+      // Not enough room above -> open downward
+      const maxHeight = Math.min(MAX_HEIGHT, Math.max(40, spaceBelow - GAP))
+      const topPos = Math.round(window.scrollY + rect.bottom + GAP)
+
+      dropdownList.style.position = 'absolute'
+      dropdownList.style.top = `${topPos}px`
+      dropdownList.style.bottom = 'auto'
+      dropdownList.style.left = `${Math.round(window.scrollX + rect.left)}px`
+      dropdownList.style.width = `${Math.round(rect.width)}px`
+      dropdownList.style.maxHeight = `${Math.round(maxHeight)}px`
+      dropdownList.style.height = 'auto'
+      dropdownList.style.overflowY = 'auto'
+      dropdownList.style.zIndex = '9999'
+      dropdownList.style.boxSizing = 'border-box'
+      dropdownList.style.visibility = 'visible'
+      dropdownList.style.display = 'block'
+    }
+  } catch (e) {
+    // ignore
+  }
+}
+
+// Custom filter for grouped options search
+const filterGroupedOptions = (options: any[], search: string) => {
+  const searchLower = (search || '').toLowerCase().trim()
+  if (!searchLower) return options
+
+  return options.filter((option: any) => {
+    if (option.isHeader) {
+      return options.some((opt: any) => {
+        if (opt.isHeader) return false
+        if (opt.groupKey !== option.groupKey) return false
+        const searchText = (opt.searchText || opt.label || '').toLowerCase()
+        return searchText.includes(searchLower)
+      })
+    }
+    const searchText = (option.searchText || option.label || '').toLowerCase()
+    return searchText.includes(searchLower)
+  })
+}
 
 // When user selects a dimension value, auto-fill the type
 const onDimensionValueChange = (line: any, valueId: number | null) => {
@@ -251,7 +526,7 @@ const removeCostCenter = (item: any, key: string) => {
 // Shared cost centers at requisition level (each cost center contains items)
 const addRequisitionCostCenter = () => {
   if (!form.value.costCenters) form.value.costCenters = []
-  form.value.costCenters.push({ _key: makeKey(), costCenterId: null, items: [] })
+  form.value.costCenters.push({ _key: makeKey(), costCenterId: null, items: [], _expanded: true })
 }
 
 const removeRequisitionCostCenter = (key: string) => {
@@ -259,7 +534,12 @@ const removeRequisitionCostCenter = (key: string) => {
   form.value.costCenters = (form.value.costCenters || []).filter((c: any) => c._key !== key)
 }
 
+const toggleCostCenter = (cc: any) => {
+  cc._expanded = !(cc._expanded ?? true)
+}
+
 const addItemToCostCenter = (cc: any) => {
+  if (!cc.costCenterId) return
   if (!cc.items) cc.items = []
   cc.items.push({
     _key: makeKey(),
@@ -276,6 +556,48 @@ const removeItemFromCostCenter = (cc: any, itemKey: string) => {
   if (!cc.items) return
   cc.items = cc.items.filter((i: any) => i._key !== itemKey)
 }
+
+const getCostCenterTotal = (cc: any) => {
+  const items = cc?.items || []
+  return items.reduce((sum: number, item: any) => {
+    const lineTotal = Number(item.quantity || 0) * Number(item.rate || 0)
+    return sum + lineTotal
+  }, 0)
+}
+
+const getItemAccountSelection = (line: any) => {
+  if (line?.itemId) return `ITEM:${line.itemId}`
+  if (line?.accountId) return `ACCOUNT:${line.accountId}`
+  return null
+}
+
+const onItemAccountSelect = (line: any, value: string | null) => {
+  const raw = value ? String(value) : ''
+  const normalized = !raw || raw === 'null' ? null : raw
+
+  if (!normalized) {
+    line.itemId = null
+    line.accountId = null
+    line.unitId = null
+    return
+  }
+
+  const [type, idValue] = normalized.split(':')
+  const parsedId = Number(idValue || 0) || null
+
+  if (type === 'ITEM') {
+    line.itemId = parsedId
+    line.accountId = null
+    onMainItemChange(line)
+    return
+  }
+
+  if (type === 'ACCOUNT') {
+    line.accountId = parsedId
+    line.itemId = null
+    line.unitId = null
+  }
+}
 </script>
 
 <template>
@@ -286,7 +608,7 @@ const removeItemFromCostCenter = (cc: any, itemKey: string) => {
         <div class="page-head-left">
           <div class="crumbs">
             <span class="crumb-icon"><i class="fa fa-file-text"></i></span>
-            SALES / <span>REQUISITIONS</span>
+            REQUISITION / <span>REQUISITIONS FORM</span>
           </div>
           <h1>{{ isEditMode ? 'Edit Requisition' : 'Create Requisition' }}</h1>
           <p class="subtitle">Fill in the requisition details and add line items for materials or expenses.</p>
@@ -317,13 +639,7 @@ const removeItemFromCostCenter = (cc: any, itemKey: string) => {
       <section class="grid">
         <!-- LEFT: Requisition Details Form -->
         <aside class="panel left-panel">
-          <div class="panel-header">
-            <div class="panel-icon"><i class="fa fa-file-text"></i></div>
-            <div class="panel-title-text">
-              <h3>Requisition Details</h3>
-              <p>Fill in the basic information</p>
-            </div>
-          </div>
+
 
           <div class="form">
             <!-- Identification Section -->
@@ -350,7 +666,7 @@ const removeItemFromCostCenter = (cc: any, itemKey: string) => {
                   <div class="input-wrapper">
                     <span class="input-icon"><i class="fa fa-exchange"></i></span>
                     <select v-model="form.fundDirection">
-                      <option value="EXPENSE">Expense</option>
+                      <option value="EXPENSE">Direct payment</option>
                       <option value="WITHDRAW">Withdraw</option>
                     </select>
                   </div>
@@ -419,17 +735,17 @@ const removeItemFromCostCenter = (cc: any, itemKey: string) => {
               </div>
             </div>
             <!-- Summary Section -->
-            <div class="form-section summary-section">
+            <!-- <div class="form-section summary-section">
               <div class="section-title">
                 <span class="section-icon"><i class="fa fa-calculator"></i></span>
                 Summary
-              </div>
-
-              <div class="summary-row total">
-                <span class="summary-label">Grand Total</span>
+              </div> -->
+<!-- 
+              <div class="summary-row total"> -->
+                <!-- <span class="summary-label">Grand Total</span>
                 <span class="summary-value">{{ getCurrencySymbol() }}{{ formatAmount(grandTotal) }}</span>
-              </div>
-            </div>
+              </div> -->
+            <!-- </div> -->
           </div>
         </aside>
 
@@ -438,13 +754,11 @@ const removeItemFromCostCenter = (cc: any, itemKey: string) => {
           <div class="panel-header center-header">
             <div class="panel-icon"><i class="fa fa-list-alt"></i></div>
             <div class="panel-title-text">
-              <h3>Line Items & Sources</h3>
-              <p>Manage requisition items and funding sources</p>
-            </div>
+              <h3>Line Items & Sources</h3>            </div>
           </div>
 
           <!-- Tab Navigation -->
-          <div class="inner-card tabs-card">
+          <div class="tabs-float">
             <div class="tabs">
               <button type="button" class="tab" :class="{ active: activeFormTab === 'sources' }"
                 @click="activeFormTab = 'sources'">
@@ -455,7 +769,7 @@ const removeItemFromCostCenter = (cc: any, itemKey: string) => {
                 @click="activeFormTab = 'items'">
                 <span class="tab-icon">📦</span>
                 <span class="tab-text">Items</span>
-                <span class="tab-count" v-if="form.items && form.items.length > 0">{{ form.items.length }}</span>
+                <span class="tab-count" v-if="totalItemsCount > 0">{{ totalItemsCount }}</span>
               </button>
             </div>
           </div>
@@ -470,37 +784,60 @@ const removeItemFromCostCenter = (cc: any, itemKey: string) => {
 
             <!-- Cost Centers with nested items -->
             <div v-if="form.costCenters && form.costCenters.length > 0" class="cost-centers-list">
-              <div v-for="(cc, ccIndex) in form.costCenters" :key="cc._key" class="cost-center-card mb-4">
+              <div v-for="(cc, ccIndex) in form.costCenters" :key="cc._key" class="cost-center-card mb-2"
+                :class="{ collapsed: cc._expanded === false }">
                 <!-- Cost Center Header -->
-                <div class="cost-center-header">
+                <div class="cost-center-header" @click="toggleCostCenter(cc)">
                   <div class="cost-center-info">
+                    <span class="cc-toggle" :class="{ collapsed: cc._expanded === false }">
+                      <i class="fa fa-chevron-down"></i>
+                    </span>
                     <span class="cc-number">#{{ ccIndex + 1 }}</span>
-                    <select v-model="cc.costCenterId" class="form-control form-control-sm cost-center-select">
-                      <option :value="null">Select cost center...</option>
-                      <optgroup v-for="group in groupedDimensionOptions" :key="group.typeId" :label="group.typeName">
-                        <option v-for="val in group.values" :key="val.id" :value="val.id">{{ val.name }}</option>
-                      </optgroup>
-                    </select>
+                    <v-select
+                      v-model="cc.costCenterId"
+                      class="v-select-field v-select-grouped cost-center-select"
+                      :options="costCenterOptions"
+                      :reduce="(opt) => opt.value"
+                      :filterable="true"
+                      :filter="filterGroupedOptions"
+                      :selectable="isSelectableOption"
+                      :append-to-body="true"
+                      :calculate-position="dropdownPosition"
+                      label="label"
+                      placeholder="🔍 Search cost center..."
+                      @click.stop
+                    >
+                      <template #option="{ label, isHeader }">
+                        <div :class="{ 'cost-center-header': isHeader, 'cost-center-option': !isHeader }">
+                          {{ label }}
+                        </div>
+                      </template>
+                    </v-select>
                   </div>
                   <div class="cost-center-actions">
-                    <button type="button" class="btn btn-sm btn-success me-2" @click="addItemToCostCenter(cc)">
+                    <span class="cc-total">Total Amount: {{ getCurrencySymbol() }}{{ formatAmount(getCostCenterTotal(cc)) }}</span>
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-success me-2"
+                      :disabled="!cc.costCenterId"
+                      @click.stop="addItemToCostCenter(cc)"
+                    >
                       <i class="fa fa-plus me-1"></i> Add Item
                     </button>
-                    <button type="button" class="btn btn-sm btn-outline-danger" @click="removeRequisitionCostCenter(cc._key)">
+                    <button type="button" class="btn btn-sm btn-outline-danger" @click.stop="removeRequisitionCostCenter(cc._key)">
                       <i class="fa fa-trash"></i>
                     </button>
                   </div>
                 </div>
 
                 <!-- Items under this cost center -->
-                <div class="cost-center-items">
+                <div class="cost-center-items" v-show="cc._expanded !== false">
                   <div v-if="cc.items && cc.items.length > 0">
                     <table class="items-table">
                       <thead>
                         <tr>
                           <th style="width: 5%">#</th>
-                          <th style="width: 20%">Account</th>
-                          <th style="width: 25%">Item</th>
+                          <th style="width: 40%">Item/Account</th>
                           <th style="width: 12%">Unit</th>
                           <th style="width: 10%">Quantity</th>
                           <th style="width: 12%">Rate</th>
@@ -513,21 +850,27 @@ const removeItemFromCostCenter = (cc: any, itemKey: string) => {
                           <td class="text-center">{{ itemIndex + 1 }}</td>
 
                           <td>
-                            <select v-model="item.accountId" class="form-control form-control-sm">
-                              <option :value="null">Select account...</option>
-                              <option v-for="acc in accounts" :key="acc.id" :value="acc.id">
-                                {{ acc.code ? `${acc.code} - ` : '' }}{{ acc.name }}
-                              </option>
-                            </select>
-                          </td>
-
-                          <td>
-                            <select :disabled="!item.accountId" v-model="item.itemId" @change="onMainItemChange(item)" class="form-control form-control-sm">
-                              <option :value="null">{{ item.accountId ? 'Select item...' : 'Select account first' }}</option>
-                              <option v-for="itm in itemsOptions" :key="itm.id" :value="itm.id">
-                                {{ itm.code ? `${itm.code} - ` : '' }}{{ itm.name }}
-                              </option>
-                            </select>
+                            <v-select
+                              class="v-select-sm v-select-grouped"
+                              :modelValue="getItemAccountSelection(item)"
+                              :options="itemAccountOptions"
+                              :reduce="(opt) => opt.value"
+                              :filterable="true"
+                              :filter="filterItemAccountOptions"
+                              :selectable="(opt) => !opt.isHeader"
+                              :append-to-body="true"
+                              :calculate-position="dropdownPosition"
+                              label="label"
+                              placeholder="🔍 Search..."
+                              @update:modelValue="(value) => onItemAccountSelect(item, value)"
+                            >
+                              <template #option="{ option, label, isHeader }">
+                                <div :class="{ 'item-header': isHeader, 'item-option': !isHeader }">
+                                  <span class="item-name">{{ option && option.name ? option.name : label }}</span>
+                                  <span v-if="option && option.code" class="item-code">{{ option.code }}</span>
+                                </div>
+                              </template>
+                            </v-select>
                           </td>
 
                           <td>
@@ -596,10 +939,10 @@ const removeItemFromCostCenter = (cc: any, itemKey: string) => {
                       <div class="input-wrapper">
                         <span class="input-icon"><i class="fa fa-credit-card"></i></span>
                         <select v-model="form.source.modeOfPayment">
-                          <option :value="null">Select...</option>
-                          <option value="CASH">Cash</option>
-                          <option value="TT">TT</option>
-                          <option value="CREDIT">Credit</option>
+                          <option :value="null">Select payment mode...</option>
+                          <option value="CASH">💵 Cash</option>
+                          <option value="TT">🏦 Telegraphic Transfer (TT)</option>
+                          <option value="CREDIT">💳 Credit</option>
                         </select>
                       </div>
                     </label>
@@ -609,26 +952,29 @@ const removeItemFromCostCenter = (cc: any, itemKey: string) => {
                 <div class="row">
                   <label class="field col-md-6">
                     <span class="lbl">Source</span>
-                    <div class="input-wrapper">
-                      <span class="input-icon"><i class="fa fa-user"></i></span>
-                      <select v-model="sourceSelection">
-                        <option :value="null">Select source...</option>
-                        <optgroup label="Accounts (Cash)">
-                          <option v-for="account in accounts" :key="`cash-${account.id}`" :value="`CASH:${account.id}`">
-                            {{ account.code ? `${account.name} (${account.code})` : account.name }}
-                          </option>
-                        </optgroup>
-                        <optgroup label="Locations (Store)" v-if="locations && locations.length">
-                          <option v-for="location in locations" :key="`store-${location.id}`" :value="`STORE:${location.id}`">
-                            {{ location.name }}
-                          </option>
-                        </optgroup>
-                        <optgroup label="Entities (Parties)" v-if="entities && entities.length">
-                          <option v-for="entity in entities" :key="`party-${entity.id}`" :value="`PARTIES:${entity.id}`">
-                            {{ entity.name }}
-                          </option>
-                        </optgroup>
-                      </select>
+                    <div class="input-wrapper has-v-select">
+                      <span class="input-icon"><i class="fa fa-building"></i></span>
+                      <v-select
+                        ref="sourceSelect"
+                        v-model="sourceSelection"
+                        class="v-select-field v-select-grouped"
+                        :options="sourceOptions"
+                        :reduce="(opt) => opt.value"
+                        :filterable="true"
+                        :filter="filterSourceOptions"
+                        :selectable="(opt) => !opt.isHeader"
+                        :append-to-body="true"
+                        :calculate-position="dropdownPosition"
+                        @search="onSourceSearch"
+                        label="label"
+                        placeholder="Search or select source..."
+                      >
+                        <template #option="{ label, isHeader }">
+                          <div :class="{ 'source-header': isHeader, 'source-option': !isHeader }">
+                            {{ label }}
+                          </div>
+                        </template>
+                      </v-select>
                     </div>
                   </label>
 
@@ -697,7 +1043,7 @@ const removeItemFromCostCenter = (cc: any, itemKey: string) => {
 
 /* Content */
 .content {
-  padding: 20px 24px 32px;
+  padding: 14px 16px 20px;
   max-width: 1800px;
   margin: 0 auto;
 }
@@ -707,8 +1053,8 @@ const removeItemFromCostCenter = (cc: any, itemKey: string) => {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 24px;
-  margin-bottom: 20px;
+  gap: 16px;
+  margin-bottom: 12px;
   flex-wrap: wrap;
 }
 
@@ -737,7 +1083,7 @@ const removeItemFromCostCenter = (cc: any, itemKey: string) => {
 }
 
 h1 {
-  margin: 10px 0 6px;
+  margin: 6px 0 4px;
   font-size: 28px;
   font-weight: 800;
   color: var(--text);
@@ -762,8 +1108,8 @@ h1 {
   align-items: center;
   justify-content: center;
   gap: 0;
-  margin-bottom: 24px;
-  padding: 16px 24px;
+  margin-bottom: 12px;
+  padding: 10px 16px;
   background: var(--card);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow);
@@ -829,7 +1175,7 @@ h1 {
 .grid {
   display: grid;
   grid-template-columns: 340px 1fr;
-  gap: 20px;
+  gap: 14px;
   align-items: start;
 }
 
@@ -846,19 +1192,19 @@ h1 {
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 18px 20px;
+  padding: 8px 12px;
   background: #f8fafc;
   border-bottom: 2px solid var(--border);
 }
 
 .panel-icon {
-  width: 44px;
-  height: 44px;
+  width: 32px;
+  height: 32px;
   border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 20px;
+  font-size: 16px;
 }
 
 .left-panel .panel-icon {
@@ -985,7 +1331,7 @@ h1 {
   background: #2563eb;
   border-color: #1e40af;
   color: white;
-  padding: 10px 18px;
+  padding: 8px 14px;
   font-weight: 600;
 }
 
@@ -995,17 +1341,21 @@ h1 {
 
 /* Left Panel Form */
 .form {
-  padding: 20px;
+  padding: 14px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 10px;
   background: #fafbfc;
+}
+
+.form.p-4 {
+  padding: 14px !important;
 }
 
 .form-section {
   background: #ffffff;
   border-radius: var(--radius);
-  padding: 18px;
+  padding: 12px;
   border: 1px solid #e2e8f0;
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
 }
@@ -1019,8 +1369,8 @@ h1 {
   color: #1e40af;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  margin-bottom: 16px;
-  padding-bottom: 12px;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
   border-bottom: 2px solid #dbeafe;
 }
 
@@ -1031,8 +1381,8 @@ h1 {
 .field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  margin-bottom: 14px;
+  gap: 4px;
+  margin-bottom: 10px;
 }
 
 .field:last-child {
@@ -1057,8 +1407,8 @@ h1 {
 
 .input-icon {
   position: absolute;
-  left: 12px;
-  font-size: 14px;
+  left: 10px;
+  font-size: 13px;
   pointer-events: none;
   z-index: 1;
 }
@@ -1068,8 +1418,8 @@ h1 {
   width: 100%;
   border: 2px solid #e2e8f0;
   border-radius: 10px;
-  padding: 10px 12px;
-  padding-left: 38px;
+  padding: 8px 10px;
+  padding-left: 32px;
   font-size: 13px;
   background: #ffffff;
   color: #0f172a;
@@ -1085,7 +1435,7 @@ h1 {
 }
 
 .input-wrapper input[type="date"] {
-  padding-left: 38px;
+  padding-left: 32px;
 }
 
 .input-wrapper.textarea-wrapper {
@@ -1136,10 +1486,18 @@ h1 {
 
 .date-picker-lg :deep(.dp__input) {
   /* Match the select sizing so the date input aligns with Fund Direction */
-  height: 40px;
+  height: 36px;
   font-size: 13px;
-  padding: 10px 12px;
-  padding-left: 38px;
+  padding: 8px 10px;
+  padding-left: 32px;
+}
+
+.date-picker-lg :deep(.dp__input_icon) {
+  display: none;
+}
+
+.date-picker-lg :deep(.dp__input_icon_pad) {
+  padding-left: 32px;
 }
 
 /* Allow date picker popover to float above and outside the left panel */
@@ -1242,10 +1600,8 @@ h1 {
   box-shadow: var(--shadow-sm);
 }
 
-.tabs-card {
-  background: #ffffff;
-  padding: 14px;
-  border: 1px solid #e2e8f0;
+.tabs-float {
+  padding: 4px 0;
 }
 
 .toolbar-card {
@@ -1422,7 +1778,7 @@ h1 {
 
 /* Rate Table Styles */
 .table-header {
-  padding: 16px 20px;
+  padding: 10px 14px;
   border-bottom: 2px solid #e2e8f0;
   display: flex;
   justify-content: space-between;
@@ -1449,7 +1805,7 @@ h1 {
 }
 
 .rates-table thead th {
-  padding: 12px;
+  padding: 8px 10px;
   text-align: left;
   font-weight: 700;
   font-size: 12px;
@@ -1468,7 +1824,7 @@ h1 {
 }
 
 .rates-table tbody td {
-  padding: 12px;
+  padding: 8px 10px;
   vertical-align: middle;
 }
 
@@ -1555,7 +1911,7 @@ h1 {
   border: 2px solid #e2e8f0;
   background: #ffffff;
   border-radius: 10px;
-  padding: 10px 14px;
+  padding: 8px 10px;
   transition: all 0.2s ease;
 }
 
@@ -2308,9 +2664,9 @@ h1 {
 /* Bottom Actions */
 .bottom-actions {
   border-top: 2px solid #e2e8f0;
-  padding: 18px 20px;
+  padding: 12px 16px;
   display: grid;
-  gap: 12px;
+  gap: 8px;
   background: #ffffff;
 }
 
@@ -2498,14 +2854,15 @@ h1 {
 }
 
 .items-header {
-  margin-bottom: 16px;
+  margin-bottom: 10px;
   display: flex;
   justify-content: flex-end;
 }
 
 .tab-content {
   background: white;
-  padding: 20px;
+  padding: 14px;
+  padding-top: 5px;
   border-radius: 0 0 12px 12px;
 }
 
@@ -2526,7 +2883,7 @@ h1 {
 .item-header {
   background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
   color: white;
-  padding: 16px 20px;
+  padding: 12px 16px;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -2545,22 +2902,22 @@ h1 {
 }
 
 .item-body {
-  padding: 20px;
+  padding: 14px;
 }
 
 .item-meta-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 16px;
-  margin-bottom: 24px;
-  padding-bottom: 24px;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding-bottom: 16px;
   border-bottom: 2px solid #f1f5f9;
 }
 
 .item-sections {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
 }
 
 .item-section {
@@ -2575,8 +2932,8 @@ h1 {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
-  padding-bottom: 12px;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
   border-bottom: 2px solid #e2e8f0;
 }
 
@@ -2782,7 +3139,7 @@ h1 {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 20px;
+  padding: 12px 16px;
   background: #f8fafc;
   border-bottom: 2px solid #e2e8f0;
 }
@@ -2790,7 +3147,7 @@ h1 {
 .item-header-left {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
 }
 
 .item-number {
@@ -2824,12 +3181,12 @@ h1 {
 }
 
 .item-body {
-  padding: 20px;
+  padding: 14px;
 }
 
 .item-meta {
-  margin-bottom: 20px;
-  padding-bottom: 20px;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
   border-bottom: 1px solid #e2e8f0;
 }
 
@@ -2921,14 +3278,14 @@ h1 {
 }
 
 .section-empty {
-  padding: 20px;
+  padding: 14px;
   text-align: center;
   color: #94a3b8;
   font-size: 13px;
 }
 
 .empty-state-large {
-  padding: 80px 20px;
+  padding: 48px 16px;
   text-align: center;
   background: white;
   border-radius: 12px;
@@ -2936,7 +3293,7 @@ h1 {
 
 .empty-state-large .empty-icon {
   color: #cbd5e1;
-  margin-bottom: 20px;
+  margin-bottom: 12px;
 }
 
 .empty-state-large h3 {
@@ -2949,67 +3306,352 @@ h1 {
 .empty-state-large p {
   font-size: 14px;
   color: #64748b;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
 }
 
 /* Cost Center Cards */
 .cost-centers-list {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
 }
 
 .cost-center-card {
   background: #ffffff;
   border: 2px solid #e2e8f0;
-  border-radius: 12px;
+  border-radius: 0;
   overflow: hidden;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .cost-center-header {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  background: linear-gradient(135deg, #7da2ed 0%, #8bb6e7 100%);
   color: white;
-  padding: 14px 18px;
+  padding: 8px 12px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
+  cursor: pointer;
 }
 
 .cost-center-info {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   flex: 1;
+}
+
+.cc-toggle {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  font-size: 10px;
+  transition: transform 0.2s ease;
+}
+
+.cc-toggle.collapsed {
+  transform: rotate(-90deg);
 }
 
 .cc-number {
   font-size: 14px;
   font-weight: 800;
   background: rgba(255, 255, 255, 0.25);
-  padding: 4px 10px;
-  border-radius: 6px;
+  padding: 3px 8px;
+  border-radius: 4px;
   flex-shrink: 0;
 }
 
 .cost-center-select {
   flex: 1;
   max-width: 400px;
-  background: white !important;
-  border: 2px solid rgba(255, 255, 255, 0.3) !important;
   font-weight: 600;
+}
+
+.v-select-field,
+.v-select-sm {
+  width: 100%;
+}
+
+.v-select-field {
+  position: relative;
+}
+
+/* Fix icon overlap for v-select in input-wrapper */
+.input-wrapper.has-v-select {
+  position: relative;
+}
+
+.input-wrapper.has-v-select .input-icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 13px;
+  pointer-events: none;
+  z-index: 10;
+  color: #64748b;
+}
+
+.input-wrapper.has-v-select .v-select-field {
+  width: 100%;
+}
+
+.input-wrapper.has-v-select .v-select-field :deep(.vs__dropdown-toggle) {
+  border: 2px solid #e2e8f0;
+  border-radius: 10px;
+  min-height: 36px;
+  padding: 0;
+  background: #ffffff;
+}
+
+.input-wrapper.has-v-select .v-select-field :deep(.vs__selected-options) {
+  padding: 3px 10px 3px 32px;
+  font-size: 12px;
+}
+
+.input-wrapper.has-v-select .v-select-field :deep(.vs__search) {
+  padding: 3px 0;
+  margin: 0;
+  font-size: 12px;
+}
+
+.v-select-field :deep(.vs__dropdown-toggle) {
+  border: 2px solid #e2e8f0;
+  border-radius: 10px;
+  min-height: 36px;
+  padding: 0;
+  background: #ffffff;
+}
+
+.v-select-field :deep(.vs__selected-options) {
+  padding: 3px 10px 3px 32px;
+  font-size: 12px;
+}
+
+.v-select-field :deep(.vs__search) {
+  padding: 3px 0;
+  margin: 0;
+  font-size: 12px;
+}
+
+.v-select-field :deep(.vs__dropdown-menu) {
+  margin-top: 0;
+  border-radius: 10px;
+  position: absolute;
+  width: 100%;
+}
+
+/* Grouped dropdown headers */
+.v-select-field :deep(.vs__dropdown-option-group-header) {
+  background: #f1f5f9;
+  font-weight: 700;
+  font-size: 12px;
+  color: #475569;
+  padding: 8px 12px;
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid #e2e8f0;
+  cursor: default;
+}
+
+.v-select-field :deep(.vs__dropdown-option) {
+  padding: 8px 12px 8px 24px;
+  color: #0f172a;
+  font-size: 13px;
+}
+
+.v-select-field :deep(.vs__dropdown-option--highlight) {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+/* Simple Source Dropdown */
+.v-select-grouped :deep(.vs__dropdown-option--disabled) {
+  opacity: 1;
+  background: transparent;
+  cursor: default;
+}
+
+.v-select-grouped :deep(.vs__dropdown-option--disabled):hover {
+  background: transparent;
+}
+
+.v-select-grouped :deep(.vs__dropdown-menu) {
+  max-height: 300px;
+  overflow-y: auto;
+  z-index: 9999;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  margin-top: 0;
+}
+
+.source-header {
+  font-size: 12px;
+  font-weight: 700;
+  color: #1e40af;
+  padding: 8px 12px;
+  text-transform: uppercase;
+  background: #f8fafc;
+  cursor: default;
+}
+
+.source-option {
+  font-size: 12px;
+  color: #0f172a;
+  padding: 8px 12px;
+}
+
+.v-select-grouped :deep(.vs__dropdown-option--highlight) .source-option {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+/* Cost Center Dropdown Styles */
+.cost-center-header {
+  font-size: 12px;
+  font-weight: 700;
+  color: #059669;
+  padding: 8px 12px;
+  text-transform: uppercase;
+  background: #f0fdf4;
+  cursor: default;
+}
+
+.cost-center-option {
+  font-size: 12px;
+  color: #0f172a;
+  padding: 8px 12px;
+}
+
+.v-select-grouped :deep(.vs__dropdown-option--highlight) .cost-center-option {
+  background: #dcfce7;
+  color: #059669;
+}
+
+/* Item/Account Dropdown Styles */
+.item-header {
+  font-size: 12px;
+  font-weight: 700;
+  color: #7c3aed;
+  padding: 8px 12px;
+  text-transform: uppercase;
+  background: #faf5ff;
+  cursor: default;
+}
+
+.item-option {
+  font-size: 12px;
+  color: #0f172a;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.v-select-sm :deep(.vs__selected-options) {
+  font-size: 12px;
+}
+
+.v-select-sm :deep(.vs__search) {
+  font-size: 12px;
+}
+
+.item-name {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.item-code {
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+  background: #f1f5f9;
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.v-select-grouped :deep(.vs__dropdown-option--highlight) .item-option {
+  background: #f3e8ff;
+  color: #7c3aed;
+}
+
+.v-select-grouped :deep(.vs__dropdown-option--highlight) .item-code {
+  background: #ffffff;
+  color: #7c3aed;
+}
+
+/* Ensure parent containers don't clip dropdown */
+.form-section {
+  overflow: visible !important;
+}
+
+.form.p-4 {
+  overflow: visible !important;
+}
+
+.tab-content {
+  overflow: visible !important;
+}
+
+.input-wrapper.has-v-select {
+  overflow: visible;
+}
+
+.v-select-up :deep(.vs__dropdown-menu) {
+  margin-top: 0;
+  margin-bottom: 4px;
+}
+
+.v-select-sm :deep(.vs__dropdown-toggle) {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  min-height: 30px;
+  padding: 0;
+  background: #ffffff;
+}
+
+.v-select-sm :deep(.vs__selected-options) {
+  padding: 2px 8px;
+}
+
+.v-select-sm :deep(.vs__search) {
+  padding: 2px 0;
+  margin: 0;
 }
 
 .cost-center-actions {
   display: flex;
-  gap: 8px;
+  gap: 10px;
   flex-shrink: 0;
+  align-items: center;
+}
+
+.cc-total {
+  font-weight: 700;
+  font-size: 12px;
+  color: #1e40af;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: #dbeafe;
 }
 
 .cost-center-items {
-  padding: 16px;
+  padding: 8px;
   background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
 }
 
 /* Items Table */
@@ -3028,7 +3670,7 @@ h1 {
 }
 
 .items-table th {
-  padding: 10px 12px;
+  padding: 8px 10px;
   text-align: left;
   font-weight: 600;
   font-size: 12px;
@@ -3051,7 +3693,7 @@ h1 {
 }
 
 .items-table td {
-  padding: 8px 12px;
+  padding: 6px 10px;
   vertical-align: middle;
 }
 
@@ -3072,7 +3714,7 @@ h1 {
 }
 
 .empty-items-state {
-  padding: 24px;
+  padding: 16px;
   text-align: center;
   background: white;
   border: 2px dashed #e2e8f0;
