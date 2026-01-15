@@ -8,6 +8,7 @@ import RequisitionForm from '@/views/bushman/sales/RequisitionForm.vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useToast } from '@/composables/useToast'
 import { useAppOptionStore } from '@/stores/app-option'
+import Swal from 'sweetalert2'
 
 type RequisitionStatus =
   | 'DRAFT'
@@ -474,16 +475,24 @@ const formatMoney = (value: number, currencySymbol?: string) => {
   return symbol ? `${symbol}${formatAmount(value)}` : formatAmount(value)
 }
 
+const formatDisplayDate = (value: string) => {
+  if (!value) return '--'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return date.toLocaleDateString()
+}
+
 const getTotal = (req: Requisition) => {
   return req.items.reduce((sum, item) => sum + item.quantity * item.rate, 0)
 }
 
 const columns = [
-  { key: 'code', label: 'Code', sortable: true },
-  { key: 'requisitionType', label: 'Type', sortable: true },
+  { key: 'code', label: 'REQNO.', sortable: true },
+  { key: 'date', label: 'Date', sortable: true },
+  { key: 'requiredDate', label: 'Required', sortable: true },
+  { key: 'requisitionType', label: 'Request For', sortable: true },
+  { key: 'requestedBy', label: 'Created By', sortable: true },
   { key: 'status', label: 'Status', sortable: true },
-  { key: 'payee', label: 'Payee', sortable: true },
-  { key: 'total', label: 'Total', sortable: true },
   { key: 'actions', label: 'Actions', width: 120 },
 ]
 
@@ -969,42 +978,81 @@ const openEditForm = (req: Requisition) => {
   isEditMode.value = true
 }
 
-const validateForm = () => {
+const validateForm = async () => {
   errorMessage.value = ''
   
   if (!form.requisitionTypeId) {
-    errorMessage.value = 'Select a requisition type.'
+    await Swal.fire({
+      icon: 'warning',
+      title: 'Validation Error',
+      text: 'Select a requisition type.',
+      confirmButtonColor: '#2563eb'
+    })
     return false
   }
   if (!form.fundDirection) {
-    errorMessage.value = 'Select fund direction.'
+    await Swal.fire({
+      icon: 'warning',
+      title: 'Validation Error',
+      text: 'Select fund direction.',
+      confirmButtonColor: '#2563eb'
+    })
     return false
   }
   if (!form.requiredDate) {
-    errorMessage.value = 'Required date is required.'
+    await Swal.fire({
+      icon: 'warning',
+      title: 'Validation Error',
+      text: 'Required date is required.',
+      confirmButtonColor: '#2563eb'
+    })
     return false
   }
   if (!form.currencyId) {
-    errorMessage.value = 'Currency is required.'
+    await Swal.fire({
+      icon: 'warning',
+      title: 'Validation Error',
+      text: 'Currency is required.',
+      confirmButtonColor: '#2563eb'
+    })
     return false
   }
-
   const inferredSourceType = form.source?.sourceType || (form.source?.payee ? 'VENDOR' : null)
   if (inferredSourceType) {
     if (inferredSourceType === 'CASH' && !form.source.accountId) {
-      errorMessage.value = 'Select an account for CASH source type.'
+      await Swal.fire({
+        icon: 'warning',
+        title: 'Validation Error',
+        text: 'Select an account for CASH source type.',
+        confirmButtonColor: '#2563eb'
+      })
       return false
     }
     if (inferredSourceType === 'STORE' && !form.source.sourceId) {
-      errorMessage.value = 'Select a location for STORE source type.'
+      await Swal.fire({
+        icon: 'warning',
+        title: 'Validation Error',
+        text: 'Select a location for STORE source type.',
+        confirmButtonColor: '#2563eb'
+      })
       return false
     }
     if (inferredSourceType === 'PARTIES' && !form.source.sourceId) {
-      errorMessage.value = 'Select an entity for PARTIES source type.'
+      await Swal.fire({
+        icon: 'warning',
+        title: 'Validation Error',
+        text: 'Select an entity for PARTIES source type.',
+        confirmButtonColor: '#2563eb'
+      })
       return false
     }
     if ((inferredSourceType === 'VENDOR' || inferredSourceType === 'SERVICE_PROVIDER') && !form.source.payee) {
-      errorMessage.value = 'Enter a payee for VENDOR or SERVICE PROVIDER source type.'
+      await Swal.fire({
+        icon: 'warning',
+        title: 'Validation Error',
+        text: 'Enter a payee for VENDOR or SERVICE PROVIDER source type.',
+        confirmButtonColor: '#2563eb'
+      })
       return false
     }
   }
@@ -1022,7 +1070,12 @@ const validateForm = () => {
   const anyValidLines = (form.items && form.items.some(itemHasValidLines)) || ((form as any).costCenters && (form as any).costCenters.some(costCenterHasValidItems))
 
   if (!anyValidLines) {
-    errorMessage.value = 'Add at least one item with a valid material or account line.'
+    await Swal.fire({
+      icon: 'warning',
+      title: 'Validation Error',
+      text: 'Add at least one item with a valid material or account line.',
+      confirmButtonColor: '#2563eb'
+    })
     return false
   }
 
@@ -1032,19 +1085,39 @@ const validateForm = () => {
     for (const material of item.materials || []) {
       if (material.rate || material.itemId || material.unitId || material.quantity) {
         if (!material.itemId) {
-          errorMessage.value = `Item ${index + 1}: please select a material item.`
+          await Swal.fire({
+            icon: 'warning',
+            title: 'Validation Error',
+            text: `Item ${index + 1}: please select a material item.`,
+            confirmButtonColor: '#2563eb'
+          })
           return false
         }
         if (!material.unitId) {
-          errorMessage.value = `Item ${index + 1}: please select a unit for all material lines.`
+          await Swal.fire({
+            icon: 'warning',
+            title: 'Validation Error',
+            text: `Item ${index + 1}: please select a unit for all material lines.`,
+            confirmButtonColor: '#2563eb'
+          })
           return false
         }
         if (Number(material.quantity || 0) <= 0) {
-          errorMessage.value = `Item ${index + 1}: material quantity must be greater than zero.`
+          await Swal.fire({
+            icon: 'warning',
+            title: 'Validation Error',
+            text: `Item ${index + 1}: material quantity must be greater than zero.`,
+            confirmButtonColor: '#2563eb'
+          })
           return false
         }
         if (Number(material.rate || 0) <= 0) {
-          errorMessage.value = `Item ${index + 1}: material rate must be greater than zero.`
+          await Swal.fire({
+            icon: 'warning',
+            title: 'Validation Error',
+            text: `Item ${index + 1}: material rate must be greater than zero.`,
+            confirmButtonColor: '#2563eb'
+          })
           return false
         }
       }
@@ -1054,11 +1127,21 @@ const validateForm = () => {
     for (const account of item.accounts || []) {
       if (account.accountId || account.amount > 0) {
         if (!account.accountId) {
-          errorMessage.value = `Item ${index + 1}: please select an account for all account lines.`
+          await Swal.fire({
+            icon: 'warning',
+            title: 'Validation Error',
+            text: `Item ${index + 1}: please select an account for all account lines.`,
+            confirmButtonColor: '#2563eb'
+          })
           return false
         }
         if (account.amount <= 0) {
-          errorMessage.value = `Item ${index + 1}: account amount must be greater than zero.`
+          await Swal.fire({
+            icon: 'warning',
+            title: 'Validation Error',
+            text: `Item ${index + 1}: account amount must be greater than zero.`,
+            confirmButtonColor: '#2563eb'
+          })
           return false
         }
       }
@@ -1068,7 +1151,12 @@ const validateForm = () => {
     for (const dim of item.dimensions || []) {
       if (dim.dimensionTypeId || dim.dimensionValueId || dim.amount !== null || dim.percentage !== null) {
         if (!dim.dimensionValueId) {
-          errorMessage.value = `Item ${index + 1}: please select a dimension value.`
+          await Swal.fire({
+            icon: 'warning',
+            title: 'Validation Error',
+            text: `Item ${index + 1}: please select a dimension value.`,
+            confirmButtonColor: '#2563eb'
+          })
           return false
         }
       }
@@ -1080,23 +1168,48 @@ const validateForm = () => {
     for (const [ccIndex, cc] of ((form as any).costCenters || []).entries()) {
       for (const [itIndex, it] of (cc.items || []).entries()) {
         if (!it.accountId) {
-          errorMessage.value = `Cost center ${ccIndex + 1}, item ${itIndex + 1}: please select an account.`
+          await Swal.fire({
+            icon: 'warning',
+            title: 'Validation Error',
+            text: `Cost center ${ccIndex + 1}, item ${itIndex + 1}: please select an account.`,
+            confirmButtonColor: '#2563eb'
+          })
           return false
         }
         if (!it.itemId) {
-          errorMessage.value = `Cost center ${ccIndex + 1}, item ${itIndex + 1}: please select an item.`
+          await Swal.fire({
+            icon: 'warning',
+            title: 'Validation Error',
+            text: `Cost center ${ccIndex + 1}, item ${itIndex + 1}: please select an item.`,
+            confirmButtonColor: '#2563eb'
+          })
           return false
         }
         if (!it.unitId) {
-          errorMessage.value = `Cost center ${ccIndex + 1}, item ${itIndex + 1}: please select a unit.`
+          await Swal.fire({
+            icon: 'warning',
+            title: 'Validation Error',
+            text: `Cost center ${ccIndex + 1}, item ${itIndex + 1}: please select a unit.`,
+            confirmButtonColor: '#2563eb'
+          })
           return false
         }
         if (Number(it.quantity || 0) <= 0) {
-          errorMessage.value = `Cost center ${ccIndex + 1}, item ${itIndex + 1}: quantity must be greater than zero.`
+          await Swal.fire({
+            icon: 'warning',
+            title: 'Validation Error',
+            text: `Cost center ${ccIndex + 1}, item ${itIndex + 1}: quantity must be greater than zero.`,
+            confirmButtonColor: '#2563eb'
+          })
           return false
         }
         if (Number(it.rate || 0) <= 0) {
-          errorMessage.value = `Cost center ${ccIndex + 1}, item ${itIndex + 1}: rate must be greater than zero.`
+          await Swal.fire({
+            icon: 'warning',
+            title: 'Validation Error',
+            text: `Cost center ${ccIndex + 1}, item ${itIndex + 1}: rate must be greater than zero.`,
+            confirmButtonColor: '#2563eb'
+          })
           return false
         }
       }
@@ -1107,7 +1220,7 @@ const validateForm = () => {
 }
 
 const saveForm = async (asDraft = false) => {
-  if (!asDraft && !validateForm()) return
+  if (!asDraft && !(await validateForm())) return
   
   savingForm.value = true
   errorMessage.value = ''
@@ -1168,28 +1281,44 @@ const saveForm = async (asDraft = false) => {
       .filter(Boolean)
      
     // Flatten cost center items into validItems with cost_center_id
-    const allCostCenterItems = (form.costCenters || []).flatMap((cc: any) => 
-      (cc.items || []).map((item: any) => ({
-        currency_id: form.currencyId,
-        cost_center_id: cc.costCenterId,
-        materials: [{
+    const allCostCenterItems = (form.costCenters || []).flatMap((cc: any) =>
+      (cc.items || []).map((item: any) => {
+        const materials = item.itemId && item.unitId ? [{
           item_id: item.itemId,
           unit_of_measurement_id: item.unitId,
           quantity: item.quantity && item.quantity > 0 ? item.quantity : 1,
           rate: item.rate || 0,
           currency_id: form.currencyId,
           description: item.remarks || '',
-        }],
-        accounts: item.accountId ? [{
+        }] : []
+
+        const accounts = item.accountId ? [{
           account_id: item.accountId,
           currency_id: form.currencyId,
           amount: (item.quantity || 0) * (item.rate || 0),
           description: item.remarks || '',
-        }] : [],
-        dimensions: [],
-      }))
-    ).filter((item: any) => item.materials[0].item_id && item.materials[0].unit_of_measurement_id)
+        }] : []
+
+        return {
+          currency_id: form.currencyId,
+          cost_center_id: cc.costCenterId,
+          materials,
+          accounts,
+          dimensions: [],
+        }
+      })
+    ).filter((item: any) => item.materials.length > 0 || item.accounts.length > 0)
      
+    if (allCostCenterItems.length === 0) {
+      await Swal.fire({
+        icon: 'warning',
+        title: 'Validation Error',
+        text: 'At least one item is required.',
+        confirmButtonColor: '#2563eb'
+      })
+      return
+    }
+
     const payload = {
       company_id: 1,
       branch_id: form.branchId || 1,
@@ -1222,10 +1351,22 @@ const saveForm = async (asDraft = false) => {
 
     if (isEditMode.value) {
       await requisitionService.update(form.id, payload)
-      toast.init({ message: 'Requisition updated successfully', color: 'success' })
+      await Swal.fire({
+        icon: 'success',
+        title: 'Success',
+        text: 'Requisition updated successfully',
+        timer: 2000,
+        showConfirmButton: false
+      })
     } else {
       await requisitionService.create(payload)
-      toast.init({ message: asDraft ? 'Draft saved successfully' : 'Requisition created successfully', color: 'success' })
+      await Swal.fire({
+        icon: 'success',
+        title: 'Success',
+        text: asDraft ? 'Draft saved successfully' : 'Requisition created successfully',
+        timer: 2000,
+        showConfirmButton: false
+      })
     }
 
     showForm.value = false
@@ -1238,8 +1379,12 @@ const saveForm = async (asDraft = false) => {
 
     await loadRequisitions()
   } catch (error: any) {
-    errorMessage.value = error?.response?.data?.message || 'Failed to save requisition.'
-    toast.init({ message: errorMessage.value, color: 'danger' })
+    await Swal.fire({
+      icon: 'error',
+      title: 'Error',
+      text: error?.response?.data?.message || 'Failed to save requisition.',
+      confirmButtonColor: '#2563eb'
+    })
   } finally {
     savingForm.value = false
   }
@@ -1345,16 +1490,9 @@ onUnmounted(() => {
       <div class="container-fluid">
         <!-- Breadcrumb -->
         <div class="breadcrumb-section mb-3">
-          <span class="breadcrumb-item">SALES</span>
-          <span class="breadcrumb-separator">/</span>
+          <!-- <span class="breadcrumb-item">SALES</span>
+          <span class="breadcrumb-separator">/</span> -->
           <span class="breadcrumb-item active">REQUISITIONS</span>
-        </div>
-
-        <!-- Error Alert -->
-        <div v-if="errorMessage" class="alert alert-danger alert-dismissible fade show" role="alert">
-          <i class="fa fa-exclamation-triangle me-2"></i>
-          {{ errorMessage }}
-          <button type="button" class="btn-close" @click="errorMessage = ''"></button>
         </div>
 
         <!-- Main Table -->
@@ -1379,11 +1517,14 @@ onUnmounted(() => {
                       {{ (row as any).status }}
                     </span>
                   </template>
-                  <template #payee="{ row }">
-                    {{ (row as any).payee || '-' }}
+                  <template #date="{ row }">
+                    {{ formatDisplayDate((row as any).date) }}
                   </template>
-                  <template #total="{ row }">
-                    {{ formatMoney(getTotal(row as any), (row as any).currencySymbol) }}
+                  <template #requiredDate="{ row }">
+                    {{ formatDisplayDate((row as any).requiredDate) }}
+                  </template>
+                  <template #requestedBy="{ row }">
+                    {{ (row as any).requestedBy || '--' }}
                   </template>
                   <template #actions="{ row }">
                     <button

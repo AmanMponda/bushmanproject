@@ -599,14 +599,14 @@ onMounted(fetchRequisition)
                 </div>
                 <div class="col-md-6">
                   <div v-if="item.discount_amount">
-                    <strong>Discount:</strong> {{ item.discount_amount }} 
+                    <strong>Discount:</strong> {{ item.discount_amount }}
                     <span v-if="item.discount_method" class="badge bg-warning text-dark">{{ item.discount_method }}</span>
                   </div>
                   <div v-if="item.remarks"><strong>Remarks:</strong> {{ item.remarks }}</div>
                 </div>
               </div>
             </div>
-            
+
             <!-- Materials -->
             <div v-if="item.materials && item.materials.length > 0" class="table-responsive">
               <table class="table table-sm table-bordered">
