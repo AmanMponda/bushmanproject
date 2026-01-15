@@ -13,6 +13,8 @@ type Props = {
   unitsOptions: any[]
   accounts: any[]
   users: any[]
+  locations: any[]
+  entities: any[]
   dimensionTypes: any[]
   dimensionValues: any[]
   vatOptions: any[]
@@ -33,6 +35,8 @@ const {
   unitsOptions,
   accounts,
   users,
+  locations,
+  entities,
   dimensionTypes,
   dimensionValues,
   vatOptions,
@@ -44,6 +48,40 @@ const formatAmount = props.formatAmount
 
 const form = defineModel<any>('form', { required: true })
 const activeFormTab = defineModel<string>('activeFormTab', { required: true, default: 'sources' })
+
+const sourceSelection = computed<string | null>({
+  get() {
+    const source = form.value?.source
+    if (!source?.sourceType) return null
+    if (source.sourceType === 'CASH' && source.accountId) {
+      return `CASH:${source.accountId}`
+    }
+    if ((source.sourceType === 'STORE' || source.sourceType === 'PARTIES') && source.sourceId) {
+      return `${source.sourceType}:${source.sourceId}`
+    }
+    return null
+  },
+  set(value) {
+    const source = form.value?.source
+    if (!source) return
+    if (!value) {
+      source.sourceType = null
+      source.sourceId = null
+      source.accountId = null
+      return
+    }
+    const [type, idValue] = value.split(':')
+    const parsedId = Number(idValue || 0) || null
+    source.sourceType = type as any
+    if (type === 'CASH') {
+      source.accountId = parsedId
+      source.sourceId = parsedId
+      return
+    }
+    source.accountId = null
+    source.sourceId = parsedId
+  },
+})
 
 const emit = defineEmits<{
   (e: 'cancel'): void
@@ -70,12 +108,12 @@ const onAddItem = () => {
 // Computed total for a specific item
 const getItemTotal = (item: any) => {
   let total = 0
-  
+
   // Add main item amount (qty * rate) if no child materials
   if (item.quantity && item.rate && (!item.materials || item.materials.length === 0)) {
     total += Number(item.quantity || 0) * Number(item.rate || 0)
   }
-  
+
   // Sum up child materials
   if (item.materials && item.materials.length > 0) {
     total += item.materials.reduce((sum: number, m: any) => {
@@ -83,7 +121,7 @@ const getItemTotal = (item: any) => {
       return sum + lineTotal
     }, 0)
   }
-  
+
   // Sum up accounts
   if (item.accounts) {
     total += item.accounts.reduce((sum: number, a: any) => sum + (Number(a.amount) || 0), 0)
@@ -161,7 +199,7 @@ const getItemHasMaterials = (itemId: number | null) => {
 // Toggle item expansion - only one item expanded at a time (accordion behavior)
 const toggleItemExpansion = (item: any, itemIndex: number) => {
   if (!form.value.items || form.value.items.length <= 1) return
-  
+
   // If clicking the currently expanded item, just toggle it
   if (item._expanded) {
     item._expanded = false
@@ -176,12 +214,12 @@ const toggleItemExpansion = (item: any, itemIndex: number) => {
 // When user enters an amount at item level, update dimensions
 const onItemAmountChange = (item: any) => {
   if (!item.amount || item.amount <= 0) return
-  
+
   // If no dimensions exist, create one with 100%
   if (!item.dimensions || item.dimensions.length === 0) {
     item.dimensions = []
   }
-  
+
   // Update all dimensions with the amount and set first one to 100%
   item.dimensions.forEach((dim: any, index: number) => {
     dim.amount = item.amount
@@ -189,9 +227,54 @@ const onItemAmountChange = (item: any) => {
       dim.percentage = 100
     }
   })
-  
+
   // If there are no dimensions at all, we need at least one
   // Parent component should handle adding the dimension entry
+}
+
+// Cost centers: allow multiple allocations per item
+const makeKey = () => {
+  if (typeof crypto !== 'undefined' && (crypto as any).randomUUID) return (crypto as any).randomUUID()
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+}
+
+const addCostCenter = (item: any) => {
+  if (!item.costCenters) item.costCenters = []
+  item.costCenters.push({ _key: makeKey(), costCenterId: null, amount: 0 })
+}
+
+const removeCostCenter = (item: any, key: string) => {
+  if (!item.costCenters) return
+  item.costCenters = (item.costCenters || []).filter((c: any) => c._key !== key)
+}
+
+// Shared cost centers at requisition level (each cost center contains items)
+const addRequisitionCostCenter = () => {
+  if (!form.value.costCenters) form.value.costCenters = []
+  form.value.costCenters.push({ _key: makeKey(), costCenterId: null, items: [] })
+}
+
+const removeRequisitionCostCenter = (key: string) => {
+  if (!form.value.costCenters) return
+  form.value.costCenters = (form.value.costCenters || []).filter((c: any) => c._key !== key)
+}
+
+const addItemToCostCenter = (cc: any) => {
+  if (!cc.items) cc.items = []
+  cc.items.push({
+    _key: makeKey(),
+    itemId: null,
+    unitId: null,
+    quantity: 1,
+    rate: 0,
+    accountId: null,
+    remarks: ''
+  })
+}
+
+const removeItemFromCostCenter = (cc: any, itemKey: string) => {
+  if (!cc.items) return
+  cc.items = cc.items.filter((i: any) => i._key !== itemKey)
 }
 </script>
 
@@ -219,7 +302,7 @@ const onItemAmountChange = (item: any) => {
           <button class="btn secondary" type="button" @click="saveDraft" :disabled="savingForm">
             <span class="btn-icon"><i class="fa fa-save"></i></span> Save Draft
           </button>
-          
+
         </div>
       </div>
 
@@ -261,28 +344,18 @@ const onItemAmountChange = (item: any) => {
                 </div>
               </label>
 
-              <label class="field">
-                <span class="lbl">Fund Direction <span class="req">*</span></span>
-                <div class="input-wrapper">
-                  <span class="input-icon"><i class="fa fa-exchange"></i></span>
-                  <select v-model="form.fundDirection">
-                    <option value="EXPENSE">Expense</option>
-                    <option value="WITHDRAW">Withdraw</option>
-                  </select>
-                </div>
-              </label>
-
-
-            </div>
-
-            <!-- Dates Section -->
-            <div class="form-section">
-              <div class="section-title">
-                <span class="section-icon"><i class="fa fa-calendar"></i></span>
-                Dates
-              </div>
-
               <div class="date-row">
+                <label class="field">
+                  <span class="lbl">Fund Direction <span class="req">*</span></span>
+                  <div class="input-wrapper">
+                    <span class="input-icon"><i class="fa fa-exchange"></i></span>
+                    <select v-model="form.fundDirection">
+                      <option value="EXPENSE">Expense</option>
+                      <option value="WITHDRAW">Withdraw</option>
+                    </select>
+                  </div>
+                </label>
+
                 <label class="field">
                   <span class="lbl">Required Date <span class="req">*</span></span>
                   <div class="input-wrapper">
@@ -291,9 +364,8 @@ const onItemAmountChange = (item: any) => {
                   </div>
                 </label>
               </div>
-            </div>
 
-            <!-- Currency & Tax Section -->
+            </div> <!-- Currency & Tax Section -->
             <div class="form-section">
               <div class="section-title">
                 <span class="section-icon"><i class="fa fa-money"></i></span>
@@ -346,24 +418,6 @@ const onItemAmountChange = (item: any) => {
                 </label>
               </div>
             </div>
-
-            <!-- Remarks Section -->
-            <div class="form-section">
-              <div class="section-title">
-                <span class="section-icon"><i class="fa fa-sticky-note"></i></span>
-                Additional Info
-              </div>
-
-              <label class="field">
-                <span class="lbl">Remarks</span>
-                <div class="input-wrapper textarea-wrapper">
-                  <span class="input-icon"><i class="fa fa-comment"></i></span>
-                  <textarea v-model="form.remarks" rows="3"
-                    placeholder="Add any notes or special instructions..."></textarea>
-                </div>
-              </label>
-            </div>
-
             <!-- Summary Section -->
             <div class="form-section summary-section">
               <div class="section-title">
@@ -409,311 +463,116 @@ const onItemAmountChange = (item: any) => {
           <!-- ITEMS TAB -->
           <div v-if="activeFormTab === 'items'" class="tab-content">
             <div class="items-header">
-              <button class="btn btn-sm btn-primary" type="button" @click="onAddItem">
-                <i class="fa fa-plus me-1"></i> Add Item
+              <button class="btn btn-sm btn-primary" type="button" @click="addRequisitionCostCenter">
+                <i class="fa fa-plus me-1"></i> Add Cost Center
               </button>
             </div>
 
-            <!-- List of Requisition Items -->
-            <div v-if="form.items && form.items.length > 0" class="items-list">
-              <div v-for="(item, itemIndex) in form.items" :key="item._key" class="requisition-item-card" :class="{ 'card-collapsed': form.items.length > 1 && !item._expanded }">
-                <!-- Item Header - Compact for multiple items -->
-                <div 
-                  class="item-header" 
-                  :class="{ 'item-header-compact': Number(form.items.length) > 1 && Number(itemIndex) > 0, 'item-header-clickable': Number(form.items.length) > 1 }"
-                  @click="Number(form.items.length) > 1 && toggleItemExpansion(item, Number(itemIndex))"
-                >
-                  <div class="item-header-left">
-                    <i v-if="Number(form.items.length) > 1" class="fa toggle-icon" :class="item._expanded ? 'fa-chevron-down' : 'fa-chevron-right'"></i>
-                    <span class="item-number">#{{ Number(itemIndex) + 1 }}</span>
-                    <h4 v-if="Number(form.items.length) === 1 || Number(itemIndex) === 0" class="item-title">Requisition Item</h4>
-                    <span class="item-total-badge">{{ getCurrencySymbol() }}{{ formatAmount(getItemTotal(item)) }}</span>
+            <!-- Cost Centers with nested items -->
+            <div v-if="form.costCenters && form.costCenters.length > 0" class="cost-centers-list">
+              <div v-for="(cc, ccIndex) in form.costCenters" :key="cc._key" class="cost-center-card mb-4">
+                <!-- Cost Center Header -->
+                <div class="cost-center-header">
+                  <div class="cost-center-info">
+                    <span class="cc-number">#{{ ccIndex + 1 }}</span>
+                    <select v-model="cc.costCenterId" class="form-control form-control-sm cost-center-select">
+                      <option :value="null">Select cost center...</option>
+                      <optgroup v-for="group in groupedDimensionOptions" :key="group.typeId" :label="group.typeName">
+                        <option v-for="val in group.values" :key="val.id" :value="val.id">{{ val.name }}</option>
+                      </optgroup>
+                    </select>
                   </div>
-                  <button
-                    type="button"
-                    class="btn btn-xs btn-outline-danger"
-                    @click.stop="emit('remove-item', item._key)"
-                    :disabled="form.items.length <= 1"
-                    title="Remove Item"
-                  >
-                    <i class="fa fa-trash"></i>
-                  </button>
+                  <div class="cost-center-actions">
+                    <button type="button" class="btn btn-sm btn-success me-2" @click="addItemToCostCenter(cc)">
+                      <i class="fa fa-plus me-1"></i> Add Item
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-danger" @click="removeRequisitionCostCenter(cc._key)">
+                      <i class="fa fa-trash"></i>
+                    </button>
+                  </div>
                 </div>
 
-                <!-- Item Body -->
-                <div v-show="form.items.length === 1 || item._expanded" class="item-body">
+                <!-- Items under this cost center -->
+                <div class="cost-center-items">
+                  <div v-if="cc.items && cc.items.length > 0">
+                    <table class="items-table">
+                      <thead>
+                        <tr>
+                          <th style="width: 5%">#</th>
+                          <th style="width: 20%">Account</th>
+                          <th style="width: 25%">Item</th>
+                          <th style="width: 12%">Unit</th>
+                          <th style="width: 10%">Quantity</th>
+                          <th style="width: 12%">Rate</th>
+                          <th style="width: 10%">Total</th>
+                          <th style="width: 6%"></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr v-for="(item, itemIndex) in cc.items" :key="item._key">
+                          <td class="text-center">{{ itemIndex + 1 }}</td>
 
-
-                                    <!-- Item Configuration Section -->
-                  <div class="form-section compact">
-                    <div class="section-title compact-title">
-                      <span class="section-icon"><i class="fa fa-cog"></i></span>
-                      Item Configuration
-                    </div>
-                    
-                    <div class="row g-2">
-
-                      
-                      <div class="col-md-3">
-                        <label class="field compact-field">
-                          <span class="lbl">Cost Center <span class="req">*</span></span>
-                          <div class="input-wrapper">
-                            <span class="input-icon"><i class="fa fa-building"></i></span>
-                            <select 
-                              v-model="item.costCenter"
-                              class="form-control form-control-sm"
-                            >
-                              <option :value="null">Select cost center...</option>
-                              <optgroup v-for="group in groupedDimensionOptions" :key="group.typeId" :label="group.typeName">
-                                <option v-for="val in group.values" :key="val.id" :value="val.id">
-                                  {{ val.name }}
-                                </option>
-                              </optgroup>
-                            </select>
-                          </div>
-                        </label>
-                      </div>
-                      <div class="col-md-3">
-                        <label class="field compact-field">
-                          <span class="lbl">VAT</span>
-                          <div class="input-wrapper">
-                            <span class="input-icon"><i class="fa fa-percent"></i></span>
-                            <select v-model="item.vatId" class="form-control form-control-sm">
-                              <option :value="null">No VAT</option>
-                              <option v-for="vat in vatOptions" :key="vat.id" :value="vat.id">
-                                {{ vat.name }}
+                          <td>
+                            <select v-model="item.accountId" class="form-control form-control-sm">
+                              <option :value="null">Select account...</option>
+                              <option v-for="acc in accounts" :key="acc.id" :value="acc.id">
+                                {{ acc.code ? `${acc.code} - ` : '' }}{{ acc.name }}
                               </option>
                             </select>
-                          </div>
-                        </label>
-                      </div>
-                      <div class="col-md-3">
-                        <label class="field compact-field">
-                          <span class="lbl">Discount Amount</span>
-                          <div class="input-wrapper">
-                            <span class="input-icon">{{ getCurrencySymbol() }}</span>
-                            <input 
-                              v-model.number="item.discountAmount" 
-                              type="number" 
-                              min="0" 
-                              step="0.01" 
-                              class="form-control form-control-sm" 
-                              placeholder="0.00"
-                            />
-                          </div>
-                        </label>
-                      </div>
-                      
-                      <div class="col-md-3">
-                        <label class="field compact-field">
-                          <span class="lbl">Discount Method</span>
-                          <div class="input-wrapper">
-                            <span class="input-icon"><i class="fa fa-tags"></i></span>
-                            <select v-model="item.discountMethod" class="form-control form-control-sm">
-                              <option :value="null">No discount</option>
-                              <option value="PERCENT">Percentage (%)</option>
-                              <option value="LS">Lump Sum</option>
-                            </select>
-                          </div>
-                        </label>
-                      </div>
-                      
-                      <div class="col-12">
-                        <label class="field compact-field">
-                          <span class="lbl">Remarks</span>
-                          <div class="input-wrapper">
-                            <span class="input-icon"><i class="fa fa-comment"></i></span>
-                            <textarea 
-                              v-model="item.remarks" 
-                              rows="2" 
-                              class="form-control form-control-sm" 
-                              placeholder="Additional notes for this item..."
-                            ></textarea>
-                          </div>
-                        </label>
-                      </div>
-                    </div>
-                  </div>
+                          </td>
 
-                  <!-- Main Item Selection -->
-                  <div class="form-section compact">
-                    <div class="section-title compact-title">
-                      <span class="section-icon"><i class="fa fa-cube"></i></span>
-                      Main Item
-                    </div>
-                    
-                    <div class="row g-2">
-                      <div class="col-md-3">
-                        <label class="field compact-field">
-                          <span class="lbl">Item <span class="req">*</span></span>
-                          <div class="input-wrapper">
-                            <span class="input-icon"><i class="fa fa-box"></i></span>
-                            <select 
-                              v-model="item.itemId"
-                              @change="onMainItemChange(item)"
-                              class="form-control form-control-sm"
-                            >
-                              <option :value="null">Select item...</option>
+                          <td>
+                            <select :disabled="!item.accountId" v-model="item.itemId" @change="onMainItemChange(item)" class="form-control form-control-sm">
+                              <option :value="null">{{ item.accountId ? 'Select item...' : 'Select account first' }}</option>
                               <option v-for="itm in itemsOptions" :key="itm.id" :value="itm.id">
                                 {{ itm.code ? `${itm.code} - ` : '' }}{{ itm.name }}
                               </option>
                             </select>
-                          </div>
-                        </label>
-                      </div>
-                      
-                      <div class="col-md-3">
-                        <label class="field compact-field">
-                          <span class="lbl">Unit</span>
-                          <div class="input-wrapper">
-                            <span class="input-icon"><i class="fa fa-balance-scale"></i></span>
+                          </td>
+
+                          <td>
                             <select v-model="item.unitId" class="form-control form-control-sm">
                               <option :value="null">Unit...</option>
-                              <option v-for="unit in unitsOptions" :key="unit.id" :value="unit.id">
-                                {{ unit.name }}
-                              </option>
+                              <option v-for="unit in unitsOptions" :key="unit.id" :value="unit.id">{{ unit.name }}</option>
                             </select>
-                          </div>
-                        </label>
-                      </div>
-                      
-                      <div class="col-md-3">
-                        <label class="field compact-field">
-                          <span class="lbl">Quantity</span>
-                          <div class="input-wrapper">
-                            <span class="input-icon"><i class="fa fa-sort-numeric-asc"></i></span>
-                            <input 
-                              v-model.number="item.quantity" 
-                              type="number" 
-                              min="0" 
-                              step="1" 
-                              class="form-control form-control-sm text-end" 
-                              placeholder="0"
-                            />
-                          </div>
-                        </label>
-                      </div>
-                      
-                      <div class="col-md-3">
-                        <label class="field compact-field">
-                          <span class="lbl">Rate</span>
-                          <div class="input-wrapper">
-                            <span class="input-icon">{{ getCurrencySymbol() }}</span>
-                            <input 
-                              v-model.number="item.rate" 
-                              type="number" 
-                              min="0" 
-                              step="0.01" 
-                              class="form-control form-control-sm text-end" 
-                              placeholder="0.00"
-                            />
-                          </div>
-                        </label>
-                      </div>
-                      
-                    </div>
-                    
-                    <!-- Item has child materials info -->
-                    <div v-if="getItemHasMaterials(item.itemId)" class="alert alert-info mt-2 py-2 small">
-                      <i class="fa fa-info-circle me-1"></i>
-                      This item has child materials. Add them in the Materials section below.
-                    </div>
+                          </td>
+
+                          <td>
+                            <input v-model.number="item.quantity" type="number" min="0" step="1" class="form-control form-control-sm text-end" placeholder="0" />
+                          </td>
+
+                          <td>
+                            <input v-model.number="item.rate" type="number" min="0" step="0.01" class="form-control form-control-sm text-end" placeholder="0.00" />
+                          </td>
+
+                          <td class="text-end">
+                            <strong>{{ getCurrencySymbol() }}{{ formatAmount((item.quantity || 0) * (item.rate || 0)) }}</strong>
+                          </td>
+                          <td class="text-center">
+                            <button type="button" class="btn btn-xs btn-outline-danger" @click="removeItemFromCostCenter(cc, item._key)">
+                              <i class="fa fa-trash"></i>
+                            </button>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
                   </div>
-
-
-
-                <!-- Sub-sections -->
-                <div class="item-sections">
-
-                  <!-- Materials Section (Child Items) -->
-                  <div class="collapsible-section" :class="{ expanded: item._materialsExpanded }">
-                    <div class="section-header collapsible-header" @click="item._materialsExpanded = !item._materialsExpanded">
-                      <div class="section-title-group">
-                        <i class="fa fa-cubes section-icon"></i>
-                        <h5 class="section-title-text">Child Materials</h5>
-                        <span class="badge-count" v-if="item.materials && item.materials.length > 0">{{ item.materials.length }}</span>
-                        <span v-if="!item.materials || item.materials.length === 0" class="text-muted small ms-2">(Optional - for items with sub-components)</span>
-                      </div>
-                      <button 
-                        type="button" 
-                        class="btn-add-section" 
-                        @click.stop="emit('add-material', item._key)"
-                        title="Add Child Material"
-                      >
-                        <i class="fa fa-plus"></i>
-                      </button>
-                    </div>
-                    <div v-show="item._materialsExpanded" class="section-content">
-                      <div v-if="item.materials && item.materials.length > 0" class="section-table-wrapper">
-                        <table class="compact-table">
-                          <thead>
-                            <tr>
-                              <th style="width: 25%">Item</th>
-                              <th style="width: 12%">Unit</th>
-                              <th style="width: 10%">Qty</th>
-                              <th style="width: 12%">Rate</th>
-                              <th style="width: 22%">Description</th>
-                              <th style="width: 7%"></th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            <tr v-for="mat in item.materials" :key="mat._key">
-                              <td>
-                                <select 
-                                  :value="mat.itemId" 
-                                  @change="onMaterialItemChange(mat, ($event.target as HTMLSelectElement).value ? Number(($event.target as HTMLSelectElement).value) : null)"
-                                  class="form-control form-control-sm"
-                                >
-                                  <option :value="null">Select...</option>
-                                  <option v-for="itm in itemsOptions" :key="itm.id" :value="itm.id">
-                                    {{ itm.code ? `${itm.code} - ` : '' }}{{ itm.name }}
-                                  </option>
-                                </select>
-                              </td>
-                              <td>
-                                <select v-model="mat.unitId" class="form-control form-control-sm">
-                                  <option :value="null">Unit...</option>
-                                  <option v-for="unit in unitsOptions" :key="unit.id" :value="unit.id">
-                                    {{ unit.name }}
-                                  </option>
-                                </select>
-                              </td>
-                              <td>
-                                <input v-model.number="mat.quantity" type="number" min="0" step="1" class="form-control form-control-sm text-end" placeholder="0" />
-                              </td>
-                              <td>
-                                <input v-model.number="mat.rate" type="number" min="0" step="0.01" class="form-control form-control-sm text-end" placeholder="0.00" />
-                              </td>
-                              <td>
-                                <input v-model="mat.description" type="text" class="form-control form-control-sm" placeholder="Notes..." />
-                              </td>
-                              <td>
-                                <button type="button" class="btn btn-xs btn-outline-danger" @click="emit('remove-material', item._key, mat._key)" title="Remove">
-                                  <i class="fa fa-trash"></i>
-                                </button>
-                              </td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      </div>
-                      <div v-else class="section-empty">
-                        <span class="text-muted">No child materials. If this item has sub-components, add them here.</span>
-                      </div>
-                    </div>
+                  <div v-else class="empty-items-state">
+                    <span class="text-muted small">No items yet. Click "Add Item" to add items to this cost center.</span>
                   </div>
-                </div>
                 </div>
               </div>
             </div>
             <div v-else class="empty-state-large">
-              <div class="empty-icon"><i class="fa fa-inbox fa-4x"></i></div>
-              <h3>No Items Yet</h3>
-              <p>Add requisition items to start building your requisition</p>
-              <button class="btn btn-primary" type="button" @click="onAddItem">
-                <i class="fa fa-plus me-2"></i> Add First Item
+              <div class="empty-icon"><i class="fa fa-folder-open fa-4x"></i></div>
+              <h3>No Cost Centers Yet</h3>
+              <p>Add a cost center to start organizing requisition items</p>
+              <button class="btn btn-primary" type="button" @click="addRequisitionCostCenter">
+                <i class="fa fa-plus me-2"></i> Add First Cost Center
               </button>
             </div>
-          </div>
+
+          </div> <!-- end ITEMS TAB -->
 
           <!-- SOURCES TAB -->
           <div v-if="activeFormTab === 'sources'" class="tab-content">
@@ -728,53 +587,63 @@ const onItemAmountChange = (item: any) => {
 
             <div class="form p-4">
               <div class="form-section">
-                <label class="field">
-                  <span class="lbl">Source Type <span class="req">*</span></span>
-                  <div class="input-wrapper">
-                    <span class="input-icon"><i class="fa fa-money-bill"></i></span>
-                    <select v-model="form.source.sourceType">
-                      <option :value="null" disabled>Select source type...</option>
-                      <option value="CASH">Cash</option>
-                      <option value="STORE">Store</option>
-                      <option value="VENDOR">Vendor</option>
-                      <option value="SERVICE_PROVIDER">Service Provider</option>
-                    </select>
-                  </div>
-                </label>
 
-                <label class="field">
-                  <span class="lbl">Payee</span>
-                  <div class="input-wrapper">
-                    <span class="input-icon"><i class="fa fa-user"></i></span>
-                    <input v-model="form.source.payee" type="text" class="form-control" placeholder="Payee name..." />
+                
+                <div class="row mb-3">
+                  <div class="col-12">
+                    <label class="field">
+                      <span class="lbl">Payment Mode</span>
+                      <div class="input-wrapper">
+                        <span class="input-icon"><i class="fa fa-credit-card"></i></span>
+                        <select v-model="form.source.modeOfPayment">
+                          <option :value="null">Select...</option>
+                          <option value="CASH">Cash</option>
+                          <option value="TT">TT</option>
+                          <option value="CREDIT">Credit</option>
+                        </select>
+                      </div>
+                    </label>
                   </div>
-                </label>
+                </div>
 
-                <label class="field">
-                  <span class="lbl">Source Account</span>
-                  <div class="input-wrapper">
-                    <span class="input-icon"><i class="fa fa-university"></i></span>
-                    <select v-model="form.source.sourceAccountId">
-                      <option :value="null">Select account...</option>
-                      <option v-for="account in accounts" :key="account.id" :value="account.id">
-                        {{ account.code ? `${account.code} - ` : '' }}{{ account.name }}
-                      </option>
-                    </select>
-                  </div>
-                </label>
+                <div class="row">
+                  <label class="field col-md-6">
+                    <span class="lbl">Source</span>
+                    <div class="input-wrapper">
+                      <span class="input-icon"><i class="fa fa-user"></i></span>
+                      <select v-model="sourceSelection">
+                        <option :value="null">Select source...</option>
+                        <optgroup label="Accounts (Cash)">
+                          <option v-for="account in accounts" :key="`cash-${account.id}`" :value="`CASH:${account.id}`">
+                            {{ account.code ? `${account.name} (${account.code})` : account.name }}
+                          </option>
+                        </optgroup>
+                        <optgroup label="Locations (Store)" v-if="locations && locations.length">
+                          <option v-for="location in locations" :key="`store-${location.id}`" :value="`STORE:${location.id}`">
+                            {{ location.name }}
+                          </option>
+                        </optgroup>
+                        <optgroup label="Entities (Parties)" v-if="entities && entities.length">
+                          <option v-for="entity in entities" :key="`party-${entity.id}`" :value="`PARTIES:${entity.id}`">
+                            {{ entity.name }}
+                          </option>
+                        </optgroup>
+                      </select>
+                    </div>
+                  </label>
 
-                <label class="field">
-                  <span class="lbl">Payment Mode</span>
-                  <div class="input-wrapper">
-                    <span class="input-icon"><i class="fa fa-credit-card"></i></span>
-                    <select v-model="form.source.modeOfPayment">
-                      <option :value="null">Select...</option>
-                      <option value="CASH">Cash</option>
-                      <option value="TT">TT</option>
-                      <option value="CREDIT">Credit</option>
-                    </select>
-                  </div>
-                </label>
+                  <label class="field col-md-6">
+                    <span class="lbl">
+                      Payee
+                      <span v-if="form.source.sourceType === 'VENDOR' || form.source.sourceType === 'SERVICE_PROVIDER'" class="req">*</span>
+                    </span>
+                    <div class="input-wrapper">
+                      <span class="input-icon"><i class="fa fa-user"></i></span>
+                      <input v-model="form.source.payee" type="text" class="form-control" placeholder="Payee name" />
+                    </div>
+                  </label>
+                </div>
+
 
                 <label class="field">
                   <span class="lbl">Description</span>
@@ -1254,19 +1123,23 @@ h1 {
 
 .date-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  /* Stack fields vertically so each control occupies its own row */
+  grid-template-columns: 1fr;
   gap: 12px;
 }
 
 .date-row .field {
-  min-width: 0;
-  margin-bottom: 0;
+  min-width: 100%;
+  /* restore normal field spacing inside the date-row */
+  margin-bottom: 14px;
 }
 
 .date-picker-lg :deep(.dp__input) {
-  height: 48px;
-  font-size: 15px;
-  padding: 12px 14px;
+  /* Match the select sizing so the date input aligns with Fund Direction */
+  height: 40px;
+  font-size: 13px;
+  padding: 10px 12px;
+  padding-left: 38px;
 }
 
 /* Allow date picker popover to float above and outside the left panel */
@@ -3077,5 +2950,132 @@ h1 {
   font-size: 14px;
   color: #64748b;
   margin-bottom: 24px;
+}
+
+/* Cost Center Cards */
+.cost-centers-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cost-center-card {
+  background: #ffffff;
+  border: 2px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.cost-center-header {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  padding: 14px 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.cost-center-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+
+.cc-number {
+  font-size: 14px;
+  font-weight: 800;
+  background: rgba(255, 255, 255, 0.25);
+  padding: 4px 10px;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.cost-center-select {
+  flex: 1;
+  max-width: 400px;
+  background: white !important;
+  border: 2px solid rgba(255, 255, 255, 0.3) !important;
+  font-weight: 600;
+}
+
+.cost-center-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.cost-center-items {
+  padding: 16px;
+  background: #f8fafc;
+}
+
+/* Items Table */
+.items-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.items-table thead {
+  background: #f8fafc;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.items-table th {
+  padding: 10px 12px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 12px;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.items-table tbody tr {
+  border-bottom: 1px solid #e2e8f0;
+  transition: background 0.15s ease;
+}
+
+.items-table tbody tr:hover {
+  background: #f8fafc;
+}
+
+.items-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.items-table td {
+  padding: 8px 12px;
+  vertical-align: middle;
+}
+
+.items-table td strong {
+  color: #0f172a;
+  font-size: 13px;
+}
+
+.items-table .form-control-sm {
+  font-size: 13px;
+  padding: 4px 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.items-table .form-control-sm:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+}
+
+.empty-items-state {
+  padding: 24px;
+  text-align: center;
+  background: white;
+  border: 2px dashed #e2e8f0;
+  border-radius: 8px;
 }
 </style>

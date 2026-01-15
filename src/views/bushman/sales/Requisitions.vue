@@ -19,7 +19,7 @@ type RequisitionStatus =
   | 'CLOSED'
 
 type FundDirection = 'WITHDRAW' | 'EXPENSE'
-type SourceType = 'CASH' | 'STORE' | 'VENDOR' | 'SERVICE_PROVIDER'
+type SourceType = 'CASH' | 'STORE' | 'PARTIES' | 'VENDOR' | 'SERVICE_PROVIDER'
 type ModeOfPayment = 'CASH' | 'TT' | 'CREDIT'
 type TaxMethod = 'EXCLUSIVE' | 'INCLUSIVE' | 'EXEMPT'
 type DiscountMethod = 'PERCENT' | 'LS'
@@ -75,6 +75,7 @@ type Requisition = {
   approvals: ApprovalRecord[]
   currencyId: number | null
   currencySymbol?: string
+  payee?: string
 }
 
 type RequisitionTypeOption = {
@@ -155,8 +156,9 @@ type DimensionLine = {
 type SourceLine = {
   _key: string
   sourceType: SourceType | null
+  sourceId: number | null
+  accountId: number | null
   payee: string
-  sourceAccountId: number | null
   modeOfPayment: ModeOfPayment | null
   currencyId: number | null
   exchangeRate: number
@@ -188,6 +190,8 @@ const currencies = ref<OptionItem[]>([])
 const accounts = ref<AccountOption[]>([])
 const branches = ref<BranchOption[]>([])
 const users = ref<UserOption[]>([])
+const locations = ref<OptionItem[]>([])
+const entities = ref<OptionItem[]>([])
 const dimensionTypes = ref<DimensionType[]>([])
 const dimensionValues = ref<DimensionValue[]>([])
 const vatOptions = ref<OptionItem[]>([])
@@ -282,8 +286,9 @@ const form = reactive({
   source: {
     _key: '',
     sourceType: null,
+    sourceId: null,
+    accountId: null,
     payee: '',
-    sourceAccountId: null,
     modeOfPayment: null,
     currencyId: null,
     exchangeRate: 1,
@@ -477,6 +482,7 @@ const columns = [
   { key: 'code', label: 'Code', sortable: true },
   { key: 'requisitionType', label: 'Type', sortable: true },
   { key: 'status', label: 'Status', sortable: true },
+  { key: 'payee', label: 'Payee', sortable: true },
   { key: 'total', label: 'Total', sortable: true },
   { key: 'actions', label: 'Actions', width: 120 },
 ]
@@ -540,13 +546,18 @@ const resetForm = () => {
   form.source = {
     _key: generateKey(),
     sourceType: null,
+    sourceId: null,
+    accountId: null,
     payee: '',
-    sourceAccountId: null,
     modeOfPayment: null,
     currencyId: form.currencyId,
     exchangeRate: 1,
     description: '',
   }
+
+  // Shared cost centers
+  form.costCenters = []
+
 
   // Ensure at least one item exists
   addItem()
@@ -649,6 +660,7 @@ const mapRequisition = (req: any): Requisition => {
       req.items?.[0]?.materials?.[0]?.currency?.symbol ||
       req.items?.[0]?.materials?.[0]?.item?.currency?.symbol ||
       '',
+    payee: req.sources?.[0]?.payee || req.payee || ''
   }
 }
 
@@ -740,6 +752,19 @@ const loadMetadata = async () => {
       name: user.name || user.full_name || user.email || `User ${user.id}`,
       email: user.email,
     }))
+
+    // Map locations and entities if provided
+    const locs = metadata.locations || []
+    locations.value = (Array.isArray(locs) ? locs : []).map((location: any) => ({
+      id: location.id,
+      name: location.name || location.code || `Location ${location.id}`,
+    }))
+
+    const ents = metadata.entities || []
+    entities.value = (Array.isArray(ents) ? ents : []).map((entity: any) => ({
+      id: entity.id,
+      name: entity.full_name || entity.name || entity.nick_name || `Entity ${entity.id}`,
+    }))
     
     // Map dimension types and values if available
     const dimTypes = metadata.dimension_types || metadata.accounting_dimension_types || []
@@ -804,6 +829,8 @@ const loadMetadata = async () => {
     accounts.value = []
     branches.value = []
     users.value = []
+    locations.value = []
+    entities.value = []
     dimensionTypes.value = []
     dimensionValues.value = []
     vatOptions.value = []
@@ -886,26 +913,57 @@ const openEditForm = (req: Requisition) => {
     form.source = {
       _key: generateKey(),
       sourceType: existingSource.source_type || null,
+      sourceId: existingSource.source_id || null,
+      accountId: existingSource.account_id || existingSource.source_id || null,
       payee: existingSource.payee || '',
-      sourceAccountId: existingSource.source_account_id || null,
       modeOfPayment: existingSource.mode_of_payment || null,
       currencyId: form.currencyId,
-      // Requisition currency is authoritative; always set exchangeRate to 1
-      exchangeRate: 1,
+      // Requisition currency is authoritative; always set exchangeRate to 1 unless provided
+      exchangeRate: Number(existingSource.exchange_rate || 1),
       description: existingSource.description || '',
     }
   } else {
     form.source = {
       _key: generateKey(),
       sourceType: null,
+      sourceId: null,
+      accountId: null,
       payee: '',
-      sourceAccountId: null,
       modeOfPayment: null,
       currencyId: form.currencyId,
       exchangeRate: 1,
       description: '',
     }
   }
+
+  // Reconstruct cost centers with nested items from API items
+  const costCenterMap = new Map()
+  for (const line of req.items || []) {
+    const costCenterId = line.cost_center_id || (line.materials && line.materials[0]?.cost_center_id) || null
+    if (!costCenterId) continue
+    
+    if (!costCenterMap.has(costCenterId)) {
+      costCenterMap.set(costCenterId, {
+        _key: generateKey(),
+        costCenterId: costCenterId,
+        items: []
+      })
+    }
+    
+    const material = line.materials && line.materials[0] || {}
+    const account = line.accounts && line.accounts[0] || {}
+    costCenterMap.get(costCenterId).items.push({
+      _key: generateKey(),
+      itemId: material.item_id || null,
+      unitId: material.unit_of_measurement_id || null,
+      quantity: material.quantity || 1,
+      rate: Number(material.rate || 0),
+      accountId: account.account_id || null,
+      remarks: material.description || '',
+    })
+  }
+  
+  form.costCenters = Array.from(costCenterMap.values())
 
   showForm.value = true
   isEditMode.value = true
@@ -931,17 +989,44 @@ const validateForm = () => {
     return false
   }
 
+  const inferredSourceType = form.source?.sourceType || (form.source?.payee ? 'VENDOR' : null)
+  if (inferredSourceType) {
+    if (inferredSourceType === 'CASH' && !form.source.accountId) {
+      errorMessage.value = 'Select an account for CASH source type.'
+      return false
+    }
+    if (inferredSourceType === 'STORE' && !form.source.sourceId) {
+      errorMessage.value = 'Select a location for STORE source type.'
+      return false
+    }
+    if (inferredSourceType === 'PARTIES' && !form.source.sourceId) {
+      errorMessage.value = 'Select an entity for PARTIES source type.'
+      return false
+    }
+    if ((inferredSourceType === 'VENDOR' || inferredSourceType === 'SERVICE_PROVIDER') && !form.source.payee) {
+      errorMessage.value = 'Enter a payee for VENDOR or SERVICE PROVIDER source type.'
+      return false
+    }
+  }
+
   const itemHasValidLines = (item: RequisitionItemForm) => {
     const hasValidMaterials = (item.materials || []).some((m) => m.itemId && m.unitId && Number(m.quantity || 0) > 0 && Number(m.rate || 0) > 0)
     const hasValidAccounts = (item.accounts || []).some((a) => a.accountId && a.amount > 0)
     return hasValidMaterials || hasValidAccounts
   }
 
-  if (!form.items.some(itemHasValidLines)) {
+  const costCenterHasValidItems = (cc: any) => {
+    return (cc.items || []).some((it: any) => it.itemId && it.unitId && Number(it.quantity || 0) > 0 && Number(it.rate || 0) > 0 && it.accountId)
+  }
+
+  const anyValidLines = (form.items && form.items.some(itemHasValidLines)) || ((form as any).costCenters && (form as any).costCenters.some(costCenterHasValidItems))
+
+  if (!anyValidLines) {
     errorMessage.value = 'Add at least one item with a valid material or account line.'
     return false
   }
 
+  // Validate legacy form.items
   for (const [index, item] of form.items.entries()) {
     // Validate each material line that has data
     for (const material of item.materials || []) {
@@ -990,6 +1075,34 @@ const validateForm = () => {
     }
   }
 
+  // Validate cost center items
+  if ((form as any).costCenters) {
+    for (const [ccIndex, cc] of ((form as any).costCenters || []).entries()) {
+      for (const [itIndex, it] of (cc.items || []).entries()) {
+        if (!it.accountId) {
+          errorMessage.value = `Cost center ${ccIndex + 1}, item ${itIndex + 1}: please select an account.`
+          return false
+        }
+        if (!it.itemId) {
+          errorMessage.value = `Cost center ${ccIndex + 1}, item ${itIndex + 1}: please select an item.`
+          return false
+        }
+        if (!it.unitId) {
+          errorMessage.value = `Cost center ${ccIndex + 1}, item ${itIndex + 1}: please select a unit.`
+          return false
+        }
+        if (Number(it.quantity || 0) <= 0) {
+          errorMessage.value = `Cost center ${ccIndex + 1}, item ${itIndex + 1}: quantity must be greater than zero.`
+          return false
+        }
+        if (Number(it.rate || 0) <= 0) {
+          errorMessage.value = `Cost center ${ccIndex + 1}, item ${itIndex + 1}: rate must be greater than zero.`
+          return false
+        }
+      }
+    }
+  }
+
   return true
 }
 
@@ -1000,8 +1113,8 @@ const saveForm = async (asDraft = false) => {
   errorMessage.value = ''
   
   try {
-    // Single shared source - include it only if it has a type
-    const validSources = form.source && form.source.sourceType ? [form.source] : []
+    // Single shared source - include it when a source is selected or payee is provided
+    const validSources = form.source && (form.source.sourceType || form.source.payee) ? [form.source] : []
 
     const validItems = form.items
       .map((item: any) => {
@@ -1054,6 +1167,29 @@ const saveForm = async (asDraft = false) => {
       })
       .filter(Boolean)
      
+    // Flatten cost center items into validItems with cost_center_id
+    const allCostCenterItems = (form.costCenters || []).flatMap((cc: any) => 
+      (cc.items || []).map((item: any) => ({
+        currency_id: form.currencyId,
+        cost_center_id: cc.costCenterId,
+        materials: [{
+          item_id: item.itemId,
+          unit_of_measurement_id: item.unitId,
+          quantity: item.quantity && item.quantity > 0 ? item.quantity : 1,
+          rate: item.rate || 0,
+          currency_id: form.currencyId,
+          description: item.remarks || '',
+        }],
+        accounts: item.accountId ? [{
+          account_id: item.accountId,
+          currency_id: form.currencyId,
+          amount: (item.quantity || 0) * (item.rate || 0),
+          description: item.remarks || '',
+        }] : [],
+        dimensions: [],
+      }))
+    ).filter((item: any) => item.materials[0].item_id && item.materials[0].unit_of_measurement_id)
+     
     const payload = {
       company_id: 1,
       branch_id: form.branchId || 1,
@@ -1065,18 +1201,23 @@ const saveForm = async (asDraft = false) => {
       remarks: form.remarks,
       status: asDraft ? 'DRAFT' : 'SUBMITTED',
       
-      items: validItems,
+      items: allCostCenterItems,
       
       // Requisition sources
-      sources: validSources.map((s) => ({
-        source_type: s.sourceType,
-        payee: s.payee,
-        source_account_id: s.sourceAccountId,
-        mode_of_payment: s.modeOfPayment,
-        currency_id: s.currencyId || form.currencyId,
-        exchange_rate: s.exchangeRate,
-        description: s.description,
-      })),
+      sources: validSources.map((s) => {
+        const sourceType = s.sourceType || (s.payee ? 'VENDOR' : null)
+        return {
+          source_type: sourceType,
+          source_id: sourceType === 'STORE' || sourceType === 'PARTIES' ? s.sourceId : (sourceType === 'CASH' ? s.accountId : null),
+          account_id: sourceType === 'CASH' ? s.accountId : null,
+          payee: s.payee || null,
+          mode_of_payment: s.modeOfPayment,
+          currency_id: s.currencyId || form.currencyId,
+          exchange_rate: s.exchangeRate,
+          description: s.description,
+        }
+      }),
+
     }
 
     if (isEditMode.value) {
@@ -1177,6 +1318,8 @@ onUnmounted(() => {
       :units-options="unitsOptions"
       :accounts="accounts"
       :users="users"
+      :locations="locations"
+      :entities="entities"
       :dimension-types="dimensionTypes"
       :dimension-values="dimensionValues"
       :vat-options="vatOptions"
@@ -1235,6 +1378,9 @@ onUnmounted(() => {
                     <span :class="statusBadgeClass((row as any).status)">
                       {{ (row as any).status }}
                     </span>
+                  </template>
+                  <template #payee="{ row }">
+                    {{ (row as any).payee || '-' }}
                   </template>
                   <template #total="{ row }">
                     {{ formatMoney(getTotal(row as any), (row as any).currencySymbol) }}

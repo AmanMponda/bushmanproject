@@ -167,6 +167,7 @@ type Requisition = {
   sources: RequisitionSource[]
   items: RequisitionItem[]
   approvals: ApprovalRecord[]
+  payee?: string
 }
 
 const props = defineProps<{ id: number }>()
@@ -304,6 +305,7 @@ const mapRequisition = (req: any): Requisition => {
     sources: req.sources || [],
     items: req.items || [],
     approvals: req.approvals || [],
+    payee: req.sources?.[0]?.payee || req.payee || ''
   }
 }
 
@@ -557,10 +559,8 @@ onMounted(fetchRequisition)
             <table class="table table-sm table-hover">
               <thead class="table-light">
                 <tr>
-                  <th>Type</th>
-                  <th>Payee</th>
-                  <th>Account</th>
                   <th>Payment Mode</th>
+                  <th>Source</th>
                   <th>Currency</th>
                   <th class="text-end">Exchange Rate</th>
                   <th>Description</th>
@@ -569,13 +569,9 @@ onMounted(fetchRequisition)
               <tbody>
                 <tr v-for="source in requisition.sources" :key="source.id">
                   <td>
-                    <span class="badge bg-primary">{{ source.source_type }}</span>
-                  </td>
-                  <td>{{ source.payee }}</td>
-                  <td>{{ source.source_account?.code }} - {{ source.source_account?.name }}</td>
-                  <td>
                     <span class="badge bg-secondary">{{ source.mode_of_payment }}</span>
                   </td>
+                  <td>{{ source.payee || '--' }}</td>
                   <td>{{ source.currency?.symbol || source.currency?.name || '--' }}</td>
                   <td class="text-end">{{ source.exchange_rate }}</td>
                   <td>{{ source.description || '--' }}</td>
