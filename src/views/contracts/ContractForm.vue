@@ -45,7 +45,7 @@
             </div>
 
             <label class="field">
-              <span class="lbl">Link with Order</span>
+              <span class="lbl">select Order</span>
               <div class="input-wrapper">
                 <span class="input-icon">🔗</span>
                 <select v-model="selectedOrderId" @change="onOrderSelect">
@@ -93,77 +93,8 @@
                 </div>
               </label>
 
-              <label class="field">
-                <span class="lbl">Auto Renewal</span>
-                <div class="input-wrapper">
-                  <input v-model="form.autoRenew" type="checkbox" />
-                  <span style="margin-left: 8px;">Enable auto renewal</span>
-                </div>
-              </label>
 
-              <label class="field" v-if="form.autoRenew">
-                <span class="lbl">Renewal Term (months)</span>
-                <div class="input-wrapper">
-                  <span class="input-icon">⏱️</span>
-                  <input v-model.number="form.renewalTermMonths" type="number" placeholder="12" />
-                </div>
-              </label>
             </div>
-          </div>
-
-          <!-- SECTION 3: LEGAL & JURISDICTION -->
-          <div class="form-section">
-            <div class="section-title">
-              <span class="section-icon">⚖️</span>
-              Legal & Jurisdiction
-            </div>
-
-            <label class="field">
-              <span class="lbl">Governing Law</span>
-              <div class="input-wrapper">
-                <span class="input-icon">📜</span>
-                <input v-model="form.governingLaw" type="text" placeholder="e.g., Laws of Tanzania" />
-              </div>
-            </label>
-
-            <label class="field">
-              <span class="lbl">Jurisdiction</span>
-              <div class="input-wrapper">
-                <span class="input-icon">🌍</span>
-                <input v-model="form.jurisdiction" type="text" placeholder="e.g., Dar es Salaam, Tanzania" />
-              </div>
-            </label>
-
-            <label class="field">
-              <span class="lbl">External Reference</span>
-              <div class="input-wrapper">
-                <span class="input-icon">🔗</span>
-                <input v-model="form.referenceExternal" type="text" placeholder="External reference or code" />
-              </div>
-            </label>
-          </div>
-
-          <!-- SECTION 4: ADDITIONAL INFORMATION -->
-          <div class="form-section">
-            <div class="section-title">
-              <span class="section-icon">📝</span>
-              Additional Information
-            </div>
-
-            <label class="field">
-              <span class="lbl">Financial Summary</span>
-              <textarea v-model="form.financialSummary" class="textarea" rows="2" placeholder="Summary of financial terms..."></textarea>
-            </label>
-
-            <label class="field">
-              <span class="lbl">Special Terms</span>
-              <textarea v-model="form.specialTerms" class="textarea" rows="2" placeholder="Any special terms and conditions..."></textarea>
-            </label>
-
-            <label class="field">
-              <span class="lbl">Additional Notes</span>
-              <textarea v-model="form.additionalNote" class="textarea" rows="2" placeholder="Additional notes..."></textarea>
-            </label>
           </div>
         </div>
       </aside>
@@ -198,12 +129,12 @@
               <span class="tab-text">Versions</span>
             </button>
             <button
-              @click="toggleSection('billing')"
-              :class="['tab', { active: showSections.billing }]"
+              @click="toggleSection('additionalDetails')"
+              :class="['tab', { active: showSections.additionalDetails }]"
               type="button"
             >
-              <span class="tab-icon">💳</span>
-              <span class="tab-text">Billing Schedule</span>
+              <span class="tab-icon">📋</span>
+              <span class="tab-text">Additional Details</span>
             </button>
           </div>
         </div>
@@ -272,10 +203,14 @@
                       <td><span class="badge bg-info">{{ version.status }}</span></td>
                       <td>{{ version.templateName || '-' }}</td>
                       <td>{{ formatDate(version.generatedAt) }}</td>
-                      <td>
-                        <button class="btn btn-xs btn-primary" @click="editVersion(idx)" type="button" style="margin-right: 4px;">Edit</button>
-                        <button class="btn btn-xs btn-danger" @click="removeVersion(idx)" type="button">Remove</button>
-                      </td>
+                      <td style="display:flex; gap:6px; align-items:center;">
+                          <input :id="`file-${idx}`" type="file" style="display:none" @change="(e) => onFileSelected(e, idx)" />
+                          <button class="btn btn-xs" @click.prevent="triggerFileSelect(idx)" type="button" style="background:#f3f4f6">Choose</button>
+                          <button class="btn btn-xs btn-outline" @click.prevent="handleDownloadVersion(version)" type="button">Download</button>
+                          <button v-if="version.status !== 'SIGNED' && version.status !== 'SUPERSEDED'" class="btn btn-xs btn-success" @click.prevent="handleSignVersion(version)" type="button">Sign</button>
+                          <button class="btn btn-xs btn-secondary" @click.prevent="handleSupersedeVersion(version)" type="button">Supersede</button>
+                          <button class="btn btn-xs btn-danger" @click.prevent="handleDeleteVersion(idx, version)" type="button">Delete</button>
+                        </td>
                     </tr>
                   </tbody>
                 </table>
@@ -284,42 +219,42 @@
             </div>
           </div>
 
-          <!-- BILLING SCHEDULE SECTION -->
-          <div v-if="showSections.billing" class="expandable-section">
+          <!-- ADDITIONAL DETAILS SECTION -->
+          <div v-if="showSections.additionalDetails" class="expandable-section">
+            <div class="section-inner-header">
+              <h4>Additional Details</h4>
+            </div>
+
             <div class="subsection">
-              <div class="subsection-header">
-                <h4>Billing Schedules</h4>
-                <button class="btn btn-sm btn-primary" @click="addBillingSchedule" type="button">+ Add Schedule</button>
+              <!-- Row 1: Governing Law & Jurisdiction -->
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                <div class="form-section">
+                  <label class="form-label">Governing Law</label>
+                  <input v-model="form.governingLaw" type="text" placeholder="e.g., Laws of Tanzania" class="form-input" style="padding: 0.65rem; border: 1px solid #ddd; border-radius: 4px; width: 100%;" />
+                </div>
+                <div class="form-section">
+                  <label class="form-label">Jurisdiction</label>
+                  <input v-model="form.jurisdiction" type="text" placeholder="e.g., Dar es Salaam, Tanzania" class="form-input" style="padding: 0.65rem; border: 1px solid #ddd; border-radius: 4px; width: 100%;" />
+                </div>
               </div>
 
-              <!-- Billing Schedules Table -->
-              <div v-if="form.billingSchedules.length > 0" class="table-wrapper mt-3">
-                <table class="data-table">
-                  <thead>
-                    <tr>
-                      <th style="min-width: 80px">Seq</th>
-                      <th style="min-width: 120px">Label</th>
-                      <th style="min-width: 100px">Type</th>
-                      <th style="min-width: 100px">Amount</th>
-                      <th style="min-width: 100px">Due Days</th>
-                      <th style="min-width: 60px">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr v-for="(schedule, idx) in form.billingSchedules" :key="idx">
-                      <td>{{ schedule.sequenceNo }}</td>
-                      <td>{{ schedule.label || '-' }}</td>
-                      <td>{{ schedule.scheduleType }}</td>
-                      <td>{{ schedule.amount }}</td>
-                      <td>{{ schedule.dueDays }}</td>
-                      <td>
-                        <button class="btn btn-xs btn-danger" @click="removeBillingSchedule(idx)" type="button">Remove</button>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
+              <!-- Row 2: Financial Summary & Special Terms -->
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                <div class="form-section">
+                  <label class="form-label">Financial Summary</label>
+                  <textarea v-model="form.financialSummary" placeholder="Summary of financial terms..." class="form-textarea" style="min-height: 80px; resize: vertical; padding: 0.65rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9rem; width: 100%;"></textarea>
+                </div>
+                <div class="form-section">
+                  <label class="form-label">Special Terms</label>
+                  <textarea v-model="form.specialTerms" placeholder="Any special terms and conditions..." class="form-textarea" style="min-height: 80px; resize: vertical; padding: 0.65rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9rem; width: 100%;"></textarea>
+                </div>
               </div>
-              <div v-else class="empty-state mt-3">No billing schedules added yet</div>
+
+              <!-- Row 3: Additional Note -->
+              <div class="form-section">
+                <label class="form-label">Additional Note</label>
+                <textarea v-model="form.additionalNote" placeholder="Add any supplementary notes or remarks..." class="form-textarea" style="min-height: 80px; resize: vertical; padding: 0.65rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9rem; width: 100%;"></textarea>
+              </div>
             </div>
           </div>
         </div>
@@ -336,6 +271,8 @@ import { useOrderStore } from '@/stores/bushman/order-store'
 import { useToast } from '@/composables/useToast'
 import { useAppOptionStore } from '@/stores/app-option'
 import Swal from 'sweetalert2'
+import contractService from '@/services/contractService'
+import axios from 'axios'
 
 const router = useRouter()
 const route = useRoute()
@@ -366,26 +303,28 @@ const form = reactive({
   referenceExternal: '',
   governingLaw: '',
   jurisdiction: '',
-  autoRenew: false,
-  renewalTermMonths: null,
+  legalJurisdiction: '',
+  additionalInformation: '',
   financialSummary: '',
   specialTerms: '',
   additionalNote: '',
   parties: [] as any[],
   versions: [] as any[],
-  billingSchedules: [] as any[],
   links: [] as any[]
 })
 
 const showSections = reactive({
   parties: true,
   versions: false,
-  billing: false
+  additionalDetails: false
 })
 
 // Quick Start: Order Selection
 const selectedOrderId = ref('')
-const availableOrders = computed(() => orderStore.orders || [])
+const availableOrders = computed(() => {
+  const orders = orderStore.orders || []
+  return orders.filter((order: any) => order.status === 'APPROVED')
+})
 const selectedOrder = ref<any>(null)
 const orderDataLoaded = ref(false)
 
@@ -507,7 +446,8 @@ const addVersion = () => {
     status: 'DRAFT',
     templateName: '',
     filePath: '',
-    generatedAt: new Date().toISOString()
+    generatedAt: new Date().toISOString(),
+    _file: null
   })
 }
 
@@ -523,23 +463,179 @@ const editVersion = (idx: number) => {
   }
 }
 
-const addBillingSchedule = () => {
-  form.billingSchedules.push({
-    label: '',
-    sequenceNo: (form.billingSchedules.length || 0) + 1,
-    scheduleType: 'MILESTONE',
-    amountType: 'FIXED',
-    amount: 0,
-    currencyId: '',
-    baseOn: 'CONTRACT_TOTAL',
-    dueDays: 0,
-    dueDaysType: 'AFTER_SIGNATURE',
-    isDeposit: false
-  })
+const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
+const ALLOWED_TYPES = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
+
+const onFileSelected = (evt: Event, idx: number) => {
+  const input = evt.target as HTMLInputElement
+  if (!input.files || input.files.length === 0) return
+  const file = input.files[0]
+  if (!ALLOWED_TYPES.includes(file.type)) {
+    init({ message: 'Invalid file type. Only PDF / DOC / DOCX allowed', color: 'danger' })
+    return
+  }
+  if (file.size > MAX_FILE_SIZE) {
+    init({ message: 'File too large. Maximum is 10MB', color: 'danger' })
+    return
+  }
+  form.versions[idx]._file = file
+  form.versions[idx].filePath = file.name
 }
 
-const removeBillingSchedule = (idx: number) => {
-  form.billingSchedules.splice(idx, 1)
+const triggerFileSelect = (idx: number) => {
+  const el = document.getElementById('file-' + idx) as HTMLInputElement | null
+  el?.click()
+}
+
+const handleDownloadVersion = async (version: any) => {
+  await downloadVersionFile(route.params.id, version)
+}
+
+const handleSignVersion = async (version: any) => {
+  if (!isEdit.value) return init({ message: 'Save contract first before signing', color: 'warning' })
+  await signVersion(Number(route.params.id), version)
+}
+
+const handleSupersedeVersion = async (version: any) => {
+  if (!isEdit.value) return init({ message: 'Save contract first', color: 'warning' })
+  await supersedePrevious(Number(route.params.id), version)
+}
+
+const handleDeleteVersion = async (idx: number, version: any) => {
+  if (isEdit.value) {
+    await deleteVersion(Number(route.params.id), idx)
+  } else {
+    removeVersion(idx)
+  }
+}
+
+const uploadVersionToServer = async (contractId: number, version: any) => {
+  try {
+    const fd = new FormData()
+    if (version.templateName) fd.append('template_name', version.templateName)
+    if (version.generatedAt) fd.append('generated_at', new Date(version.generatedAt).toISOString().slice(0, 19).replace('T', ' '))
+    if (version._file) fd.append('file', version._file)
+
+    // If version already exists on server (has id) update, otherwise create
+    if (version.id) {
+      await contractService.updateVersion(contractId, version.id, fd)
+    } else {
+      await contractService.createVersion(contractId, fd)
+    }
+    init({ message: `Version ${version.versionNo} uploaded`, color: 'success' })
+  } catch (error: any) {
+    console.error('Error uploading version file', error)
+    init({ message: `Upload failed: ${error.message || 'server error'}`, color: 'danger' })
+  }
+}
+
+const fetchVersions = async (contractId: number) => {
+  try {
+    const res = await contractService.listVersions(contractId)
+    const data = res.data || res.data?.data || res
+    // normalize
+    form.versions = (data.data || data || []).map((v: any, idx: number) => ({
+      id: v.id,
+      versionNo: v.version_no || v.versionNo || idx + 1,
+      status: v.status,
+      templateName: v.template_name || v.templateName,
+      filePath: v.file_path || v.filePath || '',
+      generatedAt: v.generated_at || v.generatedAt,
+      signedAt: v.signed_at || v.signedAt,
+      createdBy: v.createdBy || v.created_by || null,
+      _file: null
+    }))
+  } catch (error) {
+    console.error('Failed to load versions', error)
+  }
+}
+
+const downloadVersionFile = async (contractId: number, version: any) => {
+  try {
+    if (!version.id) {
+      // local staged file
+      if (version._file) {
+        const url = URL.createObjectURL(version._file)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = version._file.name
+        a.click()
+        URL.revokeObjectURL(url)
+      } else {
+        init({ message: 'No file available for download', color: 'warning' })
+      }
+      return
+    }
+
+    const resp = await contractService.generatePdf(Number(contractId), Number(version.id))
+    const blob = resp.data || resp
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    const filename = version.filePath ? version.filePath.split('/').pop() : `contract_v${version.versionNo}.pdf`
+    a.download = filename
+    a.click()
+    window.URL.revokeObjectURL(url)
+  } catch (error: any) {
+    console.error('Download failed', error)
+    init({ message: 'Download failed', color: 'danger' })
+  }
+}
+
+const signVersion = async (contractId: number, version: any) => {
+  try {
+    if (!version.id) return init({ message: 'Version must be saved to sign', color: 'warning' })
+    await contractService.updateVersion(contractId, version.id, { status: 'SIGNED', signed_at: new Date().toISOString() })
+    version.status = 'SIGNED'
+    init({ message: `Version ${version.versionNo} signed`, color: 'success' })
+    // Auto-supersede previous versions
+    try {
+      await axios.post(`${(import.meta.env.VITE_APP_BASE_URL || '').replace(/\/+$/, '')}/contracts/${contractId}/versions/${version.id}/supersede`)
+    } catch (e) {
+      // not critical
+      console.warn('Supersede call failed', e)
+    }
+  } catch (error: any) {
+    console.error('Sign failed', error)
+    init({ message: 'Signing failed', color: 'danger' })
+  }
+}
+
+const supersedePrevious = async (contractId: number, version: any) => {
+  try {
+    if (!version.id) return init({ message: 'Version must be saved to supersede', color: 'warning' })
+    await axios.post(`${(import.meta.env.VITE_APP_BASE_URL || '').replace(/\/+$/, '')}/contracts/${contractId}/versions/${version.id}/supersede`)
+    // mark local copies
+    form.versions.forEach((v: any) => {
+      if (v.id && v.id !== version.id && v.status !== 'SUPERSEDED') v.status = 'SUPERSEDED'
+    })
+    init({ message: 'Previous versions marked as superseded', color: 'success' })
+  } catch (error: any) {
+    console.error('Supersede failed', error)
+    init({ message: 'Supersede failed', color: 'danger' })
+  }
+}
+
+const deleteVersion = async (contractId: number, versionIdx: number) => {
+  const v = form.versions[versionIdx]
+  const confirmed = await Swal.fire({
+    icon: 'warning',
+    title: 'Delete Version',
+    text: `Are you sure you want to delete version ${v.versionNo}? This cannot be undone.`,
+    showCancelButton: true,
+    confirmButtonColor: '#dc2626'
+  })
+  if (!confirmed.isConfirmed) return
+  try {
+    if (v.id) {
+      await axios.delete(`${(import.meta.env.VITE_APP_BASE_URL || '').replace(/\/+$/, '')}/contracts/${contractId}/versions/${v.id}`)
+    }
+    form.versions.splice(versionIdx, 1)
+    init({ message: `Version ${v.versionNo} deleted`, color: 'success' })
+  } catch (error: any) {
+    console.error('Delete failed', error)
+    init({ message: 'Delete failed', color: 'danger' })
+  }
 }
 
 const resetForm = () => {
@@ -554,14 +650,13 @@ const resetForm = () => {
     referenceExternal: '',
     governingLaw: '',
     jurisdiction: '',
-    autoRenew: false,
-    renewalTermMonths: null,
+    legalJurisdiction: '',
+    additionalInformation: '',
     financialSummary: '',
     specialTerms: '',
     additionalNote: '',
     parties: [],
     versions: [],
-    billingSchedules: [],
     links: []
   })
 }
@@ -602,14 +697,13 @@ const submit = async () => {
       reference_external: form.referenceExternal || null,
       governing_law: form.governingLaw || null,
       jurisdiction: form.jurisdiction || null,
-      auto_renew: form.autoRenew ? 1 : 0,
-      renewal_term_months: form.renewalTermMonths || null,
+      legal_jurisdiction: form.legalJurisdiction || null,
+      additional_information: form.additionalInformation || null,
       financial_summary: form.financialSummary || null,
       special_terms: form.specialTerms || null,
       additional_note: form.additionalNote || null,
       parties: form.parties,
       versions: form.versions,
-      billing_schedules: form.billingSchedules,
       links: form.links
     }
 
@@ -624,22 +718,30 @@ const submit = async () => {
         allowEscapeKey: false,
         didOpen: async () => {
           Swal.showLoading()
-          try {
-            await contractStore.updateContract(Number(route.params.id), payload)
-            Swal.fire({
-              icon: 'success',
-              title: 'Contract Updated!',
-              text: 'Your contract has been updated successfully.',
-              confirmButtonColor: '#2563eb'
-            })
-          } catch (error: any) {
-            Swal.fire({
-              icon: 'error',
-              title: 'Update Failed',
-              text: error.message || 'Failed to update contract',
-              confirmButtonColor: '#dc2626'
-            })
-          }
+            try {
+              await contractStore.updateContract(Number(route.params.id), payload)
+              // Upload any staged version files or create new versions
+              const contractId = Number(route.params.id)
+              for (const v of form.versions) {
+                if (v._file || !v.id) {
+                  // upload or create
+                  await uploadVersionToServer(contractId, v)
+                }
+              }
+              Swal.fire({
+                icon: 'success',
+                title: 'Contract Updated!',
+                text: 'Your contract has been updated successfully.',
+                confirmButtonColor: '#2563eb'
+              })
+            } catch (error: any) {
+              Swal.fire({
+                icon: 'error',
+                title: 'Update Failed',
+                text: error.message || 'Failed to update contract',
+                confirmButtonColor: '#dc2626'
+              })
+            }
         }
       })
     } else {
@@ -653,6 +755,16 @@ const submit = async () => {
           Swal.showLoading()
           try {
             const result = await contractStore.createContract(payload)
+            // extract created id
+            const createdId = result?.data?.data?.id || result?.data?.id || result?.id
+            // upload staged versions (if any)
+            if (createdId) {
+              for (const v of form.versions) {
+                if (v._file || !v.id) {
+                  await uploadVersionToServer(createdId, v)
+                }
+              }
+            }
             Swal.fire({
               icon: 'success',
               title: 'Contract Created!',

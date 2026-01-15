@@ -168,7 +168,9 @@ const getStatusClass = (status: string) => {
   const statusMap: any = {
     'DRAFT': 'badge bg-secondary',
     'PENDING': 'badge bg-warning',
-    'CONFIRMED': 'badge bg-info',
+    'SUBMITTED': 'badge bg-info',
+    'APPROVED': 'badge bg-success',
+    'CONFIRMED': 'badge bg-success',
     'FULFILLED': 'badge bg-success',
     'CANCELLED': 'badge bg-danger'
   }

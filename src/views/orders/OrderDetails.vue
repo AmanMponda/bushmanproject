@@ -1,498 +1,383 @@
 <template>
-  <div class="order-details-page">
-    <!-- Header -->
-    <div class="page-head">
-      <div class="page-head-left">
-        <div class="crumbs">
-          <span class="crumb-icon"><i class="fa fa-shopping-cart"></i></span>
-          SALES / <span>ORDERS</span>
+  <div class="order-details">
+    <!-- Header Section with Tabs and Content All in One Card -->
+    <div class="header-card mb-4" v-if="order">
+      <div class="p-4">
+        <div class="d-flex justify-content-between align-items-start mb-3">
+          <div>
+            <h2 class="mb-2" style="font-size: 24px; font-weight: 700; color: #0f172a;">
+              {{ order.order_number || 'Order' }}
+            </h2>
+          </div>
+          <!-- Quick Actions on the Right -->
+          <div style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end;">
+            <button @click="exportPDF" class="btn btn-outline-primary btn-sm">
+              <i class="fa fa-file-pdf me-1"></i> Download PDF
+            </button>
+            <button v-if="order.status !== 'APPROVED'" @click="editOrder" class="btn btn-outline-success btn-sm">
+              <i class="fa fa-edit me-1"></i> Edit Order
+            </button>
+            <button v-if="order.status !== 'APPROVED'" @click="approveOrder" class="btn btn-success btn-sm">
+              <i class="fa fa-check-circle me-1"></i> Approve Order
+            </button>
+            <button @click="goBack" class="btn btn-outline-secondary btn-sm">
+              <i class="fa fa-arrow-left me-1"></i> Back to List
+            </button>
+          </div>
         </div>
-        <h1>Order Details</h1>
-        <p class="subtitle">View complete order information</p>
       </div>
-      <div class="head-actions">
-        <button class="btn btn-secondary" @click="goBack" type="button">
-          <i class="fa fa-arrow-left me-2"></i> Back
+
+      <!-- Tab Navigation -->
+      <div class="tab-navigation">
+        <button 
+          :class="['tab-btn', { active: activeTab === 'overview' }]"
+          @click="activeTab = 'overview'"
+        >
+          <i class="fa fa-info-circle me-1"></i>
+          <span>Overview</span>
         </button>
+        <button 
+          :class="['tab-btn', { active: activeTab === 'payments' }]"
+          @click="activeTab = 'payments'"
+        >
+          <i class="fa fa-credit-card me-1"></i>
+          <span>Payments</span>
+        </button>
+        <button 
+          :class="['tab-btn', { active: activeTab === 'logistics' }]"
+          @click="activeTab = 'logistics'"
+        >
+          <i class="fa fa-truck me-1"></i>
+          <span>Logistics</span>
+        </button>
+      </div>
+
+      <!-- TAB CONTENT INSIDE CARD -->
+      <div class="tab-content p-4" v-if="order && !loading && !error">
+      <!-- OVERVIEW TAB -->
+      <div id="overview" class="tab-pane fade" :class="{ 'show active': activeTab === 'overview' }" style="margin-bottom: 20px;">
+        <!-- Key Information -->
+        <div class="row g-4 mb-5">
+          <div class="col-md-3">
+            <div style="text-align: center;">
+              <i class="fa fa-receipt fa-2x text-primary mb-2"></i>
+              <div class="h5 mb-1">{{ order.order_number || 'N/A' }}</div>
+              <small class="text-muted">Order Number</small>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div style="text-align: center;">
+              <i class="fa fa-dollar-sign fa-2x text-success mb-2"></i>
+              <div class="h5 mb-1">{{ formatCurrency(orderFinancial.grandTotal) }}</div>
+              <small class="text-muted">Grand Total</small>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div style="text-align: center;">
+              <i class="fa fa-calendar fa-2x text-warning mb-2"></i>
+              <div class="h5 mb-1">{{ formatDate(order.order_date) }}</div>
+              <small class="text-muted">Order Date</small>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div style="text-align: center;">
+              <i class="fa fa-tag fa-2x text-info mb-2"></i>
+              <span :class="getStatusBadge(order.status)" class="badge">{{ order.status }}</span>
+              <small class="text-muted d-block mt-2">Status</small>
+            </div>
+          </div>
+        </div>
+
+        <!-- Order Information & Parties Combined -->
+        <div class="mb-5">
+          <h5 class="mb-3" style="border-bottom: 2px solid #e9ecef; padding-bottom: 10px; font-weight: 600;">
+            <i class="fa fa-info-circle me-2 text-primary"></i>Order Information & Parties
+          </h5>
+          
+          <!-- First Row: Order Type, VAT, and Parties -->
+          <div class="row g-3 mb-4">
+            <!-- Order Type -->
+            <div v-if="order.type && order.type !== 'N/A'" class="col-md-3">
+              <small class="text-muted d-block">Order Type</small>
+              <strong>{{ order.type }}</strong>
+            </div>
+            <!-- VAT Rate -->
+            <div v-if="order.vat && order.vat !== 0" class="col-md-3">
+              <small class="text-muted d-block">VAT Rate</small>
+              <strong>{{ order.vat }}%</strong>
+            </div>
+            <!-- Parties in same row -->
+            <div v-for="party in partyCards" :key="party.id" class="col-md-3">
+              <div>
+                <strong style="font-size: 13px;">{{ getRoleLabel(party.role) }}</strong>
+                <div v-if="party.entity?.full_name || party.entity?.name" style="font-weight: 500; font-size: 13px; margin-bottom: 6px;">{{ party.entity?.full_name || party.entity?.name }}</div>
+                <div class="small" style="font-size: 12px;">
+                  <div v-if="party.contact_name && party.contact_name !== 'N/A'" class="mb-1"><strong>Contact:</strong> {{ party.contact_name }}</div>
+                  <div v-if="party.contact_phone && party.contact_phone !== 'N/A'" class="mb-1"><strong>Phone:</strong> {{ party.contact_phone }}</div>
+                  <div v-if="party.contact_email && party.contact_email !== 'N/A'" class="mb-1"><strong>Email:</strong> {{ party.contact_email }}</div>
+                  <div v-if="party.commission_rate"><strong>Commission:</strong> {{ party.commission_rate }}%</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Second Row: Other details -->
+          <div class="row g-3">
+            <div v-if="order.expected_date && order.expected_date !== 'N/A'" class="col-md-3">
+              <small class="text-muted d-block">Expected Date</small>
+              <strong>{{ formatDate(order.expected_date) }}</strong>
+            </div>
+            <div v-if="order.created_at" class="col-md-3">
+              <small class="text-muted d-block">Created</small>
+              <strong style="font-size: 13px;">{{ formatDateTime(order.created_at) }}</strong>
+            </div>
+            <div v-if="order.updated_at" class="col-md-3">
+              <small class="text-muted d-block">Updated</small>
+              <strong style="font-size: 13px;">{{ formatDateTime(order.updated_at) }}</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+
+
+
+      <!-- PAYMENTS TAB -->
+      <div id="payments" class="tab-pane fade" :class="{ 'show active': activeTab === 'payments' }" style="margin-bottom: 20px;">
+        <!-- Financial Summary -->
+        <div class="mb-5">
+          <h5 class="mb-3" style="border-bottom: 2px solid #e9ecef; padding-bottom: 10px; font-weight: 600;">
+            <i class="fa fa-calculator me-2 text-success"></i>Financial Summary
+          </h5>
+          <div class="row g-4">
+            <div class="col-md-3">
+              <div style="text-align: center;">
+                <i class="fa fa-shopping-cart fa-2x text-primary mb-2"></i>
+                <div class="h5 mb-1">{{ formatCurrency(orderFinancial.subtotal) }}</div>
+                <small class="text-muted">Subtotal</small>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div style="text-align: center;">
+                <i class="fa fa-percent fa-2x text-warning mb-2"></i>
+                <div class="h5 mb-1">{{ formatCurrency(orderFinancial.vat) }}</div>
+                <small class="text-muted">VAT</small>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div style="text-align: center;">
+                <i class="fa fa-tag fa-2x text-info mb-2"></i>
+                <div class="h5 mb-1">{{ formatCurrency(orderFinancial.totalDiscount) }}</div>
+                <small class="text-muted">Discount</small>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div style="text-align: center;">
+                <i class="fa fa-dollar-sign fa-2x text-success mb-2"></i>
+                <div class="h5 mb-1">{{ formatCurrency(orderFinancial.grandTotal) }}</div>
+                <small class="text-muted">Grand Total</small>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Payment Status -->
+        <div class="mb-5">
+          <h5 class="mb-3" style="border-bottom: 2px solid #e9ecef; padding-bottom: 10px; font-weight: 600;">
+            <i class="fa fa-credit-card me-2 text-info"></i>Payment Status
+          </h5>
+          <div class="row g-4 mb-4">
+            <div class="col-md-3">
+              <div style="text-align: center;">
+                <i class="fa fa-check-circle fa-2x text-success mb-2"></i>
+                <div class="h5 mb-1">{{ formatCurrency(paymentStatus.paidAmount) }}</div>
+                <small class="text-muted">Paid Amount</small>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div style="text-align: center;">
+                <i class="fa fa-exclamation-circle fa-2x text-warning mb-2"></i>
+                <div class="h5 mb-1">{{ formatCurrency(paymentStatus.balanceDue) }}</div>
+                <small class="text-muted">Balance Due</small>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div style="text-align: center;">
+                <i class="fa fa-percent fa-2x text-info mb-2"></i>
+                <div class="h5 mb-1">{{ paymentStatus.percentage }}%</div>
+                <small class="text-muted">Progress</small>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Payment Schedule -->
+        <div v-if="paymentSchedule.length > 0">
+          <div class="table-responsive">
+            <table class="table table-hover">
+              <thead class="table-light">
+                <tr>
+                  <th>#</th>
+                  <th>Description</th>
+                  <th class="text-end">Amount Due</th>
+                  <th>Due Date</th>
+                  <th>Status</th>
+                  <th>Payment Date</th>
+                  <th>Method</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="payment in paymentSchedule" :key="payment.sequence">
+                  <td><strong>{{ payment.sequence }}</strong></td>
+                  <td>{{ payment.description || 'Payment' }}</td>
+                  <td class="text-end fw-bold">{{ formatCurrency(payment.amount_due) }}</td>
+                  <td>{{ formatDate(payment.due_date) }}</td>
+                  <td>
+                    <span :class="getPaymentStatusBadge(payment.status)" class="badge">
+                      {{ payment.status }}
+                    </span>
+                    <span v-if="payment.overdue" class="badge bg-danger ms-1">Overdue</span>
+                  </td>
+                  <td>{{ payment.payment_date ? formatDate(payment.payment_date) : '-' }}</td>
+                  <td>{{ payment.payment_method || '-' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Payment Summary -->
+          <div class="card mt-4">
+            <div class="card-header bg-light">
+              <h6 class="mb-0">Payment Summary</h6>
+            </div>
+            <div class="card-body">
+              <div class="row g-3">
+                <div class="col-md-3">
+                  <div class="card border-primary">
+                    <div class="card-body text-center">
+                      <i class="fa fa-money-bill fa-2x text-primary mb-2"></i>
+                      <div class="h4 mb-0">{{ formatCurrency(paymentSummary.totalDue) }}</div>
+                      <small class="text-muted">Total Due</small>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-md-3">
+                  <div class="card border-success">
+                    <div class="card-body text-center">
+                      <i class="fa fa-check-circle fa-2x text-success mb-2"></i>
+                      <div class="h4 mb-0">{{ formatCurrency(paymentSummary.paid) }}</div>
+                      <small class="text-muted">Paid</small>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-md-3">
+                  <div class="card border-warning">
+                    <div class="card-body text-center">
+                      <i class="fa fa-exclamation-circle fa-2x text-warning mb-2"></i>
+                      <div class="h4 mb-0">{{ formatCurrency(paymentSummary.balance) }}</div>
+                      <small class="text-muted">Balance</small>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- LOGISTICS TAB -->
+      <div id="logistics" class="tab-pane fade" :class="{ 'show active': activeTab === 'logistics' }" style="margin-bottom: 20px;">
+        <div v-if="logisticsTimeline.length > 0">
+          <div class="timeline">
+            <div v-for="(logistics, idx) in logisticsTimeline" :key="idx" class="timeline-item">
+              <div class="timeline-marker" :class="getLogisticsStatusClass(logistics.status)"></div>
+              <div class="card ms-4">
+                <div class="card-header">
+                  <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                      <h5 class="mb-1">
+                        <i :class="getLogisticsIcon(logistics.type)" class="me-2"></i>
+                        {{ logistics.title || getLogisticsTypeLabel(logistics.type) }}
+                      </h5>
+                      <small class="text-muted">{{ getLogisticsTypeLabel(logistics.type) }}</small>
+                    </div>
+                    <span :class="getLogisticsStatusBadge(logistics.status)" class="badge">
+                      {{ logistics.status }}
+                    </span>
+                  </div>
+                </div>
+                <div class="card-body">
+                  <div class="row g-3">
+                    <div class="col-md-4">
+                      <strong>Period:</strong>
+                      <div>{{ formatDate(logistics.start_date) }} to {{ formatDate(logistics.end_date) }}</div>
+                    </div>
+                    <div class="col-md-4">
+                      <strong>Details:</strong>
+                      <div>{{ logistics.details || 'N/A' }}</div>
+                    </div>
+                    <div class="col-md-4">
+                      <strong>Cost:</strong>
+                      <div>{{ formatCurrency(logistics.estimated_amount || 0) }}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Logistics Summary -->
+          <div class="card mt-4">
+            <div class="card-header bg-light">
+              <h6 class="mb-0">Logistics Summary</h6>
+            </div>
+            <div class="card-body">
+              <div class="row g-3">
+                <div class="col-md-4">
+                  <div class="card border-primary">
+                    <div class="card-body text-center">
+                      <i class="fa fa-money-bill fa-2x text-primary mb-2"></i>
+                      <div class="h4 mb-0">{{ logisticsSummary.totalCost }}</div>
+                      <small class="text-muted">Total Cost</small>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-md-4">
+                  <div class="card border-success">
+                    <div class="card-body text-center">
+                      <i class="fa fa-check-circle fa-2x text-success mb-2"></i>
+                      <div class="h4 mb-0">{{ logisticsSummary.booked }}</div>
+                      <small class="text-muted">Booked</small>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-md-4">
+                  <div class="card border-warning">
+                    <div class="card-body text-center">
+                      <i class="fa fa-clock fa-2x text-warning mb-2"></i>
+                      <div class="h4 mb-0">{{ logisticsSummary.pending }}</div>
+                      <small class="text-muted">Pending</small>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div v-else class="alert alert-info">
+          <i class="fa fa-inbox me-2"></i> No logistics records for this order
+        </div>
+      </div>
       </div>
     </div>
 
     <!-- Loading State -->
-    <div v-if="loading" class="alert alert-info">
+    <div v-if="loading" class="alert alert-info p-4">
       <i class="fa fa-spinner fa-spin"></i> Loading order details...
     </div>
 
     <!-- Error State -->
-    <div v-else-if="error" class="alert alert-danger">
+    <div v-if="error" class="alert alert-danger p-4">
       <i class="fa fa-exclamation-circle"></i> {{ error }}
-    </div>
-
-    <!-- Tabs Container -->
-    <div v-else-if="order" class="tabs-container">
-      <!-- Tab Navigation -->
-      <div class="tabs-nav bg-white rounded-top p-3 border-bottom">
-        <ul class="nav nav-tabs mb-0" role="tablist">
-          <li class="nav-item" role="presentation">
-            <button 
-              class="nav-link" 
-              :class="{ active: activeTab === 'summary' }"
-              @click="activeTab = 'summary'"
-              role="tab"
-            >
-              <i class="fa fa-info-circle me-2"></i>Order Summary
-            </button>
-          </li>
-          <li class="nav-item" role="presentation">
-            <button 
-              class="nav-link"
-              :class="{ active: activeTab === 'items' }"
-              @click="activeTab = 'items'"
-              role="tab"
-            >
-              <i class="fa fa-box me-2"></i>Items & Pricing
-            </button>
-          </li>
-          <li class="nav-item" role="presentation">
-            <button 
-              class="nav-link"
-              :class="{ active: activeTab === 'payments' }"
-              @click="activeTab = 'payments'"
-              role="tab"
-            >
-              <i class="fa fa-credit-card me-2"></i>Payment Schedule
-            </button>
-          </li>
-        </ul>
-      </div>
-
-      <!-- Tab Content -->
-      <div class="tabs-content bg-white rounded-bottom p-4">
-        <!-- TAB 1: ORDER SUMMARY -->
-        <div v-if="activeTab === 'summary'" class="tab-pane">
-          <div class="row">
-            <!-- Left Column: Order Information -->
-            <div class="col-lg-8">
-              <!-- Header Card -->
-              <div class="card mb-4">
-                <div class="card-header bg-primary text-white">
-                  <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                      <h5 class="mb-1">Order #{{ order.order_number }}</h5>
-                      <small>{{ order.type }} Order</small>
-                    </div>
-                    <div class="text-end">
-                      <span :class="getStatusBadge(order.status)" class="badge me-2">{{ order.status }}</span>
-                    </div>
-                  </div>
-                </div>
-                <div class="card-body">
-                  <div class="row mb-4">
-                    <div class="col-md-6">
-                      <h6 class="text-muted mb-3"><i class="fa fa-calendar me-2"></i>Dates</h6>
-                      <div class="info-item">
-                        <span class="label">Order Date:</span>
-                        <strong>{{ formatDate(order.order_date) }}</strong>
-                      </div>
-                      <div class="info-item">
-                        <span class="label">Expected Date:</span>
-                        <strong>{{ formatDate(order.expected_date) }}</strong>
-                      </div>
-                      <div class="info-item">
-                        <span class="label">Created:</span>
-                        <strong>{{ formatDateTime(order.created_at) }}</strong>
-                      </div>
-                      <div class="info-item">
-                        <span class="label">Updated:</span>
-                        <strong>{{ formatDateTime(order.updated_at) }}</strong>
-                      </div>
-                    </div>
-                    <div class="col-md-6">
-                      <h6 class="text-muted mb-3"><i class="fa fa-dollar-sign me-2"></i>Financial Summary</h6>
-                      <div class="info-item">
-                        <span class="label">Subtotal:</span>
-                        <strong>{{ formatCurrency(orderFinancial.subtotal) }}</strong>
-                      </div>
-                      <div class="info-item">
-                        <span class="label">VAT ({{ order.vat }}%):</span>
-                        <strong>{{ formatCurrency(orderFinancial.vat) }}</strong>
-                      </div>
-                      <div class="info-item">
-                        <span class="label">Additional Expenses:</span>
-                        <strong>{{ formatCurrency(order.additional_expenses || 0) }}</strong>
-                      </div>
-                      <div class="info-item border-top pt-2 mt-2">
-                        <span class="label fw-bold">Grand Total:</span>
-                        <strong class="fs-5">{{ formatCurrency(orderFinancial.grandTotal) }}</strong>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Payment Status -->
-              <div class="card mb-4">
-                <div class="card-header">
-                  <h5 class="mb-0"><i class="fa fa-credit-card me-2"></i>Payment Status</h5>
-                </div>
-                <div class="card-body">
-                  <div class="row">
-                    <div class="col-md-6">
-                      <div class="info-item">
-                        <span class="label">Paid Amount:</span>
-                        <strong class="text-success">{{ formatCurrency(paymentStatus.paidAmount) }}</strong>
-                      </div>
-                      <div class="info-item">
-                        <span class="label">Balance Due:</span>
-                        <strong class="text-warning">{{ formatCurrency(paymentStatus.balanceDue) }}</strong>
-                      </div>
-                    </div>
-                    <div class="col-md-6">
-                      <div class="progress" style="height: 30px;">
-                        <div 
-                          class="progress-bar bg-success" 
-                          :style="{ width: paymentStatus.percentage + '%' }"
-                          role="progressbar"
-                        >
-                          {{ paymentStatus.percentage }}%
-                        </div>
-                      </div>
-                      <small class="text-muted">Payment Progress</small>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Right Column: Quick Actions -->
-            <div class="col-lg-4">
-              <div class="card sticky-top" style="top: 20px;">
-                <div class="card-header bg-info text-white">
-                  <h5 class="mb-0"><i class="fa fa-bolt me-2"></i>Quick Actions</h5>
-                </div>
-                <div class="card-body p-0">
-                  <div class="list-group list-group-flush">
-                    <button 
-                      @click="editOrder"
-                      class="list-group-item list-group-item-action d-flex align-items-center"
-                    >
-                      <i class="fa fa-edit me-3 text-primary"></i>
-                      <span>Edit Order</span>
-                    </button>
-                    <button 
-                      @click="duplicateOrder"
-                      class="list-group-item list-group-item-action d-flex align-items-center"
-                    >
-                      <i class="fa fa-copy me-3 text-info"></i>
-                      <span>Duplicate</span>
-                    </button>
-                    <button 
-                      @click="createInvoice"
-                      class="list-group-item list-group-item-action d-flex align-items-center"
-                    >
-                      <i class="fa fa-receipt me-3 text-success"></i>
-                      <span>Create Invoice</span>
-                    </button>
-                    <button 
-                      @click="sendReminder"
-                      class="list-group-item list-group-item-action d-flex align-items-center"
-                    >
-                      <i class="fa fa-envelope me-3 text-warning"></i>
-                      <span>Send Reminder</span>
-                    </button>
-                    <button 
-                      @click="printOrder"
-                      class="list-group-item list-group-item-action d-flex align-items-center"
-                    >
-                      <i class="fa fa-print me-3 text-secondary"></i>
-                      <span>Print</span>
-                    </button>
-                    <button 
-                      @click="exportPDF"
-                      class="list-group-item list-group-item-action d-flex align-items-center border-0"
-                    >
-                      <i class="fa fa-file-pdf me-3 text-danger"></i>
-                      <span>Export PDF</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- TAB 2: ITEMS & PRICING -->
-        <div v-if="activeTab === 'items'" class="tab-pane">
-          <div class="d-flex justify-content-between align-items-center mb-4">
-            <h5 class="mb-0"><i class="fa fa-box me-2"></i>Order Items</h5>
-            <button class="btn btn-primary btn-sm">
-              <i class="fa fa-plus me-2"></i>Add Item
-            </button>
-          </div>
-
-          <div v-if="order.items && order.items.length > 0">
-            <div class="table-responsive">
-              <table class="table table-bordered mb-0">
-                <thead class="table-light">
-                  <tr>
-                    <th style="width: 15%;">Item Name</th>
-                    <th style="width: 12%;">Category</th>
-                    <th style="width: 8%;">Qty</th>
-                    <th style="width: 10%;">Rate</th>
-                    <th style="width: 10%;">Discount</th>
-                    <th style="width: 10%;">Tax</th>
-                    <th style="width: 8%;">Est?</th>
-                    <th style="width: 8%;">Opt?</th>
-                    <th style="width: 10%;">Total</th>
-                    <th style="width: 9%;">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="(item, idx) in order.items" :key="item.id" class="align-middle">
-                    <td>
-                      <input 
-                        type="text" 
-                        class="form-control form-control-sm" 
-                        :value="item.item?.name || item.item_name || ''" 
-                        readonly
-                      />
-                    </td>
-                    <td>
-                      <select class="form-select form-select-sm" disabled>
-                        <option>{{ item.category || '-- Select --' }}</option>
-                      </select>
-                    </td>
-                    <td>
-                      <input 
-                        type="number" 
-                        class="form-control form-control-sm text-center" 
-                        :value="item.quantity" 
-                        readonly
-                      />
-                    </td>
-                    <td>
-                      <input 
-                        type="number" 
-                        class="form-control form-control-sm text-end" 
-                        :value="item.rate || 0" 
-                        readonly
-                      />
-                    </td>
-                    <td>
-                      <input 
-                        type="number" 
-                        class="form-control form-control-sm text-end" 
-                        :value="item.discount_amount || 0" 
-                        readonly
-                      />
-                    </td>
-                    <td>
-                      <select class="form-select form-select-sm" disabled>
-                        <option>{{ item.tax_method || 'Exclu' }}</option>
-                      </select>
-                    </td>
-                    <td class="text-center">
-                      <input 
-                        type="checkbox" 
-                        class="form-check-input" 
-                        :checked="item.is_estimate" 
-                        disabled
-                      />
-                    </td>
-                    <td class="text-center">
-                      <input 
-                        type="checkbox" 
-                        class="form-check-input" 
-                        :checked="item.is_optional" 
-                        disabled
-                      />
-                    </td>
-                    <td class="fw-bold text-end">
-                      {{ formatCurrency(getItemTotal(item)) }}
-                    </td>
-                    <td>
-                      <div class="btn-group btn-group-sm" role="group">
-                        <button class="btn btn-success" title="Confirm">
-                          <i class="fa fa-check"></i>
-                        </button>
-                        <button class="btn btn-danger" title="Delete">
-                          <i class="fa fa-trash"></i>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            <!-- Items Summary -->
-            <div class="card mt-4 border-top-primary">
-              <div class="card-header bg-light">
-                <h5 class="mb-0"><i class="fa fa-calculator me-2"></i>Items Summary</h5>
-              </div>
-              <div class="card-body">
-                <div class="row justify-content-end">
-                  <div class="col-md-5">
-                    <div class="summary-item">
-                      <span class="text-muted">Subtotal:</span>
-                      <strong>{{ formatCurrency(orderFinancial.subtotal) }}</strong>
-                    </div>
-                    <div class="summary-item">
-                      <span class="text-muted">Total Discount:</span>
-                      <strong class="text-warning">-{{ formatCurrency(orderFinancial.totalDiscount) }}</strong>
-                    </div>
-                    <div class="summary-item">
-                      <span class="text-muted">Tax ({{ order.vat }}%):</span>
-                      <strong>{{ formatCurrency(orderFinancial.vat) }}</strong>
-                    </div>
-                    <div class="summary-item border-top pt-3 mt-3">
-                      <span class="fw-bold fs-6">Grand Total:</span>
-                      <strong class="fs-5 text-primary">{{ formatCurrency(orderFinancial.grandTotal) }}</strong>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div v-else class="alert alert-info">
-            <i class="fa fa-inbox me-2"></i> No items in this order
-          </div>
-        </div>
-
-        <!-- TAB 3: PAYMENTS -->
-        <div v-if="activeTab === 'logistics'" class="tab-pane">
-          <div v-if="logisticsTimeline.length > 0">
-            <div class="timeline">
-              <div v-for="(logistics, idx) in logisticsTimeline" :key="idx" class="timeline-item">
-                <div class="timeline-marker" :class="getLogisticsStatusClass(logistics.status)"></div>
-                <div class="card ms-4">
-                  <div class="card-header">
-                    <div class="d-flex justify-content-between align-items-start">
-                      <div>
-                        <h5 class="mb-1">
-                          <i :class="getLogisticsIcon(logistics.type)" class="me-2"></i>
-                          {{ logistics.title || getLogisticsTypeLabel(logistics.type) }}
-                        </h5>
-                        <small class="text-muted">{{ getLogisticsTypeLabel(logistics.type) }}</small>
-                      </div>
-                      <span :class="getLogisticsStatusBadge(logistics.status)" class="badge">
-                        {{ logistics.status }}
-                      </span>
-                    </div>
-                  </div>
-                  <div class="card-body">
-                    <div class="info-item mb-2">
-                      <span class="label">Period:</span>
-                      <strong>{{ formatDate(logistics.start_date) }} to {{ formatDate(logistics.end_date) }}</strong>
-                    </div>
-                    <div v-if="logistics.details" class="info-item mb-2">
-                      <span class="label">Details:</span>
-                      <strong>{{ logistics.details }}</strong>
-                    </div>
-                    <div class="info-item">
-                      <span class="label">Cost:</span>
-                      <strong>{{ formatCurrency(logistics.estimated_amount || 0) }}</strong>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Logistics Summary -->
-            <div class="card mt-4">
-              <div class="card-header bg-light">
-                <h5 class="mb-0">Logistics Summary</h5>
-              </div>
-              <div class="card-body">
-                <div class="row">
-                  <div class="col-md-4">
-                    <div class="stat-box">
-                      <div class="stat-value">{{ logisticsSummary.totalCost }}</div>
-                      <div class="stat-label">Total Logistics Cost</div>
-                    </div>
-                  </div>
-                  <div class="col-md-4">
-                    <div class="stat-box">
-                      <div class="stat-value">{{ logisticsSummary.booked }}</div>
-                      <div class="stat-label">Booked Items</div>
-                    </div>
-                  </div>
-                  <div class="col-md-4">
-                    <div class="stat-box">
-                      <div class="stat-value">{{ logisticsSummary.pending }}</div>
-                      <div class="stat-label">Pending Items</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div v-else class="alert alert-info">
-            <i class="fa fa-inbox me-2"></i> No logistics records for this order
-          </div>
-        </div>
-
-        <!-- TAB 5: PAYMENT SCHEDULE -->
-        <div v-if="activeTab === 'payments'" class="tab-pane">
-          <div v-if="paymentSchedule.length > 0">
-            <div class="table-responsive">
-              <table class="table table-hover">
-                <thead class="table-light">
-                  <tr>
-                    <th>#</th>
-                    <th>Description</th>
-                    <th class="text-end">Amount</th>
-                    <th>Due Date</th>
-                    <th>Status</th>
-                    <th>Payment Date</th>
-                    <th>Method</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="payment in paymentSchedule" :key="payment.sequence">
-                    <td><strong>{{ payment.sequence }}</strong></td>
-                    <td>{{ payment.description || 'Payment' }}</td>
-                    <td class="text-end fw-bold">{{ formatCurrency(payment.amount_due) }}</td>
-                    <td>{{ formatDate(payment.due_date) }}</td>
-                    <td>
-                      <span :class="getPaymentStatusBadge(payment.status)" class="badge">
-                        {{ payment.status }}
-                      </span>
-                      <span v-if="payment.overdue" class="badge bg-danger ms-1">Overdue</span>
-                    </td>
-                    <td>{{ payment.payment_date ? formatDate(payment.payment_date) : '-' }}</td>
-                    <td>{{ payment.payment_method || '-' }}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            <!-- Payment Summary -->
-            <div class="card mt-4">
-              <div class="card-body">
-                <div class="row">
-                  <div class="col-md-6 ms-auto">
-                    <div class="summary-item">
-                      <span>Total Due:</span>
-                      <strong>{{ formatCurrency(paymentSummary.totalDue) }}</strong>
-                    </div>
-                    <div class="summary-item">
-                      <span>Paid:</span>
-                      <strong class="text-success">{{ formatCurrency(paymentSummary.paid) }}</strong>
-                    </div>
-                    <div class="summary-item border-top pt-2 mt-2">
-                      <span class="fw-bold">Balance:</span>
-                      <strong class="fs-5">{{ formatCurrency(paymentSummary.balance) }}</strong>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div v-else class="alert alert-info">
-            <i class="fa fa-inbox me-2"></i> No payment schedule for this order
-          </div>
-        </div>
-      </div>
     </div>
   </div>
 </template>
@@ -510,7 +395,7 @@ const { init } = useToast()
 const orderStore = useOrderStore()
 
 // State
-const activeTab = ref('summary')
+const activeTab = ref('overview')
 const loading = computed(() => orderStore.loading)
 const error = computed(() => orderStore.error)
 const order = computed(() => orderStore.currentOrder)
@@ -541,17 +426,13 @@ const getStatusBadge = (status: string) => {
   const statusMap: any = {
     'DRAFT': 'bg-secondary',
     'PENDING': 'bg-warning',
+    'SUBMITTED': 'bg-info',
+    'APPROVED': 'bg-success',
     'CONFIRMED': 'bg-success',
-    'FULFILLED': 'bg-info',
+    'FULFILLED': 'bg-primary',
     'CANCELLED': 'bg-danger'
   }
   return statusMap[status] || 'bg-secondary'
-}
-
-const getItemTotal = (item: any) => {
-  const base = (item.quantity || 0) * (item.rate || 0)
-  const discount = item.discount_amount || 0
-  return base - discount
 }
 
 // Financial Summary
@@ -613,12 +494,12 @@ const getRoleIcon = (role: any) => {
 
 const getRoleClass = (role: any) => {
   const classes: any = {
-    1: 'bg-gradient-primary',
-    2: 'bg-gradient-success',
-    3: 'bg-gradient-info',
-    4: 'bg-gradient-warning'
+    1: 'bg-primary',
+    2: 'bg-success',
+    3: 'bg-info',
+    4: 'bg-warning'
   }
-  return classes[role] || 'bg-gradient-secondary'
+  return classes[role] || 'bg-secondary'
 }
 
 // Logistics Timeline
@@ -716,23 +597,6 @@ const getPaymentStatusBadge = (status: string) => {
   return badges[status] || 'bg-secondary'
 }
 
-// Preferences
-const preferences = computed(() => {
-  const prefs = order.value?.preferences || {}
-  return {
-    food: prefs.food_preferences || '',
-    beverages: prefs.beverage_preferences || '',
-    allergies: prefs.allergies?.join(', ') || '',
-    alcohol: prefs.alcohol_preferences || '',
-    special_requests: prefs.special_requests || ''
-  }
-})
-
-// Documents
-const documents = computed(() => {
-  return order.value?.documents || []
-})
-
 // Actions
 const editOrder = () => {
   router.push({ name: 'orders-edit', params: { id: order.value?.id } })
@@ -772,18 +636,61 @@ const exportPDF = () => {
   init({ message: 'PDF export coming soon', color: 'info' })
 }
 
+// Status Management
+const approveOrder = () => {
+  Swal.fire({
+    title: 'Approve Order?',
+    text: `Move order #${order.value?.order_number} from SUBMITTED to APPROVED?`,
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonText: 'Yes, approve it!',
+    confirmButtonColor: '#28a745'
+  }).then(async (result) => {
+    if (result.isConfirmed) {
+      try {
+        await orderStore.approveOrder(order.value?.id)
+        init({ message: 'Order approved successfully', color: 'success' })
+      } catch (error: any) {
+        init({ message: error.message || 'Error approving order', color: 'danger' })
+      }
+    }
+  })
+}
+
+const createContractFromOrder = () => {
+  Swal.fire({
+    title: 'Create Contract?',
+    text: `Create a new contract from approved order #${order.value?.order_number}?`,
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonText: 'Yes, create contract!',
+    confirmButtonColor: '#17a2b8'
+  }).then(async (result) => {
+    if (result.isConfirmed) {
+      try {
+        const response = await orderStore.createContractFromOrder(order.value?.id)
+        const contractId = response.data.data?.id || response.data?.id
+        
+        init({ message: 'Contract created successfully', color: 'success' })
+        
+        // Navigate to contract details/form
+        setTimeout(() => {
+          router.push({
+            name: 'contracts-details',
+            params: { id: contractId }
+          })
+        }, 1000)
+      } catch (error: any) {
+        init({ message: error.message || 'Error creating contract', color: 'danger' })
+      }
+    }
+  })
+}
+
 // Lifecycle
 onMounted(async () => {
   if (route.params.id) {
     try {
-      // Fetch order data from backend - all data should be included in the response:
-      // - Basic order info
-      // - Items (from order_items)
-      // - Parties (from order_parties with entity details)
-      // - Logistics (from order_logistics)
-      // - Installments (from installment_setups)
-      // - Preferences (from order_preferences or denormalized in order)
-      // - Documents (from order_documents or attachments table)
       await orderStore.getOrder(Number(route.params.id))
     } catch (e: any) {
       init({ message: e?.response?.data?.message || 'Error loading order', color: 'danger' })
@@ -793,134 +700,41 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.order-details-page {
-  width: 100%;
-  padding: 2rem;
-  background: #f8f9fa;
-  min-height: 100vh;
-}
-
-.page-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 2rem;
-  padding: 1.5rem;
-  background: white;
-  border-radius: 6px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.page-head-left h1 {
-  margin: 0.5rem 0;
-  font-size: 1.75rem;
-  color: #222;
-}
-
-.subtitle {
-  font-size: 0.9rem;
-  color: #666;
-  margin: 0;
-}
-
-.crumbs {
-  font-size: 0.85rem;
-  color: #999;
-  margin-bottom: 0.5rem;
-}
-
-.crumb-icon {
-  margin-right: 0.5rem;
-}
-
-.head-actions {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.btn {
-  padding: 0.5rem 1rem;
-  border-radius: 4px;
-  border: none;
-  cursor: pointer;
-  font-size: 0.9rem;
-  display: inline-flex;
-  align-items: center;
-  transition: all 0.2s;
-}
-
-.btn-primary {
-  background: #3b82f6;
-  color: white;
-}
-
-.btn-secondary {
-  background: #6b7280;
-  color: white;
-}
-
-.btn:hover {
-  opacity: 0.9;
-}
-
-.alert {
+.order-details {
   padding: 1rem;
-  border-radius: 4px;
-  margin-bottom: 1rem;
 }
 
-.alert-info {
-  background: #d1ecf1;
-  color: #0c5460;
-}
-
-.alert-danger {
-  background: #f8d7da;
-  color: #721c24;
-}
-
-.tabs-container {
-  background: white;
-  border-radius: 6px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  overflow: hidden;
-}
-
-.tabs-nav {
+.card-header {
   border-bottom: 2px solid #e5e7eb;
 }
 
 .nav-tabs {
+  gap: 0;
   border: none;
 }
 
 .nav-link {
   color: #666;
   border: none;
-  padding: 1rem 1.5rem;
+  border-bottom: 3px solid transparent;
+  padding: 0.75rem 1.5rem;
   font-weight: 500;
   transition: all 0.2s;
-  cursor: pointer;
-  background: transparent;
 }
 
 .nav-link:hover {
   color: #3b82f6;
-  border-bottom: 2px solid #3b82f6;
+  border-bottom-color: #3b82f6;
 }
 
 .nav-link.active {
   color: #3b82f6;
-  border-bottom: 2px solid #3b82f6;
+  border-bottom-color: #3b82f6;
   background: transparent;
 }
 
-.tabs-content {
-  min-height: 500px;
-}
-
-.tab-pane {
-  animation: fadeIn 0.3s;
+.tab-content {
+  animation: fadeIn 0.3s ease-in;
 }
 
 @keyframes fadeIn {
@@ -930,35 +744,54 @@ onMounted(async () => {
 
 .card {
   border: 1px solid #e5e7eb;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
   border-radius: 6px;
-  box-shadow: none;
-  margin-bottom: 1.5rem;
+  transition: all 0.2s;
+}
+
+.card:hover {
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
 .card-header {
-  padding: 1rem;
-  border-bottom: 1px solid #e5e7eb;
   background: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+  padding: 1rem;
 }
 
 .card-body {
   padding: 1.5rem;
 }
 
-.card-footer {
-  padding: 1rem;
-  border-top: 1px solid #e5e7eb;
+.table-responsive {
+  border-radius: 6px;
+  overflow: hidden;
 }
 
-.bg-primary { background: #3b82f6 !important; }
-.bg-info { background: #0ea5e9 !important; }
-.bg-success { background: #10b981 !important; }
-.bg-warning { background: #f59e0b !important; }
-.bg-danger { background: #ef4444 !important; }
-.bg-light { background: #f9fafb !important; }
+.table {
+  margin-bottom: 0;
+}
 
-.text-white { color: white !important; }
-.text-muted { color: #6c757d; }
+.table thead th {
+  border-color: #d1d5db;
+  background: #f3f4f6;
+  font-weight: 600;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #333;
+  padding: 0.875rem;
+}
+
+.table tbody td {
+  border-color: #e5e7eb;
+  padding: 0.75rem;
+  vertical-align: middle;
+}
+
+.table tbody tr:hover {
+  background: #f9fafb;
+}
 
 .badge {
   padding: 0.4rem 0.8rem;
@@ -967,246 +800,40 @@ onMounted(async () => {
   font-weight: 500;
 }
 
-.info-item {
+.bg-primary { background: #3b82f6 !important; }
+.bg-success { background: #10b981 !important; }
+.bg-warning { background: #f59e0b !important; }
+.bg-danger { background: #ef4444 !important; }
+.bg-info { background: #0ea5e9 !important; }
+.bg-secondary { background: #6b7280 !important; }
+.bg-light { background: #f9fafb !important; }
+
+.text-white { color: white !important; }
+.text-muted { color: #6b7280; }
+.text-success { color: #10b981; }
+.text-warning { color: #f59e0b; }
+.text-danger { color: #ef4444; }
+
+.border-primary { border-left: 4px solid #3b82f6; }
+.border-success { border-left: 4px solid #10b981; }
+.border-warning { border-left: 4px solid #f59e0b; }
+.border-danger { border-left: 4px solid #ef4444; }
+.border-info { border-left: 4px solid #0ea5e9; }
+
+.progress {
+  border-radius: 4px;
+  background: #e5e7eb;
+  height: 30px;
+}
+
+.progress-bar {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 0.75rem 0;
-  border-bottom: 1px solid #e5e7eb;
-}
-
-.info-item .label {
-  color: #666;
-  font-size: 0.9rem;
-}
-
-.info-item strong {
-  color: #222;
-  text-align: right;
-}
-
-.info-item.border-top {
-  border-top: 1px solid #e5e7eb;
-}
-
-.summary-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.75rem 0;
-  font-size: 0.95rem;
-}
-
-.summary-item strong {
-  font-weight: 600;
-}
-
-.list-group {
-  border: none;
-}
-
-.list-group-item {
-  border: none;
-  border-bottom: 1px solid #e5e7eb;
-  padding: 1rem;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.list-group-item:hover {
-  background: #f9fafb;
-}
-
-.list-group-item:last-child {
-  border-bottom: none;
-}
-
-.table {
-  margin: 0;
-}
-
-.table.table-bordered {
-  border: 1px solid #d1d5db;
-}
-
-.table.table-bordered thead {
-  background: #f3f4f6;
-}
-
-.table thead th {
-  font-weight: 600;
-  border: 1px solid #d1d5db;
-  color: #333;
-  padding: 0.875rem;
-  font-size: 0.85rem;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  vertical-align: middle;
-}
-
-.table tbody td {
-  padding: 0.75rem;
-  border: 1px solid #e5e7eb;
-  vertical-align: middle;
-}
-
-.table tbody tr:hover {
-  background: #f9fafb;
-}
-
-.form-control-sm,
-.form-select-sm {
-  font-size: 0.875rem;
-  padding: 0.375rem 0.5rem;
-  border: 1px solid #d1d5db;
-}
-
-.form-control-sm:disabled,
-.form-select-sm:disabled {
-  background-color: #f3f4f6;
-  border-color: #e5e7eb;
-  color: #4b5563;
-}
-
-.btn-group-sm > .btn {
-  padding: 0.375rem 0.625rem;
-  font-size: 0.8rem;
-}
-
-.btn-success {
-  background-color: #10b981;
-  border-color: #10b981;
-  color: white;
-}
-
-.btn-success:hover {
-  background-color: #059669;
-  border-color: #059669;
-}
-
-.btn-danger {
-  background-color: #ef4444;
-  border-color: #ef4444;
-  color: white;
-}
-
-.btn-danger:hover {
-  background-color: #dc2626;
-  border-color: #dc2626;
-}
-
-/* Party Card Styling */
-.party-card {
-  transition: all 0.3s ease;
-  border: 1px solid #e5e7eb;
-}
-
-.party-card:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-  transform: translateY(-2px);
-}
-
-.party-card .card-header {
-  padding: 1.25rem;
-  border-bottom: 2px solid rgba(255, 255, 255, 0.2);
-}
-
-.bg-gradient-primary {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
-}
-
-.bg-gradient-success {
-  background: linear-gradient(135deg, #28a745 0%, #1e8e3e 100%) !important;
-}
-
-.bg-gradient-info {
-  background: linear-gradient(135deg, #17a2b8 0%, #0f7b8f 100%) !important;
-}
-
-.bg-gradient-warning {
-  background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%) !important;
-}
-
-.bg-gradient-secondary {
-  background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%) !important;
-}
-
-.info-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  padding: 0.5rem 0;
-  border-bottom: 1px solid #e5e7eb;
-}
-
-.info-row:last-child {
-  border-bottom: none;
-}
-
-.info-label {
-  color: #666;
-  font-size: 0.9rem;
-  font-weight: 500;
-  min-width: 120px;
-}
-
-.info-value {
-  color: #222;
-  font-weight: 500;
-  text-align: right;
-}
-
-.border-top-primary {
-  border-top: 3px solid #3b82f6 !important;
-}
-
-.text-end {
-  text-align: right;
-}
-
-.fw-bold {
-  font-weight: 600;
-}
-
-.fs-5 {
-  font-size: 1.25rem;
-}
-
-.d-flex {
-  display: flex;
-}
-
-.justify-content-between {
-  justify-content: space-between;
-}
-
-.justify-content-center {
   justify-content: center;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: white;
 }
-
-.align-items-center {
-  align-items: center;
-}
-
-.align-items-start {
-  align-items: flex-start;
-}
-
-.me-1 { margin-right: 0.25rem; }
-.me-2 { margin-right: 0.5rem; }
-.me-3 { margin-right: 1rem; }
-.ms-1 { margin-left: 0.25rem; }
-.ms-2 { margin-left: 0.5rem; }
-.ms-4 { margin-left: 1.5rem; }
-.mb-0 { margin-bottom: 0; }
-.mb-1 { margin-bottom: 0.25rem; }
-.mb-2 { margin-bottom: 0.5rem; }
-.mb-3 { margin-bottom: 1rem; }
-.mb-4 { margin-bottom: 1.5rem; }
-.mt-2 { margin-top: 0.5rem; }
-.mt-3 { margin-top: 1rem; }
-.mt-4 { margin-top: 1.5rem; }
-.p-5 { padding: 3rem; }
 
 .timeline {
   position: relative;
@@ -1244,65 +871,182 @@ onMounted(async () => {
   display: none;
 }
 
-.stat-box {
-  text-align: center;
-  padding: 1rem;
-  background: #f9fafb;
-  border-radius: 6px;
-}
-
-.stat-value {
+.h4 {
   font-size: 1.5rem;
   font-weight: 600;
-  color: #3b82f6;
 }
 
-.stat-label {
-  font-size: 0.85rem;
-  color: #666;
-  margin-top: 0.5rem;
-}
-
-.upload-area {
-  border: 2px dashed #e5e7eb;
-  transition: all 0.3s;
-  cursor: pointer;
-}
-
-.upload-area:hover {
-  border-color: #3b82f6;
-  background: #f0f7ff;
-}
-
-.progress {
-  border-radius: 4px;
-  background: #e5e7eb;
-}
-
-.progress-bar {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.h5 {
+  font-size: 1.25rem;
   font-weight: 600;
+}
+
+.h6 {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  margin-right: -0.5rem;
+  margin-left: -0.5rem;
+}
+
+.col-md-2 {
+  flex: 0 0 calc(16.6666% - 1rem);
+  margin: 0.5rem;
+}
+
+.col-md-3 {
+  flex: 0 0 calc(25% - 1rem);
+  margin: 0.5rem;
+}
+
+.col-md-4 {
+  flex: 0 0 calc(33.3333% - 1rem);
+  margin: 0.5rem;
+}
+
+.col-md-6 {
+  flex: 0 0 calc(50% - 1rem);
+  margin: 0.5rem;
+}
+
+.g-2 { gap: 0.5rem; }
+.g-3 { gap: 1rem; }
+
+.w-100 {
+  width: 100%;
+}
+
+.mb-0 { margin-bottom: 0; }
+.mb-1 { margin-bottom: 0.25rem; }
+.mb-2 { margin-bottom: 0.5rem; }
+.mb-3 { margin-bottom: 1rem; }
+.mb-4 { margin-bottom: 1.5rem; }
+.mt-2 { margin-top: 0.5rem; }
+.mt-3 { margin-top: 1rem; }
+.mt-4 { margin-top: 1.5rem; }
+.me-1 { margin-right: 0.25rem; }
+.me-2 { margin-right: 0.5rem; }
+.me-3 { margin-right: 1rem; }
+.ms-1 { margin-left: 0.25rem; }
+.ms-4 { margin-left: 1.5rem; }
+.pt-2 { padding-top: 0.5rem; }
+
+.btn {
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.btn-primary { background: #3b82f6; color: white; }
+.btn-success { background: #10b981; color: white; }
+.btn-warning { background: #f59e0b; color: white; }
+.btn-danger { background: #ef4444; color: white; }
+.btn-info { background: #0ea5e9; color: white; }
+.btn-secondary { background: #6b7280; color: white; }
+
+.btn:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.btn-sm {
+  padding: 0.375rem 0.625rem;
   font-size: 0.85rem;
-  color: white;
 }
 
-.sticky-top {
-  position: sticky;
-  top: 20px;
-}
-
-h5, h6 {
+.alert {
+  padding: 1rem;
+  border-radius: 4px;
+  border: none;
   margin-bottom: 1rem;
 }
 
-small {
-  font-size: 0.85rem;
+.alert-info {
+  background: #d1ecf1;
+  color: #0c5460;
 }
 
-.text-success { color: #10b981; }
-.text-warning { color: #f59e0b; }
-.text-danger { color: #ef4444; }
-.text-info { color: #0ea5e9; }
+.alert-danger {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.fw-bold {
+  font-weight: 600;
+}
+
+.text-center {
+  text-align: center;
+}
+
+.text-end {
+  text-align: right;
+}
+
+/* Header Card Styles */
+.header-card {
+  background: white;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+/* Tab Navigation Styles */
+.tab-navigation {
+  display: flex;
+  gap: 0;
+  border-top: 2px solid #e2e8f0;
+  padding: 0;
+  background: white;
+  overflow-x: auto;
+  flex-wrap: nowrap;
+}
+
+.tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 16px;
+  background: white;
+  border: none;
+  border-bottom: 3px solid transparent;
+  color: #64748b;
+  font-weight: 500;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.tab-btn:hover {
+  color: #2563eb;
+  background: #f8fafc;
+}
+
+.tab-btn.active {
+  color: #2563eb;
+  border-bottom-color: #2563eb;
+  background: #eff6ff;
+}
+
+.tab-btn .badge {
+  background: #dbeafe;
+  color: #1e40af;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 12px;
+  font-weight: 600;
+}
+
 </style>
