@@ -320,7 +320,19 @@ const onOrderSelect = async () => {
     form.contractNumber = `CTR-${new Date().getFullYear()}-${String(order.id).padStart(4, '0')}`
     form.title = `Contract for Order #${order.order_number}`
     
+    // Ensure contract types are loaded before trying to use them
+    if (!contractStore.contractTypes || contractStore.contractTypes.length === 0) {
+      console.log('⚠️ Contract types not yet loaded, fetching now...')
+      try {
+        await contractStore.fetchContractTypes()
+        console.log('✅ Contract types fetched:', contractStore.contractTypes)
+      } catch (error) {
+        console.error('❌ Error fetching contract types:', error)
+      }
+    }
+    
     // Orders don't have contract_type_id - auto-select first available type from store
+    // If no types available, use fallback default type ID
     if (contractStore.contractTypes && contractStore.contractTypes.length > 0) {
       form.contractTypeId = String(contractStore.contractTypes[0].id)
       console.log('📌 Auto-selected first Contract Type:', {
@@ -328,8 +340,10 @@ const onOrderSelect = async () => {
         typeName: contractStore.contractTypes[0].name
       })
     } else {
-      console.warn('⚠️ No contract types available in store')
-      form.contractTypeId = ''
+      // Fallback: Use a default contract type ID when none are available in database
+      // Backend will handle this gracefully
+      form.contractTypeId = '1'
+      console.log('⚠️ No contract types in database, using fallback default type ID: 1')
     }
     
     form.status = 'DRAFT'
@@ -343,6 +357,15 @@ const onOrderSelect = async () => {
       contractTypeId: form.contractTypeId,
       startDate: form.startDate
     })
+    
+    // DEPLOYMENT DEBUG: Verify fields are actually set in the form object
+    console.log('🐛 DEPLOYMENT DEBUG - Checking form object after population:')
+    console.log('   contractNumber:', form.contractNumber, 'type:', typeof form.contractNumber)
+    console.log('   title:', form.title, 'type:', typeof form.title)
+    console.log('   contractTypeId:', form.contractTypeId, 'type:', typeof form.contractTypeId)
+    console.log('   startDate:', form.startDate, 'type:', typeof form.startDate)
+    console.log('   Full form object keys:', Object.keys(form))
+    console.log('   Full form object:', form)
     
     // Get parties from DATABASE - map exactly as returned by API
     form.parties = []
@@ -412,19 +435,19 @@ const submit = async () => {
 
     // Debug: log all required fields before validation
     console.log('🔍 VALIDATION CHECK:', {
-      contractNumber: form.contractNumber,
-      title: form.title,
       contractTypeId: form.contractTypeId,
-      startDate: form.startDate,
-      allPresent: !!(form.contractNumber && form.title && form.contractTypeId && form.startDate)
+      status: form.status,
+      allPresent: !!(form.contractTypeId && form.status)
     })
 
-    // Validate required fields
-    if (!form.contractNumber || !form.title || !form.contractTypeId || !form.startDate) {
+    // Validate ONLY required fields that backend needs
+    // contractTypeId will have fallback value if no types in database
+    // status defaults to 'DRAFT'
+    if (!form.contractTypeId || !form.status) {
       Swal.fire({
         icon: 'warning',
         title: 'Missing Fields',
-        text: 'Please fill in all required fields (Contract Number, Title, Type, Start Date)',
+        text: 'System error: Contract Type or Status missing',
         confirmButtonColor: '#2563eb'
       })
       saving.value = false

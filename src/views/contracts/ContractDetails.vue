@@ -11,6 +11,11 @@
         <p class="subtitle">View complete contract information</p>
       </div>
       <div class="head-actions">
+        <button class="btn btn-outline-primary" @click="downloadContractPdf" :disabled="downloadingPdf" type="button">
+          <span v-if="downloadingPdf" class="spinner-border spinner-border-sm me-2"></span>
+          <i v-else class="fa fa-file-pdf me-2"></i>
+          {{ downloadingPdf ? 'Downloading...' : 'Download PDF' }}
+        </button>
         <button class="btn btn-secondary" @click="goBack" type="button">
           <i class="fa fa-arrow-left me-2"></i> Back
         </button>
@@ -233,6 +238,7 @@ const appOptionStore = useAppOptionStore()
 
 // Sidebar state
 const originalSidebarState = ref(false)
+const downloadingPdf = ref(false)
 
 // State
 const contract = computed(() => contractStore.currentContract)
@@ -305,95 +311,6 @@ const editContract = () => {
   router.push({ name: 'contracts-edit', params: { id: contract.value.id } })
 }
 
-const downloadPdf = () => {
-  try {
-    const doc = new jsPDF()
-    const pageWidth = doc.internal.pageSize.getWidth()
-    const pageHeight = doc.internal.pageSize.getHeight()
-    const margin = 15
-    let yPos = margin
-
-    // Header
-    doc.setFillColor(13, 110, 253)
-    doc.rect(0, 0, pageWidth, 40, 'F')
-    doc.setTextColor(255, 255, 255)
-    doc.setFontSize(24)
-    doc.setFont('Arial', 'bold')
-    doc.text('CONTRACT', margin, 18)
-    doc.setTextColor(200, 200, 200)
-    doc.setFontSize(10)
-    doc.text(`${contract.value.contract_number}`, margin, 28)
-
-    doc.setTextColor(0, 0, 0)
-    yPos = 50
-
-    // Contract Information
-    doc.setFontSize(12)
-    doc.setFont('Arial', 'bold')
-    doc.text('Contract Information', margin, yPos)
-    yPos += 10
-
-    doc.setFontSize(10)
-    doc.setFont('Arial', 'normal')
-    const info = [
-      ['Title:', contract.value.title],
-      ['Type:', getContractTypeName()],
-      ['Status:', contract.value.status],
-      ['Start Date:', formatDate(contract.value.start_date)],
-      ['End Date:', formatDate(contract.value.end_date)],
-      ['Governing Law:', contract.value.governing_law || 'N/A'],
-      ['Jurisdiction:', contract.value.jurisdiction || 'N/A']
-    ]
-
-    info.forEach(([label, value]) => {
-      doc.setFont('Arial', 'bold')
-      doc.text(label, margin, yPos)
-      doc.setFont('Arial', 'normal')
-      doc.text(String(value), margin + 50, yPos)
-      yPos += 8
-    })
-
-    // Parties
-    if (contract.value.parties && contract.value.parties.length > 0) {
-      yPos += 5
-      doc.setFontSize(12)
-      doc.setFont('Arial', 'bold')
-      doc.text('Parties', margin, yPos)
-      yPos += 8
-
-      const partiesData = contract.value.parties.map((p: any) => [
-        p.role,
-        p.entity?.full_name || p.contact_name || 'N/A',
-        p.contact_email || 'N/A',
-        p.contact_phone || 'N/A'
-      ])
-
-      ;(doc as any).autoTable({
-        startY: yPos,
-        head: [['Role', 'Entity', 'Email', 'Phone']],
-        body: partiesData,
-        theme: 'grid',
-        margin: margin,
-        styles: { fontSize: 9 }
-      })
-    }
-
-    // Footer
-    const pageCount = (doc as any).internal.pages.length - 1
-    doc.setTextColor(150, 150, 150)
-    doc.setFontSize(8)
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i)
-      doc.text(`Page ${i} of ${pageCount}`, pageWidth / 2, pageHeight - 10, { align: 'center' })
-    }
-
-    doc.save(`contract-${contract.value.contract_number}.pdf`)
-    init({ message: 'Contract PDF downloaded successfully', color: 'success' })
-  } catch (err: any) {
-    init({ message: 'Error downloading PDF: ' + err.message, color: 'danger' })
-  }
-}
-
 const downloadVersionPdf = (version: any) => {
   init({ message: 'Downloading version ' + version.version_no + ' PDF...', color: 'info' })
   // Implementation for downloading specific version
@@ -435,6 +352,45 @@ const navigateToObject = (link: any) => {
 
 const goBack = () => {
   router.back()
+}
+// PDF Download
+const downloadContractPdf = async () => {
+  const contractId = route.params.id
+  if (!contractId) return
+
+  downloadingPdf.value = true
+  try {
+    const response = await fetch(
+      `${import.meta.env.VITE_APP_BASE_URL}contract-management/${contractId}/contract-pdf`,
+      { headers: { 'Content-Type': 'application/json' } }
+    )
+
+    const data = await response.json()
+    if (data?.success && data?.pdf) {
+      const byteCharacters = atob(data.pdf)
+      const byteNumbers = new Array(byteCharacters.length)
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i)
+      }
+      const byteArray = new Uint8Array(byteNumbers)
+      const blob = new Blob([byteArray], { type: 'application/pdf' })
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `contract-${contractId}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+    } else {
+      Swal.fire('Error', data?.message || 'Failed to generate contract PDF', 'error')
+    }
+  } catch (error) {
+    console.error('Error downloading contract PDF:', error)
+    Swal.fire('Error', 'Failed to download contract PDF', 'error')
+  } finally {
+    downloadingPdf.value = false
+  }
 }
 
 // Lifecycle

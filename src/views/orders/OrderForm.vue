@@ -1269,8 +1269,9 @@ const calculateTotalOrderAmount = (): number => {
 const filteredQuotations = computed(() => {
   if (!form.enquiryId) return []
   return quotations.value.filter((q: any) =>
-    q.enquiry_id === parseInt(form.enquiryId) ||
-    q.sales_enquiry_id === parseInt(form.enquiryId)
+    (q.enquiry_id === parseInt(form.enquiryId) ||
+    q.sales_enquiry_id === parseInt(form.enquiryId)) &&
+    (q.status === 'LOCKED' || q.status === 'locked')
   )
 })
 
