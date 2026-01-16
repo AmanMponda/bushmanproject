@@ -73,13 +73,7 @@
               :disable-search="false"
               :disable-pagination="false" 
               :action-buttons="combinedActions" 
-              :show-date-filters="false"
-              :custom-filters="tableFilters">
-              <template #entry_type="{ row }">
-                <span class="badge" :class="row.entry_type === 'Type' ? 'bg-info' : 'bg-primary'">
-                  {{ row.entry_type }}
-                </span>
-              </template>
+              :show-date-filters="false">
 
               <template #parent_type="{ row }">
                 <span v-if="row.parent_type" class="text-muted">{{ row.parent_type }}</span>
@@ -124,8 +118,7 @@ const dimensionTypes = ref<any[]>([])
 const dimensionValues = ref<any[]>([])
 
 const showForm = ref(false)
-const formType = ref<'type' | 'value'>('type')
-const selectedFilter = ref<string>('')
+const formType = ref('value')
 
 const unifiedForm = ref({
   dimension_type_id: null as number | null,
@@ -134,63 +127,25 @@ const unifiedForm = ref({
   is_active: true,
 })
 
-// Combined data from both types and values
+// Combined data from dimension values only (hide types)
 const combinedData = computed(() => {
-  const types = dimensionTypes.value.map(t => ({
-    ...t,
-    entry_type: 'Type',
-    parent_type: null,
-    _sort_order: 0,
-  }))
-  
   const values = dimensionValues.value.map(v => ({
     ...v,
-    entry_type: 'Value',
     parent_type: v.typeName,
-    _sort_order: 1,
   }))
-  
-  let combined = [...types, ...values]
-  
-  // Apply filter if selected
-  if (selectedFilter.value) {
-    if (selectedFilter.value === 'Type') {
-      combined = types
-    } else if (selectedFilter.value === 'Value') {
-      combined = values
-    }
-  }
-  
-  return combined.sort((a, b) => {
-    if (a._sort_order !== b._sort_order) return a._sort_order - b._sort_order
+ 
+  return values.sort((a, b) => {
     return (a.name || '').localeCompare(b.name || '')
   })
 })
 
 // Columns for combined table
 const combinedColumns = [
-  { key: 'entry_type', label: 'Type', sortable: true, visible: true },
-  { key: 'parent_type', label: 'Parent Type', sortable: true, visible: true },
+  { key: 'parent_type', label: 'Type', sortable: true, visible: true },
   { key: 'code', label: 'Code', sortable: true, visible: true },
   { key: 'name', label: 'Name', sortable: true, visible: true },
   { key: 'is_active', label: 'Status', sortable: true, visible: true },
 ]
-
-// Custom filters for the table
-const tableFilters = computed(() => [
-  {
-    key: 'entry_type_filter',
-    label: 'Filter by Type',
-    type: 'select',
-    placeholder: 'All Entries',
-    options: [
-      { value: '', label: 'All Entries' },
-      { value: 'Type', label: 'Dimension Types Only' },
-      { value: 'Value', label: 'Dimension Values Only' },
-    ],
-    defaultValue: '',
-  }
-])
 
 // Combined action buttons
 const combinedActions = computed(() => [

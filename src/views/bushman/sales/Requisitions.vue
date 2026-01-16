@@ -72,6 +72,7 @@ type Requisition = {
   handler: string
   remarks: string
   status: RequisitionStatus
+  statusLabel?: string
   items: RequisitionItem[]
   approvals: ApprovalRecord[]
   currencyId: number | null
@@ -658,6 +659,7 @@ const mapRequisition = (req: any): Requisition => {
       'Unknown',
     remarks: req.remarks || '',
     status: req.status || 'DRAFT',
+    statusLabel: req.status_label || req.statusLabel || req.status || 'DRAFT',
     items: mapItems(req.items || []),
     approvals: (req.approvals || []).map(mapApproval),
     currencyId:
@@ -1506,7 +1508,7 @@ onUnmounted(() => {
                   :loading="loadingList"
                   :filters="tableFilters"
                   :action-buttons="tableActionButtons"
-                  :default-page-size="tableFilters.pageSize"
+                  :default-page-size=100
                   :disable-pagination="false"
                   :show-date-filters="false"
                   :custom-filters="customFilters"
@@ -1514,7 +1516,7 @@ onUnmounted(() => {
                 >
                   <template #status="{ row }">
                     <span :class="statusBadgeClass((row as any).status)">
-                      {{ (row as any).status }}
+                      {{ (row as any).statusLabel || (row as any).status }}
                     </span>
                   </template>
                   <template #date="{ row }">
