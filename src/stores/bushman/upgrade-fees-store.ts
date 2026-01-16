@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import axios from 'axios'
 
-const baseUrl = `${import.meta.env.VITE_APP_BASE_URL}settings/upgrade-fees/`
+const baseUrl = `${import.meta.env.VITE_APP_BASE_URL}settings/upgrade-fees`
 
 export const useUpgradeFeesStore = defineStore('upgradeFees', {
   state: () => {
@@ -35,7 +35,7 @@ export const useUpgradeFeesStore = defineStore('upgradeFees', {
     async getUpgradeFeeById(id: number) {
       const config = {
         method: 'get',
-        url: `${baseUrl}${id}/`,
+        url: `${baseUrl}/${id}`,
         headers: {
           'Content-Type': 'application/json',
         },
@@ -60,7 +60,7 @@ export const useUpgradeFeesStore = defineStore('upgradeFees', {
     async updateUpgradeFee(id: number, payload: any) {
       const config = {
         method: 'put',
-        url: `${baseUrl}${id}/`,
+        url: `${baseUrl}/${id}`,
         data: payload,
         headers: {
           'Content-Type': 'application/json',
@@ -73,7 +73,7 @@ export const useUpgradeFeesStore = defineStore('upgradeFees', {
     async deleteUpgradeFeeById(id: number) {
       const config = {
         method: 'delete',
-        url: `${baseUrl}${id}/`,
+        url: `${baseUrl}/${id}`,
         headers: {
           'Content-Type': 'application/json',
         },

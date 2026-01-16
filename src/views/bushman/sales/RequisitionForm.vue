@@ -76,7 +76,7 @@ const sourceSelection = computed<string | null>({
     const [type, idValue] = value.split(':')
     const parsedId = Number(idValue || 0) || null
     source.sourceType = type as any
-    
+
     // Auto-populate payee based on source selection
     if (type === 'CASH') {
       source.accountId = parsedId
@@ -163,7 +163,7 @@ const groupedDimensionOptions = computed(() => {
 
 const itemAccountOptions = computed(() => {
   const options: any[] = []
-  
+
   // Items group
   if (itemsOptions.value && itemsOptions.value.length > 0) {
     options.push({ label: '📦 Items', value: null, $isDisabled: true, isHeader: true })
@@ -177,7 +177,7 @@ const itemAccountOptions = computed(() => {
       })
     })
   }
-  
+
   // Accounts group
   if (accounts.value && accounts.value.length > 0) {
     options.push({ label: '💰 Accounts', value: null, $isDisabled: true, isHeader: true })
@@ -191,7 +191,7 @@ const itemAccountOptions = computed(() => {
       })
     })
   }
-  
+
   return options
 })
 
@@ -279,7 +279,7 @@ const filterSourceOptions = (options: any[], search: string) => {
       // Show header if any child items match
       const headerType = option.label.includes('Cash') ? 'cash'
         : option.label.includes('Store') ? 'store'
-        : 'party'
+          : 'party'
       return options.some((opt: any) => {
         if (opt.isHeader) return false
         const optType = opt.value?.split(':')[0]?.toLowerCase()
@@ -463,7 +463,7 @@ const onMainItemChange = (item: any) => {
 
 }
 
-// Check if an item has child materials (BOM structure)
+// Check if an item has child materials 
 const getItemHasMaterials = (itemId: number | null) => {
   if (!itemId) return false
   const selectedItem = (itemsOptions.value || []).find((i: any) => i.id === itemId)
@@ -471,7 +471,7 @@ const getItemHasMaterials = (itemId: number | null) => {
   return selectedItem?.has_materials || selectedItem?.has_children || selectedItem?.is_parent || false
 }
 
-// Toggle item expansion - only one item expanded at a time (accordion behavior)
+// Toggle item expansion - only one item expanded at a time
 const toggleItemExpansion = (item: any, itemIndex: number) => {
   if (!form.value.items || form.value.items.length <= 1) return
 
@@ -526,7 +526,7 @@ const removeCostCenter = (item: any, key: string) => {
 // Shared cost centers at requisition level (each cost center contains items)
 const addRequisitionCostCenter = () => {
   if (!form.value.costCenters) form.value.costCenters = []
-  form.value.costCenters.push({ _key: makeKey(), costCenterId: null, items: [], _expanded: true })
+  form.value.costCenters.unshift({ _key: makeKey(), costCenterId: null, items: [], _expanded: true })
 }
 
 const removeRequisitionCostCenter = (key: string) => {
@@ -541,7 +541,7 @@ const toggleCostCenter = (cc: any) => {
 const addItemToCostCenter = (cc: any) => {
   if (!cc.costCenterId) return
   if (!cc.items) cc.items = []
-  cc.items.push({
+  cc.items.unshift({
     _key: makeKey(),
     itemId: null,
     unitId: null,
@@ -740,9 +740,9 @@ const onItemAccountSelect = (line: any, value: string | null) => {
                 <span class="section-icon"><i class="fa fa-calculator"></i></span>
                 Summary
               </div> -->
-<!-- 
+            <!-- 
               <div class="summary-row total"> -->
-                <!-- <span class="summary-label">Grand Total</span>
+            <!-- <span class="summary-label">Grand Total</span>
                 <span class="summary-value">{{ getCurrencySymbol() }}{{ formatAmount(grandTotal) }}</span>
               </div> -->
             <!-- </div> -->
@@ -754,7 +754,8 @@ const onItemAccountSelect = (line: any, value: string | null) => {
           <div class="panel-header center-header">
             <div class="panel-icon"><i class="fa fa-list-alt"></i></div>
             <div class="panel-title-text">
-              <h3>Line Items & Sources</h3>            </div>
+              <h3>Line Items & Sources</h3>
+            </div>
           </div>
 
           <!-- Tab Navigation -->
@@ -793,20 +794,11 @@ const onItemAccountSelect = (line: any, value: string | null) => {
                       <i class="fa fa-chevron-down"></i>
                     </span>
                     <span class="cc-number">#{{ ccIndex + 1 }}</span>
-                    <v-select
-                      v-model="cc.costCenterId"
-                      class="v-select-field v-select-grouped cost-center-select"
-                      :options="costCenterOptions"
-                      :reduce="(opt) => opt.value"
-                      :filterable="true"
-                      :filter="filterGroupedOptions"
-                      :selectable="isSelectableOption"
-                      :append-to-body="true"
-                      :calculate-position="dropdownPosition"
-                      label="label"
-                      placeholder="🔍 Search cost center..."
-                      @click.stop
-                    >
+                    <v-select v-model="cc.costCenterId" class="v-select-field v-select-grouped cost-center-select"
+                      :options="costCenterOptions" :reduce="(opt) => opt.value" :filterable="true"
+                      :filter="filterGroupedOptions" :selectable="isSelectableOption" :append-to-body="true"
+                      :calculate-position="dropdownPosition" label="label" placeholder="🔍 Search cost center..."
+                      @click.stop>
                       <template #option="{ label, isHeader }">
                         <div :class="{ 'cost-center-header': isHeader, 'cost-center-option': !isHeader }">
                           {{ label }}
@@ -815,16 +807,14 @@ const onItemAccountSelect = (line: any, value: string | null) => {
                     </v-select>
                   </div>
                   <div class="cost-center-actions">
-                    <span class="cc-total">Total Amount: {{ getCurrencySymbol() }}{{ formatAmount(getCostCenterTotal(cc)) }}</span>
-                    <button
-                      type="button"
-                      class="btn btn-sm btn-success me-2"
-                      :disabled="!cc.costCenterId"
-                      @click.stop="addItemToCostCenter(cc)"
-                    >
+                    <span class="cc-total">Total Amount: {{ getCurrencySymbol() }}{{
+                      formatAmount(getCostCenterTotal(cc)) }}</span>
+                    <button type="button" class="btn btn-sm btn-success me-2" :disabled="!cc.costCenterId"
+                      @click.stop="addItemToCostCenter(cc)">
                       <i class="fa fa-plus me-1"></i> Add Item
                     </button>
-                    <button type="button" class="btn btn-sm btn-outline-danger" @click.stop="removeRequisitionCostCenter(cc._key)">
+                    <button type="button" class="btn btn-sm btn-outline-danger"
+                      @click.stop="removeRequisitionCostCenter(cc._key)">
                       <i class="fa fa-trash"></i>
                     </button>
                   </div>
@@ -850,20 +840,12 @@ const onItemAccountSelect = (line: any, value: string | null) => {
                           <td class="text-center">{{ itemIndex + 1 }}</td>
 
                           <td>
-                            <v-select
-                              class="v-select-sm v-select-grouped"
-                              :modelValue="getItemAccountSelection(item)"
-                              :options="itemAccountOptions"
-                              :reduce="(opt) => opt.value"
-                              :filterable="true"
-                              :filter="filterItemAccountOptions"
-                              :selectable="(opt) => !opt.isHeader"
-                              :append-to-body="true"
-                              :calculate-position="dropdownPosition"
-                              label="label"
+                            <v-select class="v-select-sm v-select-grouped" :modelValue="getItemAccountSelection(item)"
+                              :options="itemAccountOptions" :reduce="(opt) => opt.value" :filterable="true"
+                              :filter="filterItemAccountOptions" :selectable="(opt) => !opt.isHeader"
+                              :append-to-body="true" :calculate-position="dropdownPosition" label="label"
                               placeholder="🔍 Search..."
-                              @update:modelValue="(value) => onItemAccountSelect(item, value)"
-                            >
+                              @update:modelValue="(value) => onItemAccountSelect(item, value)">
                               <template #option="{ option, label, isHeader }">
                                 <div :class="{ 'item-header': isHeader, 'item-option': !isHeader }">
                                   <span class="item-name">{{ option && option.name ? option.name : label }}</span>
@@ -876,23 +858,28 @@ const onItemAccountSelect = (line: any, value: string | null) => {
                           <td>
                             <select v-model="item.unitId" class="form-control form-control-sm">
                               <option :value="null">Unit...</option>
-                              <option v-for="unit in unitsOptions" :key="unit.id" :value="unit.id">{{ unit.name }}</option>
+                              <option v-for="unit in unitsOptions" :key="unit.id" :value="unit.id">{{ unit.name }}
+                              </option>
                             </select>
                           </td>
 
                           <td>
-                            <input v-model.number="item.quantity" type="number" min="0" step="1" class="form-control form-control-sm text-end" placeholder="0" />
+                            <input v-model.number="item.quantity" type="number" min="0" step="1"
+                              class="form-control form-control-sm text-end" placeholder="0" />
                           </td>
 
                           <td>
-                            <input v-model.number="item.rate" type="number" min="0" step="0.01" class="form-control form-control-sm text-end" placeholder="0.00" />
+                            <input v-model.number="item.rate" type="number" min="0" step="0.01"
+                              class="form-control form-control-sm text-end" placeholder="0.00" />
                           </td>
 
                           <td class="text-end">
-                            <strong>{{ getCurrencySymbol() }}{{ formatAmount((item.quantity || 0) * (item.rate || 0)) }}</strong>
+                            <strong>{{ getCurrencySymbol() }}{{ formatAmount((item.quantity || 0) * (item.rate || 0))
+                              }}</strong>
                           </td>
                           <td class="text-center">
-                            <button type="button" class="btn btn-xs btn-outline-danger" @click="removeItemFromCostCenter(cc, item._key)">
+                            <button type="button" class="btn btn-xs btn-outline-danger"
+                              @click="removeItemFromCostCenter(cc, item._key)">
                               <i class="fa fa-trash"></i>
                             </button>
                           </td>
@@ -901,7 +888,8 @@ const onItemAccountSelect = (line: any, value: string | null) => {
                     </table>
                   </div>
                   <div v-else class="empty-items-state">
-                    <span class="text-muted small">No items yet. Click "Add Item" to add items to this cost center.</span>
+                    <span class="text-muted small">No items yet. Click "Add Item" to add items to this cost
+                      center.</span>
                   </div>
                 </div>
               </div>
@@ -931,7 +919,7 @@ const onItemAccountSelect = (line: any, value: string | null) => {
             <div class="form p-4">
               <div class="form-section">
 
-                
+
                 <div class="row mb-3">
                   <div class="col-12">
                     <label class="field">
@@ -954,21 +942,11 @@ const onItemAccountSelect = (line: any, value: string | null) => {
                     <span class="lbl">Source</span>
                     <div class="input-wrapper has-v-select">
                       <span class="input-icon"><i class="fa fa-building"></i></span>
-                      <v-select
-                        ref="sourceSelect"
-                        v-model="sourceSelection"
-                        class="v-select-field v-select-grouped"
-                        :options="sourceOptions"
-                        :reduce="(opt) => opt.value"
-                        :filterable="true"
-                        :filter="filterSourceOptions"
-                        :selectable="(opt) => !opt.isHeader"
-                        :append-to-body="true"
-                        :calculate-position="dropdownPosition"
-                        @search="onSourceSearch"
-                        label="label"
-                        placeholder="Search or select source..."
-                      >
+                      <v-select ref="sourceSelect" v-model="sourceSelection" class="v-select-field v-select-grouped"
+                        :options="sourceOptions" :reduce="(opt) => opt.value" :filterable="true"
+                        :filter="filterSourceOptions" :selectable="(opt) => !opt.isHeader" :append-to-body="true"
+                        :calculate-position="dropdownPosition" @search="onSourceSearch" label="label"
+                        placeholder="Search or select source...">
                         <template #option="{ label, isHeader }">
                           <div :class="{ 'source-header': isHeader, 'source-option': !isHeader }">
                             {{ label }}
@@ -981,7 +959,8 @@ const onItemAccountSelect = (line: any, value: string | null) => {
                   <label class="field col-md-6">
                     <span class="lbl">
                       Payee
-                      <span v-if="form.source.sourceType === 'VENDOR' || form.source.sourceType === 'SERVICE_PROVIDER'" class="req">*</span>
+                      <span v-if="form.source.sourceType === 'VENDOR' || form.source.sourceType === 'SERVICE_PROVIDER'"
+                        class="req">*</span>
                     </span>
                     <div class="input-wrapper">
                       <span class="input-icon"><i class="fa fa-user"></i></span>

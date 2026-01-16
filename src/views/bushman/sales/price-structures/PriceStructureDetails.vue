@@ -230,14 +230,14 @@
             <tbody>
               <tr v-for="fee in filteredUpgradeFees" :key="fee.id">
                 <td>
-                  <div class="item-name">{{ fee.package_name || '-' }}</div>
+                  <div class="item-name">{{ resolveUpgradeFeePackageName(fee) }}</div>
                 </td>
                 <td>
-                  <div class="item-name">{{ fee.species_name || 'N/A' }}</div>
+                  <div class="item-name">{{ fee.species?.name || fee.species_name || 'N/A' }}</div>
                 </td>
                 <td class="text-muted">{{ fee.trigger_condition || '-' }}</td>
                 <td class="text-end">
-                  <span class="amount">{{ fee.amount || '0.00' }}</span>
+                  <span class="amount">{{ formatUpgradeFeeAmount(fee) }}</span>
                 </td>
                 <td class="text-center">
                   <button class="btn-icon btn-danger" @click="deleteUpgradeFee(fee)" title="Delete">
@@ -398,11 +398,16 @@ const filteredUpgradeFees = computed(() => {
 
   const term = searchTerm.value.toLowerCase()
   return fees.filter((fee: any) =>
+    resolveUpgradeFeePackageName(fee).toLowerCase().includes(term) ||
     fee.species?.name?.toLowerCase().includes(term) ||
     fee.species_name?.toLowerCase().includes(term) ||
     fee.trigger_condition?.toLowerCase().includes(term) ||
     fee.notes?.toLowerCase().includes(term) ||
-    fee.fee_amount?.toString().includes(term)
+    fee.fee_amount?.toString().includes(term) ||
+    fee.amount?.toString().includes(term) ||
+    fee.currency?.toLowerCase()?.includes(term) ||
+    fee.currency?.code?.toLowerCase().includes(term) ||
+    fee.currency?.name?.toLowerCase().includes(term)
   )
 })
 
@@ -411,8 +416,81 @@ const refresh = async () => {
   try {
     await store.get(props.id)
     structure.value = store.current
+    const upgradeFeesResponse = await store.listUpgradeFees({
+      price_structure_id: props.id,
+      per_page: 1000
+    })
+
+    // Normalize response: support paginated { data: { data: [...] } } and plain arrays
+    const raw = upgradeFeesResponse.data?.data ?? upgradeFeesResponse.data ?? []
+    let entries: any[] = []
+    if (Array.isArray(raw)) {
+      entries = raw
+    } else if (Array.isArray(raw.data)) {
+      entries = raw.data
+    } else {
+      entries = []
+    }
+
+    // Flatten groups (grouped by sales package) into individual fee rows
+    const flattened: any[] = []
+    entries.forEach((group: any) => {
+      // If group contains upgrade_rows (grouped response), flatten each row
+      if (Array.isArray(group.upgrade_rows) && group.upgrade_rows.length > 0) {
+        group.upgrade_rows.forEach((row: any, idx: number) => {
+          const normalized: any = {
+            // Preserve backend-provided fields and add package-level context
+            ...row,
+            id: row.id ?? row.price_structure_detail_id ?? `${group.id}_${idx}`,
+            package_id: row.package_id ?? group.id,
+            package_name: row.package_name ?? group.name
+          }
+
+          // Normalize species: backend may send species as a string or object
+          if (typeof row.species === 'string') {
+            normalized.species_name = row.species
+            normalized.species = { name: row.species }
+          } else if (row.species && typeof row.species === 'object') {
+            normalized.species_name = row.species.name ?? row.species_name ?? ''
+            // ensure species is an object with name
+            normalized.species = { name: row.species.name ?? row.species_name ?? '' }
+          } else {
+            normalized.species_name = row.species_name ?? ''
+          }
+
+          flattened.push(normalized)
+        })
+      } else {
+        // If group already looks like a single fee row, include it
+        if (group.species_id || group.amount || group.fee_amount) {
+          const normalizedGroup: any = {
+            ...group,
+            id: group.id ?? group.price_structure_detail_id ?? group.id
+          }
+
+          if (typeof group.species === 'string') {
+            normalizedGroup.species_name = group.species
+            normalizedGroup.species = { name: group.species }
+          } else if (group.species && typeof group.species === 'object') {
+            normalizedGroup.species_name = group.species.name ?? group.species_name ?? ''
+            normalizedGroup.species = { name: group.species.name ?? group.species_name ?? '' }
+          } else {
+            normalizedGroup.species_name = group.species_name ?? ''
+          }
+
+          flattened.push(normalizedGroup)
+        }
+      }
+    })
+
+    if (structure.value) {
+      structure.value.upgrade_fees = flattened
+    }
   } catch (error) {
     toast.init({ message: 'Failed to load structure', color: 'danger' })
+    if (structure.value) {
+      structure.value.upgrade_fees = []
+    }
   } finally {
     loading.value = false
   }
@@ -443,6 +521,36 @@ const getSequenceLabel = (sequence: number | string | null) => {
   if (seq === 2) return '2nd'
   if (seq === 3) return '3rd'
   return `${seq}th`
+}
+
+function resolveUpgradeFeePackageName(fee: any) {
+  return (
+    fee.price_structure_detail?.sales_package?.name ||
+    fee.sales_package?.name ||
+    fee.price_structure_detail?.name ||
+    fee.package_name ||
+    '-'
+  )
+}
+
+function formatUpgradeFeeAmount(fee: any) {
+  // Prefer formatted amount from backend when present
+  if (fee.amount_formatted) return fee.amount_formatted
+
+  const amount = Number(fee.fee_amount ?? fee.amount ?? 0)
+
+  // Currency can be an object or a simple symbol/code string
+  const rawCurrency = fee.currency
+  const currencySymbol = typeof rawCurrency === 'object' ? (rawCurrency?.symbol || rawCurrency?.code || rawCurrency?.name || '') : (rawCurrency || '')
+
+  if (!currencySymbol) return amount.toFixed(2)
+
+  // If currencySymbol looks like a symbol (non-alphanumeric), attach without space
+  if (/^[^A-Za-z0-9\s]+$/.test(currencySymbol)) {
+    return `${currencySymbol}${amount.toFixed(2)}`
+  }
+
+  return `${currencySymbol} ${amount.toFixed(2)}`
 }
 
 const downloadPdf = async () => {
@@ -538,7 +646,13 @@ const deleteTrophyFee = async (fee: any) => {
 
 const deleteUpgradeFee = async (fee: any) => {
   try {
-    const url = `${import.meta.env.VITE_APP_BASE_URL}settings/upgrade-fees/${fee.id}`
+    // Prefer the backend's detail id if available, fallback to generic id
+    const idToDelete = fee.price_structure_detail_id ?? fee.id
+    if (!idToDelete) {
+      toast.init({ message: 'Cannot determine upgrade fee id', color: 'warning' })
+      return
+    }
+    const url = `${import.meta.env.VITE_APP_BASE_URL}settings/upgrade-fees/${idToDelete}`
     await fetch(url, { method: 'DELETE' })
     toast.init({ message: 'Upgrade fee deleted', color: 'success' })
     await refresh()
