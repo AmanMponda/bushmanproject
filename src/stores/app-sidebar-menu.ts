@@ -401,10 +401,14 @@ export const useAppSidebarMenuStore = defineStore("appSidebarMenu", () => {
     },  
 
     {
-      url: '/accounts',
-      icon: 'fa fa-dollar-sign',
+      url: '/accounting/journal-vouchers',
+      icon: 'fa fa-book',
       text: 'Accounts',
       permission: 'CAN_VIEW_ACCOUNTS',
+      children: [
+        { url: '/accounting/journal-vouchers', text: 'Journal Vouchers', permission: 'CAN_VIEW_ACCOUNTS' },
+        { url: '/accounting/invoices', text: 'Invoices', permission: 'CAN_VIEW_ACCOUNTS' },
+      ]
     },
     {
       url: '/procurement',

@@ -226,6 +226,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { useContractStore } from '@/stores/bushman/contract-store'
 import { useToast } from '@/composables/useToast'
 import { useAppOptionStore } from '@/stores/app-option'
+import { downloadContractPdf as downloadContractPdfService } from '@/services/pdfService'
 import Swal from 'sweetalert2'
 import jsPDF from 'jspdf'
 import 'jspdf-autotable'
@@ -360,33 +361,8 @@ const downloadContractPdf = async () => {
 
   downloadingPdf.value = true
   try {
-    const response = await fetch(
-      `${import.meta.env.VITE_APP_BASE_URL}contract-management/${contractId}/contract-pdf`,
-      { headers: { 'Content-Type': 'application/json' } }
-    )
-
-    const data = await response.json()
-    if (data?.success && data?.pdf) {
-      const byteCharacters = atob(data.pdf)
-      const byteNumbers = new Array(byteCharacters.length)
-      for (let i = 0; i < byteCharacters.length; i++) {
-        byteNumbers[i] = byteCharacters.charCodeAt(i)
-      }
-      const byteArray = new Uint8Array(byteNumbers)
-      const blob = new Blob([byteArray], { type: 'application/pdf' })
-      const url = window.URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = `contract-${contractId}.pdf`
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      window.URL.revokeObjectURL(url)
-    } else {
-      Swal.fire('Error', data?.message || 'Failed to generate contract PDF', 'error')
-    }
+    await downloadContractPdfService(contractId)
   } catch (error) {
-    console.error('Error downloading contract PDF:', error)
     Swal.fire('Error', 'Failed to download contract PDF', 'error')
   } finally {
     downloadingPdf.value = false

@@ -389,6 +389,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useOrderStore } from '@/stores/bushman/order-store'
 import { useToast } from '@/composables/useToast'
+import { downloadOrderPdf as downloadOrderPdfService } from '@/services/pdfService'
 import Swal from 'sweetalert2'
 
 const route = useRoute()
@@ -634,7 +635,6 @@ const sendReminder = () => {
 const printOrder = () => {
   window.print()
 }
-const exportPDF = downloadOrderPdf
 
 // Status Management
 const approveOrder = () => {
@@ -694,33 +694,8 @@ const downloadOrderPdf = async () => {
 
   downloadingPdf.value = true
   try {
-    const response = await fetch(
-      `${import.meta.env.VITE_APP_BASE_URL}orders/${orderId}/order-pdf`,
-      { headers: { 'Content-Type': 'application/json' } }
-    )
-
-    const data = await response.json()
-    if (data?.success && data?.pdf) {
-      const byteCharacters = atob(data.pdf)
-      const byteNumbers = new Array(byteCharacters.length)
-      for (let i = 0; i < byteCharacters.length; i++) {
-        byteNumbers[i] = byteCharacters.charCodeAt(i)
-      }
-      const byteArray = new Uint8Array(byteNumbers)
-      const blob = new Blob([byteArray], { type: 'application/pdf' })
-      const url = window.URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = `order-${orderId}.pdf`
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      window.URL.revokeObjectURL(url)
-    } else {
-      Swal.fire('Error', data?.message || 'Failed to generate order PDF', 'error')
-    }
+    await downloadOrderPdfService(orderId)
   } catch (error) {
-    console.error('Error downloading order PDF:', error)
     Swal.fire('Error', 'Failed to download order PDF', 'error')
   } finally {
     downloadingPdf.value = false

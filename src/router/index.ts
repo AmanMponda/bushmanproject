@@ -55,6 +55,13 @@ const OrderDetails = () => import('@/views/orders/OrderDetails.vue');
 const ContractList = () => import('@/views/contracts/ContractList.vue');
 const ContractForm = () => import('@/views/contracts/ContractForm.vue');
 const ContractDetails = () => import('@/views/contracts/ContractDetails.vue');
+
+// Accounting routes
+const JournalVoucherList = () => import('@/views/bushman/accounting/JournalVoucherList.vue');
+const JournalVoucherForm = () => import('@/views/bushman/accounting/JournalVoucherForm.vue');
+const InvoiceList = () => import('@/views/bushman/accounting/InvoiceList.vue');
+const InvoiceForm = () => import('@/views/bushman/accounting/InvoiceForm.vue');
+
 // const LoginPage = () => import('@/views/auth/PageLogin.vue');
 // const CompanyDashboard = () => import('@/views/auth/CompanyDashboard.vue');
 // const ComingSoon = () => import('@/views/auth/ComingSoon.vue');
@@ -432,11 +439,52 @@ const router = createRouter({
       props: (route) => ({ id: Number(route.params.id) })
     },
 
+    // Accounting routes - Journal Vouchers
+    {
+      path: "/accounting/journal-vouchers",
+      name: "journal-vouchers",
+      component: JournalVoucherList,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/accounting/journal-vouchers/create",
+      name: "journal-voucher-create",
+      component: JournalVoucherForm,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/accounting/journal-vouchers/:id",
+      name: "journal-voucher-view",
+      component: JournalVoucherForm,
+      meta: { requiresAuth: true },
+      props: (route) => ({ id: Number(route.params.id) })
+    },
+
+    // Accounting routes - Invoices
+    {
+      path: "/accounting/invoices",
+      name: "invoices",
+      component: InvoiceList,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/accounting/invoices/create",
+      name: "invoice-create",
+      component: InvoiceForm,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/accounting/invoices/:id",
+      name: "invoice-view",
+      component: InvoiceForm,
+      meta: { requiresAuth: true },
+      props: (route) => ({ id: Number(route.params.id) })
+    },
+
     // Other main sections (placeholders)
     {
       path: "/accounts",
-      name: "accounts-main",
-      component: ComingSoon,
+      redirect: "/accounting/journal-vouchers",
       meta: { requiresAuth: true }
     },
     {
