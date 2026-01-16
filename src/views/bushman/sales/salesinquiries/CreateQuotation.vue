@@ -377,6 +377,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useSalesInquiriesStore } from '@/stores/bushman/sales-store'
 import { salesEnquiryService } from '@/stores/bushman/salesEnquiryService'
+import { downloadQuotationPdf as downloadQuotationPdfService } from '@/services/pdfService'
 import Swal from 'sweetalert2'
 
 const route = useRoute()
@@ -661,33 +662,8 @@ const downloadQuotationPdf = async () => {
 
   printingPdf.value = true
   try {
-    const response = await fetch(
-      `${import.meta.env.VITE_APP_BASE_URL}sales-enquiries/pricing/${pricingId}/quotation-pdf`,
-      { headers: { 'Content-Type': 'application/json' } }
-    )
-
-    const data = await response.json()
-    if (data?.success && data?.pdf) {
-      const byteCharacters = atob(data.pdf)
-      const byteNumbers = new Array(byteCharacters.length)
-      for (let i = 0; i < byteCharacters.length; i++) {
-        byteNumbers[i] = byteCharacters.charCodeAt(i)
-      }
-      const byteArray = new Uint8Array(byteNumbers)
-      const blob = new Blob([byteArray], { type: 'application/pdf' })
-      const url = window.URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = `quotation-${pricingId}.pdf`
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      window.URL.revokeObjectURL(url)
-    } else {
-      Swal.fire('Error', data?.message || 'Failed to generate quotation PDF', 'error')
-    }
+    await downloadQuotationPdfService(pricingId)
   } catch (error) {
-    console.error('Error downloading quotation PDF:', error)
     Swal.fire('Error', 'Failed to download quotation PDF', 'error')
   } finally {
     printingPdf.value = false

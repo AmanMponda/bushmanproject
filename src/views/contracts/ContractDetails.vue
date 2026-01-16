@@ -11,6 +11,11 @@
         <p class="subtitle">View complete contract information</p>
       </div>
       <div class="head-actions">
+        <button class="btn btn-outline-primary" @click="downloadContractPdf" :disabled="downloadingPdf" type="button">
+          <span v-if="downloadingPdf" class="spinner-border spinner-border-sm me-2"></span>
+          <i v-else class="fa fa-file-pdf me-2"></i>
+          {{ downloadingPdf ? 'Downloading...' : 'Download PDF' }}
+        </button>
         <button class="btn btn-secondary" @click="goBack" type="button">
           <i class="fa fa-arrow-left me-2"></i> Back
         </button>
@@ -62,26 +67,6 @@
               <i class="fa fa-file-alt me-2"></i>Versions
             </button>
           </li>
-          <li class="nav-item" role="presentation">
-            <button 
-              class="nav-link"
-              :class="{ active: activeTab === 'billing' }"
-              @click="activeTab = 'billing'"
-              role="tab"
-            >
-              <i class="fa fa-credit-card me-2"></i>Billing Schedule
-            </button>
-          </li>
-          <li class="nav-item" role="presentation">
-            <button 
-              class="nav-link"
-              :class="{ active: activeTab === 'links' }"
-              @click="activeTab = 'links'"
-              role="tab"
-            >
-              <i class="fa fa-link me-2"></i>Related Links
-            </button>
-          </li>
         </ul>
       </div>
 
@@ -89,123 +74,73 @@
       <div class="tabs-content bg-white rounded-bottom p-4">
         <!-- TAB 1: CONTRACT SUMMARY -->
         <div v-if="activeTab === 'summary'" class="tab-pane">
-          <div class="row">
-            <!-- Left Column: Contract Information -->
-            <div class="col-lg-8">
-              <!-- Header Card -->
-              <div class="card mb-4">
-                <div class="card-header bg-primary text-white">
-                  <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                      <h5 class="mb-1">{{ contract.title }}</h5>
-                      <small>{{ contract.contract_number }}</small>
-                    </div>
-                    <div class="text-end">
-                      <span :class="getStatusBadge(contract.status)" class="badge me-2">{{ contract.status }}</span>
-                    </div>
-                  </div>
+          <!-- Header Card -->
+          <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+              <div class="d-flex justify-content-between align-items-center">
+                <div>
+                  <h5 class="mb-1">{{ contract.title }}</h5>
+                  <small>{{ contract.contract_number }}</small>
                 </div>
-                <div class="card-body">
-                  <div class="row mb-4">
-                    <div class="col-md-6">
-                      <h6 class="text-muted mb-3"><i class="fa fa-calendar me-2"></i>Dates</h6>
-                      <div class="info-item">
-                        <span class="label">Start Date:</span>
-                        <strong>{{ formatDate(contract.start_date) }}</strong>
-                      </div>
-                      <div class="info-item">
-                        <span class="label">End Date:</span>
-                        <strong>{{ formatDate(contract.end_date) }}</strong>
-                      </div>
-                      <div class="info-item">
-                        <span class="label">Signed Date:</span>
-                        <strong>{{ formatDate(contract.signed_date) }}</strong>
-                      </div>
-                      <div class="info-item">
-                        <span class="label">Created:</span>
-                        <strong>{{ formatDateTime(contract.created_at) }}</strong>
-                      </div>
-                    </div>
-                    <div class="col-md-6">
-                      <h6 class="text-muted mb-3"><i class="fa fa-file-contract me-2"></i>Contract Details</h6>
-                      <div class="info-item">
-                        <span class="label">Type:</span>
-                        <strong>{{ getContractTypeName() }}</strong>
-                      </div>
-                      <div class="info-item">
-                        <span class="label">Governing Law:</span>
-                        <strong>{{ contract.governing_law || 'N/A' }}</strong>
-                      </div>
-                      <div class="info-item">
-                        <span class="label">Jurisdiction:</span>
-                        <strong>{{ contract.jurisdiction || 'N/A' }}</strong>
-                      </div>
-                      <div class="info-item">
-                        <span class="label">Auto Renewal:</span>
-                        <strong>{{ contract.auto_renew ? `Yes (${contract.renewal_term_months} months)` : 'No' }}</strong>
-                      </div>
-                    </div>
-                  </div>
-
-                  <!-- Additional Information -->
-                  <hr />
-                  <div class="row mt-4">
-                    <div class="col-md-6" v-if="contract.financial_summary">
-                      <h6 class="text-muted mb-3"><i class="fa fa-dollar-sign me-2"></i>Financial Summary</h6>
-                      <p class="small">{{ contract.financial_summary }}</p>
-                    </div>
-                    <div class="col-md-6" v-if="contract.special_terms">
-                      <h6 class="text-muted mb-3"><i class="fa fa-clipboard me-2"></i>Special Terms</h6>
-                      <p class="small">{{ contract.special_terms }}</p>
-                    </div>
-                  </div>
-
-                  <div v-if="contract.additional_note" class="alert alert-light mt-3">
-                    <h6 class="text-muted mb-2"><i class="fa fa-sticky-note me-2"></i>Notes</h6>
-                    <p class="small mb-0">{{ contract.additional_note }}</p>
-                  </div>
+                <div class="text-end">
+                  <span :class="getStatusBadge(contract.status)" class="badge me-2">{{ contract.status }}</span>
                 </div>
               </div>
             </div>
-
-            <!-- Right Column: Quick Actions -->
-            <div class="col-lg-4">
-              <div class="card sticky-top" style="top: 20px;">
-                <div class="card-header bg-info text-white">
-                  <h5 class="mb-0"><i class="fa fa-bolt me-2"></i>Quick Actions</h5>
-                </div>
-                <div class="card-body p-0">
-                  <div class="list-group list-group-flush">
-                    <button 
-                      @click="editContract"
-                      class="list-group-item list-group-item-action d-flex align-items-center"
-                    >
-                      <i class="fa fa-edit me-3 text-primary"></i>
-                      <span>Edit Contract</span>
-                    </button>
-                    <button 
-                      @click="downloadPdf"
-                      class="list-group-item list-group-item-action d-flex align-items-center"
-                    >
-                      <i class="fa fa-download me-3 text-success"></i>
-                      <span>Download PDF</span>
-                    </button>
-                    <button 
-                      @click="viewHistory"
-                      class="list-group-item list-group-item-action d-flex align-items-center"
-                    >
-                      <i class="fa fa-history me-3 text-warning"></i>
-                      <span>View History</span>
-                    </button>
-                    <button 
-                      @click="deleteContract"
-                      class="list-group-item list-group-item-action d-flex align-items-center"
-                    >
-                      <i class="fa fa-trash me-3 text-danger"></i>
-                      <span>Delete Contract</span>
-                    </button>
+            <div class="card-body">
+              <div class="row mb-4">
+                <div class="col-md-6">
+                  <h6 class="text-muted mb-3"><i class="fa fa-calendar me-2"></i>Dates</h6>
+                  <div class="info-item">
+                    <span class="label">Start Date:</span>
+                    <strong>{{ formatDate(contract.start_date) }}</strong>
+                  </div>
+                  <div class="info-item">
+                    <span class="label">End Date:</span>
+                    <strong>{{ formatDate(contract.end_date) }}</strong>
+                  </div>
+                  <div class="info-item">
+                    <span class="label">Signed Date:</span>
+                    <strong>{{ formatDate(contract.signed_date) }}</strong>
+                  </div>
+                  <div class="info-item">
+                    <span class="label">Created:</span>
+                    <strong>{{ formatDateTime(contract.created_at) }}</strong>
                   </div>
                 </div>
+                <div class="col-md-6">
+                  <h6 class="text-muted mb-3"><i class="fa fa-file-contract me-2"></i>Contract Details</h6>
+                  <div class="info-item">
+                    <span class="label">Type:</span>
+                    <strong>{{ getContractTypeName() }}</strong>
+                  </div>
+                  <div class="info-item">
+                    <span class="label">Governing Law:</span>
+                    <strong>{{ contract.governing_law || 'N/A' }}</strong>
+                  </div>
+                  <div class="info-item">
+                    <span class="label">Jurisdiction:</span>
+                    <strong>{{ contract.jurisdiction || 'N/A' }}</strong>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Additional Information -->
+              <hr />
+              <div class="row mt-4">
+                <div class="col-md-6" v-if="contract.financial_summary">
+                  <h6 class="text-muted mb-3"><i class="fa fa-dollar-sign me-2"></i>Financial Summary</h6>
+                  <p class="small">{{ contract.financial_summary }}</p>
+                </div>
+                <div class="col-md-6" v-if="contract.special_terms">
+                  <h6 class="text-muted mb-3"><i class="fa fa-clipboard me-2"></i>Special Terms</h6>
+                  <p class="small">{{ contract.special_terms }}</p>
+                </div>
+              </div>
+
+              <div v-if="contract.additional_note" class="alert alert-light mt-3">
+                <h6 class="text-muted mb-2"><i class="fa fa-sticky-note me-2"></i>Notes</h6>
+                <p class="small mb-0">{{ contract.additional_note }}</p>
               </div>
             </div>
           </div>
@@ -280,74 +215,6 @@
             No versions found for this contract.
           </div>
         </div>
-
-        <!-- TAB 4: BILLING SCHEDULE -->
-        <div v-if="activeTab === 'billing'" class="tab-pane">
-          <div v-if="contract.billing_schedules && contract.billing_schedules.length > 0" class="table-responsive">
-            <table class="table table-hover">
-              <thead class="table-light">
-                <tr>
-                  <th>Sequence</th>
-                  <th>Label</th>
-                  <th>Type</th>
-                  <th>Amount Type</th>
-                  <th>Amount</th>
-                  <th>Due Days</th>
-                  <th>Due Type</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="schedule in contract.billing_schedules" :key="schedule.id">
-                  <td><strong>#{{ schedule.sequence_no }}</strong></td>
-                  <td>{{ schedule.label || 'N/A' }}</td>
-                  <td>
-                    <span class="badge bg-info">{{ schedule.schedule_type }}</span>
-                  </td>
-                  <td>{{ schedule.amount_type }}</td>
-                  <td class="text-end">{{ formatCurrency(schedule.amount) }}</td>
-                  <td class="text-center">{{ schedule.due_days }}</td>
-                  <td>{{ schedule.due_days_type }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <div v-else class="alert alert-info">
-            No billing schedules configured for this contract.
-          </div>
-        </div>
-
-        <!-- TAB 5: LINKS -->
-        <div v-if="activeTab === 'links'" class="tab-pane">
-          <div v-if="contract.links && contract.links.length > 0" class="table-responsive">
-            <table class="table table-hover">
-              <thead class="table-light">
-                <tr>
-                  <th>Object Type</th>
-                  <th>Object ID</th>
-                  <th>Relation Type</th>
-                  <th>Created</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="link in contract.links" :key="link.id">
-                  <td>
-                    <span class="badge bg-secondary">{{ link.object_type }}</span>
-                  </td>
-                  <td>
-                    <a href="#" @click.prevent="navigateToObject(link)">
-                      #{{ link.object_id }}
-                    </a>
-                  </td>
-                  <td>{{ link.relation_type }}</td>
-                  <td>{{ formatDateTime(link.created_at) }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <div v-else class="alert alert-info">
-            No linked objects found for this contract.
-          </div>
-        </div>
       </div>
     </div>
   </div>
@@ -359,6 +226,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { useContractStore } from '@/stores/bushman/contract-store'
 import { useToast } from '@/composables/useToast'
 import { useAppOptionStore } from '@/stores/app-option'
+import { downloadContractPdf as downloadContractPdfService } from '@/services/pdfService'
 import Swal from 'sweetalert2'
 import jsPDF from 'jspdf'
 import 'jspdf-autotable'
@@ -371,6 +239,7 @@ const appOptionStore = useAppOptionStore()
 
 // Sidebar state
 const originalSidebarState = ref(false)
+const downloadingPdf = ref(false)
 
 // State
 const contract = computed(() => contractStore.currentContract)
@@ -443,95 +312,6 @@ const editContract = () => {
   router.push({ name: 'contracts-edit', params: { id: contract.value.id } })
 }
 
-const downloadPdf = () => {
-  try {
-    const doc = new jsPDF()
-    const pageWidth = doc.internal.pageSize.getWidth()
-    const pageHeight = doc.internal.pageSize.getHeight()
-    const margin = 15
-    let yPos = margin
-
-    // Header
-    doc.setFillColor(13, 110, 253)
-    doc.rect(0, 0, pageWidth, 40, 'F')
-    doc.setTextColor(255, 255, 255)
-    doc.setFontSize(24)
-    doc.setFont('Arial', 'bold')
-    doc.text('CONTRACT', margin, 18)
-    doc.setTextColor(200, 200, 200)
-    doc.setFontSize(10)
-    doc.text(`${contract.value.contract_number}`, margin, 28)
-
-    doc.setTextColor(0, 0, 0)
-    yPos = 50
-
-    // Contract Information
-    doc.setFontSize(12)
-    doc.setFont('Arial', 'bold')
-    doc.text('Contract Information', margin, yPos)
-    yPos += 10
-
-    doc.setFontSize(10)
-    doc.setFont('Arial', 'normal')
-    const info = [
-      ['Title:', contract.value.title],
-      ['Type:', getContractTypeName()],
-      ['Status:', contract.value.status],
-      ['Start Date:', formatDate(contract.value.start_date)],
-      ['End Date:', formatDate(contract.value.end_date)],
-      ['Governing Law:', contract.value.governing_law || 'N/A'],
-      ['Jurisdiction:', contract.value.jurisdiction || 'N/A']
-    ]
-
-    info.forEach(([label, value]) => {
-      doc.setFont('Arial', 'bold')
-      doc.text(label, margin, yPos)
-      doc.setFont('Arial', 'normal')
-      doc.text(String(value), margin + 50, yPos)
-      yPos += 8
-    })
-
-    // Parties
-    if (contract.value.parties && contract.value.parties.length > 0) {
-      yPos += 5
-      doc.setFontSize(12)
-      doc.setFont('Arial', 'bold')
-      doc.text('Parties', margin, yPos)
-      yPos += 8
-
-      const partiesData = contract.value.parties.map((p: any) => [
-        p.role,
-        p.entity?.full_name || p.contact_name || 'N/A',
-        p.contact_email || 'N/A',
-        p.contact_phone || 'N/A'
-      ])
-
-      ;(doc as any).autoTable({
-        startY: yPos,
-        head: [['Role', 'Entity', 'Email', 'Phone']],
-        body: partiesData,
-        theme: 'grid',
-        margin: margin,
-        styles: { fontSize: 9 }
-      })
-    }
-
-    // Footer
-    const pageCount = (doc as any).internal.pages.length - 1
-    doc.setTextColor(150, 150, 150)
-    doc.setFontSize(8)
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i)
-      doc.text(`Page ${i} of ${pageCount}`, pageWidth / 2, pageHeight - 10, { align: 'center' })
-    }
-
-    doc.save(`contract-${contract.value.contract_number}.pdf`)
-    init({ message: 'Contract PDF downloaded successfully', color: 'success' })
-  } catch (err: any) {
-    init({ message: 'Error downloading PDF: ' + err.message, color: 'danger' })
-  }
-}
-
 const downloadVersionPdf = (version: any) => {
   init({ message: 'Downloading version ' + version.version_no + ' PDF...', color: 'info' })
   // Implementation for downloading specific version
@@ -573,6 +353,20 @@ const navigateToObject = (link: any) => {
 
 const goBack = () => {
   router.back()
+}
+// PDF Download
+const downloadContractPdf = async () => {
+  const contractId = route.params.id
+  if (!contractId) return
+
+  downloadingPdf.value = true
+  try {
+    await downloadContractPdfService(contractId)
+  } catch (error) {
+    Swal.fire('Error', 'Failed to download contract PDF', 'error')
+  } finally {
+    downloadingPdf.value = false
+  }
 }
 
 // Lifecycle

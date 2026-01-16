@@ -528,11 +528,12 @@ const tableCustomFilters = computed(() => [
     key: 'animal_type',
     label: 'Animal Type',
     type: 'select',
-    placeholder: 'All Animal Types',
-    options: [{ value: '', label: 'All Animal Types' }, ...animalTypes.value.map((type: string) => ({ 
-      value: type, 
-      label: type 
-    }))],
+    placeholder: 'All',
+    options: [
+      { value: 'Mammals', label: 'Mammals' },
+      { value: 'Bird', label: 'Bird' },
+      { value: 'Reptiles', label: 'Reptiles' },
+    ],
     defaultValue: '',
   },
   {
@@ -541,9 +542,7 @@ const tableCustomFilters = computed(() => [
     type: 'select',
     placeholder: 'All',
     options: [
-      { value: '', label: 'All' },
-      { value: 'yes', label: 'Only key species' },
-      { value: 'no', label: 'Exclude key species' },
+      { value: 'yes', label: 'Key Species' },
     ],
     defaultValue: '',
   }

@@ -255,72 +255,77 @@
         <div class="section-content">
           <!-- ITEMS & PARTIES SECTION -->
           <div v-if="showSections.items" class="expandable-section">
-            <!-- Items Subsection -->
-            <div class="subsection">
-              <div class="subsection-header">
-                <h4>Order Items</h4>
+            <!-- Combined Items & Parties Form Section -->
+            <div class="combined-form-section">
+              <div class="form-section-header">
+                <h3>📦 Items & Parties Information</h3>
+                <p>Manage order items and involved parties in one place</p>
               </div>
 
-              <!-- Items Table -->
-              <div class="table-wrapper mt-3">
-                <table class="data-table parties-table">
-                  <thead>
-                    <tr>
-                      <th style="min-width: 200px">Name</th>
-                      <th style="min-width: 120px">Category</th>
-                      <th style="min-width: 100px">Quantity</th>
-                      <th style="min-width: 130px">Unit Amount</th>
-                      <th style="min-width: 130px">Total Amount</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <!-- Items from Quotation -->
-                    <tr v-for="(item, idx) in form.items" :key="idx">
-                      <td>{{ item.name }}</td>
-                      <td>{{ item.category }}</td>
-                      <td class="text-center">{{ item.quantity }}</td>
-                      <td>{{ formatCurrency(item.rate) }}</td>
-                      <td class="text-center">
-                        <span class="badge bg-info">{{ formatCurrency(item.amount || (item.quantity * item.rate)) }}</span>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-              <div v-if="form.items.length === 0" class="empty-state mt-3">No items from quotation</div>
-            </div>
+              <!-- Two-Column Layout -->
+              <div class="items-parties-grid">
+                <!-- Left: Order Items -->
+                <div class="grid-section">
+                  <div class="subsection-header">
+                    <h4>📦 Order Items</h4>
+                  </div>
+                  <div class="table-wrapper">
+                    <table class="data-table parties-table">
+                      <thead>
+                        <tr>
+                          <th style="min-width: 150px">Name</th>
+                          <th style="min-width: 100px">Category</th>
+                          <th style="min-width: 80px">Qty</th>
+                          <th style="min-width: 100px">Unit Amount</th>
+                          <th style="min-width: 100px">Total</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr v-for="(item, idx) in form.items" :key="idx">
+                          <td>{{ item.name }}</td>
+                          <td>{{ item.category }}</td>
+                          <td class="text-center">{{ item.quantity }}</td>
+                          <td>{{ formatCurrency(item.rate) }}</td>
+                          <td class="text-center">
+                            <span class="badge bg-info">{{ formatCurrency(item.amount || (item.quantity * item.rate)) }}</span>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                    <div v-if="form.items.length === 0" class="empty-state">No items from quotation</div>
+                  </div>
+                </div>
 
-            <!-- Parties Subsection -->
-            <div class="subsection">
-              <div class="subsection-header">
-                <h4>Parties</h4>
+                <!-- Right: Parties -->
+                <div class="grid-section">
+                  <div class="subsection-header">
+                    <h4>👥 Parties</h4>
+                  </div>
+                  <div class="table-wrapper">
+                    <table class="data-table">
+                      <thead>
+                        <tr>
+                          <th style="min-width: 100px">Role</th>
+                          <th style="min-width: 150px">Entity Name</th>
+                          <th style="min-width: 100px">Phone</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr v-for="(party, idx) in form.parties" :key="idx">
+                          <td>
+                            <span class="badge" :class="party.role === 'client' ? 'bg-primary' : party.role === 'supplier' ? 'bg-success' : 'bg-secondary'">
+                              {{ party.role || '-' }}
+                            </span>
+                          </td>
+                          <td>{{ party.entity?.full_name || party.entity_name || party.entity || '-' }}</td>
+                          <td>{{ party.contact_phone || '-' }}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                    <div v-if="form.parties.length === 0" class="empty-state">No parties from quotation</div>
+                  </div>
+                </div>
               </div>
-
-              <!-- Parties Table -->
-              <div class="table-wrapper mt-3">
-                <table class="data-table">
-                  <thead>
-                    <tr>
-                      <th>Role</th>
-                      <th>Entity Name</th>
-                      <th>Phone</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <!-- Parties from Quotation -->
-                    <tr v-for="(party, idx) in form.parties" :key="idx">
-                      <td>
-                        <span class="badge" :class="party.role === 'client' ? 'bg-primary' : party.role === 'supplier' ? 'bg-success' : 'bg-secondary'">
-                          {{ party.role || '-' }}
-                        </span>
-                      </td>
-                      <td>{{ party.entity?.full_name || party.entity_name || party.entity || '-' }}</td>
-                      <td>{{ party.contact_phone || '-' }}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-              <div v-if="form.parties.length === 0" class="empty-state mt-3">No parties from quotation</div>
             </div>
 
             <!-- Navigation Buttons -->
@@ -1264,8 +1269,9 @@ const calculateTotalOrderAmount = (): number => {
 const filteredQuotations = computed(() => {
   if (!form.enquiryId) return []
   return quotations.value.filter((q: any) =>
-    q.enquiry_id === parseInt(form.enquiryId) ||
-    q.sales_enquiry_id === parseInt(form.enquiryId)
+    (q.enquiry_id === parseInt(form.enquiryId) ||
+    q.sales_enquiry_id === parseInt(form.enquiryId)) &&
+    (q.status === 'LOCKED' || q.status === 'locked')
   )
 })
 
@@ -1945,12 +1951,32 @@ const submit = async () => {
         router.push('/orders')
       })
     } else {
-      await orderStore.createOrder(payload)
-      // Refresh orders list to ensure new order is displayed with all data
-      await orderStore.listOrders()
-      Swal.fire('Success!', 'Order created successfully', 'success').then(() => {
-        router.push('/orders')
-      })
+      const createResponse = await orderStore.createOrder(payload)
+      const newOrderId = createResponse.data.data?.id || createResponse.data?.id
+      
+      // Auto-submit the order after creation
+      if (newOrderId) {
+        try {
+          await orderStore.submitOrder(newOrderId)
+          // Refresh orders list to ensure new order is displayed with updated status
+          await orderStore.listOrders()
+          Swal.fire('Success!', 'Order created and submitted successfully', 'success').then(() => {
+            router.push('/orders')
+          })
+        } catch (submitError: any) {
+          // If submit fails, still show success for creation but warn about submit failure
+          await orderStore.listOrders()
+          Swal.fire('Partial Success!', 'Order created but submission failed. Please submit manually.', 'warning').then(() => {
+            router.push('/orders')
+          })
+        }
+      } else {
+        // Refresh orders list to ensure new order is displayed with all data
+        await orderStore.listOrders()
+        Swal.fire('Success!', 'Order created successfully', 'success').then(() => {
+          router.push('/orders')
+        })
+      }
     }
   } catch (error: any) {
     Swal.fire('Error!', error.message || 'An error occurred', 'error')

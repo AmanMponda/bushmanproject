@@ -45,7 +45,7 @@
             </div>
 
             <label class="field">
-              <span class="lbl">Link with Order</span>
+              <span class="lbl">select Order</span>
               <div class="input-wrapper">
                 <span class="input-icon">🔗</span>
                 <select v-model="selectedOrderId" @change="onOrderSelect">
@@ -92,78 +92,7 @@
                   <input v-model="form.signedDate" type="date" />
                 </div>
               </label>
-
-              <label class="field">
-                <span class="lbl">Auto Renewal</span>
-                <div class="input-wrapper">
-                  <input v-model="form.autoRenew" type="checkbox" />
-                  <span style="margin-left: 8px;">Enable auto renewal</span>
-                </div>
-              </label>
-
-              <label class="field" v-if="form.autoRenew">
-                <span class="lbl">Renewal Term (months)</span>
-                <div class="input-wrapper">
-                  <span class="input-icon">⏱️</span>
-                  <input v-model.number="form.renewalTermMonths" type="number" placeholder="12" />
-                </div>
-              </label>
             </div>
-          </div>
-
-          <!-- SECTION 3: LEGAL & JURISDICTION -->
-          <div class="form-section">
-            <div class="section-title">
-              <span class="section-icon">⚖️</span>
-              Legal & Jurisdiction
-            </div>
-
-            <label class="field">
-              <span class="lbl">Governing Law</span>
-              <div class="input-wrapper">
-                <span class="input-icon">📜</span>
-                <input v-model="form.governingLaw" type="text" placeholder="e.g., Laws of Tanzania" />
-              </div>
-            </label>
-
-            <label class="field">
-              <span class="lbl">Jurisdiction</span>
-              <div class="input-wrapper">
-                <span class="input-icon">🌍</span>
-                <input v-model="form.jurisdiction" type="text" placeholder="e.g., Dar es Salaam, Tanzania" />
-              </div>
-            </label>
-
-            <label class="field">
-              <span class="lbl">External Reference</span>
-              <div class="input-wrapper">
-                <span class="input-icon">🔗</span>
-                <input v-model="form.referenceExternal" type="text" placeholder="External reference or code" />
-              </div>
-            </label>
-          </div>
-
-          <!-- SECTION 4: ADDITIONAL INFORMATION -->
-          <div class="form-section">
-            <div class="section-title">
-              <span class="section-icon">📝</span>
-              Additional Information
-            </div>
-
-            <label class="field">
-              <span class="lbl">Financial Summary</span>
-              <textarea v-model="form.financialSummary" class="textarea" rows="2" placeholder="Summary of financial terms..."></textarea>
-            </label>
-
-            <label class="field">
-              <span class="lbl">Special Terms</span>
-              <textarea v-model="form.specialTerms" class="textarea" rows="2" placeholder="Any special terms and conditions..."></textarea>
-            </label>
-
-            <label class="field">
-              <span class="lbl">Additional Notes</span>
-              <textarea v-model="form.additionalNote" class="textarea" rows="2" placeholder="Additional notes..."></textarea>
-            </label>
           </div>
         </div>
       </aside>
@@ -186,24 +115,16 @@
               :class="['tab', { active: showSections.parties }]"
               type="button"
             >
-              <span class="tab-icon">👥</span>
+              <span class="tab-icon">�</span>
               <span class="tab-text">Parties</span>
             </button>
             <button
-              @click="toggleSection('versions')"
-              :class="['tab', { active: showSections.versions }]"
+              @click="toggleSection('additionalDetails')"
+              :class="['tab', { active: showSections.additionalDetails }]"
               type="button"
             >
-              <span class="tab-icon">📄</span>
-              <span class="tab-text">Versions</span>
-            </button>
-            <button
-              @click="toggleSection('billing')"
-              :class="['tab', { active: showSections.billing }]"
-              type="button"
-            >
-              <span class="tab-icon">💳</span>
-              <span class="tab-text">Billing Schedule</span>
+              <span class="tab-icon">📋</span>
+              <span class="tab-text">Additional Details</span>
             </button>
           </div>
         </div>
@@ -246,80 +167,42 @@
             </div>
           </div>
 
-          <!-- VERSIONS SECTION -->
-          <div v-if="showSections.versions" class="expandable-section">
-            <div class="subsection">
-              <div class="subsection-header">
-                <h4>Contract Versions</h4>
-                <button class="btn btn-sm btn-primary" @click="addVersion" type="button">+ Add Version</button>
-              </div>
-
-              <!-- Versions Table -->
-              <div v-if="form.versions.length > 0" class="table-wrapper mt-3">
-                <table class="data-table">
-                  <thead>
-                    <tr>
-                      <th style="min-width: 80px">Version</th>
-                      <th style="min-width: 100px">Status</th>
-                      <th style="min-width: 150px">Template</th>
-                      <th style="min-width: 100px">Generated</th>
-                      <th style="min-width: 60px">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr v-for="(version, idx) in form.versions" :key="idx">
-                      <td>#{{ version.versionNo }}</td>
-                      <td><span class="badge bg-info">{{ version.status }}</span></td>
-                      <td>{{ version.templateName || '-' }}</td>
-                      <td>{{ formatDate(version.generatedAt) }}</td>
-                      <td>
-                        <button class="btn btn-xs btn-primary" @click="editVersion(idx)" type="button" style="margin-right: 4px;">Edit</button>
-                        <button class="btn btn-xs btn-danger" @click="removeVersion(idx)" type="button">Remove</button>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-              <div v-else class="empty-state mt-3">No versions added yet</div>
+          <!-- ADDITIONAL DETAILS SECTION -->
+          <div v-if="showSections.additionalDetails" class="expandable-section">
+            <div class="section-inner-header">
+              <h4>Additional Details</h4>
             </div>
-          </div>
 
-          <!-- BILLING SCHEDULE SECTION -->
-          <div v-if="showSections.billing" class="expandable-section">
             <div class="subsection">
-              <div class="subsection-header">
-                <h4>Billing Schedules</h4>
-                <button class="btn btn-sm btn-primary" @click="addBillingSchedule" type="button">+ Add Schedule</button>
+              <!-- Row 1: Governing Law & Jurisdiction -->
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                <div class="form-section">
+                  <label class="form-label">Governing Law</label>
+                  <input v-model="form.governingLaw" type="text" placeholder="e.g., Laws of Tanzania" class="form-input" style="padding: 0.65rem; border: 1px solid #ddd; border-radius: 4px; width: 100%;" />
+                </div>
+                <div class="form-section">
+                  <label class="form-label">Jurisdiction</label>
+                  <input v-model="form.jurisdiction" type="text" placeholder="e.g., Dar es Salaam, Tanzania" class="form-input" style="padding: 0.65rem; border: 1px solid #ddd; border-radius: 4px; width: 100%;" />
+                </div>
               </div>
 
-              <!-- Billing Schedules Table -->
-              <div v-if="form.billingSchedules.length > 0" class="table-wrapper mt-3">
-                <table class="data-table">
-                  <thead>
-                    <tr>
-                      <th style="min-width: 80px">Seq</th>
-                      <th style="min-width: 120px">Label</th>
-                      <th style="min-width: 100px">Type</th>
-                      <th style="min-width: 100px">Amount</th>
-                      <th style="min-width: 100px">Due Days</th>
-                      <th style="min-width: 60px">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr v-for="(schedule, idx) in form.billingSchedules" :key="idx">
-                      <td>{{ schedule.sequenceNo }}</td>
-                      <td>{{ schedule.label || '-' }}</td>
-                      <td>{{ schedule.scheduleType }}</td>
-                      <td>{{ schedule.amount }}</td>
-                      <td>{{ schedule.dueDays }}</td>
-                      <td>
-                        <button class="btn btn-xs btn-danger" @click="removeBillingSchedule(idx)" type="button">Remove</button>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
+              <!-- Row 2: Financial Summary & Special Terms -->
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                <div class="form-section">
+                  <label class="form-label">Financial Summary</label>
+                  <textarea v-model="form.financialSummary" placeholder="Summary of financial terms..." class="form-textarea" style="min-height: 80px; resize: vertical; padding: 0.65rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9rem; width: 100%;"></textarea>
+                </div>
+                <div class="form-section">
+                  <label class="form-label">Special Terms</label>
+                  <textarea v-model="form.specialTerms" placeholder="Any special terms and conditions..." class="form-textarea" style="min-height: 80px; resize: vertical; padding: 0.65rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9rem; width: 100%;"></textarea>
+                </div>
               </div>
-              <div v-else class="empty-state mt-3">No billing schedules added yet</div>
+
+              <!-- Row 3: Additional Note -->
+              <div class="form-section">
+                <label class="form-label">Additional Note</label>
+                <textarea v-model="form.additionalNote" placeholder="Add any supplementary notes or remarks..." class="form-textarea" style="min-height: 80px; resize: vertical; padding: 0.65rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9rem; width: 100%;"></textarea>
+              </div>
             </div>
           </div>
         </div>
@@ -336,6 +219,7 @@ import { useOrderStore } from '@/stores/bushman/order-store'
 import { useToast } from '@/composables/useToast'
 import { useAppOptionStore } from '@/stores/app-option'
 import Swal from 'sweetalert2'
+import ContractVersions from './ContractVersions.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -354,6 +238,7 @@ const contractStatuses = computed(() => contractStore.contractStatuses)
 // Form state
 const isEdit = computed(() => !!route.params.id)
 const saving = ref(false)
+const savedContractId = ref<number | null>(null)
 
 const form = reactive({
   contractNumber: '',
@@ -366,26 +251,28 @@ const form = reactive({
   referenceExternal: '',
   governingLaw: '',
   jurisdiction: '',
-  autoRenew: false,
-  renewalTermMonths: null,
+  legalJurisdiction: '',
+  additionalInformation: '',
   financialSummary: '',
   specialTerms: '',
   additionalNote: '',
   parties: [] as any[],
-  versions: [] as any[],
-  billingSchedules: [] as any[],
-  links: [] as any[]
+  links: [] as any[],
+  salesConfirmationProposalId: null as number | null,
+  entityId: null as number | null
 })
 
 const showSections = reactive({
   parties: true,
-  versions: false,
-  billing: false
+  additionalDetails: false
 })
 
 // Quick Start: Order Selection
 const selectedOrderId = ref('')
-const availableOrders = computed(() => orderStore.orders || [])
+const availableOrders = computed(() => {
+  const orders = orderStore.orders || []
+  return orders.filter((order: any) => order.status === 'APPROVED')
+})
 const selectedOrder = ref<any>(null)
 const orderDataLoaded = ref(false)
 
@@ -433,7 +320,19 @@ const onOrderSelect = async () => {
     form.contractNumber = `CTR-${new Date().getFullYear()}-${String(order.id).padStart(4, '0')}`
     form.title = `Contract for Order #${order.order_number}`
     
+    // Ensure contract types are loaded before trying to use them
+    if (!contractStore.contractTypes || contractStore.contractTypes.length === 0) {
+      console.log('⚠️ Contract types not yet loaded, fetching now...')
+      try {
+        await contractStore.fetchContractTypes()
+        console.log('✅ Contract types fetched:', contractStore.contractTypes)
+      } catch (error) {
+        console.error('❌ Error fetching contract types:', error)
+      }
+    }
+    
     // Orders don't have contract_type_id - auto-select first available type from store
+    // If no types available, use fallback default type ID
     if (contractStore.contractTypes && contractStore.contractTypes.length > 0) {
       form.contractTypeId = String(contractStore.contractTypes[0].id)
       console.log('📌 Auto-selected first Contract Type:', {
@@ -441,8 +340,10 @@ const onOrderSelect = async () => {
         typeName: contractStore.contractTypes[0].name
       })
     } else {
-      console.warn('⚠️ No contract types available in store')
-      form.contractTypeId = ''
+      // Fallback: Use a default contract type ID when none are available in database
+      // Backend will handle this gracefully
+      form.contractTypeId = '1'
+      console.log('⚠️ No contract types in database, using fallback default type ID: 1')
     }
     
     form.status = 'DRAFT'
@@ -456,6 +357,15 @@ const onOrderSelect = async () => {
       contractTypeId: form.contractTypeId,
       startDate: form.startDate
     })
+    
+    // DEPLOYMENT DEBUG: Verify fields are actually set in the form object
+    console.log('🐛 DEPLOYMENT DEBUG - Checking form object after population:')
+    console.log('   contractNumber:', form.contractNumber, 'type:', typeof form.contractNumber)
+    console.log('   title:', form.title, 'type:', typeof form.title)
+    console.log('   contractTypeId:', form.contractTypeId, 'type:', typeof form.contractTypeId)
+    console.log('   startDate:', form.startDate, 'type:', typeof form.startDate)
+    console.log('   Full form object keys:', Object.keys(form))
+    console.log('   Full form object:', form)
     
     // Get parties from DATABASE - map exactly as returned by API
     form.parties = []
@@ -480,6 +390,19 @@ const onOrderSelect = async () => {
       relationType: 'CREATED_FROM'
     }]
     
+    // Debug: Check what fields are available in order
+    console.log('🔍 Order fields available:', Object.keys(order))
+    console.log('� Full order object:', order)
+    
+    // Set required fields from order - use order.id as fallback
+    form.salesConfirmationProposalId = order.sales_confirmation_proposal_id || order.quotation_id || order.proposal_id || order.id
+    form.entityId = order.entity_id || order.buyer_entity_id || order.seller_entity_id || (order.entity?.id) || order.id
+    
+    console.log('✅ Mapped required fields:', {
+      salesConfirmationProposalId: form.salesConfirmationProposalId,
+      entityId: form.entityId
+    })
+    
     orderDataLoaded.value = true
     const partyCount = form.parties.length
     console.log('✨ Order loaded successfully with', partyCount, 'parties')
@@ -501,90 +424,30 @@ const toggleSection = (section: string) => {
   })
 }
 
-const addVersion = () => {
-  form.versions.push({
-    versionNo: (form.versions.length || 0) + 1,
-    status: 'DRAFT',
-    templateName: '',
-    filePath: '',
-    generatedAt: new Date().toISOString()
-  })
-}
+// Versions are managed by `ContractVersions.vue` component (isolated)
 
-const removeVersion = (idx: number) => {
-  form.versions.splice(idx, 1)
-}
+ 
 
-const editVersion = (idx: number) => {
-  const version = form.versions[idx]
-  const newTemplateName = prompt('Enter version template name:', version.templateName || '')
-  if (newTemplateName !== null) {
-    form.versions[idx].templateName = newTemplateName
-  }
-}
-
-const addBillingSchedule = () => {
-  form.billingSchedules.push({
-    label: '',
-    sequenceNo: (form.billingSchedules.length || 0) + 1,
-    scheduleType: 'MILESTONE',
-    amountType: 'FIXED',
-    amount: 0,
-    currencyId: '',
-    baseOn: 'CONTRACT_TOTAL',
-    dueDays: 0,
-    dueDaysType: 'AFTER_SIGNATURE',
-    isDeposit: false
-  })
-}
-
-const removeBillingSchedule = (idx: number) => {
-  form.billingSchedules.splice(idx, 1)
-}
-
-const resetForm = () => {
-  Object.assign(form, {
-    contractNumber: '',
-    contractTypeId: '',
-    title: '',
-    status: 'DRAFT',
-    startDate: '',
-    endDate: '',
-    signedDate: '',
-    referenceExternal: '',
-    governingLaw: '',
-    jurisdiction: '',
-    autoRenew: false,
-    renewalTermMonths: null,
-    financialSummary: '',
-    specialTerms: '',
-    additionalNote: '',
-    parties: [],
-    versions: [],
-    billingSchedules: [],
-    links: []
-  })
-}
-
+// Version-specific logic moved to `ContractVersions.vue` component
 const submit = async () => {
   try {
     saving.value = true
 
     // Debug: log all required fields before validation
     console.log('🔍 VALIDATION CHECK:', {
-      contractNumber: form.contractNumber,
-      title: form.title,
       contractTypeId: form.contractTypeId,
-      startDate: form.startDate,
-      allPresent: !!(form.contractNumber && form.title && form.contractTypeId && form.startDate)
+      status: form.status,
+      allPresent: !!(form.contractTypeId && form.status)
     })
 
-    // Validate required fields
-    if (!form.contractNumber || !form.title || !form.contractTypeId || !form.startDate) {
+    // Validate ONLY required fields that backend needs
+    // contractTypeId will have fallback value if no types in database
+    // status defaults to 'DRAFT'
+    if (!form.contractTypeId || !form.status) {
       Swal.fire({
         icon: 'warning',
         title: 'Missing Fields',
-        text: 'Please fill in all required fields (Contract Number, Title, Type, Start Date)',
+        text: 'System error: Contract Type or Status missing',
         confirmButtonColor: '#2563eb'
       })
       saving.value = false
@@ -602,15 +465,15 @@ const submit = async () => {
       reference_external: form.referenceExternal || null,
       governing_law: form.governingLaw || null,
       jurisdiction: form.jurisdiction || null,
-      auto_renew: form.autoRenew ? 1 : 0,
-      renewal_term_months: form.renewalTermMonths || null,
+      legal_jurisdiction: form.legalJurisdiction || null,
+      additional_information: form.additionalInformation || null,
       financial_summary: form.financialSummary || null,
       special_terms: form.specialTerms || null,
       additional_note: form.additionalNote || null,
       parties: form.parties,
-      versions: form.versions,
-      billing_schedules: form.billingSchedules,
-      links: form.links
+      links: form.links,
+      sales_confirmation_proposal_id: form.salesConfirmationProposalId,
+      entity_id: form.entityId
     }
 
     console.log('📤 SENDING PAYLOAD TO BACKEND:', JSON.stringify(payload, null, 2))
@@ -624,22 +487,23 @@ const submit = async () => {
         allowEscapeKey: false,
         didOpen: async () => {
           Swal.showLoading()
-          try {
-            await contractStore.updateContract(Number(route.params.id), payload)
-            Swal.fire({
-              icon: 'success',
-              title: 'Contract Updated!',
-              text: 'Your contract has been updated successfully.',
-              confirmButtonColor: '#2563eb'
-            })
-          } catch (error: any) {
-            Swal.fire({
-              icon: 'error',
-              title: 'Update Failed',
-              text: error.message || 'Failed to update contract',
-              confirmButtonColor: '#dc2626'
-            })
-          }
+            try {
+              await contractStore.updateContract(Number(route.params.id), payload)
+              // Versions are managed separately by the ContractVersions component
+              Swal.fire({
+                icon: 'success',
+                title: 'Contract Updated!',
+                text: 'Your contract has been updated successfully.',
+                confirmButtonColor: '#2563eb'
+              })
+            } catch (error: any) {
+              Swal.fire({
+                icon: 'error',
+                title: 'Update Failed',
+                text: error.message || 'Failed to update contract',
+                confirmButtonColor: '#dc2626'
+              })
+            }
         }
       })
     } else {
@@ -653,13 +517,17 @@ const submit = async () => {
           Swal.showLoading()
           try {
             const result = await contractStore.createContract(payload)
+            // extract created id
+            const createdId = result?.data?.data?.id || result?.data?.id || result?.id
+            // Store the newly created contract ID so Version 1 file management appears
+            savedContractId.value = createdId
+            // Refresh the contracts list so the new contract appears in ContractList
+            await contractStore.listContracts()
             Swal.fire({
               icon: 'success',
               title: 'Contract Created!',
-              text: `${form.title} has been created successfully.`,
+              text: `${form.title} has been created successfully. You can now upload the contract file for Version 1.`,
               confirmButtonColor: '#2563eb'
-            }).then(() => {
-              router.push({ name: 'contracts-list' })
             })
           } catch (error: any) {
             console.error('❌ Contract Creation Error:', error)
@@ -774,7 +642,6 @@ onMounted(async () => {
         specialTerms: contract.special_terms,
         additionalNote: contract.additional_note,
         parties: contract.parties || [],
-        versions: contract.versions || [],
         billingSchedules: contract.billing_schedules || [],
         links: contract.links || []
       })

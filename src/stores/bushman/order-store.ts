@@ -247,6 +247,134 @@ export const useOrderStore = defineStore('order', {
       }
     },
 
+    async submitOrder(id: number): Promise<any> {
+      this.loading = true
+      this.error = null
+      try {
+        const config = {
+          method: 'post',
+          url: `${API_BASE}/${id}/submit`,
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }
+
+        const response: any = await axios.request(config)
+        const submittedOrder = response.data.data || response.data
+        
+        // Update in list
+        const index = this.orders.findIndex((o: any) => o.id === id)
+        if (index !== -1) {
+          this.orders[index] = submittedOrder
+        }
+        
+        // Update current
+        if (this.currentOrder?.id === id) {
+          this.currentOrder = submittedOrder
+        }
+        
+        return response
+      } catch (err: any) {
+        this.error = err?.response?.data?.message || 'Error submitting order'
+        throw err
+      } finally {
+        this.loading = false
+      }
+    },
+
+    async updateOrderStatus(id: number, status: string): Promise<any> {
+      this.loading = true
+      this.error = null
+      try {
+        const config = {
+          method: 'put',
+          url: `${API_BASE}/${id}`,
+          data: { status },
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }
+
+        const response: any = await axios.request(config)
+        const updatedOrder = response.data.data || response.data
+        
+        // Update in list
+        const index = this.orders.findIndex((o: any) => o.id === id)
+        if (index !== -1) {
+          this.orders[index] = updatedOrder
+        }
+        
+        // Update current
+        if (this.currentOrder?.id === id) {
+          this.currentOrder = updatedOrder
+        }
+        
+        return response
+      } catch (err: any) {
+        this.error = err?.response?.data?.message || 'Error updating order status'
+        throw err
+      } finally {
+        this.loading = false
+      }
+    },
+
+    async approveOrder(id: number): Promise<any> {
+      this.loading = true
+      this.error = null
+      try {
+        const config = {
+          method: 'put',
+          url: `${API_BASE}/${id}/approve`,
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }
+
+        const response: any = await axios.request(config)
+        const approvedOrder = response.data.data || response.data
+        
+        // Update in list
+        const index = this.orders.findIndex((o: any) => o.id === id)
+        if (index !== -1) {
+          this.orders[index] = approvedOrder
+        }
+        
+        // Update current
+        if (this.currentOrder?.id === id) {
+          this.currentOrder = approvedOrder
+        }
+        
+        return response
+      } catch (err: any) {
+        this.error = err?.response?.data?.message || 'Error approving order'
+        throw err
+      } finally {
+        this.loading = false
+      }
+    },
+
+    async createContractFromOrder(id: number): Promise<any> {
+      this.loading = true
+      this.error = null
+      try {
+        const config = {
+          method: 'post',
+          url: `${API_BASE}/${id}/create-contract`,
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }
+
+        const response: any = await axios.request(config)
+        return response
+      } catch (err: any) {
+        this.error = err?.response?.data?.message || 'Error creating contract from order'
+        throw err
+      } finally {
+        this.loading = false
+      }
+    },
+
     async getOrderItems(orderId: number): Promise<any> {
       this.loading = true
       this.error = null
