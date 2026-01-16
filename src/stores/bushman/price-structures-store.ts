@@ -95,6 +95,11 @@ export const usePriceStructuresStore = defineStore('price-structures', {
       const response = await axios.delete(url)
       return response
     },
+    async listUpgradeFees(params: any = {}) {
+      const url = import.meta.env.VITE_APP_BASE_URL + 'settings/upgrade-fees'
+      const response = await axios.get(url, { params })
+      return response
+    },
     async getUpgradeFeeMetadata(priceStructureId: number) {
       const url = import.meta.env.VITE_APP_BASE_URL + `settings/upgrade-fees/creation-metadata`
       const response = await axios.get(url, {

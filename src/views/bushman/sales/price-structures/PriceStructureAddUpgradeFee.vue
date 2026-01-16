@@ -18,13 +18,12 @@
         <!-- Form Fields with Icons -->
         <div class="row g-3 mb-3">
           <div class="col-md-12">
-            <label class="form-label">Sales Package <span class="text-danger">*</span></label>
+            <label class="form-label">Sales Package</label>
             <div class="input-with-icon">
               <span class="input-icon"><i class="fa fa-box"></i></span>
               <select 
                 v-model="form.sales_package_id" 
                 class="form-control"
-                :class="{ 'is-invalid': formError && !form.sales_package_id }"
               >
                 <option :value="null">Select package...</option>
                 <option v-for="pkg in salesPackageOptions" :key="pkg.id" :value="pkg.id">
@@ -32,6 +31,7 @@
                 </option>
               </select>
             </div>
+            <div class="form-text">Optional: selects a package to create one fee per package detail.</div>
           </div>
 
           <div class="col-md-6">
@@ -173,7 +173,7 @@ const form = ref<any>({
 
 const canSave = computed(() => {
   const f = form.value
-  return !!f.sales_package_id && !!f.species_id && !!f.trigger_condition && 
+  return !!f.species_id && !!f.trigger_condition && 
          f.fee_amount !== null && f.fee_amount !== undefined && 
          !isNaN(Number(f.fee_amount)) && Number(f.fee_amount) >= 0 && 
          !!f.currency_id
@@ -223,7 +223,7 @@ const cancel = () => {
 const submit = async () => {
   formError.value = ''
   if (!canSave.value) {
-    formError.value = 'Please fill required fields (Sales Package, Species, Trigger Condition, Fee Amount, Currency)'
+    formError.value = 'Please fill required fields (Species, Trigger Condition, Fee Amount, Currency)'
     toast.init({ message: formError.value, color: 'warning' })
     return
   }
@@ -237,7 +237,9 @@ const submit = async () => {
     currency_id: form.value.currency_id,
     notes: form.value.notes || '',
     price_structure_id: priceStructureId,
-    sales_package_id: form.value.sales_package_id
+  }
+  if (form.value.sales_package_id) {
+    payload.sales_package_id = form.value.sales_package_id
   }
 
   try {
@@ -252,7 +254,8 @@ const submit = async () => {
     
     // Handle bulk creation response
     const result = response.data
-    const count = result.count || (Array.isArray(result.data) ? result.data.length : 1)
+    const data = Array.isArray(result?.data) ? result.data : Array.isArray(result) ? result : []
+    const count = result?.count || (data.length > 0 ? data.length : 1)
     toast.init({ 
       message: `${count} upgrade fee${count > 1 ? 's' : ''} created successfully`, 
       color: 'success' 

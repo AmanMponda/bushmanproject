@@ -3,10 +3,22 @@ import { fileURLToPath, URL } from "url";
 import { defineConfig } from "vite";
 import vue from "@vitejs/plugin-vue";
 import vueJsx from "@vitejs/plugin-vue-jsx";
+import { visualizer } from "rollup-plugin-visualizer";
 
 // https://vitejs.dev/config/
-export default defineConfig({
-  plugins: [vue(), vueJsx()],
+export default defineConfig(({ mode }) => ({
+  plugins: [
+    vue(),
+    vueJsx(),
+    mode === "analyze"
+      ? visualizer({
+          filename: "bundle-report.html",
+          emitFile: true,
+          gzipSize: true,
+          brotliSize: true,
+        })
+      : null,
+  ].filter(Boolean),
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),
@@ -41,4 +53,4 @@ export default defineConfig({
       overlay: true,
     },
   },
-});
+}));
