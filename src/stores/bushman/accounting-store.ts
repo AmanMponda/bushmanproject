@@ -824,7 +824,7 @@ export const useAccountingStore = defineStore('accounting', {
           method: 'get',
           url: `${API_BASE}/requisitions/available-for-linking`,
           params: {
-            include: 'requisitionType,company,branch,items,items.materials,items.accounts',
+            include: 'requisitionType,company,branch,items,items.materials,items.accounts,requisitionNumber',
             status: 'APPROVAL_PENDING,APPROVED,CLOSED',
             ...params
           },
@@ -841,7 +841,7 @@ export const useAccountingStore = defineStore('accounting', {
             method: 'get',
             url: `${API_BASE}/requisitions`,
             params: {
-              include: 'requisitionType,company,branch,items,items.materials,items.accounts',
+              include: 'requisitionType,company,branch,items,items.materials,items.accounts,requisitionNumber',
               status: 'APPROVAL_PENDING,APPROVED,CLOSED',
               ...params
             },
