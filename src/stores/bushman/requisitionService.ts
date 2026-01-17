@@ -1,4 +1,9 @@
 import axios from 'axios'
+import { useAuthStore } from '@/stores/auth'
+
+const authStore = useAuthStore()
+const currentUserId = authStore.user?.id || 0
+
 
 const API_BASE = `${import.meta.env.VITE_APP_BASE_URL}requisitions`
 const TYPES_BASE = `${import.meta.env.VITE_APP_BASE_URL}requisition-types`
@@ -106,10 +111,7 @@ export const requisitionService = {
   async approve(id: number, payload: Record<string, any> = {}) {
     const safePayload = payload && typeof payload === 'object' ? payload : {}
     const body = {
-      // Temporary: hardcode approver identity until session-based auth is wired end-to-end.
-      approver_id: 1,
-      approved_by: 1,
-      handled_by: 1,
+      user_id: currentUserId,
       ...safePayload,
     }
 
