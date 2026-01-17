@@ -40,6 +40,7 @@ const ManageAreaSettings = () => import('@/views/bushman/module-settings/ManageA
 const ManageHuntingTypes = () => import('@/views/bushman/module-settings/ManageHuntingTypes.vue');
 const ManageSpeciesSettings = () => import('@/views/bushman/module-settings/ManageSpecies.vue');
 const ManageAccounts = () => import('@/views/bushman/module-settings/ManageAccounts.vue');
+const ManageUsers = () => import('@/views/bushman/module-settings/ManageUsers.vue');
 const ManageDocuments = () => import('@/views/bushman/module-settings/ManageDocuments.vue');
 const ManageInstallmentSetups = () => import('@/views/bushman/module-settings/ManageInstallmentSetups.vue');
 const GovernmentFees = () => import('@/views/GovernmentFees.vue');
@@ -322,6 +323,12 @@ const router = createRouter({
       path: "/module-settings/accounts",
       name: "accounts",
       component: ManageAccounts,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/module-settings/users",
+      name: "users-settings",
+      component: ManageUsers,
       meta: { requiresAuth: true }
     },
     {

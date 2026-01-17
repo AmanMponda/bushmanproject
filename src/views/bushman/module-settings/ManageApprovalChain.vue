@@ -531,7 +531,7 @@ import Swal from 'sweetalert2'
 
 const apiBaseUrl = import.meta.env.VITE_APP_BASE_URL || ''
 const approvalChainBase = `${apiBaseUrl}approval-chain`
-const usersUrl = `${apiBaseUrl}${import.meta.env.VITE_APP_USERS_URL || 'authentication/users/'}`
+const usersUrl = `${apiBaseUrl}users`
 
 const activeTab = ref('modules')
 

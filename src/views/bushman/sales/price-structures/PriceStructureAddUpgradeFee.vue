@@ -16,22 +16,58 @@
     <div class="form-compact-wrapper">
       <form @submit.prevent="submit">
         <!-- Form Fields with Icons -->
-        <div class="row g-3 mb-3">
+        <div class="row g-2 mb-2">
           <div class="col-md-12">
             <label class="form-label">Sales Package</label>
-            <div class="input-with-icon">
-              <span class="input-icon"><i class="fa fa-box"></i></span>
-              <select 
-                v-model="form.sales_package_id" 
-                class="form-control"
+            <div class="package-input-row">
+              <div class="input-with-icon package-input">
+                <span class="input-icon"><i class="fa fa-box"></i></span>
+                <select 
+                  v-model="selectedPackageId" 
+                  class="form-control"
+                >
+                  <option :value="null">Select package...</option>
+                  <option
+                    v-for="pkg in availablePackages"
+                    :key="pkg.id"
+                    :value="pkg.id"
+                  >
+                    {{ pkg.name }} ({{ pkg.price_structure_detail_count }})
+                  </option>
+                </select>
+              </div>
+              <button
+                type="button"
+                class="btn package-add-btn"
+                :disabled="!selectedPackageId"
+                @click="addSelectedPackage"
+                aria-label="Add package"
               >
-                <option :value="null">Select package...</option>
-                <option v-for="pkg in salesPackageOptions" :key="pkg.id" :value="pkg.id">
-                  {{ pkg.name }} ({{ pkg.price_structure_detail_count }})
-                </option>
-              </select>
+                <i class="fa fa-plus"></i>
+              </button>
             </div>
-            <div class="form-text">Optional: selects a package to create one fee per package detail.</div>
+            <div v-if="selectedPackages.length" class="package-selected">
+              <div
+                v-for="pkg in selectedPackages"
+                :key="pkg.id"
+                class="package-pill"
+              >
+                <span class="package-pill__name">{{ pkg.name }}</span>
+                <span class="package-pill__count">{{ pkg.price_structure_detail_count }}</span>
+                <button
+                  type="button"
+                  class="package-pill__remove"
+                  @click="removeSelectedPackage(pkg.id)"
+                  aria-label="Remove package"
+                >
+                  <i class="fa fa-times"></i>
+                </button>
+              </div>
+            </div>
+            <div class="form-text">
+              Optional: select one or more packages to create one fee per package detail.
+              <span v-if="selectedPackages.length">({{ selectedPackages.length }} selected)</span>
+            </div>
           </div>
 
           <div class="col-md-6">
@@ -118,10 +154,10 @@
         </div>
 
         <!-- Action Buttons -->
-        <div class="d-flex justify-content-end gap-2">
+        <div class="d-flex justify-content-end gap-1">
           <button 
             type="button" 
-            class="btn btn-secondary" 
+            class="btn btn-secondary btn-sm" 
             @click="cancel"
             :disabled="saving"
           >
@@ -129,11 +165,11 @@
           </button>
           <button 
             type="submit" 
-            class="btn btn-primary" 
+            class="btn btn-primary btn-sm" 
             :disabled="saving || !canSave"
           >
-            <i class="fa" :class="saving ? 'fa-spinner fa-spin' : 'fa-check'" :style="{ marginRight: '0.5rem' }"></i>
-            {{ saving ? 'Saving...' : 'Save Upgrade Fee' }}
+            <i class="fa" :class="saving ? 'fa-spinner fa-spin' : 'fa-check'" :style="{ marginRight: '0.35rem' }"></i>
+            {{ saving ? 'Saving...' : 'Save' }}
           </button>
         </div>
       </form>
@@ -161,13 +197,14 @@ const formError = ref('')
 const speciesOptions = ref<any[]>([])
 const currencyOptions = ref<any[]>([])
 const salesPackageOptions = ref<any[]>([])
+const selectedPackageId = ref<number | null>(null)
 
 const form = ref<any>({
   species_id: null,
   trigger_condition: '',
   fee_amount: null,
   currency_id: null,
-  sales_package_id: null,
+  sales_package_ids: [],
   notes: ''
 })
 
@@ -216,6 +253,31 @@ onMounted(async () => {
   }
 })
 
+const availablePackages = computed(() => {
+  const selectedIds = new Set(form.value.sales_package_ids || [])
+  return (salesPackageOptions.value || []).filter((pkg: any) => !selectedIds.has(pkg.id))
+})
+
+const selectedPackages = computed(() => {
+  const selectedIds = new Set(form.value.sales_package_ids || [])
+  return (salesPackageOptions.value || []).filter((pkg: any) => selectedIds.has(pkg.id))
+})
+
+const addSelectedPackage = () => {
+  const id = Number(selectedPackageId.value)
+  if (!id) return
+  const ids = Array.isArray(form.value.sales_package_ids) ? form.value.sales_package_ids : []
+  if (!ids.includes(id)) {
+    form.value.sales_package_ids = [...ids, id]
+  }
+  selectedPackageId.value = null
+}
+
+const removeSelectedPackage = (id: number) => {
+  const ids = Array.isArray(form.value.sales_package_ids) ? form.value.sales_package_ids : []
+  form.value.sales_package_ids = ids.filter((pkgId: number) => pkgId !== id)
+}
+
 const cancel = () => {
   router.push({ name: 'sales-price-list', query: { structureId: String(priceStructureId), view: 'upgrade-fees' } })
 }
@@ -238,8 +300,12 @@ const submit = async () => {
     notes: form.value.notes || '',
     price_structure_id: priceStructureId,
   }
-  if (form.value.sales_package_id) {
-    payload.sales_package_id = form.value.sales_package_id
+  const packageIds = Array.isArray(form.value.sales_package_ids) ? form.value.sales_package_ids : []
+  if (packageIds.length > 0) {
+    payload.sales_package_ids = packageIds
+  }
+  if (packageIds.length === 1) {
+    payload.sales_package_id = packageIds[0]
   }
 
   try {
@@ -275,17 +341,17 @@ const submit = async () => {
 <style scoped>
 .upgrade-fee-form-compact {
   background: #f8f9fa;
-  min-height: 100vh;
-  padding: 1rem;
+  min-height: auto;
+  padding: 0.5rem;
 }
 
 /* Compact Header */
 .page-header-compact {
   background: white;
-  padding: 1rem 1.25rem;
-  margin-bottom: 1rem;
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  padding: 0.6rem 0.9rem;
+  margin-bottom: 0.5rem;
+  border-radius: 6px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
 }
 
 .page-header-compact h5 {
@@ -296,17 +362,17 @@ const submit = async () => {
 /* Form Wrapper */
 .form-compact-wrapper {
   background: white;
-  padding: 1.5rem;
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  padding: 0.75rem;
+  border-radius: 6px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
 }
 
 /* Form Labels */
 .form-label {
   font-weight: 500;
   color: #495057;
-  margin-bottom: 0.5rem;
-  font-size: 0.875rem;
+  margin-bottom: 0.25rem;
+  font-size: 0.8125rem;
 }
 
 /* Input with Icon Container */
@@ -321,29 +387,29 @@ const submit = async () => {
   left: 0;
   top: 0;
   bottom: 0;
-  width: 40px;
+  width: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: #6c757d;
   background-color: transparent;
-  border-right: 1px solid #dee2e6;
+  border-right: 1px solid #e9ecef;
   z-index: 2;
   pointer-events: none;
 }
 
 .input-with-icon .form-control,
 .input-with-icon select.form-control {
-  padding-left: 50px;
-  border-radius: 8px;
+  padding-left: 44px;
+  border-radius: 6px;
   border: 1px solid #dee2e6;
-  font-size: 0.9rem;
-  transition: all 0.2s ease;
+  font-size: 0.875rem;
+  transition: all 0.14s ease;
 }
 
 .input-with-icon textarea.form-control {
-  padding-left: 50px;
-  padding-top: 0.75rem;
+  padding-left: 44px;
+  padding-top: 0.5rem;
 }
 
 .input-with-icon .form-control:focus {
@@ -361,13 +427,89 @@ const submit = async () => {
   background-size: calc(0.75em + 0.375rem) calc(0.75em + 0.375rem);
 }
 
+/* Package selector with add button */
+.package-input-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: stretch;
+}
+
+.package-input {
+  flex: 1;
+}
+
+.package-add-btn {
+  width: 36px;
+  border-radius: 4px;
+  background: #2f3a44;
+  color: #ffffff;
+  border: 1px solid #2f3a44;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.package-add-btn:hover:not(:disabled) {
+  background: #1f2830;
+  border-color: #1f2830;
+}
+
+.package-add-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.package-selected {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.package-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 999px;
+  background: #eef2f7;
+  color: #2c3e50;
+  border: 1px solid #d7dee8;
+}
+
+.package-pill__name {
+  font-weight: 600;
+  font-size: 0.8rem;
+}
+
+.package-pill__count {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.08rem 0.3rem;
+  border-radius: 999px;
+  background: #d9e7ff;
+  color: #1b5fbf;
+}
+
+.package-pill__remove {
+  border: none;
+  background: transparent;
+  color: #6c757d;
+  padding: 0;
+  line-height: 1;
+}
+
+.package-pill__remove:hover {
+  color: #2f3a44;
+}
+
 /* Buttons */
 .btn {
-  padding: 0.5rem 1rem;
-  font-size: 0.9rem;
-  border-radius: 6px;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.85rem;
+  border-radius: 4px;
   font-weight: 500;
-  transition: all 0.2s ease;
+  transition: all 0.14s ease;
 }
 
 .btn-primary {
@@ -392,9 +534,9 @@ const submit = async () => {
 
 /* Alert */
 .alert-sm {
-  padding: 0.75rem 1rem;
-  font-size: 0.875rem;
-  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8125rem;
+  border-radius: 4px;
 }
 
 .alert-danger {
@@ -406,11 +548,11 @@ const submit = async () => {
 /* Responsive */
 @media (max-width: 768px) {
   .upgrade-fee-form-compact {
-    padding: 0.5rem;
+    padding: 0.25rem;
   }
   
   .form-compact-wrapper {
-    padding: 1rem;
+    padding: 0.6rem;
   }
 }
 </style>

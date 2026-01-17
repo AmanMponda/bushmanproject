@@ -8,6 +8,7 @@ import RequisitionForm from '@/views/bushman/sales/RequisitionForm.vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useToast } from '@/composables/useToast'
 import { useAppOptionStore } from '@/stores/app-option'
+import { useAuthStore } from '@/stores/auth'
 import Swal from 'sweetalert2'
 
 type RequisitionStatus =
@@ -174,6 +175,7 @@ const requisitions = ref<Requisition[]>([])
 const router = useRouter()
 const route = useRoute()
 const appOptionStore = useAppOptionStore()
+const authStore = useAuthStore()
 const originalSidebarState = ref(false)
 const sidebarMinifiedForCreate = ref(false)
 const showForm = ref(false)
@@ -1321,10 +1323,22 @@ const saveForm = async (asDraft = false) => {
       return
     }
 
+    const currentUserId = authStore.user?.id
+    if (!currentUserId) {
+      await Swal.fire({
+        icon: 'warning',
+        title: 'Missing User',
+        text: 'Please sign in again to continue.',
+        confirmButtonColor: '#2563eb'
+      })
+      return
+    }
+
     const payload = {
       company_id: 1,
       branch_id: form.branchId || 1,
-      user_id: 1,
+      user_id: Number(currentUserId),
+      requested_by_id: Number(currentUserId),
       requisition_type_id: form.requisitionTypeId,
       fund_direction: form.fundDirection,
       required_date: form.requiredDate,
@@ -1339,7 +1353,7 @@ const saveForm = async (asDraft = false) => {
         const sourceType = s.sourceType || (s.payee ? 'VENDOR' : null)
         return {
           source_type: sourceType,
-          source_id: sourceType === 'STORE' || sourceType === 'PARTIES' ? s.sourceId : (sourceType === 'CASH' ? s.accountId : null),
+          source_id: sourceType === 'STORE' || sourceType === 'PARTIES' ? s.sourceId : null,
           account_id: sourceType === 'CASH' ? s.accountId : null,
           payee: s.payee || null,
           mode_of_payment: s.modeOfPayment,

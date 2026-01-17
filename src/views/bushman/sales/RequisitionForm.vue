@@ -81,7 +81,7 @@ const sourceSelection = computed<string | null>({
     // Auto-populate payee based on source selection
     if (type === 'CASH') {
       source.accountId = parsedId
-      source.sourceId = parsedId
+      source.sourceId = null
       const account = (accounts.value || []).find((a: any) => a.id === parsedId)
       if (account && !source.payee) {
         source.payee = account.name
