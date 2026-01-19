@@ -62,12 +62,21 @@
                     <i class="fa fa-check"></i>
                   </button>
                   <button 
-                    v-if="(row as any).status === 'APPROVED'"
+                    v-if="(row as any).status === 'APPROVED' && !(row as any).journal_voucher_id"
                     class="btn btn-primary btn-sm" 
-                    title="Post" 
-                    @click="postInvoice(row)"
+                    title="Create Journal Voucher" 
+                    @click="createJournalVoucherFromInvoice(row)"
                   >
-                    <i class="fa fa-share"></i>
+                    <i class="fa fa-file-alt"></i>
+                  </button>
+                  <button 
+                    v-if="(row as any).status === 'APPROVED' && (row as any).journal_voucher_id"
+                    class="btn btn-primary btn-sm" 
+                    title="View Journal Voucher" 
+                    @click="viewJournalVoucher(row)"
+                    disabled
+                  >
+                    <i class="fa fa-file-alt"></i>
                   </button>
                   <button 
                     v-if="(row as any).status === 'POSTED' || (row as any).status === 'PARTIALLY_PAID'"
@@ -228,6 +237,50 @@ function postInvoice(invoice: Invoice) {
         })
     }
   })
+}
+
+function createJournalVoucherFromInvoice(invoice: Invoice) {
+  Swal.fire({
+    title: 'Create Journal Voucher?',
+    text: `Create a journal voucher for invoice #${invoice.document_number}?`,
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonColor: '#2563eb',
+    cancelButtonColor: '#d33',
+    confirmButtonText: 'Yes, Create JV'
+  }).then((result) => {
+    if (result.isConfirmed) {
+      accountingStore.createJournalVoucherFromInvoice(invoice.id as number, {
+        posting_date: new Date().toISOString().split('T')[0],
+        narration: `Journal Voucher from Invoice ${invoice.document_number}`
+      })
+        .then((response) => {
+          const createdJV = response.data.data || response.data
+          init({
+            title: 'Success',
+            message: `Journal Voucher #${createdJV.document_number || createdJV.id} created successfully`,
+            type: 'success'
+          })
+          // Refresh invoice list to show updated JV link
+          setTimeout(() => {
+            fetchInvoices()
+          }, 500)
+        })
+        .catch(err => {
+          init({
+            title: 'Error',
+            message: err.response?.data?.message || 'Error creating journal voucher',
+            type: 'danger'
+          })
+        })
+    }
+  })
+}
+
+function viewJournalVoucher(invoice: Invoice) {
+  if ((invoice as any).journal_voucher_id) {
+    router.push({ name: 'journal-voucher-view', params: { id: (invoice as any).journal_voucher_id } })
+  }
 }
 
 function recordPayment(invoice: Invoice) {

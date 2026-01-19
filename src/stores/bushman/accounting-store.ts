@@ -646,6 +646,72 @@ export const useAccountingStore = defineStore('accounting', {
       }
     },
 
+    async searchInvoices(query: string, status: string = 'APPROVED', params: any = {}): Promise<any> {
+      this.loading = true
+      this.error = null
+      try {
+        const config = {
+          method: 'get',
+          url: `${API_BASE}/invoices/search`,
+          params: {
+            q: query,
+            status: status,
+            include: 'documentType,currency,entity,lineItems,lineItems.item',
+            limit: 10,
+            ...params
+          },
+          headers: { 'Content-Type': 'application/json' }
+        }
+
+        const response: any = await axios.request(config)
+        return response
+      } catch (err: any) {
+        // Fallback: search from existing invoices list if API endpoint doesn't exist
+        const searchResults = this.invoices.filter((inv: any) => {
+          const searchLower = query.toLowerCase()
+          return (
+            (inv.document_number && inv.document_number.toLowerCase().includes(searchLower)) ||
+            (inv.reference_no && inv.reference_no.toLowerCase().includes(searchLower)) ||
+            (inv.entity?.full_name && inv.entity.full_name.toLowerCase().includes(searchLower))
+          ) && (!status || inv.status === status)
+        })
+        return { data: { data: searchResults.slice(0, 10) } }
+      } finally {
+        this.loading = false
+      }
+    },
+
+    async createJournalVoucherFromInvoice(invoiceId: number, payload: any = {}): Promise<any> {
+      this.loading = true
+      this.error = null
+      try {
+        const config = {
+          method: 'post',
+          url: `${API_BASE}/journal-vouchers/from-invoice`,
+          data: {
+            invoice_id: invoiceId,
+            ...payload
+          },
+          headers: { 'Content-Type': 'application/json' }
+        }
+
+        const response: any = await axios.request(config)
+        const createdJV = response.data.data || response.data
+        
+        // Add to journal vouchers list
+        if (!this.journalVouchers.find((jv: any) => jv.id === createdJV.id)) {
+          this.journalVouchers.push(createdJV)
+        }
+        
+        return response
+      } catch (err: any) {
+        this.error = err?.response?.data?.message || 'Error creating journal voucher from invoice'
+        throw err
+      } finally {
+        this.loading = false
+      }
+    },
+
     // ==================== REFERENCE DATA ====================
 
     async fetchAccounts(params: any = {}): Promise<any> {
@@ -825,7 +891,7 @@ export const useAccountingStore = defineStore('accounting', {
           url: `${API_BASE}/requisitions/available-for-linking`,
           params: {
             include: 'requisitionType,company,branch,items,items.materials,items.accounts,requisitionNumber',
-            status: 'APPROVAL_PENDING,APPROVED,CLOSED',
+            status: 'APPROVED',
             ...params
           },
           headers: { 'Content-Type': 'application/json' }
@@ -842,7 +908,7 @@ export const useAccountingStore = defineStore('accounting', {
             url: `${API_BASE}/requisitions`,
             params: {
               include: 'requisitionType,company,branch,items,items.materials,items.accounts,requisitionNumber',
-              status: 'APPROVAL_PENDING,APPROVED,CLOSED',
+              status: 'APPROVED',
               ...params
             },
             headers: { 'Content-Type': 'application/json' }
