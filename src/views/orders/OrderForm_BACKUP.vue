@@ -351,6 +351,7 @@
                     </td>
                     <td>
                       <select v-model="newItem.taxMethod" class="form-select form-select-sm">
+                        <option :value="null">Select...</option>
                         <option value="EXCLUSIVE">Exclusive</option>
                         <option value="INCLUSIVE">Inclusive</option>
                       </select>
@@ -866,6 +867,7 @@
                         {{ logistics.status || 'PLANNED' }}
                       </span>
                       <select v-else v-model="logistics.status" class="form-select form-select-sm">
+                        <option :value="null">Select...</option>
                         <option value="PLANNED">Planned</option>
                         <option value="BOOKED">Booked</option>
                         <option value="COSTED">Costed</option>

@@ -61,7 +61,7 @@
                 <div class="input-wrapper">
                   <span class="input-icon">🗺️</span>
                   <select v-model="form.areaId" :disabled="loadingAreas">
-                    <option :value="null" disabled>Select hunting area...</option>
+                    <option :value="null">Select hunting area...</option>
                     <option v-for="a in lookups.areas" :key="a.id" :value="a.id">{{ a.name }}</option>
                   </select>
                 </div>
@@ -136,7 +136,7 @@
                 <div class="input-wrapper">
                   <span class="input-icon">💵</span>
                   <select v-model="form.currencyId" :disabled="loadingCurrencies">
-                    <option :value="null" disabled>Select currency...</option>
+                    <option :value="null">Select currency...</option>
                     <option v-for="c in lookups.currencies" :key="c.id" :value="c.id">{{ c.code }}</option>
                   </select>
                 </div>
@@ -298,6 +298,7 @@
                         v-model="line.pricingUnit"
                         class="form-select form-select-sm"
                       >
+                        <option :value="null">Select...</option>
                         <option value="FLAT">Flat</option>
                         <option value="PER_DAY">Per Day</option>
                         <option value="PER_NIGHT">Per Night</option>

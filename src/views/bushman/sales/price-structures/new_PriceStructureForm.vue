@@ -56,7 +56,7 @@
             <label class="field">
               <span class="lbl">Area <span class="req">*</span></span>
               <select v-model="form.area">
-                <option value="" disabled>Select area</option>
+                <option value="">Select area</option>
                 <option>Maswa North</option>
                 <option>Maswa South</option>
                 <option>Burko</option>
@@ -66,7 +66,7 @@
             <label class="field">
               <span class="lbl">Season <span class="req">*</span></span>
               <select v-model="form.season">
-                <option value="" disabled>Select season</option>
+                <option value="">Select season</option>
                 <option>2025/2026</option>
                 <option>2026/2027</option>
               </select>
@@ -85,7 +85,7 @@
             <label class="field">
               <span class="lbl">Currency <span class="req">*</span></span>
               <select v-model="form.currency">
-                <option value="" disabled>Select currency</option>
+                <option value="">Select currency</option>
                 <option>USD</option>
                 <option>TZS</option>
                 <option>EUR</option>
@@ -154,6 +154,7 @@
 
               <div>
                 <select v-model="line.type" @click.stop>
+                  <option :value="null">Select...</option>
                   <option>PACKAGE</option>
                   <option>TROPHY</option>
                   <option>EXTRA</option>
@@ -163,6 +164,7 @@
 
               <div>
                 <select v-model="line.hunting" @click.stop>
+                  <option :value="null">Select...</option>
                   <option>1x1</option>
                   <option>2x1</option>
                   <option>Observer</option>

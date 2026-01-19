@@ -520,6 +520,7 @@ function emitSelectionChange() {
               :readonly="props.disableSearch"
               @change="applyFilters"
             >
+              <option :value="null">Select...</option>
               <option v-for="size in props.pageSizeOptions" :key="size" :value="size">
                 {{ size }}
               </option>
@@ -674,6 +675,7 @@ function emitSelectionChange() {
             :readonly="props.disablePagination"
             @change="applyFilters"
           >
+            <option :value="null">Select...</option>
             <option v-for="size in props.pageSizeOptions" :key="size" :value="size">
               {{ size }}
             </option>

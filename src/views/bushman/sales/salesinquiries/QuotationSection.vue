@@ -415,6 +415,7 @@
                 <div class="col-md-4">
                   <label class="form-label">Rate Direction</label>
                   <select v-model="itemForm.rate_direction" class="form-select">
+                    <option :value="null">Select...</option>
                     <option value="INCREASE">Increase (+)</option>
                     <option value="DECREASE">Decrease (-)</option>
                   </select>
@@ -422,6 +423,7 @@
                 <div class="col-md-4">
                   <label class="form-label">Amount Source</label>
                   <select v-model="itemForm.amount_source" class="form-select">
+                    <option :value="null">Select...</option>
                     <option value="MANUAL">Manual</option>
                     <option value="SYSTEM">System</option>
                   </select>

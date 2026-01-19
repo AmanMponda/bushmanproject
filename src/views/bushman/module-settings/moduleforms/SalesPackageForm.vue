@@ -14,6 +14,7 @@
       <div class="form-group">
         <label for="area">Area</label>
         <select class="form-control" id="area" v-model="form.area">
+          <option :value="null">Select...</option>
           <option v-for="option in areasOptions" :key="option.value" :value="option">{{ option.text }}</option>
         </select>
       </div>
@@ -22,6 +23,7 @@
       <div class="form-group">
         <label for="licence">Licence</label>
         <select class="form-control" id="licence" v-model="form.licence">
+          <option :value="null">Select...</option>
           <option v-for="option in regulatoryPackagesOptions" :key="option.value" :value="option">{{ option.text }}</option>
         </select>
       </div>
@@ -37,6 +39,7 @@
                     <div class="form-group">
                         <label>Species</label>
                         <select class="form-control" v-model="form.species">
+                            <option :value="null">Select...</option>
                             <option v-for="option in speciesOptions" :key="option.value" :value="option">{{ option.text }}</option>
                         </select>
                     </div>

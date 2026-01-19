@@ -545,6 +545,7 @@
                       </td>
                       <td>
                         <select v-model="newInstallment.amountDueType" class="form-select">
+                          <option :value="null">Select...</option>
                           <option v-for="type in installmentAmountTypes" :key="type.value || type.id" :value="type.value || type.id">
                             {{ type.label || type.name }}
                           </option>
@@ -555,6 +556,7 @@
                       </td>
                       <td>
                         <select v-model="newInstallment.dueDaysType" class="form-select">
+                          <option :value="null">Select...</option>
                           <option v-for="type in installmentDaysTypes" :key="type.value || type.id" :value="type.value || type.id">
                             {{ type.label || type.name }}
                           </option>
@@ -912,6 +914,7 @@
             <div class="form-group">
               <label>Instrument Type <span class="req">*</span></label>
               <select v-model="newPayment.instrument_type" class="form-input">
+                <option :value="null">Select...</option>
                 <option value="CASH">Cash</option>
                 <option value="CHEQUE">Cheque</option>
                 <option value="BANK_TRANSFER">Bank Transfer</option>

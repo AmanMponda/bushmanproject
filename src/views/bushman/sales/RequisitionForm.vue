@@ -299,6 +299,116 @@ const filterSourceOptions = (options: any[], search: string) => {
 
 const isSelectableOption = (option: any) => !option?.isHeader
 
+// --- Attachments Logic ---
+const attachmentType = ref('Funding')
+const attachmentReference = ref<any>(null)
+const currentAttachmentTab = ref('All')
+
+// Mock initial data
+const attachments = ref([
+ {
+   name: 'invoice_123.pdf',
+   type: 'PDF',
+   linkedTo: 'Funding',
+   reference: '991000100 - Imprest Bank Petty Cash',
+   uploadedBy: 'John Doe',
+   date: 'Today',
+   url: '#'
+ },
+  {
+   name: 'receipt.jpg',
+   type: 'Image',
+   linkedTo: 'Line Item',
+   reference: 'Item #1',
+   uploadedBy: 'John Doe',
+   date: 'Today',
+   url: '#'
+ },
+  {
+   name: 'delivery_note.pdf',
+   type: 'PDF',
+   linkedTo: 'Cost Center',
+   reference: 'Loading Order 01',
+   uploadedBy: 'John Doe',
+   date: 'Today',
+   url: '#'
+ },
+  {
+   name: 'memo.docx',
+   type: 'DOCX',
+   linkedTo: 'General',
+   reference: '—',
+   uploadedBy: 'John Doe',
+   date: 'Today',
+   url: '#'
+ }
+])
+
+const filteredAttachments = computed(() => {
+  if (currentAttachmentTab.value === 'All') {
+    return attachments.value
+  }
+  return attachments.value.filter((a: any) => a.linkedTo === currentAttachmentTab.value)
+})
+
+const attachmentTypeOptions = ['Funding', 'Cost Center', 'Line Item', 'General']
+
+const attachmentReferenceOptions = computed(() => {
+  if (attachmentType.value === 'Funding') {
+    return sourceOptions.value
+  }
+  if (attachmentType.value === 'Cost Center') {
+    return costCenterOptions.value
+  }
+  if (attachmentType.value === 'Line Item') {
+      if (!form.value?.items) return []
+     return form.value.items.map((item: any, index: number) => {
+       const itemDef = (itemsOptions.value || []).find((opt: any) => opt.id === item.itemId)
+       const label = itemDef ? itemDef.name : `Item #${index + 1}`
+       return {
+         label: label,
+         value: index,
+       }
+     })
+  }
+  return []
+})
+
+const saveAttachment = () => {
+    // Simulate adding a file
+    const refLabel = attachmentReference.value 
+        ? (typeof attachmentReference.value === 'object' ? attachmentReference.value.label : attachmentReference.value) 
+        : '—';
+        
+    const newFile = {
+        name: `upload_${Math.floor(Math.random() * 1000)}.pdf`,
+        type: 'PDF',
+        linkedTo: attachmentType.value,
+        reference: refLabel,
+        uploadedBy: 'Current User',
+        date: 'Just Now',
+        url: '#'
+    }
+    attachments.value.unshift(newFile)
+    attachmentReference.value = null
+}
+
+const cancelAttachment = () => {
+    attachmentReference.value = null
+    attachmentType.value = 'Funding'
+}
+
+const deleteAttachment = (index: number) => {
+    // If filtering, we need to find the actual index in the main array
+    // For simplicity, let's just use the filtered object to find and remove
+    const fileToRemove = filteredAttachments.value[index]
+    const mainIndex = attachments.value.indexOf(fileToRemove)
+    if (mainIndex > -1) {
+        attachments.value.splice(mainIndex, 1)
+    }
+}
+
+
 // Custom filter for item/account options search
 const filterItemAccountOptions = (options: any[], search: string) => {
   const searchLower = (search || '').toLowerCase().trim()
@@ -353,6 +463,25 @@ const dropdownPosition = (dropdownList: HTMLElement, component: any, { width, to
     const rect = triggerEl.getBoundingClientRect()
     const GAP = 0
     const MAX_HEIGHT = 300
+
+    const offsetParent = dropdownList.offsetParent as HTMLElement | null
+    const isLocalMenu = !!offsetParent && offsetParent !== document.body
+
+    if (isLocalMenu) {
+      dropdownList.style.position = 'absolute'
+      dropdownList.style.top = `${Math.round(triggerEl.offsetHeight)}px`
+      dropdownList.style.bottom = 'auto'
+      dropdownList.style.left = '0'
+      dropdownList.style.width = '100%'
+      dropdownList.style.maxHeight = `${MAX_HEIGHT}px`
+      dropdownList.style.height = 'auto'
+      dropdownList.style.overflowY = 'auto'
+      dropdownList.style.zIndex = '9999'
+      dropdownList.style.boxSizing = 'border-box'
+      dropdownList.style.visibility = 'visible'
+      dropdownList.style.display = 'block'
+      return
+    }
 
     // Determine available space
     const spaceAbove = rect.top
@@ -566,6 +695,14 @@ const getCostCenterTotal = (cc: any) => {
   }, 0)
 }
 
+const getCostCenterSubtotal = (cc: any) => getCostCenterTotal(cc)
+
+const getCostCenterTax = (_cc: any) => 0
+
+const getCostCenterGrandTotal = (cc: any) => {
+  return getCostCenterSubtotal(cc) + getCostCenterTax(cc)
+}
+
 const getItemAccountSelection = (line: any) => {
   if (line?.itemId) return `ITEM:${line.itemId}`
   if (line?.accountId) return `ACCOUNT:${line.accountId}`
@@ -667,6 +804,7 @@ const onItemAccountSelect = (line: any, value: string | null) => {
                   <div class="input-wrapper">
                     <span class="input-icon"><i class="fa fa-exchange"></i></span>
                     <select v-model="form.fundDirection">
+                      <option :value="null">Select...</option>
                       <option value="EXPENSE">Direct payment</option>
                       <option value="WITHDRAW">Withdraw</option>
                     </select>
@@ -694,7 +832,7 @@ const onItemAccountSelect = (line: any, value: string | null) => {
                 <div class="input-wrapper">
                   <span class="input-icon"><i class="fa fa-dollar"></i></span>
                   <select v-model="form.currencyId">
-                    <option :value="null" disabled>Select currency...</option>
+                    <option :value="null">Select currency...</option>
                     <option v-for="currency in currencies" :key="currency.id" :value="currency.id">
                       {{ currency.symbol ? `${currency.name} (${currency.symbol})` : currency.name }}
                     </option>
@@ -707,6 +845,7 @@ const onItemAccountSelect = (line: any, value: string | null) => {
                 <div class="input-wrapper">
                   <span class="input-icon"><i class="fa fa-percent"></i></span>
                   <select v-model="form.taxMethod">
+                    <option :value="null">Select tax method</option>
                     <option value="EXCLUSIVE">Exclusive</option>
                     <option value="INCLUSIVE">Inclusive</option>
                     <option value="EXEMPT">Exempt</option>
@@ -755,7 +894,7 @@ const onItemAccountSelect = (line: any, value: string | null) => {
           <div class="panel-header center-header">
             <div class="panel-icon"><i class="fa fa-list-alt"></i></div>
             <div class="panel-title-text">
-              <h3>Line Items & Sources</h3>
+              <h3>Funding and Cost breakdown</h3>
             </div>
           </div>
 
@@ -765,13 +904,18 @@ const onItemAccountSelect = (line: any, value: string | null) => {
               <button type="button" class="tab" :class="{ active: activeFormTab === 'sources' }"
                 @click="activeFormTab = 'sources'">
                 <span class="tab-icon">💳</span>
-                <span class="tab-text">Sources</span>
+                <span class="tab-text">Funding</span>
               </button>
               <button type="button" class="tab" :class="{ active: activeFormTab === 'items' }"
                 @click="activeFormTab = 'items'">
                 <span class="tab-icon">📦</span>
-                <span class="tab-text">Items</span>
+                <span class="tab-text">Cost Breakdown</span>
                 <span class="tab-count" v-if="totalItemsCount > 0">{{ totalItemsCount }}</span>
+              </button>
+              <button type="button" class="tab" :class="{ active: activeFormTab === 'attachments' }"
+                @click="activeFormTab = 'attachments'">
+                <span class="tab-icon">📎</span>
+                <span class="tab-text">Attachments</span>
               </button>
             </div>
           </div>
@@ -797,7 +941,7 @@ const onItemAccountSelect = (line: any, value: string | null) => {
                     <span class="cc-number">#{{ ccIndex + 1 }}</span>
                     <v-select v-model="cc.costCenterId" class="v-select-field v-select-grouped cost-center-select"
                       :options="costCenterOptions" :reduce="(opt) => opt.value" :filterable="true"
-                      :filter="filterGroupedOptions" :selectable="isSelectableOption" :append-to-body="true"
+                      :filter="filterGroupedOptions" :selectable="isSelectableOption" :append-to-body="false"
                       :calculate-position="dropdownPosition" label="label" placeholder="🔍 Search cost center..."
                       @click.stop>
                       <template #option="{ label, isHeader }">
@@ -844,7 +988,7 @@ const onItemAccountSelect = (line: any, value: string | null) => {
                             <v-select class="v-select-sm v-select-grouped" :modelValue="getItemAccountSelection(item)"
                               :options="itemAccountOptions" :reduce="(opt) => opt.value" :filterable="true"
                               :filter="filterItemAccountOptions" :selectable="(opt) => !opt.isHeader"
-                              :append-to-body="true" :calculate-position="dropdownPosition" label="label"
+                              :append-to-body="false" :calculate-position="dropdownPosition" label="label"
                               placeholder="🔍 Search..."
                               @update:modelValue="(value) => onItemAccountSelect(item, value)">
                               <template #option="{ option, label, isHeader }">
@@ -876,7 +1020,7 @@ const onItemAccountSelect = (line: any, value: string | null) => {
 
                           <td class="text-end">
                             <strong>{{ getCurrencySymbol() }}{{ formatAmount((item.quantity || 0) * (item.rate || 0))
-                              }}</strong>
+                            }}</strong>
                           </td>
                           <td class="text-center">
                             <button type="button" class="btn btn-xs btn-outline-danger"
@@ -887,6 +1031,23 @@ const onItemAccountSelect = (line: any, value: string | null) => {
                         </tr>
                       </tbody>
                     </table>
+
+                    <div class="cost-center-summary-wrap">
+                      <div class="cost-center-summary">
+                        <div class="summary-row">
+                          <span>Subtotal</span>
+                          <span>{{ getCurrencySymbol() }}{{ formatAmount(getCostCenterSubtotal(cc)) }}</span>
+                        </div>
+                        <div class="summary-row">
+                          <span>Tax</span>
+                          <span>{{ getCurrencySymbol() }}{{ formatAmount(getCostCenterTax(cc)) }}</span>
+                        </div>
+                        <div class="summary-row grand">
+                          <span>Grand Total</span>
+                          <span>{{ getCurrencySymbol() }}{{ formatAmount(getCostCenterGrandTotal(cc)) }}</span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                   <div v-else class="empty-items-state">
                     <span class="text-muted small">No items yet. Click "Add Item" to add items to this cost
@@ -916,38 +1077,38 @@ const onItemAccountSelect = (line: any, value: string | null) => {
                 </div>
               </div>
             </div>
+          </div>
+          <div class="form p-4" v-if="activeFormTab === 'sources'">
+            <div class="form-section">
+              <h4 class="section-title mb-3" >
+                {{ form.fundDirection === 'EXPENSE' ? 'Direct Payment' : 'Withdraw Funds' }}
+              </h4>
 
-            <div class="form p-4">
-              <div class="form-section">
-
-
-                <div class="row mb-3">
-                  <div class="col-12">
-                    <label class="field">
-                      <span class="lbl">Payment Mode</span>
-                      <div class="input-wrapper">
-                        <span class="input-icon"><i class="fa fa-credit-card"></i></span>
-                        <select v-model="form.source.modeOfPayment">
-                          <option :value="null">Select payment mode...</option>
-                          <option value="CASH">💵 Cash</option>
-                          <option value="TT">🏦 Telegraphic Transfer (TT)</option>
-                          <option value="CREDIT">💳 Credit</option>
-                        </select>
-                      </div>
-                    </label>
+              <div v-if="form.fundDirection === 'EXPENSE'" class="direct-payment-card">
+                <label class="field">
+                  <span class="lbl">Payment Mode</span>
+                  <div class="input-wrapper has-v-select">
+                    <span class="input-icon"><i class="fa fa-credit-card"></i></span>
+                    <v-select v-model="form.source.modeOfPayment" class="v-select-field" :options="[
+                      { label: 'Bank Transfer', value: 'BANK_TRANSFER' },
+                      { label: 'Cash', value: 'CASH' },
+                      { label: 'Cheque', value: 'CHEQUE' },
+                      { label: 'Mobile Money', value: 'MOBILE_MONEY' }
+                    ]" :reduce="(opt) => opt.value" label="label" placeholder="Select payment mode...">
+                    </v-select>
                   </div>
-                </div>
+                </label>
 
                 <div class="row">
                   <label class="field col-md-6">
                     <span class="lbl">Source</span>
                     <div class="input-wrapper has-v-select">
-                      <span class="input-icon"><i class="fa fa-building"></i></span>
-                      <v-select ref="sourceSelect" v-model="sourceSelection" class="v-select-field v-select-grouped"
-                        :options="sourceOptions" :reduce="(opt) => opt.value" :filterable="true"
-                        :filter="filterSourceOptions" :selectable="(opt) => !opt.isHeader" :append-to-body="true"
-                        :calculate-position="dropdownPosition" @search="onSourceSearch" label="label"
-                        placeholder="Search or select source...">
+                      <span class="input-icon"><i class="fa fa-bank"></i></span>
+                      <v-select ref="sourceAccountSelect" v-model="sourceSelection"
+                        class="v-select-field v-select-grouped" :options="sourceOptions" :reduce="(opt) => opt.value"
+                        :filterable="true" :filter="filterSourceOptions" :selectable="(opt) => !opt.isHeader"
+                        :append-to-body="false" :calculate-position="dropdownPosition" @search="onSourceSearch"
+                        label="label" placeholder="Search or select source...">
                         <template #option="{ label, isHeader }">
                           <div :class="{ 'source-header': isHeader, 'source-option': !isHeader }">
                             {{ label }}
@@ -958,18 +1119,13 @@ const onItemAccountSelect = (line: any, value: string | null) => {
                   </label>
 
                   <label class="field col-md-6">
-                    <span class="lbl">
-                      Payee
-                      <span v-if="form.source.sourceType === 'VENDOR' || form.source.sourceType === 'SERVICE_PROVIDER'"
-                        class="req">*</span>
-                    </span>
+                    <span class="lbl">Payee</span>
                     <div class="input-wrapper">
                       <span class="input-icon"><i class="fa fa-user"></i></span>
                       <input v-model="form.source.payee" type="text" class="form-control" placeholder="Payee name" />
                     </div>
                   </label>
                 </div>
-
 
                 <label class="field">
                   <span class="lbl">Description</span>
@@ -980,7 +1136,232 @@ const onItemAccountSelect = (line: any, value: string | null) => {
                   </div>
                 </label>
               </div>
+
+
+
+              <div v-else-if="form.fundDirection === 'WITHDRAW'">
+                <!-- FROM Section -->
+                <div class="rounded-3 border overflow-hidden mb-0">
+                  <div class="px-3 py-2 fw-bold d-flex justify-content-between align-items-center"
+                    style="background-color: #f8fafc; border-bottom: 1px solid #e2e8f0;">
+                    <span>FROM <span class="text-muted fw-normal">(Source Account)</span></span>
+                    <i class="fa fa-arrow-down text-muted opacity-50"></i>
+                  </div>
+
+                  <div class="p-3 bg-white">
+                    <div class="row mb-3">
+                      <label class="field col-md-6">
+                        <span class="lbl">Bank Transfer</span>
+                        <div class="input-wrapper has-v-select">
+                          <span class="input-icon"><i class="fa fa-bank"></i></span>
+                          <v-select v-model="form.source.paymentMethod" class="v-select-field" :options="[
+                            { label: 'Bank Transfer', value: 'BANK_TRANSFER' },
+                            { label: 'Cash', value: 'CASH' },
+                            { label: 'Cheque', value: 'CHEQUE' },
+                            { label: 'Mobile Money', value: 'MOBILE_MONEY' }
+                          ]" :reduce="(opt) => opt.value" label="label" placeholder="Select payment method...">
+                          </v-select>
+                        </div>
+                      </label>
+
+                      <label class="field col-md-6">
+                        <span class="lbl">Source Account</span>
+                        <div class="input-wrapper has-v-select">
+                          <span class="input-icon"><i class="fa fa-credit-card"></i></span>
+                          <v-select ref="sourceAccountSelect" v-model="sourceSelection"
+                            class="v-select-field v-select-grouped" :options="sourceOptions"
+                            :reduce="(opt) => opt.value" :filterable="true" :filter="filterSourceOptions"
+                            :selectable="(opt) => !opt.isHeader" :append-to-body="false"
+                            :calculate-position="dropdownPosition" @search="onSourceSearch" label="label"
+                            placeholder="Select source account...">
+                            <template #option="{ label, isHeader }">
+                              <div :class="{ 'source-header': isHeader, 'source-option': !isHeader }">
+                                {{ label }}
+                              </div>
+                            </template>
+                          </v-select>
+                        </div>
+                      </label>
+                    </div>
+
+                    <div class="row">
+                      <label class="field col-md-6">
+                        <span class="lbl">Payment <span class="req">*</span></span>
+                        <div class="input-wrapper">
+                          <span class="input-icon" v-if="false"><i class="fa fa-money"></i></span>
+                          <input v-model="form.source.amount" type="number" class="form-control" placeholder="0.00" />
+                        </div>
+                      </label>
+
+                      <label class="field col-md-6">
+                        <span class="lbl">Amount <span class="req">*</span></span>
+                        <div class="input-wrapper">
+                          <input :value="form.source.amount ? formatAmount(form.source.amount) : '0 TZS'" readonly
+                            type="text" class="form-control fw-bold bg-light text-end" placeholder="0 TZS" />
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Separator -->
+                <div class="text-center my-1 position-relative"
+                  style="z-index: 2; margin-top: -12px !important; margin-bottom: -12px !important;">
+                  <div
+                    class="d-inline-flex align-items-center justify-content-center bg-white rounded-circle shadow-sm border"
+                    style="width: 32px; height: 32px;">
+                    <i class="fa fa-angle-double-down text-primary"></i>
+                  </div>
+                </div>
+
+                <!-- TO Section -->
+                <div class="rounded-3 border overflow-hidden mt-0 mb-4">
+                  <div class="px-3 py-2 fw-bold" style="background-color: #f8fafc; border-bottom: 1px solid #e2e8f0;">
+                    TO <span class="text-muted fw-normal">(Receiving Account)</span>
+                  </div>
+
+                  <div class="p-3 bg-white">
+                    <div class="row mb-3">
+                      <label class="field col-md-6">
+                        <span class="lbl">Receiving Account <span class="req">*</span></span>
+                        <div class="input-wrapper has-v-select">
+                          <span class="input-icon"><i class="fa fa-bank"></i></span>
+                          <v-select v-model="form.source.receivingAccountId" class="v-select-field" :options="accounts"
+                            :reduce="(opt) => opt.id" label="name" placeholder="Select receiving account...">
+                            <template #option="{ name, code }">
+                              <div>{{ name }} <span v-if="code" class="text-muted">({{ code }})</span></div>
+                            </template>
+                          </v-select>
+                        </div>
+                      </label>
+
+
+                      <label class="field col-md-6">
+                        <span class="lbl">Custodian / Holder <span class="req">*</span></span>
+                        <div class="input-wrapper has-v-select">
+                          <span class="input-icon"><i class="fa fa-user"></i></span>
+                          <v-select v-model="form.source.custodianId" class="v-select-field" :options="users"
+                            :reduce="(opt) => opt.id" label="name" placeholder="Select custodian...">
+                          </v-select>
+                        </div>
+                      </label>
+                    </div>
+
+                    <label class="field">
+                      <span class="lbl">Description</span>
+                      <div class="input-wrapper textarea-wrapper">
+                        <span class="input-icon"><i class="fa fa-align-left"></i></span>
+                        <textarea v-model="form.source.description" rows="3"
+                          placeholder="Notes about this fund transfer..."></textarea>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+              </div>
             </div>
+          </div>
+
+
+          <!-- ATTACHMENTS TAB -->
+          <div v-if="activeFormTab === 'attachments'" class="tab-content">
+            <div class="form p-4">
+              <div class="form-section">
+                <h4 class="section-title mb-3">Attachments</h4>
+
+                <div class="attachments-card">
+                  <div class="attachments-header">
+                    <div class="attachments-title d-flex align-items-center gap-2">
+                      <i class="fa fa-paperclip"></i>
+                      <span>Link Attachment To:</span>
+                      <v-select
+                        v-model="attachmentType"
+                        :options="attachmentTypeOptions"
+                        :clearable="false"
+                        :searchable="false"
+                        class="type-select"
+                        style="min-width: 180px; display: inline-block;"
+                      ></v-select>
+                    </div>
+                    <div class="attachments-actions">
+                      <button type="button" class="btn btn-sm btn-primary" @click="saveAttachment">Save Attachment</button>
+                      <button type="button" class="btn btn-sm btn-outline-secondary" @click="cancelAttachment">Cancel</button>
+                    </div>
+                  </div>
+
+                  <div class="attachments-controls" v-if="attachmentType !== 'General'">
+                    <label class="field compact-field">
+                      <span class="lbl">Select {{ attachmentType }}</span>
+                      <div class="input-wrapper has-v-select">
+                        <span class="input-icon"><i class="fa fa-bank"></i></span>
+                        <v-select class="v-select-field" v-model="attachmentReference" :options="attachmentReferenceOptions"
+                          :selectable="isSelectableOption"
+                          :append-to-body="false" :calculate-position="dropdownPosition" label="label"
+                          :placeholder="'Select ' + attachmentType">
+                          <template #option="{ label, isHeader }">
+                            <div :class="{ 'source-header': isHeader, 'source-option': !isHeader }">
+                              {{ label }}
+                            </div>
+                          </template>
+                        </v-select>
+                      </div>
+                    </label>
+                  </div>
+
+                  <div class="attachments-tabs">
+                    <button type="button" class="tab" :class="{ active: currentAttachmentTab === 'All' }" @click="currentAttachmentTab = 'All'"><i class="fa fa-list"></i> All</button>
+                    <button type="button" class="tab" :class="{ active: currentAttachmentTab === 'General' }" @click="currentAttachmentTab = 'General'"><i class="fa fa-folder-open"></i> General</button>
+                    <button type="button" class="tab" :class="{ active: currentAttachmentTab === 'Funding' }" @click="currentAttachmentTab = 'Funding'"><i class="fa fa-credit-card"></i> Funding</button>
+                    <button type="button" class="tab" :class="{ active: currentAttachmentTab === 'Cost Center' }" @click="currentAttachmentTab = 'Cost Center'"><i class="fa fa-sitemap"></i> Cost Center</button>
+                    <button type="button" class="tab" :class="{ active: currentAttachmentTab === 'Line Item' }" @click="currentAttachmentTab = 'Line Item'"><i class="fa fa-list-alt"></i> Line Item</button>
+                  </div>
+
+                  <div class="attachments-table">
+                    <div class="attachments-row header">
+                      <div>File Name</div>
+                      <div>Type</div>
+                      <div>Linked To</div>
+                      <div>Reference</div>
+                      <div>Uploaded By</div>
+                      <div>Date</div>
+                      <div>Actions</div>
+                    </div>
+                    <div v-for="(file, index) in filteredAttachments" :key="index" class="attachments-row">
+                      <div class="file-name">
+                        <i v-if="file.type === 'PDF'" class="fa fa-file-pdf-o"></i>
+                        <i v-else-if="file.type === 'Image'" class="fa fa-file-image-o"></i>
+                        <i v-else-if="file.type === 'DOCX'" class="fa fa-file-word-o"></i>
+                        <i v-else class="fa fa-file-o"></i>
+                        {{ file.name }}
+                      </div>
+                      <div>{{ file.type }}</div>
+                      <div><span class="tag" :class="file.linkedTo.toLowerCase().replace(' ', '-')">{{ file.linkedTo }}</span></div>
+                      <div>{{ file.reference }}</div>
+                      <div>{{ file.uploadedBy }}</div>
+                      <div>{{ file.date }}</div>
+                      <div class="d-flex gap-1" style="justify-content: flex-end;">
+                          <button type="button" class="btn btn-xs btn-outline-primary">View</button>
+                          <button type="button" class="btn btn-xs btn-outline-danger" @click="deleteAttachment(index)"><i class="fa fa-trash"></i></button>
+                      </div>
+                    </div>
+                    <div v-if="filteredAttachments.length === 0" class="attachments-row">
+                        <div class="text-center w-100 text-muted small py-3">No attachments found</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Common Actions Footer -->
+          <div class="d-flex justify-content-end gap-2 p-3 bg-white border-top mt-auto">
+            <button class="btn btn-outline-secondary d-flex align-items-center gap-2 px-4" type="button"
+              @click="saveDraft">
+              <i class="fa fa-bars"></i> Save Draft
+            </button>
+            <button class="btn btn-primary d-flex align-items-center gap-2 px-4" type="button"
+              @click="emit('save', false)">
+              <i class="fa fa-check"></i> Submit for Approval
+            </button>
           </div>
         </section>
       </section>
@@ -1344,14 +1725,11 @@ h1 {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 700;
-  color: #1e40af;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 10px;
-  padding-bottom: 8px;
-  border-bottom: 2px solid #dbeafe;
+  color: #0f172a;
+  letter-spacing: -0.3px;
+  margin-bottom: 16px;
 }
 
 .section-icon {
@@ -1396,15 +1774,16 @@ h1 {
 .input-wrapper input,
 .input-wrapper select {
   width: 100%;
-  border: 2px solid #e2e8f0;
-  border-radius: 10px;
-  padding: 8px 10px;
+  border: 1px solid #dbe5f0;
+  border-radius: 12px;
+  padding: 8px 12px;
   padding-left: 32px;
   font-size: 13px;
-  background: #ffffff;
-  color: #0f172a;
+  background: #f8faff;
+  color: #0b1220;
   transition: all 0.2s ease;
   outline: none;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
 .input-wrapper input:focus,
@@ -1432,13 +1811,13 @@ h1 {
 
 .input-wrapper.textarea-wrapper textarea {
   width: 100%;
-  border: 2px solid #e2e8f0;
-  border-radius: 10px;
-  padding: 10px 12px;
+  border: 1px solid #dbe5f0;
+  border-radius: 12px;
+  padding: 10px 14px;
   padding-left: 38px;
   font-size: 13px;
-  background: #ffffff;
-  color: #0f172a;
+  background: #f8faff;
+  color: #0b1220;
   transition: all 0.2s ease;
   outline: none;
   resize: vertical;
@@ -1466,9 +1845,9 @@ h1 {
 
 .date-picker-lg :deep(.dp__input) {
   /* Match the select sizing so the date input aligns with Fund Direction */
-  height: 36px;
+  height: 38px;
   font-size: 13px;
-  padding: 8px 10px;
+  padding: 8px 12px;
   padding-left: 32px;
 }
 
@@ -1524,6 +1903,196 @@ h1 {
 .toggle-hint {
   font-size: 11px;
   color: var(--text-secondary);
+}
+
+/* Funding Source Styles */
+.funds-subsection {
+  padding: 16px;
+  background: #f8fafc;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+}
+
+.direct-payment-card {
+  padding: 16px;
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.attachments-card {
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+  overflow: hidden;
+}
+
+.attachments-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid #edf2f7;
+  background: #f8fafc;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.attachments-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  color: #0b1220;
+  font-size: 13px;
+}
+
+.attachments-title .pill {
+  background: #fff7ed;
+  color: #b45309;
+  border: 1px solid #fed7aa;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 11px;
+}
+
+.attachments-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.attachments-controls {
+  padding: 12px 16px 0;
+}
+
+.attachments-tabs {
+  display: flex;
+  gap: 10px;
+  padding: 10px 16px 0;
+  flex-wrap: wrap;
+}
+
+.attachments-tabs .tab {
+  padding: 8px 14px;
+  border-radius: 12px;
+  border: 2px solid #2563eb;
+  background: #ffffff;
+  font-size: 12px;
+  color: #1e40af;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.15);
+}
+
+.attachments-tabs .tab.active {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  border-color: #1d4ed8;
+  color: #ffffff;
+  box-shadow: 0 8px 16px rgba(37, 99, 235, 0.35);
+}
+
+.attachments-table {
+  padding: 12px 16px 16px;
+  display: grid;
+  gap: 8px;
+}
+
+.attachments-row {
+  display: grid;
+  grid-template-columns: 1.4fr 0.6fr 0.9fr 1.2fr 0.8fr 0.6fr 0.6fr;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid #eef2f7;
+  border-radius: 10px;
+  background: #fbfdff;
+  font-size: 12px;
+  color: #0b1220;
+}
+
+.attachments-row.header {
+  background: #f1f5f9;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  font-size: 11px;
+  color: #475569;
+}
+
+.attachments-row .file-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.tag.funding {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.tag.line-item {
+  background: #ede9fe;
+  color: #5b21b6;
+}
+
+.tag.cost-center {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.tag.general {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+@media (max-width: 1200px) {
+  .attachments-row {
+    grid-template-columns: 1fr 0.5fr 0.8fr 1fr 0.6fr 0.6fr 0.6fr;
+  }
+}
+
+@media (max-width: 992px) {
+  .attachments-row {
+    grid-template-columns: 1.4fr 0.7fr 0.9fr 1fr;
+    grid-auto-rows: minmax(22px, auto);
+  }
+
+  .attachments-row> :nth-child(n+5) {
+    display: none;
+  }
+}
+
+.subsection-label {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+  margin-bottom: 12px;
+}
+
+.subsection-label .text-muted {
+  font-weight: 500;
+  color: #64748b;
+  font-size: 13px;
 }
 
 /* Switch */
@@ -2834,16 +3403,18 @@ h1 {
 }
 
 .items-header {
-  margin-bottom: 10px;
+  margin-bottom: 12px;
   display: flex;
   justify-content: flex-end;
 }
 
 .tab-content {
-  background: white;
+  background: #f3f5fb;
   padding: 14px;
-  padding-top: 5px;
+  padding-top: 8px;
   border-radius: 0 0 12px 12px;
+  border: 1px solid #e6edf5;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.05);
 }
 
 .item-card {
@@ -3297,22 +3868,23 @@ h1 {
 }
 
 .cost-center-card {
-  background: #ffffff;
-  border: 2px solid #e2e8f0;
-  border-radius: 0;
-  overflow: hidden;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  background: #f7fafc;
+  border: 1px solid #e5edf5;
+  border-radius: 14px;
+  overflow: visible;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
 }
 
 .cost-center-header {
-  background: linear-gradient(135deg, #7da2ed 0%, #8bb6e7 100%);
-  color: white;
+  background: linear-gradient(180deg, #edf8f2 0%, #edf8f2 100%);
+  color: #0b1220;
   padding: 8px 12px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 8px;
   cursor: pointer;
+  border-bottom: 1px solid #dfe7ef;
 }
 
 .cost-center-info {
@@ -3328,10 +3900,11 @@ h1 {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 4px;
+  background: #ffffff;
+  border-radius: 8px;
   font-size: 10px;
   transition: transform 0.2s ease;
+  border: 1px solid #dfe7ef;
 }
 
 .cc-toggle.collapsed {
@@ -3341,10 +3914,11 @@ h1 {
 .cc-number {
   font-size: 14px;
   font-weight: 800;
-  background: rgba(255, 255, 255, 0.25);
+  background: #ffffff;
   padding: 3px 8px;
-  border-radius: 4px;
+  border-radius: 8px;
   flex-shrink: 0;
+  border: 1px solid #e3edf6;
 }
 
 .cost-center-select {
@@ -3383,39 +3957,41 @@ h1 {
 }
 
 .input-wrapper.has-v-select .v-select-field :deep(.vs__dropdown-toggle) {
-  border: 2px solid #e2e8f0;
-  border-radius: 10px;
-  min-height: 36px;
+  border: 1px solid #dbe5f0;
+  border-radius: 12px;
+  min-height: 38px;
   padding: 0;
-  background: #ffffff;
+  background: #f8faff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
 .input-wrapper.has-v-select .v-select-field :deep(.vs__selected-options) {
-  padding: 3px 10px 3px 32px;
+  padding: 6px 12px 6px 32px;
   font-size: 12px;
 }
 
 .input-wrapper.has-v-select .v-select-field :deep(.vs__search) {
-  padding: 3px 0;
+  padding: 4px 0;
   margin: 0;
   font-size: 12px;
 }
 
 .v-select-field :deep(.vs__dropdown-toggle) {
-  border: 2px solid #e2e8f0;
-  border-radius: 10px;
-  min-height: 36px;
+  border: 1px solid #dbe5f0;
+  border-radius: 12px;
+  min-height: 38px;
   padding: 0;
-  background: #ffffff;
+  background: #f8faff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
 .v-select-field :deep(.vs__selected-options) {
-  padding: 3px 10px 3px 32px;
+  padding: 6px 12px 6px 32px;
   font-size: 12px;
 }
 
 .v-select-field :deep(.vs__search) {
-  padding: 3px 0;
+  padding: 4px 0;
   margin: 0;
   font-size: 12px;
 }
@@ -3471,6 +4047,9 @@ h1 {
   border: 1px solid #e2e8f0;
   border-radius: 8px;
   margin-top: 0;
+  position: absolute;
+  left: 0;
+  right: 0;
 }
 
 .source-header {
@@ -3596,11 +4175,11 @@ h1 {
 }
 
 .v-select-sm :deep(.vs__dropdown-toggle) {
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  min-height: 30px;
+  border: 1px solid #dbe5f0;
+  border-radius: 10px;
+  min-height: 32px;
   padding: 0;
-  background: #ffffff;
+  background: #f8faff;
 }
 
 .v-select-sm :deep(.vs__selected-options) {
@@ -3614,7 +4193,7 @@ h1 {
 
 .cost-center-actions {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   flex-shrink: 0;
   align-items: center;
 }
@@ -3622,45 +4201,48 @@ h1 {
 .cc-total {
   font-weight: 700;
   font-size: 12px;
-  color: #1e40af;
-  padding: 2px 8px;
-  border-radius: 4px;
-  background: #dbeafe;
+  color: #0f172a;
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: #ffffff;
+  border: 1px solid #e3edf6;
 }
 
 .cost-center-items {
-  padding: 8px;
-  background: #f8fafc;
-  border-top: 1px solid #e2e8f0;
+  padding: 10px 12px 14px;
+  background: #f7fafc;
+  border-top: 0;
+  overflow: visible;
 }
 
 /* Items Table */
 .items-table {
   width: 100%;
   border-collapse: collapse;
-  background: white;
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  background: #ffffff;
+  border-radius: 12px;
+  overflow: visible;
+  border: 1px solid #e3edf6;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
 }
 
 .items-table thead {
-  background: #f8fafc;
-  border-bottom: 2px solid #e2e8f0;
+  background: #f3f6fa;
+  border-bottom: 1px solid #e3edf6;
 }
 
 .items-table th {
-  padding: 8px 10px;
+  padding: 8px 12px;
   text-align: left;
-  font-weight: 600;
-  font-size: 12px;
-  color: #475569;
+  font-weight: 700;
+  font-size: 11px;
+  color: #334155;
   text-transform: uppercase;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.4px;
 }
 
 .items-table tbody tr {
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid #eef3f8;
   transition: background 0.15s ease;
 }
 
@@ -3673,19 +4255,79 @@ h1 {
 }
 
 .items-table td {
-  padding: 6px 10px;
+  padding: 8px 12px;
   vertical-align: middle;
 }
 
 .items-table td strong {
-  color: #0f172a;
+  color: #0b1220;
   font-size: 13px;
+}
+
+.cost-center-summary-wrap {
+  display: block;
+  margin-top: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.cost-center-summary {
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  box-shadow: none;
+}
+
+.cost-center-summary .summary-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  font-size: 13px;
+  padding: 10px 16px;
+  background: #ffffff;
+  border-top: 1px solid #f1f5f9;
+}
+
+.cost-center-summary .summary-row span:first-child {
+  color: #64748b;
+  font-weight: 500;
+  text-align: right;
+  padding-right: 40px;
+}
+
+.cost-center-summary .summary-row span:last-child {
+  color: #0f172a;
+  font-weight: 600;
+  font-size: 13px;
+  text-align: right;
+  min-width: 140px;
+}
+
+.cost-center-summary .summary-row.grand {
+  border-top: 2px solid #e2e8f0;
+  background: #fafbfc;
+  padding: 12px 16px;
+}
+
+.cost-center-summary .summary-row.grand span:first-child {
+  color: #0f172a;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.cost-center-summary .summary-row.grand span:last-child {
+  color: #0f172a;
+  font-weight: 800;
+  font-size: 16px;
 }
 
 .items-table .form-control-sm {
   font-size: 13px;
-  padding: 4px 8px;
+  padding: 6px 10px;
   border: 1px solid #e2e8f0;
+  border-radius: 8px;
 }
 
 .items-table .form-control-sm:focus {
@@ -3699,5 +4341,27 @@ h1 {
   background: white;
   border: 2px dashed #e2e8f0;
   border-radius: 8px;
+}
+
+/* Attachment Type Select */
+.type-select {
+  display: inline-block;
+  font-size: 13px;
+  background: #fff;
+  border-radius: 4px;
+}
+.type-select :deep(.vs__dropdown-toggle) {
+  border: 1px solid #e2e8f0;
+  min-height: 32px;
+  padding: 0 4px;
+  background: #ffffff;
+}
+.type-select :deep(.vs__selected) {
+    font-weight: 600;
+    color: #0f172a;
+}
+.type-select :deep(.vs__search) {
+    padding: 0;
+    margin: 0;
 }
 </style>

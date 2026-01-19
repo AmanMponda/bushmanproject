@@ -56,6 +56,7 @@
             <div class="col-auto">
               <label class="form-label small mb-1">Species Name Column</label>
               <select class="form-select form-select-sm" v-model.number="selectedSpeciesNameIndex" @change="onColumnMappingChange">
+                <option :value="null">Select...</option>
                 <option :value="-1">Select column</option>
                 <option v-for="(h, i) in headers" :key="i" :value="i">{{ h || '(empty)' }}</option>
               </select>
@@ -63,6 +64,7 @@
             <div class="col-auto">
               <label class="form-label small mb-1">Quantity Column</label>
               <select class="form-select form-select-sm" v-model.number="selectedQuantityIndex" @change="onColumnMappingChange">
+                <option :value="null">Select...</option>
                 <option :value="-1">Select column</option>
                 <option v-for="(h, i) in headers" :key="i" :value="i">{{ h || '(empty)' }}</option>
               </select>

@@ -49,12 +49,14 @@ export default {
 				<div class="mb-3">
 					<label class="form-label">Country <span class="text-danger">*</span></label>
 					<select class="form-control form-control-lg fs-15px">
+						<option :value="null">Select...</option>
 						<option>United States</option>
 					</select>
 				</div>
 				<div class="mb-3">
 					<label class="form-label">Gender <span class="text-danger">*</span></label>
 					<select class="form-control form-control-lg fs-15px">
+						<option :value="null">Select...</option>
 						<option>Female</option>
 					</select>
 				</div>
@@ -63,16 +65,19 @@ export default {
 					<div class="row">
 						<div class="col-6">
 							<select class="form-select form-select-lg fs-15px">
+								<option :value="null">Select...</option>
 								<option>Month</option>
 							</select>
 						</div>
 						<div class="col-3">
 							<select class="form-select form-select-lg fs-15px">
+								<option :value="null">Select...</option>
 								<option>Day</option>
 							</select>
 						</div>
 						<div class="col-3">
 							<select class="form-select form-select-lg fs-15px">
+								<option :value="null">Select...</option>
 								<option>Year</option>
 							</select>
 						</div>

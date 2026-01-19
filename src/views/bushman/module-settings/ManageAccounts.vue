@@ -87,6 +87,7 @@
             <button class="btn btn-sm btn-primary">1</button>
             <button class="btn btn-sm btn-outline-secondary" disabled><i class="bi bi-chevron-right"></i></button>
             <select class="form-select form-select-sm" style="width: 80px;">
+              <option :value="null">Select...</option>
               <option>10</option>
               <option>25</option>
               <option>50</option>

@@ -129,6 +129,7 @@ export default {
 												<div class="form-group mb-3">
 													<label class="form-label" for="exampleFormControlSelect1">Select dropdown</label>
 													<select class="form-select" id="exampleFormControlSelect1">
+														<option :value="null">Select...</option>
 														<option>1</option>
 														<option>2</option>
 														<option>3</option>
@@ -170,12 +171,15 @@ export default {
 										</div>
 										<div class="col-xl-6">
 											<select class="form-select form-select-lg mb-3">
+												<option :value="null">Select...</option>
 												<option>Large select</option>
 											</select>
 											<select class="form-select mb-3">
+												<option :value="null">Select...</option>
 												<option>Default select</option>
 											</select>
 											<select class="form-select form-select-sm mb-3">
+												<option :value="null">Select...</option>
 												<option>Small select</option>
 											</select>
 										</div>
@@ -381,6 +385,7 @@ export default {
 										<div class="col-xl-6">
 											<div class="small text-white text-opacity-50 mb-2"><b>DEFAULT</b></div>
 											<select class="form-select">
+												<option :value="null">Select...</option>
 												<option selected>Open this select menu</option>
 												<option value="1">One</option>
 												<option value="2">Two</option>
@@ -390,6 +395,7 @@ export default {
 										<div class="col-xl-6">
 											<div class="small text-white text-opacity-50 mb-2"><b>SIZING</b></div>
 											<select class="form-select form-select-lg mb-3">
+												<option :value="null">Select...</option>
 												<option selected>Open this select menu</option>
 												<option value="1">One</option>
 												<option value="2">Two</option>
@@ -397,6 +403,7 @@ export default {
 											</select>
 
 											<select class="form-select form-select-sm">
+												<option :value="null">Select...</option>
 												<option selected>Open this select menu</option>
 												<option value="1">One</option>
 												<option value="2">Two</option>
