@@ -201,7 +201,7 @@ const dimensionValues = ref<DimensionValue[]>([])
 const vatOptions = ref<OptionItem[]>([])
 
 // Form tabs
-type FormTab = 'sources' | 'items'
+type FormTab = 'sources' | 'items' | 'attachments'
 const activeFormTab = ref<FormTab>('sources')
 
 const generateKey = () => crypto.randomUUID()
@@ -212,7 +212,7 @@ const createEmptyItem = (): RequisitionItemForm => ({
   vatId: null,
   discountAmount: 0,
   discountMethod: null,
-  taxMethod: 'EXCLUSIVE',
+  taxMethod: null,
   remarks: '',
   materials: [
     {
@@ -278,13 +278,13 @@ const form = reactive({
   // Header information
   id: 0,
   requisitionTypeId: null as number | null,
-  fundDirection: 'EXPENSE' as FundDirection,
+  fundDirection: null as FundDirection | null,
   currencyId: null as number | null,
   branchId: null as number | null,
   date: new Date().toISOString().slice(0, 10),
   requiredDate: '',
   remarks: '',
-  taxMethod: 'EXCLUSIVE' as TaxMethod,
+  taxMethod: null as TaxMethod | null,
 
   // Single shared source for the whole requisition
   source: {
@@ -545,13 +545,14 @@ const getAuthHeaders = () => {
 
 const resetForm = () => {
   form.id = 0
-  form.requisitionTypeId = requisitionTypes.value[0]?.id || null
-  form.fundDirection = 'EXPENSE'
-  form.currencyId = currencies.value[0]?.id || null
-  form.branchId = branches.value[0]?.id || null
+  form.requisitionTypeId = null
+  form.fundDirection = null
+  form.currencyId = null
+  form.branchId = null
   form.date = new Date().toISOString().slice(0, 10)
   form.requiredDate = ''
   form.remarks = ''
+  form.taxMethod = null
 
   // Reset items
   form.items = []
@@ -899,7 +900,7 @@ const openEditForm = (req: Requisition) => {
     vatId: null,
     discountAmount: 0,
     discountMethod: null,
-    taxMethod: 'EXCLUSIVE',
+    taxMethod: form.taxMethod,
     remarks: '',
     materials: [
       {

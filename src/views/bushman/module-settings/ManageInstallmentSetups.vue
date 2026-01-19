@@ -145,6 +145,7 @@
                 <div class="col-md-6">
                   <label class="form-label">Amount Type <span class="text-danger">*</span></label>
                   <select v-model="form.amount_due_type" class="form-select" required>
+                    <option :value="null">Select...</option>
                     <option v-for="t in amountTypeOptions" :key="t.value" :value="t.value">{{ t.label }}</option>
                   </select>
                 </div>
@@ -152,6 +153,7 @@
                 <div class="col-md-6">
                   <label class="form-label">Due Days Type <span class="text-danger">*</span></label>
                   <select v-model="form.due_days_type" class="form-select" required>
+                    <option :value="null">Select...</option>
                     <option v-for="t in dueDaysTypeOptions" :key="t.value" :value="t.value">{{ t.label }}</option>
                   </select>
                 </div>

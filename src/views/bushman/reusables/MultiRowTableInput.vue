@@ -48,6 +48,7 @@
                 class="form-select form-select-sm"
                 :required="field.required"
               >
+                <option :value="null">Select...</option>
                 <option v-for="option in field.options" :key="option.value" :value="option.value">
                   {{ option.text }}
                 </option>

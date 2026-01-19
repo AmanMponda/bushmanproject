@@ -29,6 +29,7 @@
                   <div class="col-md-2">
                     <label class="form-label">Entry Type</label>
                     <select v-model="formType" class="form-select form-select-sm" @change="onFormTypeChange">
+                      <option :value="null">Select...</option>
                       <option value="type">Type</option>
                       <option value="value">Value</option>
                     </select>

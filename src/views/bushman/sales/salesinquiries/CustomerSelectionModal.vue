@@ -195,6 +195,7 @@
                         v-model="form.phone_country_code" 
                         class="country-code-select"
                       >
+                        <option :value="null">Select...</option>
                         <option v-for="(cc, idx) in countryCodes" :key="idx" :value="cc.code">
                           {{ cc.country }} {{ cc.code }}
                         </option>
@@ -221,6 +222,7 @@
                         v-model="form.phone_additional_country_code" 
                         class="country-code-select"
                       >
+                        <option :value="null">Select...</option>
                         <option v-for="(cc, idx) in countryCodes" :key="idx" :value="cc.code">
                           {{ cc.country }} {{ cc.code }}
                         </option>

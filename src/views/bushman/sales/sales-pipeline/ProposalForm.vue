@@ -161,7 +161,7 @@
               <div class="col-md-3">
                 <label class="form-label">Due Type</label>
                 <select v-model="installment.due_days_type" class="form-select">
-                  <option value="" disabled>Select when due</option>
+                  <option value="">Select when due</option>
                   <option v-for="opt in dueDaysTypeOptions" :key="opt.value" :value="opt.value">
                     {{ opt.text }}
                   </option>
@@ -201,7 +201,7 @@
         <div class="card-body">
           <label class="form-label">Quotation Status</label>
           <select v-model="form.status" class="form-select">
-            <option value="" disabled>Select status</option>
+            <option value="">Select status</option>
             <option v-for="opt in statusOptions" :key="opt.value" :value="opt.value">
               {{ opt.text }}
             </option>

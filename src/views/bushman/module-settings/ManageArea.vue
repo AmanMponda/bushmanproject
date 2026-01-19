@@ -338,7 +338,7 @@
                   <label class="form-label mb-1" style="font-size: 0.8rem;">Location <span
                       class="text-danger">*</span></label>
                   <select v-model="areaForm.location_id" class="form-select form-select-sm" required>
-                    <option :value="null" disabled>Select a location</option>
+                    <option :value="null">Select a location</option>
                     <option v-for="loc in locationOptions" :key="loc.value" :value="loc.value">
                       {{ loc.text }}
                     </option>
@@ -385,6 +385,7 @@
                   <label class="form-label mb-1" style="font-size: 0.8rem;">Coordinates Type <span
                       class="text-danger">*</span></label>
                   <select v-model="areaForm.coordinates_type" class="form-select form-select-sm" required>
+                    <option :value="null">Select...</option>
                     <option value="POINT">POINT</option>
                     <option value="POLYGON">POLYGON</option>
                     <option value="LINESTRING">LINESTRING</option>

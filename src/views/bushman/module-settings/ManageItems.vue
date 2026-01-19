@@ -54,6 +54,7 @@
               </div>
               <div class="col-md-2">
                 <select v-model.number="filters.per_page" class="form-select" @change="fetchItems">
+                  <option :value="null">Select...</option>
                   <option :value="20">20 per page</option>
                   <option :value="50">50 per page</option>
                   <option :value="100">100 per page</option>

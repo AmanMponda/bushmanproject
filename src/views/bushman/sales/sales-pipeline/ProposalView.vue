@@ -438,7 +438,7 @@
             <div class="mb-3">
               <label class="form-label">Select New Status</label>
               <select v-model="newStatus" class="form-select">
-                <option :value="null" disabled>Select status...</option>
+                <option :value="null">Select status...</option>
                 <option v-for="option in statusOptions" :key="option.value" :value="option.value">
                   {{ option.text }}
                 </option>
