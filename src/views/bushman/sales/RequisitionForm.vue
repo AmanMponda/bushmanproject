@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { toRefs, computed, ref, nextTick } from 'vue'
+import { toRefs, computed, ref, nextTick, onMounted } from 'vue'
+import CurrencyInput from '@/components/CurrencyInput.vue'
 import Datepicker from '@/components/plugins/Datepicker.vue'
 import vSelect from 'vue-select'
 import 'vue-select/dist/vue-select.css'
+import { useAuthStore } from '@/stores/auth'
 
 
 type Props = {
@@ -15,10 +17,10 @@ type Props = {
   itemsOptions: any[]
   unitsOptions: any[]
   accounts: any[]
-  users: any[]
-  locations: any[]
-  entities: any[]
-  dimensionTypes: any[]
+  users: any[] 
+  locations: any[] 
+  entities: any[] 
+  dimensionTypes: any[] 
   dimensionValues: any[]
   vatOptions: any[]
   grandTotal: number
@@ -104,6 +106,8 @@ const sourceSelection = computed<string | null>({
   },
 })
 
+const authStore = useAuthStore()
+const username = computed(() => authStore.user?.username || '')
 const emit = defineEmits<{
   (e: 'cancel'): void
   (e: 'reset'): void
@@ -119,8 +123,90 @@ const emit = defineEmits<{
   (e: 'remove-dimension', itemKey: string, dimensionKey: string): void
 }>()
 
+onMounted(() => {
+  if (!form.value?.requiredDate) {
+    form.value.requiredDate = new Date().toISOString().slice(0, 10)
+  }
+})
+
 const saveDraft = () => emit('save', true)
 
+const countValidItems = (items: any[]) => {
+  return items.filter((item: any) => item?.itemId || item?.accountId).length
+}
+
+const getSourceType = () => {
+  const source = form.value?.source
+  if (!source) return null
+  return source.sourceType || (source.payee ? 'VENDOR' : null)
+}
+
+const isSourceValid = computed(() => {
+  const source = form.value?.source
+  const sourceType = getSourceType()
+  if (!source || !sourceType) return false
+  if (sourceType === 'CASH') return !!source.accountId
+  if (sourceType === 'STORE' || sourceType === 'PARTIES') return !!source.sourceId
+  if (sourceType === 'VENDOR' || sourceType === 'SERVICE_PROVIDER') return !!source.payee
+  return true
+})
+
+const itemHasValidLines = (item: any) => {
+  const materials = item?.materials || []
+  const accounts = item?.accounts || []
+  const hasValidMaterials = materials.some((m: any) => m.itemId && m.unitId && Number(m.quantity || 0) > 0 && Number(m.rate || 0) > 0)
+  const hasValidAccounts = accounts.some((a: any) => a.accountId && Number(a.amount || 0) > 0)
+  return hasValidMaterials || hasValidAccounts
+}
+
+const costCenterHasValidItems = (cc: any) => {
+  return (cc.items || []).some((it: any) => it.itemId || it.accountId)
+}
+
+const totalItemsCount = computed(() => {
+  const costCenters = form.value?.costCenters || []
+  const costCenterItems = costCenters.reduce((sum: number, cc: any) => {
+    return sum + (Array.isArray(cc.items) ? countValidItems(cc.items) : 0)
+  }, 0)
+  const directItems = Array.isArray(form.value?.items) ? countValidItems(form.value.items) : 0
+  return costCenterItems + directItems
+})
+
+const hasValidLines = computed(() => {
+  const costCenters = form.value?.costCenters || []
+  const costCenterValid = costCenters.some(costCenterHasValidItems)
+  const directValid = Array.isArray(form.value?.items) ? form.value.items.some(itemHasValidLines) : false
+  return costCenterValid || directValid
+})
+
+const requiredFieldsComplete = computed(() => {
+  const f = form.value || {}
+  return !!f.requisitionTypeId && !!f.fundDirection && !!f.requiredDate && !!f.currencyId
+})
+
+const canSubmitByStatus = computed(() => {
+  const status = form.value?.status
+  if (!status) return true
+  return status === 'DRAFT' || status === 'REJECTED'
+})
+
+const canSubmitForApproval = computed(() => {
+  return requiredFieldsComplete.value && hasValidLines.value && isSourceValid.value && canSubmitByStatus.value && !savingForm.value
+})
+
+const submitDisabledReason = computed(() => {
+  if (!canSubmitByStatus.value) return 'Only draft or rejected requisitions can be submitted.'
+  if (!requiredFieldsComplete.value) return 'Complete required fields before submitting.'
+  if (!isSourceValid.value) return 'Select a valid funding source before submitting.'
+  if (!hasValidLines.value) return 'Add at least one valid item line before submitting.'
+  if (savingForm.value) return 'Save in progress.'
+  return ''
+})
+
+const submitForApproval = () => {
+  if (!canSubmitForApproval.value) return
+  emit('save', false)
+}
 
 const onAddItem = () => {
   emit('add-item')
@@ -212,7 +298,7 @@ const costCenterOptions = computed(() => {
     for (const val of values) {
       options.push({
         label: val.name,
-        value: val.id,
+        value: val.id, 
         groupKey: `TYPE:${type.id}`,
         icon: 'fa fa-dot-circle-o',
         searchText: `${type.name} ${val.name}`,
@@ -303,111 +389,170 @@ const isSelectableOption = (option: any) => !option?.isHeader
 const attachmentType = ref('Funding')
 const attachmentReference = ref<any>(null)
 const currentAttachmentTab = ref('All')
+const selectedAttachmentFile = ref<File | null>(null)
+const attachmentInputRef = ref<HTMLInputElement | null>(null)
 
-// Mock initial data
-const attachments = ref([
- {
-   name: 'invoice_123.pdf',
-   type: 'PDF',
-   linkedTo: 'Funding',
-   reference: '991000100 - Imprest Bank Petty Cash',
-   uploadedBy: 'John Doe',
-   date: 'Today',
-   url: '#'
- },
-  {
-   name: 'receipt.jpg',
-   type: 'Image',
-   linkedTo: 'Line Item',
-   reference: 'Item #1',
-   uploadedBy: 'John Doe',
-   date: 'Today',
-   url: '#'
- },
-  {
-   name: 'delivery_note.pdf',
-   type: 'PDF',
-   linkedTo: 'Cost Center',
-   reference: 'Loading Order 01',
-   uploadedBy: 'John Doe',
-   date: 'Today',
-   url: '#'
- },
-  {
-   name: 'memo.docx',
-   type: 'DOCX',
-   linkedTo: 'General',
-   reference: '—',
-   uploadedBy: 'John Doe',
-   date: 'Today',
-   url: '#'
- }
-])
+const ensureAttachments = () => {
+  if (!form.value) return []
+  if (!Array.isArray(form.value.attachments)) {
+    form.value.attachments = []
+  }
+  return form.value.attachments
+}
+
 
 const filteredAttachments = computed(() => {
+  const list = ensureAttachments()
   if (currentAttachmentTab.value === 'All') {
-    return attachments.value
+    return list
   }
-  return attachments.value.filter((a: any) => a.linkedTo === currentAttachmentTab.value)
+  return list.filter((a: any) => a.linkedTo === currentAttachmentTab.value)
 })
 
 const attachmentTypeOptions = ['Funding', 'Cost Center', 'Line Item', 'General']
 
+const resolveCostCenterLabel = (costCenterId: number | string | null) => {
+  if (!costCenterId) return ''
+  const numericId = Number(costCenterId)
+  const value = (dimensionValues.value || []).find((v: any) => v.id === numericId)
+  if (!value) return `Cost Center #${String(costCenterId)}`
+  const type = (dimensionTypes.value || []).find((t: any) => t.id === value.dimension_type_id)
+  return type ? `${type.name} - ${value.name}` : value.name
+}
+
+const resolveLineItemLabel = (item: any) => {
+  if (item?.itemId) {
+    const itemDef = (itemsOptions.value || []).find((opt: any) => opt.id === item.itemId)
+    return itemDef?.name || `Item #${item.itemId}`
+  }
+  if (item?.accountId) {
+    const accountDef = (accounts.value || []).find((acc: any) => acc.id === item.accountId)
+    return accountDef?.name || `Account #${item.accountId}`
+  }
+  return 'Line Item'
+}
+
 const attachmentReferenceOptions = computed(() => {
   if (attachmentType.value === 'Funding') {
-    return sourceOptions.value
+    const source = form.value?.source
+    if (!source?.sourceType) return []
+    if (source.sourceType === 'CASH' && source.accountId) {
+      const account = (accounts.value || []).find((a: any) => a.id === source.accountId)
+      return [{ label: account?.name || `Account #${source.accountId}`, value: `CASH:${source.accountId}` }]
+    }
+    if (source.sourceType === 'STORE' && source.sourceId) {
+      const location = (locations.value || []).find((l: any) => l.id === source.sourceId)
+      return [{ label: location?.name || `Store #${source.sourceId}`, value: `STORE:${source.sourceId}` }]
+    }
+    if (source.sourceType === 'PARTIES' && source.sourceId) {
+      const entity = (entities.value || []).find((e: any) => e.id === source.sourceId)
+      return [{ label: entity?.name || entity?.full_name || `Party #${source.sourceId}`, value: `PARTIES:${source.sourceId}` }]
+    }
+    return []
   }
   if (attachmentType.value === 'Cost Center') {
-    return costCenterOptions.value
+    const centers = form.value?.costCenters || []
+    return centers
+      .filter((cc: any) => cc?.costCenterId)
+      .map((cc: any) => ({
+        label: resolveCostCenterLabel(cc.costCenterId) || `Cost Center`,
+        value: cc._key,
+      }))
   }
   if (attachmentType.value === 'Line Item') {
-      if (!form.value?.items) return []
-     return form.value.items.map((item: any, index: number) => {
-       const itemDef = (itemsOptions.value || []).find((opt: any) => opt.id === item.itemId)
-       const label = itemDef ? itemDef.name : `Item #${index + 1}`
-       return {
-         label: label,
-         value: index,
-       }
+     const centers = form.value?.costCenters || []
+     const rows: any[] = []
+     centers.forEach((cc: any, ccIndex: number) => {
+       ;(cc.items || []).forEach((item: any, itemIndex: number) => {
+         rows.push({
+           label: `${resolveLineItemLabel(item)} (CC ${ccIndex + 1}, Item ${itemIndex + 1})`,
+           value: item._key || `${cc._key}:${itemIndex}`,
+         })
+       })
      })
+     return rows
   }
   return []
 })
 
+const getAttachmentFileType = (file: File) => {
+  const name = (file.name || '').toLowerCase()
+  if (file.type.includes('pdf') || name.endsWith('.pdf')) return 'PDF'
+  if (file.type.startsWith('image/') || /\.(png|jpe?g|gif|webp)$/i.test(name)) return 'Image'
+  if (/\.(doc|docx)$/i.test(name)) return 'DOCX'
+  return 'File'
+}
+
+const onAttachmentFileChange = (event: Event) => {
+  const input = event.target as HTMLInputElement
+  const file = input?.files?.[0] || null
+  selectedAttachmentFile.value = file
+}
+
 const saveAttachment = () => {
-    // Simulate adding a file
-    const refLabel = attachmentReference.value 
-        ? (typeof attachmentReference.value === 'object' ? attachmentReference.value.label : attachmentReference.value) 
-        : '—';
-        
-    const newFile = {
-        name: `upload_${Math.floor(Math.random() * 1000)}.pdf`,
-        type: 'PDF',
-        linkedTo: attachmentType.value,
-        reference: refLabel,
-        uploadedBy: 'Current User',
-        date: 'Just Now',
-        url: '#'
-    }
-    attachments.value.unshift(newFile)
-    attachmentReference.value = null
+  const file = selectedAttachmentFile.value
+  if (!file) return
+  if (attachmentType.value !== 'General' && !attachmentReference.value) return
+
+  const refLabel = attachmentReference.value
+    ? (typeof attachmentReference.value === 'object' ? attachmentReference.value.label : attachmentReference.value)
+    : ''
+  const refValue = attachmentReference.value
+    ? (typeof attachmentReference.value === 'object' ? attachmentReference.value.value : attachmentReference.value)
+    : null
+  const fileType = getAttachmentFileType(file)
+  const now = new Date()
+
+  const newFile = {
+    file,
+    name: file.name || `attachment-${now.getTime()}`,
+    type: fileType,
+    linkedTo: attachmentType.value,
+    reference: refLabel || (attachmentType.value === 'General' ? 'General' : ''),
+    reference_value: refValue,
+    uploadedBy: username.value || 'Unknown',
+    date: now.toLocaleDateString(),
+    url: URL.createObjectURL(file),
+  }
+
+  ensureAttachments().unshift(newFile)
+  attachmentReference.value = null
+  selectedAttachmentFile.value = null
+  if (attachmentInputRef.value) {
+    attachmentInputRef.value.value = ''
+  }
 }
 
 const cancelAttachment = () => {
-    attachmentReference.value = null
-    attachmentType.value = 'Funding'
+  attachmentReference.value = null
+  attachmentType.value = 'Funding'
+  selectedAttachmentFile.value = null
+  if (attachmentInputRef.value) {
+    attachmentInputRef.value.value = ''
+  }
 }
 
 const deleteAttachment = (index: number) => {
-    // If filtering, we need to find the actual index in the main array
-    // For simplicity, let's just use the filtered object to find and remove
-    const fileToRemove = filteredAttachments.value[index]
-    const mainIndex = attachments.value.indexOf(fileToRemove)
-    if (mainIndex > -1) {
-        attachments.value.splice(mainIndex, 1)
+  const list = ensureAttachments()
+  const fileToRemove = filteredAttachments.value[index]
+  const mainIndex = list.indexOf(fileToRemove)
+  if (mainIndex > -1) {
+    if (list[mainIndex]?.url) {
+      URL.revokeObjectURL(list[mainIndex].url)
     }
+    list.splice(mainIndex, 1)
+  }
 }
 
+const openAttachment = (file: any) => {
+  if (!file) return
+  const url = file.url || (file.file ? URL.createObjectURL(file.file) : '')
+  if (!url) return
+  window.open(url, '_blank')
+  if (!file.url && file.file) {
+    file.url = url
+  }
+}
 
 // Custom filter for item/account options search
 const filterItemAccountOptions = (options: any[], search: string) => {
@@ -703,6 +848,21 @@ const getCostCenterGrandTotal = (cc: any) => {
   return getCostCenterSubtotal(cc) + getCostCenterTax(cc)
 }
 
+const allCostCentersSubtotal = computed(() => {
+  const centers = form.value?.costCenters || []
+  return centers.reduce((sum: number, cc: any) => sum + getCostCenterSubtotal(cc), 0)
+})
+
+const allCostCentersTax = computed(() => {
+  const centers = form.value?.costCenters || []
+  return centers.reduce((sum: number, cc: any) => sum + getCostCenterTax(cc), 0)
+})
+
+const allCostCentersGrandTotal = computed(() => {
+  const centers = form.value?.costCenters || []
+  return centers.reduce((sum: number, cc: any) => sum + getCostCenterGrandTotal(cc), 0)
+})
+
 const getItemAccountSelection = (line: any) => {
   if (line?.itemId) return `ITEM:${line.itemId}`
   if (line?.accountId) return `ACCOUNT:${line.accountId}`
@@ -809,6 +969,9 @@ const onItemAccountSelect = (line: any, value: string | null) => {
                       <option value="WITHDRAW">Withdraw</option>
                     </select>
                   </div>
+                  <small class="field-help">
+                    This determines whether payment is made directly or via internal fund withdrawal.
+                  </small>
                 </label>
 
                 <label class="field">
@@ -930,7 +1093,7 @@ const onItemAccountSelect = (line: any, value: string | null) => {
 
             <!-- Cost Centers with nested items -->
             <div v-if="form.costCenters && form.costCenters.length > 0" class="cost-centers-list">
-              <div v-for="(cc, ccIndex) in form.costCenters" :key="cc._key" class="cost-center-card mb-2"
+              <div v-for="(cc, ccIndex) in form.costCenters" :key="cc._key" class="cost-center-card"
                 :class="{ collapsed: cc._expanded === false }">
                 <!-- Cost Center Header -->
                 <div class="cost-center-header" @click="toggleCostCenter(cc)">
@@ -1014,8 +1177,11 @@ const onItemAccountSelect = (line: any, value: string | null) => {
                           </td>
 
                           <td>
-                            <input v-model.number="item.rate" type="number" min="0" step="0.01"
-                              class="form-control form-control-sm text-end" placeholder="0.00" />
+                            <CurrencyInput
+                              v-model="item.rate"
+                              class="form-control-sm text-end"
+                              placeholder="0.00"
+                            />
                           </td>
 
                           <td class="text-end">
@@ -1032,26 +1198,26 @@ const onItemAccountSelect = (line: any, value: string | null) => {
                       </tbody>
                     </table>
 
-                    <div class="cost-center-summary-wrap">
-                      <div class="cost-center-summary">
-                        <div class="summary-row">
-                          <span>Subtotal</span>
-                          <span>{{ getCurrencySymbol() }}{{ formatAmount(getCostCenterSubtotal(cc)) }}</span>
-                        </div>
-                        <div class="summary-row">
-                          <span>Tax</span>
-                          <span>{{ getCurrencySymbol() }}{{ formatAmount(getCostCenterTax(cc)) }}</span>
-                        </div>
-                        <div class="summary-row grand">
-                          <span>Grand Total</span>
-                          <span>{{ getCurrencySymbol() }}{{ formatAmount(getCostCenterGrandTotal(cc)) }}</span>
-                        </div>
-                      </div>
-                    </div>
                   </div>
                   <div v-else class="empty-items-state">
                     <span class="text-muted small">No items yet. Click "Add Item" to add items to this cost
                       center.</span>
+                  </div>
+                </div>
+              </div>
+              <div class="cost-center-summary-wrap" v-if="form.costCenters && form.costCenters.length > 0">
+                <div class="cost-center-summary">
+                  <div class="summary-row">
+                    <span>Subtotal</span>
+                    <span>{{ getCurrencySymbol() }}{{ formatAmount(allCostCentersSubtotal) }}</span>
+                  </div>
+                  <div class="summary-row">
+                    <span>Tax</span>
+                    <span>{{ getCurrencySymbol() }}{{ formatAmount(allCostCentersTax) }}</span>
+                  </div>
+                  <div class="summary-row grand">
+                    <span>Grand Total</span>
+                    <span>{{ getCurrencySymbol() }}{{ formatAmount(allCostCentersGrandTotal) }}</span>
                   </div>
                 </div>
               </div>
@@ -1189,7 +1355,11 @@ const onItemAccountSelect = (line: any, value: string | null) => {
                         <span class="lbl">Payment <span class="req">*</span></span>
                         <div class="input-wrapper">
                           <span class="input-icon" v-if="false"><i class="fa fa-money"></i></span>
-                          <input v-model="form.source.amount" type="number" class="form-control" placeholder="0.00" />
+                          <CurrencyInput
+                            v-model="form.source.amount"
+                            class="form-control"
+                            placeholder="0.00"
+                          />
                         </div>
                       </label>
 
@@ -1283,7 +1453,7 @@ const onItemAccountSelect = (line: any, value: string | null) => {
                       ></v-select>
                     </div>
                     <div class="attachments-actions">
-                      <button type="button" class="btn btn-sm btn-primary" @click="saveAttachment">Save Attachment</button>
+                      <button type="button" class="btn btn-sm btn-primary" @click="saveAttachment" :disabled="!selectedAttachmentFile || (attachmentType !== 'General' && !attachmentReference)">Save Attachment</button>
                       <button type="button" class="btn btn-sm btn-outline-secondary" @click="cancelAttachment">Cancel</button>
                     </div>
                   </div>
@@ -1304,6 +1474,22 @@ const onItemAccountSelect = (line: any, value: string | null) => {
                           </template>
                         </v-select>
                       </div>
+                    </label>
+                  </div>
+                  <div class="attachments-controls">
+                    <label class="field compact-field">
+                      <span class="lbl">File</span>
+                      <div class="input-wrapper">
+                        <input
+                          ref="attachmentInputRef"
+                          type="file"
+                          class="form-control"
+                          @change="onAttachmentFileChange"
+                        />
+                      </div>
+                      <small v-if="selectedAttachmentFile" class="text-muted">
+                        Selected: {{ selectedAttachmentFile.name }}
+                      </small>
                     </label>
                   </div>
 
@@ -1338,8 +1524,15 @@ const onItemAccountSelect = (line: any, value: string | null) => {
                       <div>{{ file.reference }}</div>
                       <div>{{ file.uploadedBy }}</div>
                       <div>{{ file.date }}</div>
-                      <div class="d-flex gap-1" style="justify-content: flex-end;">
-                          <button type="button" class="btn btn-xs btn-outline-primary">View</button>
+                        <div class="d-flex gap-1" style="justify-content: flex-end;">
+                            <button
+                              type="button"
+                              class="btn btn-xs btn-outline-primary"
+                              :disabled="!file.url"
+                              @click="openAttachment(file)"
+                            >
+                              View
+                            </button>
                           <button type="button" class="btn btn-xs btn-outline-danger" @click="deleteAttachment(index)"><i class="fa fa-trash"></i></button>
                       </div>
                     </div>
@@ -1354,12 +1547,12 @@ const onItemAccountSelect = (line: any, value: string | null) => {
 
           <!-- Common Actions Footer -->
           <div class="d-flex justify-content-end gap-2 p-3 bg-white border-top mt-auto">
-            <button class="btn btn-outline-secondary d-flex align-items-center gap-2 px-4" type="button"
-              @click="saveDraft">
+          <button class="btn btn-outline-secondary d-flex align-items-center gap-2 px-4" type="button"
+              @click="saveDraft" :disabled="savingForm">
               <i class="fa fa-bars"></i> Save Draft
             </button>
             <button class="btn btn-primary d-flex align-items-center gap-2 px-4" type="button"
-              @click="emit('save', false)">
+              @click="submitForApproval" :disabled="!canSubmitForApproval" :title="submitDisabledReason">
               <i class="fa fa-check"></i> Submit for Approval
             </button>
           </div>
@@ -1729,7 +1922,7 @@ h1 {
   font-weight: 700;
   color: #0f172a;
   letter-spacing: -0.3px;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .section-icon {
@@ -1751,6 +1944,24 @@ h1 {
   font-size: 12px;
   color: #0f172a;
   font-weight: 600;
+}
+
+.field-help {
+  font-size: 12px;
+  color: #6c757d;
+  line-height: 1.3;
+  padding-left: 24px;
+  position: relative;
+}
+
+.field-help::before {
+  content: "\f05a";
+  font-family: "FontAwesome";
+  position: absolute;
+  left: 0;
+  top: 1px;
+  font-size: 12px;
+  color: #9aa4b2;
 }
 
 .req {
@@ -1926,9 +2137,9 @@ h1 {
 
 .attachments-card {
   background: #ffffff;
-  border-radius: 12px;
+  border-radius: 10px;
   border: 1px solid #e2e8f0;
-  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
   overflow: hidden;
 }
 
@@ -1936,9 +2147,9 @@ h1 {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
+  padding: 10px 16px;
   border-bottom: 1px solid #edf2f7;
-  background: #f8fafc;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
   gap: 12px;
   flex-wrap: wrap;
 }
@@ -1947,63 +2158,73 @@ h1 {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-weight: 700;
+  font-weight: 600;
   color: #0b1220;
   font-size: 13px;
 }
 
 .attachments-title .pill {
-  background: #fff7ed;
-  color: #b45309;
-  border: 1px solid #fed7aa;
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fcd34d;
   padding: 2px 8px;
-  border-radius: 999px;
-  font-weight: 700;
+  border-radius: 6px;
+  font-weight: 600;
   font-size: 11px;
 }
 
 .attachments-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .attachments-controls {
-  padding: 12px 16px 0;
+  padding: 8px 16px 0;
 }
 
 .attachments-tabs {
   display: flex;
-  gap: 10px;
-  padding: 10px 16px 0;
+  gap: 8px;
+  padding: 8px 16px 0;
   flex-wrap: wrap;
+  border-bottom: 1px solid #eef2f7;
 }
 
 .attachments-tabs .tab {
-  padding: 8px 14px;
-  border-radius: 12px;
-  border: 2px solid #2563eb;
-  background: #ffffff;
+  padding: 7px 12px;
+  border-radius: 8px 8px 0 0;
+  border: none;
+  background: transparent;
   font-size: 12px;
-  color: #1e40af;
+  color: #64748b;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  font-weight: 700;
-  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.15);
+  gap: 6px;
+  font-weight: 600;
+  box-shadow: none;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+
+.attachments-tabs .tab:hover {
+  background: #f1f5f9;
+  color: #1e40af;
 }
 
 .attachments-tabs .tab.active {
-  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-  border-color: #1d4ed8;
-  color: #ffffff;
-  box-shadow: 0 8px 16px rgba(37, 99, 235, 0.35);
+  background: transparent;
+  border-bottom: 2px solid #2563eb;
+  color: #1e40af;
+  box-shadow: none;
 }
 
 .attachments-table {
-  padding: 12px 16px 16px;
+  padding: 0 16px 12px;
   display: grid;
-  gap: 8px;
+  gap: 6px;
 }
 
 .attachments-row {
@@ -2011,21 +2232,31 @@ h1 {
   grid-template-columns: 1.4fr 0.6fr 0.9fr 1.2fr 0.8fr 0.6fr 0.6fr;
   gap: 12px;
   align-items: center;
-  padding: 10px 12px;
-  border: 1px solid #eef2f7;
-  border-radius: 10px;
-  background: #fbfdff;
+  padding: 9px 12px;
+  border: 1px solid #f0f4f8;
+  border-radius: 8px;
+  background: #ffffff;
   font-size: 12px;
   color: #0b1220;
+  transition: all 0.15s ease;
+}
+
+.attachments-row:hover {
+  background: #f8fafc;
+  border-color: #e2e8f0;
 }
 
 .attachments-row.header {
-  background: #f1f5f9;
+  background: transparent;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.3px;
   font-size: 11px;
-  color: #475569;
+  color: #64748b;
+  border: none;
+  padding: 8px 12px;
+  border-bottom: 2px solid #e2e8f0;
+  margin-bottom: 4px;
 }
 
 .attachments-row .file-name {
@@ -2033,25 +2264,31 @@ h1 {
   align-items: center;
   gap: 8px;
   font-weight: 600;
+  color: #0f172a;
+}
+
+.attachments-row .file-name i {
+  color: #2563eb;
+  font-size: 13px;
 }
 
 .tag {
   display: inline-flex;
   align-items: center;
-  padding: 2px 8px;
-  border-radius: 8px;
+  padding: 3px 8px;
+  border-radius: 6px;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .tag.funding {
-  background: #e0f2fe;
-  color: #0369a1;
+  background: #dbeafe;
+  color: #1e40af;
 }
 
 .tag.line-item {
-  background: #ede9fe;
-  color: #5b21b6;
+  background: #f3e8ff;
+  color: #7c3aed;
 }
 
 .tag.cost-center {
@@ -2060,7 +2297,7 @@ h1 {
 }
 
 .tag.general {
-  background: #f1f5f9;
+  background: #e2e8f0;
   color: #475569;
 }
 
@@ -3405,7 +3642,37 @@ h1 {
 .items-header {
   margin-bottom: 12px;
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.items-header > :last-child {
+  margin-left: auto;
+}
+
+
+.gross-cost-card {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.4rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid #e2e6ea;
+  background: #f8f9fa;
+}
+
+.gross-cost-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #6c757d;
+  font-weight: 600;
+}
+
+.gross-cost-value {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #1f2830;
 }
 
 .tab-content {
@@ -3864,7 +4131,7 @@ h1 {
 .cost-centers-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 3px;
 }
 
 .cost-center-card {
@@ -4345,23 +4612,42 @@ h1 {
 
 /* Attachment Type Select */
 .type-select {
-  display: inline-block;
+  display: inline-block !important;
   font-size: 13px;
   background: #fff;
-  border-radius: 4px;
+  border-radius: 6px;
+  min-width: 150px;
 }
 .type-select :deep(.vs__dropdown-toggle) {
-  border: 1px solid #e2e8f0;
+  border: 1px solid #dbe5f0;
   min-height: 32px;
-  padding: 0 4px;
+  padding: 0 10px;
+  background: #f8faff;
+  border-radius: 6px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  transition: all 0.2s ease;
+}
+.type-select :deep(.vs__dropdown-toggle):hover {
+  border-color: #2563eb;
   background: #ffffff;
 }
 .type-select :deep(.vs__selected) {
     font-weight: 600;
     color: #0f172a;
+    padding: 4px 0;
 }
 .type-select :deep(.vs__search) {
     padding: 0;
     margin: 0;
+    font-size: 12px;
+}
+.type-select :deep(.vs__dropdown-menu) {
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1);
+  border: 1px solid #e2e8f0;
+}
+.type-select :deep(.vs__dropdown-option) {
+  padding: 8px 12px;
+  font-size: 12px;
 }
 </style>

@@ -57,6 +57,9 @@ const ContractList = () => import('@/views/contracts/ContractList.vue');
 const ContractForm = () => import('@/views/contracts/ContractForm.vue');
 const ContractDetails = () => import('@/views/contracts/ContractDetails.vue');
 
+// Location Master routes
+const LocationMasterIndex = () => import('@/views/bushman/locationMaster/index.vue');
+
 // Accounting routes
 const JournalVoucherList = () => import('@/views/bushman/accounting/JournalVoucherList.vue');
 const JournalVoucherForm = () => import('@/views/bushman/accounting/JournalVoucherForm.vue');
@@ -165,6 +168,12 @@ const router = createRouter({
       component: SalesRequisitionDetails,
       meta: { requiresAuth: true },
       props: (route) => ({ id: Number(route.params.id) })
+    },
+    {
+      path: "/sales/requisitions/:id/edit",
+      name: "sales-requisition-edit",
+      component: () => import('@/views/bushman/sales/RequisitionEdit.vue'),
+      meta: { requiresAuth: true }
     },
     {
       path: "/sales/price-structures/:id/items/create",
@@ -300,12 +309,12 @@ const router = createRouter({
       component: ManageTrophyFees,
       meta: { requiresAuth: true }
     },
-    {
-      path: "/module-settings/upgrade-fees",
-      name: "upgrade-fees",
-      component: ManageUpgradeFees,
-      meta: { requiresAuth: true }
-    },
+    // {
+    //   path: "/module-settings/upgrade-fees",
+    //   name: "upgrade-fees",
+    //   component: ManageUpgradeFees,
+    //   meta: { requiresAuth: true }
+    // },
     {
       path: "/module-settings/items",
       name: "items",
@@ -486,6 +495,71 @@ const router = createRouter({
       component: InvoiceForm,
       meta: { requiresAuth: true },
       props: (route) => ({ id: Number(route.params.id) })
+    },
+
+    // Location Master routes
+    {
+      path: "/location-master",
+      name: "location-master",
+      component: LocationMasterIndex,
+      meta: { requiresAuth: true },
+      props: { activeTab: 'Countries' }
+    },
+    {
+      path: "/location-master/countries",
+      name: "location-master-countries",
+      component: LocationMasterIndex,
+      meta: { requiresAuth: true },
+      props: { activeTab: 'Countries' }
+    },
+    {
+      path: "/location-master/cities",
+      name: "location-master-cities",
+      component: LocationMasterIndex,
+      meta: { requiresAuth: true },
+      props: { activeTab: 'City' }
+    },
+    {
+      path: "/location-master/branches",
+      name: "location-master-branches",
+      component: LocationMasterIndex,
+      meta: { requiresAuth: true },
+      props: { activeTab: 'Branches' }
+    },
+    {
+      path: "/location-master/offices",
+      name: "location-master-offices",
+      component: LocationMasterIndex,
+      meta: { requiresAuth: true },
+      props: { activeTab: 'Offices' }
+    },
+    {
+      path: "/location-master/service-points",
+      name: "location-master-service-points",
+      component: LocationMasterIndex,
+      meta: { requiresAuth: true },
+      props: { activeTab: 'Service Points' }
+    },
+    {
+      path: "/location-master/stops",
+      name: "location-master-stops",
+      component: LocationMasterIndex,
+      meta: { requiresAuth: true },
+      props: { activeTab: 'Stops' }
+    },
+    {
+      path: "/location-master/city-links",
+      name: "location-master-city-links",
+      component: LocationMasterIndex,
+      meta: { requiresAuth: true },
+      props: { activeTab: 'City Links' }
+    },
+    {
+      path: "/location-master/route-planning",
+      name: "location-master-route-planning",
+      component: LocationMasterIndex,
+      meta: { requiresAuth: true },
+      props: { activeTab: 'Route Planning' }
     },
 
     // Other main sections (placeholders)

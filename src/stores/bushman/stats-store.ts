@@ -18,7 +18,7 @@ export const useStatsStore = defineStore('stats', {
       this.loadingStats = true
       const baseUrl = import.meta.env.VITE_APP_BASE_URL || ''
       // Base URL already includes /api/v1.0/, so just append the endpoint
-      const url = `${baseUrl}reportings/quota-stats/`
+      const url = `${baseUrl}reportings/quota-stats`
 
       const token = localStorage.getItem('token')
       const config = {

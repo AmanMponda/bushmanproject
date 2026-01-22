@@ -1,7 +1,10 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import axios from 'axios'
+import { computed, onMounted, onUnmounted, ref, reactive, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useAppOptionStore } from '@/stores/app-option'
+import CurrencyInput from '@/components/CurrencyInput.vue'
 import { requisitionService } from '@/stores/bushman/requisitionService'
 import Swal from 'sweetalert2'
 
@@ -18,6 +21,7 @@ type FundDirection = 'WITHDRAW' | 'EXPENSE'
 type SourceType = 'CASH' | 'STORE' | 'VENDOR' | 'SERVICE_PROVIDER'
 type ModeOfPayment = 'CASH' | 'TT' | 'CREDIT'
 type TaxMethod = 'EXCLUSIVE' | 'INCLUSIVE' | 'EXEMPT'
+type DiscountMethod = 'PERCENT' | 'LS'
 
 type Currency = {
   id: number
@@ -194,6 +198,71 @@ type ApprovalRecord = {
   remarks: string
 }
 
+// Per-item approval state
+type ItemApprovalState = {
+  selected: boolean
+  approved: boolean | null // null = pending, true = approved, false = rejected
+  editing: boolean
+  remarks: string
+  // Editable fields
+  discount_method: DiscountMethod | null
+  discount_amount: number
+  materials: Array<{
+    item_id: number
+    unit_of_measurement_id: number
+    quantity: number
+    rate: number
+    currency_id: number
+    description: string
+  }>
+  accounts: Array<{
+    account_id: number
+    currency_id: number
+    amount: number
+    description: string
+  }>
+}
+
+type ApprovalChainApiLevel = {
+  id: number
+  level_id: number
+  role?: {
+    id: number
+    name: string
+    past?: string
+  }
+  position?: {
+    role_id?: number
+    role_name?: string
+    short?: string | null
+  }
+  can_change_source: boolean
+  is_active: boolean
+  approvers: Array<{
+    id: number
+    username?: string
+    full_name?: string
+    email?: string
+  }>
+  approval_status?: string
+  approval?: {
+    remarks?: string
+    date?: string
+    approved_by_user?: User
+  } | null
+  approval_history?: any[]
+}
+
+type ApprovalChainApiResponse = {
+  requisition_id: number
+  module?: {
+    id: number
+    name?: string
+    description?: string
+  }
+  levels: ApprovalChainApiLevel[]
+}
+
 type Requisition = {
   id: number
   company_id: number
@@ -231,11 +300,158 @@ type Requisition = {
 const props = defineProps<{ id: number }>()
 const router = useRouter()
 const authStore = useAuthStore()
+const appOptionStore = useAppOptionStore()
 
 const loading = ref(false)
 const loadingAction = ref(false)
 const requisition = ref<Requisition | null>(null)
-const activeTab = ref<'response' | 'approval'>('response')
+const activeTab = ref<'response' | 'approval' | 'history'>('response')
+const originalSidebarState = ref(false)
+const actionRemarks = ref('')
+const approvalChain = ref<ApprovalChainApiResponse | null>(null)
+
+// Per-item approval tracking
+const itemApprovalStates = ref<Map<number, ItemApprovalState>>(new Map())
+const selectAllItems = ref(false)
+const approvalMode = ref<'all' | 'selected'>('all')
+const showApprovalPanel = ref(false)
+
+// Initialize approval states for all items
+const initializeItemApprovalStates = () => {
+  if (!requisition.value) return
+  
+  const newStates = new Map<number, ItemApprovalState>()
+  
+  for (const item of requisition.value.items) {
+    newStates.set(item.id, {
+      selected: false,
+      approved: null,
+      editing: false,
+      remarks: '',
+      discount_method: (item.discount_method as DiscountMethod) || null,
+      discount_amount: Number(item.discount_amount || 0),
+      materials: (item.materials || []).map(m => ({
+        item_id: m.item_id,
+        unit_of_measurement_id: m.unit_of_measurement_id,
+        quantity: Number(m.quantity || 0),
+        rate: Number(m.rate || 0),
+        currency_id: m.currency_id,
+        description: m.description || ''
+      })),
+      accounts: (item.accounts || []).map(a => ({
+        account_id: a.account_id,
+        currency_id: a.currency_id,
+        amount: Number(a.amount || 0),
+        description: a.description || ''
+      }))
+    })
+  }
+  
+  itemApprovalStates.value = newStates
+}
+
+// Watch for select all changes
+watch(selectAllItems, (newValue) => {
+  if (!requisition.value) return
+  for (const item of requisition.value.items) {
+    const state = itemApprovalStates.value.get(item.id)
+    if (state) {
+      state.selected = newValue
+    }
+  }
+})
+
+// Get selected items count
+const selectedItemsCount = computed(() => {
+  let count = 0
+  itemApprovalStates.value.forEach(state => {
+    if (state.selected) count++
+  })
+  return count
+})
+
+const getItemState = (itemId: number) => itemApprovalStates.value.get(itemId)
+
+// Get total selected amount
+const selectedItemsTotal = computed(() => {
+  if (!requisition.value) return 0
+  let total = 0
+  for (const item of requisition.value.items) {
+    const state = getItemState(item.id)
+    if (!state?.selected) continue
+    const lines = buildItemLines(item, state)
+    total += lines.reduce((sum, line) => sum + line.amount, 0)
+  }
+  return total
+})
+
+// Toggle item selection
+const toggleItemSelection = (itemId: number) => {
+  const state = itemApprovalStates.value.get(itemId)
+  if (state) {
+    state.selected = !state.selected
+  }
+}
+
+// Toggle item editing
+const toggleItemEditing = (itemId: number) => {
+  const state = itemApprovalStates.value.get(itemId)
+  if (state) {
+    state.editing = !state.editing
+  }
+}
+
+// Save item changes
+const saveItemChanges = (itemId: number) => {
+  const state = itemApprovalStates.value.get(itemId)
+  if (state) {
+    state.editing = false
+    // Show success message
+    Swal.fire({
+      icon: 'success',
+      title: 'Changes Saved',
+      text: 'Item changes will be applied when you approve.',
+      timer: 2000,
+      showConfirmButton: false,
+      toast: true,
+      position: 'top-end'
+    })
+  }
+}
+
+// Check if any items have been modified
+const hasModifications = (itemId: number) => {
+  const state = itemApprovalStates.value.get(itemId)
+  const item = requisition.value?.items.find(i => i.id === itemId)
+  if (!state || !item) return false
+  
+  // Check if discount changed
+  if (state.discount_amount !== Number(item.discount_amount || 0)) return true
+  if (state.discount_method !== item.discount_method) return true
+  
+  // Check materials
+  for (let i = 0; i < state.materials.length; i++) {
+    const orig = item.materials[i]
+    const mod = state.materials[i]
+    if (!orig) continue
+    if (mod.quantity !== Number(orig.quantity || 0)) return true
+    if (mod.rate !== Number(orig.rate || 0)) return true
+  }
+
+  // Check accounts
+  for (let i = 0; i < state.accounts.length; i++) {
+    const orig = item.accounts[i]
+    const mod = state.accounts[i]
+    if (!orig) continue
+    if (mod.amount !== Number(orig.amount || 0)) return true
+  }
+  
+  return false
+}
+
+//use permissions
+// const permissions = computed(() => authStore.permissions);
+// const canSubmitRequisition = computed(() => permissions.value.includes('CAN_SUBMIT_REQUISITION'));
 
 const userLabel = (value: any): string => {
   if (!value) return ''
@@ -306,8 +522,9 @@ const statusBadgeClass = (status: RequisitionStatus) => {
 }
 
 const formatAmount = (value: number) => {
-  return Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  return Number(value || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
+
 
 const formatMoney = (value: number, currencySymbol?: string) => {
   const symbol = currencySymbol ? String(currencySymbol).trim() : ''
@@ -359,16 +576,40 @@ const sourceNameLabel = (source: any) => {
   return source.account?.name || source.account?.code || source.payee || '--'
 }
 
+const getCurrencyName = () => {
+  if (!requisition.value) return 'Currency'
+  const source = requisition.value.sources?.[0]
+  if (source?.currency?.name) return source.currency.name
+  const item = requisition.value.items?.[0]
+  if (item?.currency?.name) return item.currency.name
+  return 'Currency'
+}
+
+const getCurrencySymbol = () => {
+  if (!requisition.value) return ''
+  const source = requisition.value.sources?.[0]
+  if (source?.currency?.symbol) return source.currency.symbol
+  const item = requisition.value.items?.[0]
+  if (item?.currency?.symbol) return item.currency.symbol
+  return ''
+}
+
+const getTaxMethodLabel = () => {
+  if (!requisition.value) return 'Tax Exclusive'
+  const item = requisition.value.items?.[0]
+  if (item?.tax_method === 'EXCLUSIVE') return 'Exclusive'
+  if (item?.tax_method === 'INCLUSIVE') return 'Inclusive'
+  if (item?.tax_method === 'EXEMPT') return 'Exempt'
+  return 'Exclusive'
+}
+
 const totalAmount = computed(() => {
   if (!requisition.value) return 0
   let total = 0
   for (const item of requisition.value.items) {
-    for (const material of item.materials || []) {
-      total += Number(material.quantity || 0) * Number(material.rate || 0)
-    }
-    for (const account of item.accounts || []) {
-      total += Number(account.amount || 0)
-    }
+    const state = getItemState(item.id)
+    const lines = buildItemLines(item, state)
+    total += lines.reduce((sum, line) => sum + line.amount, 0)
   }
   return total
 })
@@ -378,7 +619,7 @@ const dimensionGroups = computed(() => {
   return Array.isArray(groups) ? groups : []
 })
 
-const buildItemLines = (item: RequisitionItem) => {
+const buildItemLines = (item: RequisitionItem, state?: ItemApprovalState) => {
   const lines: Array<{
     type: 'Item' | 'Account'
     name: string
@@ -390,28 +631,35 @@ const buildItemLines = (item: RequisitionItem) => {
     currencySymbol?: string
   }> = []
 
-  for (const material of item.materials || []) {
+  for (let index = 0; index < (item.materials || []).length; index++) {
+    const material = item.materials[index]
+    const stateMaterial = state?.materials?.[index]
+    const quantity = Number(stateMaterial?.quantity ?? material.quantity ?? 0)
+    const rate = Number(stateMaterial?.rate ?? material.rate ?? 0)
     lines.push({
       type: 'Item',
       name: material.item?.name || material.description || '--',
       code: material.item?.item_code || material.item?.scientific_name || '',
       unit: material.unit_of_measurement?.code || material.unit_of_measurement?.name || '--',
-      quantity: Number(material.quantity || 0),
-      rate: Number(material.rate || 0),
-      amount: Number(material.quantity || 0) * Number(material.rate || 0),
+      quantity,
+      rate,
+      amount: quantity * rate,
       currencySymbol: material.currency?.symbol || item.currency?.symbol || '',
     })
   }
 
-  for (const account of item.accounts || []) {
+  for (let index = 0; index < (item.accounts || []).length; index++) {
+    const account = item.accounts[index]
+    const stateAccount = state?.accounts?.[index]
+    const amount = Number(stateAccount?.amount ?? account.amount ?? 0)
     lines.push({
       type: 'Account',
-      name: account.account?.name ,
+      name: account.account?.name || '--',
       code: account.account?.code ,
-      unit: 1,
+      unit: '1',
       quantity: 1,
-      rate: Number(account.amount || 0),
-      amount: Number(account.amount || 0),
+      rate: amount,
+      amount: amount,
       currencySymbol: account.currency?.symbol || item.currency?.symbol || '',
     })
   }
@@ -459,7 +707,7 @@ const itemsByCostCenter = computed((): CostCenterGroup[] => {
 
   for (let itemIndex = 0; itemIndex < requisition.value.items.length; itemIndex++) {
     const item = requisition.value.items[itemIndex]
-    const lines = buildItemLines(item)
+    const lines = buildItemLines(item, getItemState(item.id))
     const itemTotal = lines.reduce((sum, line) => sum + line.amount, 0)
     const currencySymbol = item.currency?.symbol || lines[0]?.currencySymbol || ''
 
@@ -547,6 +795,96 @@ const hasCostCenters = computed(() => {
   return itemsByCostCenter.value.some(g => g.key !== 'UNASSIGNED')
 })
 
+const approvalSteps = computed(() => {
+  if (!requisition.value) return []
+
+  if (approvalChain.value?.levels?.length) {
+    const sorted = [...approvalChain.value.levels].sort((a, b) => a.level_id - b.level_id)
+    const total = sorted.length
+    return sorted.map((level, index) => {
+      let status = (level.approval_status || 'PENDING').toUpperCase()
+      if (
+        status === 'PENDING' &&
+        level.level_id === nextApprovalLevel.value &&
+        ['SUBMITTED', 'APPROVAL_PENDING'].includes(requisition.value?.status || '')
+      ) {
+        status = 'CURRENT'
+      }
+
+      const approverNames = (level.approvers || [])
+        .map((a) => a.full_name || a.username || a.email || '')
+        .filter(Boolean)
+
+      return {
+        stepNumber: index + 1,
+        totalSteps: total,
+        roleName: level.role?.name || `Level ${level.level_id}`,
+        status,
+        date: level.approval?.date || '',
+        approverName: approverNames.join(', '),
+        remarks: level.approval?.remarks || '',
+        id: level.id
+      }
+    })
+  }
+  
+  // Try to get defined levels from the type definition
+  // We assume requisition.requisition_type.approval_chain_module.approval_chain_levels exists and is sorted by level_id
+  const definedLevels = requisition.value.requisition_type?.approval_chain_module?.approval_chain_levels || []
+  
+  // If we have defined levels, map them to steps
+  if (Array.isArray(definedLevels) && definedLevels.length > 0) {
+    const sortedLevels = [...definedLevels].sort((a: any, b: any) => a.level_id - b.level_id)
+
+    return sortedLevels.map((level: any, index) => {
+      // Find matching approval record
+      const approval = requisition.value?.approvals.find(a => 
+        (a.approval_chain_level_id === level.id) || 
+        (a.approval_chain_level?.level_id === level.level_id)
+      )
+      
+      let status = 'PENDING'
+      let date = ''
+      let approverName = ''
+      let remarks = ''
+      
+      if (approval) {
+        status = approval.status // APPROVED, REJECTED
+        date = approval.date
+        approverName = userLabel(approval.approved_by_user) || String(approval.approved_by)
+        remarks = approval.remarks
+      } else {
+         if (level.level_id === nextApprovalLevel.value && ['SUBMITTED', 'APPROVAL_PENDING'].includes(requisition.value?.status || '')) {
+            status = 'CURRENT'
+         }
+      }
+      
+      return {
+        stepNumber: index + 1,
+        totalSteps: sortedLevels.length,
+        roleName: level.role?.name || `Level ${level.level_id}`,
+        status,
+        date,
+        approverName,
+        remarks,
+        id: level.id
+      }
+    })
+  }
+  
+  // Fallback if no definitions: just show existing approvals
+  return requisition.value.approvals.map((approval, index) => ({
+     stepNumber: index + 1,
+     totalSteps: requisition.value?.approvals.length || 0,
+     roleName: approval.approval_chain_level?.role?.name || `Level ${approval.approval_chain_level?.level_id || index + 1}`,
+     status: approval.status,
+     date: approval.date,
+     approverName: userLabel(approval.approved_by_user),
+     remarks: approval.remarks,
+     id: approval.id
+  }))
+})
+
 const mapRequisition = (req: any): Requisition => {
   return {
     id: req.id,
@@ -589,6 +927,8 @@ const fetchRequisition = async () => {
     const response = await requisitionService.get(props.id)
     const data = response?.data || response
     requisition.value = mapRequisition(data)
+    initializeItemApprovalStates()
+    await fetchApprovalChain()
   } catch (error: any) {
     await Swal.fire({
       icon: 'error',
@@ -600,6 +940,62 @@ const fetchRequisition = async () => {
   } finally {
     loading.value = false
   }
+}
+
+const fetchApprovalChain = async () => {
+  try {
+    const url = `${import.meta.env.VITE_APP_BASE_URL}requisitions/${props.id}/approval-chain`
+    const response = await axios.get(url)
+    approvalChain.value = response?.data?.data || response?.data || null
+  } catch {
+    approvalChain.value = null
+  }
+}
+
+const buildApprovalItemPayload = (item: RequisitionItem, state?: ItemApprovalState) => {
+  const discountMethod = state?.discount_method ?? (item.discount_method as DiscountMethod) ?? null
+  const discountAmount = Number(state?.discount_amount ?? item.discount_amount ?? 0)
+  const description = state?.remarks || item.remarks || ''
+
+  const accountsSource = state?.accounts?.length ? state.accounts : (item.accounts || [])
+  const materialsSource = state?.materials?.length ? state.materials : (item.materials || [])
+
+  const accounts = accountsSource.map((acc: any) => ({
+    account_id: acc.account_id,
+    currency_id: acc.currency_id ?? item.currency_id,
+    amount: Number(acc.amount || 0),
+    description: acc.description || ''
+  }))
+
+  const materials = materialsSource.map((mat: any) => ({
+    item_id: mat.item_id,
+    unit_of_measurement_id: mat.unit_of_measurement_id,
+    quantity: Number(mat.quantity || 0),
+    rate: Number(mat.rate || 0),
+    currency_id: mat.currency_id ?? item.currency_id,
+    description: mat.description || ''
+  }))
+
+  return {
+    requisition_item_id: item.id,
+    currency_id: item.currency_id,
+    discount_method: discountMethod,
+    discount_amount: discountAmount,
+    description,
+    accounts,
+    materials
+  }
+}
+
+const buildApprovalItemsPayload = (selectedOnly: boolean) => {
+  if (!requisition.value) return []
+  const payloadItems: any[] = []
+  for (const item of requisition.value.items) {
+    const state = itemApprovalStates.value.get(item.id)
+    if (selectedOnly && !state?.selected) continue
+    payloadItems.push(buildApprovalItemPayload(item, state))
+  }
+  return payloadItems
 }
 
 const submit = async () => {
@@ -635,10 +1031,26 @@ const approve = async () => {
   }
   loadingAction.value = true
   try {
+    const remarks = actionRemarks.value || `Approved at level ${nextApprovalLevel.value || 1}.`
+    const items = buildApprovalItemsPayload(false)
     await requisitionService.approve(requisition.value.id, {
-      remarks: `Approved at level ${nextApprovalLevel.value || 1}.`,
+      user_id: Number(currentUserId),
+      handled_by: Number(currentUserId),
+      remarks,
+      items
     })
+    actionRemarks.value = '' // Clear after success
+    showApprovalPanel.value = false
     await fetchRequisition()
+    initializeItemApprovalStates()
+    await Swal.fire({
+      icon: 'success',
+      title: 'Success',
+      text: 'Requisition approved successfully!',
+      confirmButtonColor: '#2563eb',
+      timer: 2000,
+      timerProgressBar: true
+    })
   } catch (error: any) {
     await Swal.fire({
       icon: 'error',
@@ -651,12 +1063,127 @@ const approve = async () => {
   }
 }
 
+// Approve selected items only (partial approval with modifications)
+const approveSelectedItems = async () => {
+  if (!requisition.value) return
+  if (!['SUBMITTED', 'APPROVAL_PENDING'].includes(requisition.value.status)) return
+  const selectedItems = buildApprovalItemsPayload(true)
+  
+  if (selectedItems.length === 0) {
+    await Swal.fire({
+      icon: 'warning',
+      title: 'No Items Selected',
+      text: 'Please select at least one item to approve.',
+      confirmButtonColor: '#2563eb',
+    })
+    return
+  }
+  
+  const currentUserId = authStore.user?.id
+  if (!currentUserId) {
+    await Swal.fire({
+      icon: 'warning',
+      title: 'Missing User',
+      text: 'Please sign in again to continue.',
+      confirmButtonColor: '#2563eb',
+    })
+    return
+  }
+  
+  loadingAction.value = true
+  try {
+    const remarks = actionRemarks.value || `Approved ${selectedItems.length} item(s) at level ${nextApprovalLevel.value || 1}.`
+    await requisitionService.approve(requisition.value.id, { 
+      user_id: Number(currentUserId),
+      handled_by: Number(currentUserId),
+      remarks,
+      items: selectedItems
+    })
+    actionRemarks.value = ''
+    showApprovalPanel.value = false
+    await fetchRequisition()
+    initializeItemApprovalStates()
+    await Swal.fire({
+      icon: 'success',
+      title: 'Success',
+      text: `${selectedItems.length} item(s) approved successfully!`,
+      confirmButtonColor: '#2563eb',
+      timer: 2000,
+      timerProgressBar: true
+    })
+  } catch (error: any) {
+    await Swal.fire({
+      icon: 'error',
+      title: 'Error',
+      text: error?.response?.data?.message || 'Failed to approve selected items.',
+      confirmButtonColor: '#2563eb',
+    })
+  } finally {
+    loadingAction.value = false
+  }
+}
+
+// Reject selected items
+const rejectSelectedItems = async () => {
+  if (!requisition.value) return
+  if (!['SUBMITTED', 'APPROVAL_PENDING'].includes(requisition.value.status)) return
+  
+  if (selectedItemsCount.value === 0) {
+    await Swal.fire({
+      icon: 'warning',
+      title: 'No Items Selected',
+      text: 'Please select at least one item to reject.',
+      confirmButtonColor: '#2563eb',
+    })
+    return
+  }
+  
+  const result = await Swal.fire({
+    icon: 'warning',
+    title: 'Reject Selected Items?',
+    text: `Are you sure you want to reject ${selectedItemsCount.value} selected item(s)?`,
+    input: 'textarea',
+    inputPlaceholder: 'Enter rejection reason (required)...',
+    inputValidator: (value) => {
+      if (!value?.trim()) {
+        return 'Please provide a reason for rejection'
+      }
+    },
+    showCancelButton: true,
+    confirmButtonColor: '#dc3545',
+    confirmButtonText: 'Reject Items'
+  })
+  
+  if (!result.isConfirmed) return
+  
+  loadingAction.value = true
+  try {
+    const remarks = result.value || 'Items rejected'
+    await requisitionService.reject(requisition.value.id, { remarks })
+    actionRemarks.value = ''
+    showApprovalPanel.value = false
+    await fetchRequisition()
+    initializeItemApprovalStates()
+  } catch (error: any) {
+    await Swal.fire({
+      icon: 'error',
+      title: 'Error',
+      text: error?.response?.data?.message || 'Failed to reject items.',
+      confirmButtonColor: '#2563eb',
+    })
+  } finally {
+    loadingAction.value = false
+  }
+}
+
 const reject = async () => {
   if (!requisition.value) return
   if (!['SUBMITTED', 'APPROVAL_PENDING'].includes(requisition.value.status)) return
   loadingAction.value = true
   try {
-    await requisitionService.reject(requisition.value.id, { remarks: 'Rejected.' })
+    const remarks = actionRemarks.value || 'Rejected.'
+    await requisitionService.reject(requisition.value.id, { remarks })
+    actionRemarks.value = ''
     await fetchRequisition()
   } catch (error: any) {
     await Swal.fire({
@@ -708,28 +1235,91 @@ const close = async () => {
 }
 
 const goBack = () => router.push('/sales/requisitions')
-const goEdit = () => router.push({ path: '/sales/requisitions', query: { editId: String(props.id) } })
+const goEdit = () => {
+  router.push(`/sales/requisitions/${props.id}/edit`)
+}
 
-onMounted(fetchRequisition)
+onMounted(() => {
+  originalSidebarState.value = appOptionStore.appSidebarMinified
+  appOptionStore.appSidebarMinified = true
+  fetchRequisition()
+})
+
+onUnmounted(() => {
+  appOptionStore.appSidebarMinified = originalSidebarState.value
+})
 </script>
 
 <template>
   <div class="container-fluid">
-    <div class="d-flex align-items-center justify-content-between mb-3">
+    <div class="d-flex align-items-center justify-content-between mb-4 mt-2">
       <div>
-        <ul class="breadcrumb mb-0">
-          <li class="breadcrumb-item"><a href="#">Sales</a></li>
-          <li class="breadcrumb-item"><a href="#/sales/requisitions" @click.prevent="goBack">Requisitions</a></li>
-          <li class="breadcrumb-item active">Details</li>
-        </ul>
+        <div class="d-flex align-items-center text-muted small text-uppercase mb-1">
+          <i class="fa fa-file-invoice me-2"></i>
+          <span>REQUISITION / APPROVAL FORM</span>
+        </div>
+        <h2 class="mb-1 fw-bold">Requisition Approval</h2>
+        <p class="text-muted mb-0">Review the requisition details and approve or reject the request.</p>
       </div>
       <div class="d-flex gap-2">
-        <button class="btn btn-outline-secondary" @click="goBack">
-          <i class="fa fa-arrow-left me-1"></i>Back
+        <button class="btn btn-white border" @click="goBack">
+          <i class="fa fa-arrow-left me-1"></i> Back
         </button>
-        <button class="btn btn-outline-primary" :disabled="!canEditRequisition" @click="goEdit">
-          <i class="fa fa-edit me-1"></i>Edit
+        
+        <button v-if="requisition?.status === 'DRAFT'" class="btn btn-primary text-white" @click="goEdit">
+          <i class="fa fa-edit me-1"></i> Edit
         </button>
+        
+        <button v-else-if="canEditRequisition" class="btn btn-white border text-primary" @click="goEdit">
+          <i class="fa fa-comment-dots me-1"></i> Request Changes
+        </button>
+
+        <template v-if="requisition">
+          <button 
+            v-if="requisition.status === 'DRAFT'" 
+            class="btn btn-success text-white" 
+            :disabled="loadingAction" 
+            @click="submit"
+          >
+            <i class="fa fa-paper-plane me-1"></i> Submit
+          </button>
+
+          <button
+            v-if="['SUBMITTED', 'APPROVAL_PENDING'].includes(requisition.status)"
+            class="btn btn-success text-white"
+            :disabled="loadingAction"
+            @click="approve"
+          >
+             <i class="fa fa-thumbs-up me-1"></i> Approve
+          </button>
+          
+          <button
+            v-if="['SUBMITTED', 'APPROVAL_PENDING'].includes(requisition.status)"
+            class="btn btn-danger text-white"
+            :disabled="loadingAction"
+            @click="reject"
+          >
+             <i class="fa fa-thumbs-down me-1"></i> Reject
+          </button>
+          
+          <button
+            v-if="['DRAFT', 'SUBMITTED', 'APPROVAL_PENDING'].includes(requisition.status)"
+            class="btn btn-dark text-white"
+            :disabled="loadingAction"
+            @click="cancel"
+          >
+            <i class="fa fa-ban me-1"></i> Cancel
+          </button>
+          
+          <button 
+            v-if="requisition.status === 'APPROVED'" 
+            class="btn btn-primary text-white" 
+            :disabled="loadingAction" 
+            @click="close"
+          >
+            <i class="fa fa-check-circle me-1"></i> Close
+          </button>
+        </template>
       </div>
     </div>
 
@@ -739,281 +1329,616 @@ onMounted(fetchRequisition)
       </div>
     </div>
 
-    <div v-else-if="requisition" class="card">
-      <div class="card-header bg-white d-flex justify-content-between align-items-center">
-        <div>
-          <h4 class="mb-1">{{ requisition.code }}</h4>
-          <span :class="statusBadgeClass(requisition.status)">{{ requisition.status }}</span>
-          <span v-if="nextApprovalLevel" class="ms-2 text-muted">Next approval: Level {{ nextApprovalLevel }}</span>
-        </div>
-        <div class="d-flex flex-wrap gap-2">
-          <button class="btn btn-sm btn-info" :disabled="requisition.status !== 'DRAFT' || loadingAction" @click="submit">
-            <i class="fa fa-paper-plane me-1"></i>Submit
-          </button>
-          <button
-            class="btn btn-sm btn-success"
-            :disabled="!['SUBMITTED', 'APPROVAL_PENDING'].includes(requisition.status) || loadingAction"
-            @click="approve"
-          >
-            <i class="fa fa-check me-1"></i>Approve
-          </button>
-          <button
-            class="btn btn-sm btn-danger"
-            :disabled="!['SUBMITTED', 'APPROVAL_PENDING'].includes(requisition.status) || loadingAction"
-            @click="reject"
-          >
-            <i class="fa fa-times me-1"></i>Reject
-          </button>
-          <button
-            class="btn btn-sm btn-dark"
-            :disabled="!['DRAFT', 'SUBMITTED', 'APPROVAL_PENDING'].includes(requisition.status) || loadingAction"
-            @click="cancel"
-          >
-            <i class="fa fa-ban me-1"></i>Cancel
-          </button>
-          <button class="btn btn-sm btn-primary" :disabled="requisition.status !== 'APPROVED' || loadingAction" @click="close">
-            <i class="fa fa-check-circle me-1"></i>Close
-          </button>
+    <div v-else-if="requisition" class="row">
+      <!-- Left Panel: Requisition Details Sidebar -->
+      <div class="col-lg-3 col-md-4 mb-3">
+        <div class="card h-100 sidebar-card">
+          <div class="card-body p-0">
+            <!-- Header -->
+            <div class="sidebar-header">
+              <i class="fa fa-file-text"></i>
+              <span>REQUISITION DETAILS</span>
+            </div>
+            
+            <!-- Requisition Item -->
+            <div class="sidebar-item">
+              <div class="item-icon">
+                <i class="fa fa-file"></i>
+              </div>
+              <div class="item-content">
+                <div class="item-title">Requisition # {{ requisition.code }}</div>
+                <div class="item-subtitle">Date submitted: {{ formatDisplayDate(requisition.date) }}</div>
+              </div>
+            </div>
+
+            <!-- Registerer Item -->
+            <div class="sidebar-item">
+              <div class="item-icon">
+                <img v-if="requisition.requested_by_user?.avatar" :src="requisition.requested_by_user.avatar" class="avatar" :alt="userLabel(requisition.requested_by_user)" />
+                <div v-else class="avatar-placeholder">
+                  <i class="fa fa-user"></i>
+                </div>
+              </div>
+              <div class="item-content">
+                <div class="item-title">Registerer: {{ userLabel(requisition.requested_by_user || requisition.user) || '--' }}</div>
+                <div class="item-subtitle">Last updated: {{ formatDisplayDate(requisition.updated_at || requisition.created_at) }}</div>
+              </div>
+            </div>
+
+            <!-- Type Item -->
+            <div class="sidebar-item">
+              <div class="item-icon">
+                <i class="fa fa-tag"></i>
+              </div>
+              <div class="item-content">
+                <div class="item-label">Type</div>
+                <div class="item-value">{{ requisition.requisition_type?.name || 'GENERAL REQUISITION' }}</div>
+              </div>
+            </div>
+
+            <!-- Fund Direction Item -->
+            <div class="sidebar-item">
+              <div class="item-icon">
+                <i class="fa fa-arrow-right"></i>
+              </div>
+              <div class="item-content">
+                <div class="item-label">Fund Direction</div>
+                <div class="item-value">{{ requisition.fund_direction === 'WITHDRAW' ? 'Direct Payment' : 'Expense' }}</div>
+                <div class="item-hint" v-if="requisition.fund_direction === 'WITHDRAW'">
+                  The payment will be made directly to the vendor/payee.
+                </div>
+                <div class="item-hint" v-else>
+                  Expense claim to be reimbursed.
+                </div>
+              </div>
+            </div>
+
+            <!-- Required Date Item -->
+            <div class="sidebar-item">
+              <div class="item-icon">
+                <i class="fa fa-calendar"></i>
+              </div>
+              <div class="item-content">
+                <div class="item-label">Required Date</div>
+                <div class="item-value">{{ formatDisplayDate(requisition.required_date) }}</div>
+              </div>
+            </div>
+
+            <!-- Currency & Tax Section Header -->
+            <div class="sidebar-section-header">
+              <i class="fa fa-money-bill"></i>
+              <span>CURRENCY & TAX</span>
+            </div>
+
+            <!-- Currency Item -->
+            <div class="sidebar-item">
+              <div class="item-icon">
+                <i class="fa fa-coins"></i>
+              </div>
+              <div class="item-content">
+                <div class="item-value fw-600">{{ getCurrencyName() }}</div>
+              </div>
+            </div>
+
+            <!-- Tax Method Item -->
+            <div class="sidebar-item">
+              <div class="item-icon">
+                <i class="fa fa-percent"></i>
+              </div>
+              <div class="item-content">
+                <div class="item-value">{{ getTaxMethodLabel() }}</div>
+              </div>
+            </div>
+            
+          </div>
         </div>
       </div>
 
-      <div class="card-body">
-        <div class="approval-tabs mb-4">
-          <button
-            class="approval-tab"
-            :class="{ active: activeTab === 'response' }"
-            type="button"
-            @click="activeTab = 'response'"
-          >
-            My Response
-          </button>
-          <button
-            class="approval-tab"
-            :class="{ active: activeTab === 'approval' }"
-            type="button"
-            @click="activeTab = 'approval'"
-          >
-            Chain of Approval
-          </button>
-        </div>
-
-        <div v-show="activeTab === 'response'">
-        <div class="requisition-summary mb-4">
-          <div class="summary-row">
-            <div class="summary-cell label">No.</div>
-            <div class="summary-cell value">{{ requisition.code }}</div>
-            <div class="summary-cell label">Initiator</div>
-            <div class="summary-cell value">{{ userLabel(requisition.requested_by_user || requisition.user) || '--' }}</div>
-          </div>
-          <div class="summary-row">
-            <div class="summary-cell label">Requested On</div>
-            <div class="summary-cell value">{{ formatDisplayDate(requisition.date) }}</div>
-            <div class="summary-cell label">Required On</div>
-            <div class="summary-cell value">{{ formatDisplayDate(requisition.required_date) }}</div>
-          </div>
-          <div class="summary-row">
-            <div class="summary-cell label">Uses</div>
-            <div class="summary-cell value">{{ requisition.requisition_type?.name || '--' }}</div>
-            <div class="summary-cell label">Fund Direction</div>
-            <div class="summary-cell value">
-              <span class="badge" :class="requisition.fund_direction === 'WITHDRAW' ? 'bg-success' : 'bg-info'">
-                {{ requisition.fund_direction }}
-              </span>
-            </div>
-          </div>
-          <div class="summary-row">
-            <div class="summary-cell label">Status</div>
-            <div class="summary-cell value">
-              <span :class="statusBadgeClass(requisition.status)">
-                {{ requisition.status_label || requisition.status }}
-              </span>
-            </div>
-            <div class="summary-cell label">Initiator Remark</div>
-            <div class="summary-cell value">{{ requisition.remarks || '--' }}</div>
-          </div>
-          <div class="summary-row">
-            <div class="summary-cell label">Source</div>
-            <div class="summary-cell value">{{ requisition.sources?.[0]?.source_type || '--' }}</div>
-            <div class="summary-cell label">Payee</div>
-            <div class="summary-cell value">{{ sourceEntityLabel(requisition.sources?.[0]) }}</div>
-          </div>
-          <div class="summary-row">
-            <div class="summary-cell label">Source Name</div>
-            <div class="summary-cell value">{{ sourceNameLabel(requisition.sources?.[0]) }}</div>
-            <div class="summary-cell label">Payment Mode</div>
-            <div class="summary-cell value">{{ requisition.sources?.[0]?.mode_of_payment || '--' }}</div>
-          </div>
-        </div>
-
-        <!-- Items Section -->
-        <div class="mb-4">
-          <h6 class="border-bottom pb-2 mb-3">
-            Request Lines ({{ requisition.items.length }})
-            <span class="float-end fw-bold text-primary">
-              Total: {{ formatMoney(totalAmount, requisition.items[0]?.currency?.symbol || '') }}
-            </span>
-          </h6>
-
-          <!-- Cost Center Grouped View -->
-          <template v-if="hasCostCenters">
-
-            <!-- Expanded Cost Center Details -->
-            <div v-for="group in itemsByCostCenter" :key="`details-${group.key}`" class="mb-4">
-              <div
-                class="cost-center-header"
-                :class="{ 'unassigned': group.key === 'UNASSIGNED', 'collapsed': !isCostCenterExpanded(group.key) }"
-                @click="toggleCostCenter(group.key)"
-              >
-                <div class="d-flex align-items-center gap-2">
-                  <i class="fa fa-folder-open text-primary" v-if="isCostCenterExpanded(group.key)"></i>
-                  <i class="fa fa-folder text-secondary" v-else></i>
-                  <span class="cc-type-badge">{{ group.dimensionTypeName }}</span>
-                  <strong>{{ group.dimensionValueCode ? `${group.dimensionValueCode} - ` : '' }}{{ group.dimensionValueName }}</strong>
-                </div>
-                <div class="d-flex align-items-center gap-3">
-                  <span class="cc-subtotal">{{ formatMoney(group.subtotal, group.currencySymbol) }}</span>
-                  <span class="cc-item-count">{{ group.items.length }} item(s)</span>
-                  <i :class="isCostCenterExpanded(group.key) ? 'fa fa-chevron-up' : 'fa fa-chevron-down'"></i>
-                </div>
+      <!-- Middle Panel: Content -->
+      <div class="col-lg-9 col-md-8">
+        <div class="card h-100">
+           <div class="card-body">
+              <div class="approval-tabs mb-4">
+                <button
+                  class="approval-tab"
+                  :class="{ active: activeTab === 'response' }"
+                  type="button"
+                  @click="activeTab = 'response'"
+                >
+                  MY RESPONSE
+                </button>
+                <button
+                  class="approval-tab"
+                  :class="{ active: activeTab === 'approval' }"
+                  type="button"
+                  @click="activeTab = 'approval'"
+                >
+                  CHAIN OF APPROVAL
+                </button>
               </div>
 
-              <div v-show="isCostCenterExpanded(group.key)" class="cost-center-items">
-                <div v-for="({ item, itemIndex, lines, dimensionAmount, dimensionPercentage }, idx) in group.items" :key="`${group.key}-${item.id}`" class="item-block">
-                  <div class="table-responsive">
-                    <table class="table table-sm table-bordered mb-0">
-                      <thead class="table-light">
-                        <tr>
-                          <th style="width: 8%">Type</th>
-                          <th>Item/Account</th>
-                          <th style="width: 10%">Unit</th>
-                          <th class="text-end" style="width: 10%">Qty</th>
-                          <th class="text-end" style="width: 12%">Rate</th>
-                          <th class="text-end" style="width: 12%">Amount</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr v-for="(line, lineIndex) in lines" :key="`${item.id}-${lineIndex}`">
-                          <td>
-                            <span class="badge" :class="line.type === 'Item' ? 'bg-primary' : 'bg-secondary'">
-                              {{ line.type }}
-                            </span>
-                          </td>
-                          <td>
-                            <div class="fw-medium">{{ line.name }}</div>
-                            <small v-if="line.code" class="text-muted">{{ line.code }}</small>
-                          </td>
-                          <td>{{ line.unit || '--' }}</td>
-                          <td class="text-end">{{ line.quantity ?? '--' }}</td>
-                          <td class="text-end">{{ line.rate !== undefined ? formatMoney(line.rate, line.currencySymbol) : '--' }}</td>
-                          <td class="text-end fw-semibold">{{ formatMoney(line.amount, line.currencySymbol) }}</td>
-                        </tr>
-                        <tr v-if="lines.length === 0">
-                          <td colspan="6" class="text-center text-muted py-3">No item or account lines.</td>
-                        </tr>
-                      </tbody>
-                      <tfoot v-if="lines.length > 0" class="table-light">
-                        <tr>
-                          <td colspan="5" class="text-end fw-semibold">Item Subtotal:</td>
-                          <td class="text-end fw-bold">
-                            {{ formatMoney(lines.reduce((sum, l) => sum + l.amount, 0), lines[0]?.currencySymbol || '') }}
-                          </td>
-                        </tr>
-                      </tfoot>
-                    </table>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </template>
-
-          <!-- Flat View (No Cost Centers) -->
-          <template v-else>
-            <div class="alert alert-warning mb-3">ℹ Flat View: No cost centers assigned</div>
-            <div v-for="(item, itemIndex) in requisition.items" :key="item.id" class="mb-4">
-              <div class="bg-light p-3 rounded mb-2">
-                <div class="row">
-                  <div class="col-md-6">
-                    <small class="text-muted">Item #{{ itemIndex + 1 }}</small>
-                    <div><strong>Currency:</strong> {{ item.currency?.symbol || item.currency?.name || '--' }}</div>
-                    <div><strong>Tax Method:</strong> <span class="badge bg-info">{{ item.tax_method }}</span></div>
-                  </div>
-                  <div class="col-md-6">
-                    <div v-if="item.discount_amount">
-                      <strong>Discount:</strong> {{ item.discount_amount }}
-                      <span v-if="item.discount_method" class="badge bg-warning text-dark">{{ item.discount_method }}</span>
-                    </div>
-                    <div v-if="item.remarks"><strong>Remarks:</strong> {{ item.remarks }}</div>
-                  </div>
-                </div>
-              </div>
-
-              <div class="table-responsive">
-                <table class="table table-sm table-bordered">
-                  <thead class="table-secondary">
-                    <tr>
-                      <th style="width: 10%">Type</th>
-                      <th>Item/Account</th>
-                      <th style="width: 12%">Unit</th>
-                      <th class="text-end" style="width: 10%">Qty</th>
-                      <th class="text-end" style="width: 12%">Rate</th>
-                      <th class="text-end" style="width: 12%">Amount</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr v-for="(line, lineIndex) in buildItemLines(item)" :key="`${item.id}-${lineIndex}`">
-                      <td><span class="badge bg-secondary">{{ line.type }}</span></td>
-                      <td>
-                        <div>{{ line.code ? `${line.code} - ` : '' }}{{ line.name }}</div>
-                      </td>
-                      <td>{{ line.unit || '--' }}</td>
-                      <td class="text-end">{{ line.quantity ?? '--' }}</td>
-                      <td class="text-end">{{ line.rate !== undefined ? formatMoney(line.rate, line.currencySymbol) : '--' }}</td>
-                      <td class="text-end fw-semibold">{{ formatMoney(line.amount, line.currencySymbol) }}</td>
-                    </tr>
-                    <tr v-if="buildItemLines(item).length === 0">
-                      <td colspan="6" class="text-center text-muted">No item or account lines.</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </template>
-        </div>
-        </div>
-
-        <!-- Approval History -->
-        <div v-show="activeTab === 'approval'">
-          <h6 class="border-bottom pb-2 mb-3">Chain of Approval ({{ requisition.approvals.length }})</h6>
-          <div v-if="requisition.approvals.length === 0" class="text-muted fst-italic">
-            No approvals yet.
-          </div>
-          <div v-else class="timeline">
-            <div v-for="approval in requisition.approvals" :key="approval.id" class="timeline-item">
-              <div class="timeline-badge" :class="approval.status === 'APPROVED' ? 'bg-success' : 'bg-danger'">
-                <i :class="approval.status === 'APPROVED' ? 'fa fa-check' : 'fa fa-times'"></i>
-              </div>
-              <div class="timeline-content">
-                <div class="d-flex justify-content-between align-items-start mb-1">
-                  <div>
-                    <strong>Level {{ approval.approval_chain_level?.level_id || 1 }} - {{ approval.status }}</strong>
-                    <span v-if="approval.approval_chain_level?.role" class="badge bg-secondary ms-2">
-                      {{ approval.approval_chain_level.role.name }}
+            <div v-show="activeTab === 'response'">
+              <!-- Per-Item Approval Controls -->
+              <div v-if="['SUBMITTED', 'APPROVAL_PENDING'].includes(requisition.status)" class="mb-3">
+                <div class="alert alert-info d-flex align-items-center justify-content-between">
+                  <div class="d-flex align-items-center gap-2">
+                    <input 
+                      type="checkbox" 
+                      class="form-check-input m-0" 
+                      v-model="selectAllItems"
+                      style="width: 18px; height: 18px;"
+                    />
+                    <span class="fw-bold">
+                      <i class="fa fa-check-circle me-1"></i>
+                      {{ selectedItemsCount }} of {{ requisition.items.length }} items selected
                     </span>
                   </div>
-                  <span class="text-muted small">{{ formatDisplayDate(approval.date) }}</span>
+                  <div class="d-flex gap-2">
+                    <button 
+                      v-if="selectedItemsCount > 0" 
+                      class="btn btn-sm btn-success text-white"
+                      @click="approveSelectedItems"
+                      :disabled="loadingAction"
+                    >
+                      <i class="fa fa-thumbs-up me-1"></i>
+                      Approve Selected ({{ selectedItemsCount }})
+                    </button>
+                    <button 
+                      v-if="selectedItemsCount > 0" 
+                      class="btn btn-sm btn-danger text-white"
+                      @click="rejectSelectedItems"
+                      :disabled="loadingAction"
+                    >
+                      <i class="fa fa-thumbs-down me-1"></i>
+                      Reject Selected
+                    </button>
+                  </div>
                 </div>
-                <div class="text-muted small mb-1">
-                  <i class="fa fa-user me-1"></i>
-                  <strong>Approved by:</strong> {{ userLabel(approval.approved_by_user) || approval.approved_by || '--' }}
-                </div>
-                <div v-if="approval.handled_by_user" class="text-muted small mb-1">
-                  <i class="fa fa-user-check me-1"></i>
-                  <strong>Handled by:</strong> {{ userLabel(approval.handled_by_user) || approval.handled_by || '--' }}
-                </div>
-                <p class="mb-0 small">{{ approval.remarks }}</p>
               </div>
+
+              <!-- Items Section with Per-Item Approval -->
+              <div class="mb-3">
+                <!-- Cost Center Grouped View -->
+                <template v-if="hasCostCenters">
+                  <div v-for="group in itemsByCostCenter" :key="`details-${group.key}`" class="item-approval-card mb-3">
+                     <!-- Cost Center Header -->
+                     <div class="cost-center-card-header">
+                        <div class="d-flex align-items-center gap-2">
+                          <span class="badge bg-primary">{{ group.dimensionTypeName }}</span>
+                          <span class="fw-bold">{{ group.dimensionValueCode ? `${group.dimensionValueCode} - ` : '' }}{{ group.dimensionValueName }}</span>
+                        </div>
+                        <span class="fw-bold text-primary">{{ formatMoney(group.subtotal, group.currencySymbol) }}</span>
+                     </div>
+                        
+                     <!-- All Items in this cost center -->
+                     <div class="cost-center-items-wrapper">
+                        <div v-for="({ item, itemIndex, lines }, idx) in group.items" :key="`item-${item.id}`" class="item-row" :class="{ 'border-bottom': idx < group.items.length - 1 }">
+                          <!-- Item Header -->
+                          <div class="item-row-header">
+                            <div class="d-flex align-items-center gap-2 flex-grow-1">
+                              <input 
+                                v-if="['SUBMITTED', 'APPROVAL_PENDING'].includes(requisition.status)"
+                                type="checkbox" 
+                                class="form-check-input m-0" 
+                                :checked="itemApprovalStates.get(item.id)?.selected"
+                                @change="toggleItemSelection(item.id)"
+                                style="width: 18px; height: 18px;"
+                              />
+                              <div class="item-number-badge-small">{{ itemIndex + 1 }}</div>
+                              <div class="flex-grow-1">
+                                <div class="fw-semibold small text-dark">Item {{ itemIndex + 1 }}</div>
+                                <div class="small text-muted" style="font-size: 0.75rem;">{{ item.remarks || 'No description' }}</div>
+                              </div>
+                              <div v-if="hasModifications(item.id)" class="badge bg-warning text-dark" style="font-size: 0.65rem;">
+                                <i class="fa fa-edit me-1"></i>Modified
+                              </div>
+                            </div>
+                            <div v-if="['SUBMITTED', 'APPROVAL_PENDING'].includes(requisition.status)" class="d-flex gap-2">
+                              <button 
+                                v-if="itemApprovalStates.get(item.id)?.editing"
+                                class="btn btn-sm btn-success"
+                                style="font-size: 0.75rem; padding: 0.25rem 0.5rem;"
+                                @click="saveItemChanges(item.id)"
+                              >
+                                <i class="fa fa-xs fa-check"></i>
+                                Save
+                              </button>
+                              <button 
+                                class="btn btn-sm btn-outline-primary"
+                                style="font-size: 0.75rem; padding: 0.25rem 0.5rem;"
+                                @click="toggleItemEditing(item.id)"
+                              >
+                                <i class="fa fa-xs" :class="itemApprovalStates.get(item.id)?.editing ? 'fa-times' : 'fa-edit'"></i>
+                                {{ itemApprovalStates.get(item.id)?.editing ? 'Cancel' : 'Change' }}
+                              </button>
+                            </div>
+                          </div>
+
+                          <!-- Item Details (Read-only or Editable) -->
+                          <div class="item-row-body">
+                            <template v-if="!itemApprovalStates.get(item.id)?.editing">
+                              <!-- Read-only view -->
+                              <div class="table-responsive">
+                                <table class="table table-sm table-borderless mb-0">
+                                  <thead class="table-light">
+                                    <tr class="small text-muted text-uppercase">
+                                      <th>Type</th>
+                                      <th>Description</th>
+                                      <th>Unit</th>
+                                      <th class="text-end">Qty</th>
+                                      <th class="text-end">Rate</th>
+                                      <th class="text-end">Amount</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    <tr v-for="(line, idx) in lines" :key="`line-${idx}`">
+                                      <td>
+                                        <i class="fa" :class="line.type === 'Item' ? 'fa-box text-info' : 'fa-file-invoice text-success'"></i>
+                                      </td>
+                                      <td class="fw-medium">{{ line.name }}</td>
+                                      <td>{{ line.unit || '--' }}</td>
+                                      <td class="text-end">{{ line.quantity || '--' }}</td>
+                                      <td class="text-end">{{ line.rate ? formatMoney(line.rate, line.currencySymbol) : '--' }}</td>
+                                      <td class="text-end fw-bold text-primary">{{ formatMoney(line.amount, line.currencySymbol) }}</td>
+                                    </tr>
+                                  </tbody>
+                                </table>
+                              </div>
+                            </template>
+                            <template v-else>
+                              <!-- Editable view -->
+                              <div class="table-responsive">
+                                <table class="table table-sm mb-0">
+                                  <thead class="table-light">
+                                    <tr class="small text-muted text-uppercase">
+                                      <th>Type</th>
+                                      <th>Description</th>
+                                      <th>Unit</th>
+                                      <th class="text-end" style="width: 120px">Qty</th>
+                                      <th class="text-end" style="width: 150px">Rate</th>
+                                      <th class="text-end" style="width: 150px">Amount</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    <template v-for="(line, idx) in lines" :key="`line-${idx}`">
+                                      <tr v-if="line.type === 'Item'">
+                                        <td>
+                                          <i class="fa fa-box text-info"></i>
+                                        </td>
+                                        <td class="fw-medium">{{ line.name }}</td>
+                                        <td>{{ line.unit || '--' }}</td>
+                                        <td class="text-end">
+                                          <input 
+                                            type="number" 
+                                            class="form-control form-control-sm text-end" 
+                                            v-model.number="itemApprovalStates.get(item.id)!.materials[idx].quantity" 
+                                            step="0.01" 
+                                            style="width: 100px; display: inline-block;"
+                                          />
+                                        </td>
+                                        <td class="text-end">
+                                          <CurrencyInput
+                                            v-model="itemApprovalStates.get(item.id)!.materials[idx].rate"
+                                            class="text-end"
+                                            style="width: 130px; display: inline-block;"
+                                          />
+                                        </td>
+                                        <td class="text-end fw-bold text-primary">
+                                          {{ formatMoney((itemApprovalStates.get(item.id)!.materials[idx].quantity || 0) * (itemApprovalStates.get(item.id)!.materials[idx].rate || 0), line.currencySymbol) }}
+                                        </td>
+                                      </tr>
+                                      <tr v-else>
+                                        <td>
+                                          <i class="fa fa-file-invoice text-success"></i>
+                                        </td>
+                                        <td class="fw-medium">{{ line.name }}</td>
+                                        <td>--</td>
+                                        <td class="text-end">1</td>
+                                        <td class="text-end">
+                                          <CurrencyInput
+                                            v-model="itemApprovalStates.get(item.id)!.accounts[idx - itemApprovalStates.get(item.id)!.materials.length].amount"
+                                            class="text-end"
+                                            style="width: 130px; display: inline-block;"
+                                          />
+                                        </td>
+                                        <td class="text-end fw-bold text-primary">
+                                          {{ formatMoney(itemApprovalStates.get(item.id)!.accounts[idx - itemApprovalStates.get(item.id)!.materials.length].amount || 0, line.currencySymbol) }}
+                                        </td>
+                                      </tr>
+                                    </template>
+                                  </tbody>
+                                </table>
+                              </div>
+                            </template>
+                          </div>
+                        </div>
+                     </div>
+                  </div>
+                </template>
+
+                 <!-- Flat View (No Cost Centers) -->
+                <template v-else>
+                  <div class="item-approval-card mb-3">
+                  <div v-for="(item, itemIndex) in requisition.items" :key="`item-${item.id}`" class="item-row" :class="{ 'border-bottom': itemIndex < requisition.items.length - 1 }">
+                    <!-- Item Header -->
+                    <div class="item-row-header">
+                      <div class="d-flex align-items-center gap-2 flex-grow-1">
+                        <input 
+                          v-if="['SUBMITTED', 'APPROVAL_PENDING'].includes(requisition.status)"
+                          type="checkbox" 
+                          class="form-check-input m-0" 
+                          :checked="itemApprovalStates.get(item.id)?.selected"
+                          @change="toggleItemSelection(item.id)"
+                          style="width: 18px; height: 18px;"
+                        />
+                        <div class="item-number-badge-small">{{ itemIndex + 1 }}</div>
+                        <div class="flex-grow-1">
+                          <div class="fw-semibold small text-dark">Item {{ itemIndex + 1 }}</div>
+                          <div class="small text-muted" style="font-size: 0.75rem;">{{ item.remarks || 'No description' }}</div>
+                        </div>
+                        <div v-if="hasModifications(item.id)" class="badge bg-warning text-dark" style="font-size: 0.65rem;">
+                          <i class="fa fa-edit me-1"></i>Modified
+                        </div>
+                      </div>
+                      <div v-if="['SUBMITTED', 'APPROVAL_PENDING'].includes(requisition.status)" class="d-flex gap-2">
+                        <button 
+                          v-if="itemApprovalStates.get(item.id)?.editing"
+                          class="btn btn-sm btn-success"
+                          style="font-size: 0.75rem; padding: 0.25rem 0.5rem;"
+                          @click="saveItemChanges(item.id)"
+                        >
+                          <i class="fa fa-xs fa-check"></i>
+                          Save
+                        </button>
+                        <button 
+                          class="btn btn-sm btn-outline-primary"
+                          style="font-size: 0.75rem; padding: 0.25rem 0.5rem;"
+                          @click="toggleItemEditing(item.id)"
+                        >
+                          <i class="fa fa-xs" :class="itemApprovalStates.get(item.id)?.editing ? 'fa-times' : 'fa-edit'"></i>
+                          {{ itemApprovalStates.get(item.id)?.editing ? 'Cancel' : 'Change' }}
+                        </button>
+                      </div>
+                    </div>
+
+                    <!-- Item Details -->
+                    <div class="item-row-body">
+                      <template v-if="!itemApprovalStates.get(item.id)?.editing">
+                        <div class="table-responsive">
+                          <table class="table table-sm table-borderless mb-0">
+                            <thead class="table-light">
+                              <tr class="small text-muted text-uppercase">
+                                <th>Type</th>
+                                <th>Description</th>
+                                <th>Unit</th>
+                                <th class="text-end">Qty</th>
+                                <th class="text-end">Rate</th>
+                                <th class="text-end">Amount</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              <tr v-for="(line, idx) in buildItemLines(item, getItemState(item.id))" :key="`line-${idx}`">
+                                <td>
+                                  <i class="fa" :class="line.type === 'Item' ? 'fa-box text-info' : 'fa-file-invoice text-success'"></i>
+                                </td>
+                                <td class="fw-medium">{{ line.name }}</td>
+                                <td>{{ line.unit || '--' }}</td>
+                                <td class="text-end">{{ line.quantity || '--' }}</td>
+                                <td class="text-end">{{ line.rate ? formatMoney(line.rate, line.currencySymbol) : '--' }}</td>
+                                <td class="text-end fw-bold text-primary">{{ formatMoney(line.amount, line.currencySymbol) }}</td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      </template>
+                      <template v-else>
+                        <div class="table-responsive">
+                          <table class="table table-sm mb-0">
+                            <thead class="table-light">
+                              <tr class="small text-muted text-uppercase">
+                                <th>Type</th>
+                                <th>Description</th>
+                                <th>Unit</th>
+                                <th class="text-end" style="width: 120px">Qty</th>
+                                <th class="text-end" style="width: 150px">Rate</th>
+                                <th class="text-end" style="width: 150px">Amount</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              <template v-for="(line, idx) in buildItemLines(item, getItemState(item.id))" :key="`line-${idx}`">
+                                <tr v-if="line.type === 'Item'">
+                                  <td>
+                                    <i class="fa fa-box text-info"></i>
+                                  </td>
+                                  <td class="fw-medium">{{ line.name }}</td>
+                                  <td>{{ line.unit || '--' }}</td>
+                                  <td class="text-end">
+                                    <input 
+                                      type="number" 
+                                      class="form-control form-control-sm text-end" 
+                                      v-model.number="itemApprovalStates.get(item.id)!.materials[idx].quantity" 
+                                      step="0.01" 
+                                      style="width: 100px; display: inline-block;"
+                                    />
+                                  </td>
+                                  <td class="text-end">
+                                    <CurrencyInput
+                                      v-model="itemApprovalStates.get(item.id)!.materials[idx].rate"
+                                      class="text-end"
+                                      style="width: 130px; display: inline-block;"
+                                    />
+                                  </td>
+                                  <td class="text-end fw-bold text-primary">
+                                    {{ formatMoney((itemApprovalStates.get(item.id)!.materials[idx].quantity || 0) * (itemApprovalStates.get(item.id)!.materials[idx].rate || 0), line.currencySymbol) }}
+                                  </td>
+                                </tr>
+                                <tr v-else>
+                                  <td>
+                                    <i class="fa fa-file-invoice text-success"></i>
+                                  </td>
+                                  <td class="fw-medium">{{ line.name }}</td>
+                                  <td>--</td>
+                                  <td class="text-end">1</td>
+                                  <td class="text-end">
+                                    <CurrencyInput
+                                      v-model="itemApprovalStates.get(item.id)!.accounts[idx - itemApprovalStates.get(item.id)!.materials.length].amount"
+                                      class="text-end"
+                                      style="width: 130px; display: inline-block;"
+                                    />
+                                  </td>
+                                  <td class="text-end fw-bold text-primary">
+                                    {{ formatMoney(itemApprovalStates.get(item.id)!.accounts[idx - itemApprovalStates.get(item.id)!.materials.length].amount || 0, line.currencySymbol) }}
+                                  </td>
+                                </tr>
+                              </template>
+                            </tbody>
+                          </table>
+                        </div>
+                      </template>
+                    </div>
+                  </div>
+                  </div>
+                </template>
+              </div>
+
+               <!-- Totals Section -->
+              <div class="totals-card-compact">
+                <div class="totals-row-compact">
+                  <span class="text-muted small">Subtotal</span>
+                  <span class="fw-semibold small">{{ formatMoney(totalAmount, requisition.items[0]?.currency?.symbol) }}</span>
+                </div>
+                <div class="totals-row-compact" v-if="selectedItemsCount > 0">
+                  <span class="text-muted small">
+                    <span class="badge bg-info me-1" style="font-size: 0.65rem;">
+                      {{ selectedItemsCount }} selected
+                    </span>
+                    Selected Total
+                  </span>
+                  <span class="fw-semibold small text-info">{{ formatMoney(selectedItemsTotal, requisition.items[0]?.currency?.symbol) }}</span>
+                </div>
+                <div class="totals-row-compact border-top pt-2 mt-1">
+                  <span class="fw-bold">Grand Total</span>
+                  <span class="fw-bold text-primary">{{ formatMoney(totalAmount, requisition.items[0]?.currency?.symbol) }}</span>
+                </div>
+              </div>
+
+              <!-- Approval History Preview -->
+              <div v-if="requisition.approvals.length > 0" class="mt-4">
+                <h6 class="text-muted text-uppercase small mb-3">
+                  <i class="fa fa-history me-1"></i>Recent Approvals
+                </h6>
+                <div class="approval-history-preview">
+                  <div v-for="(approval, idx) in requisition.approvals.slice(0, 3)" :key="approval.id" class="approval-history-item">
+                    <div class="d-flex align-items-center gap-2">
+                      <div class="approval-status-icon" :class="approval.status === 'APPROVED' ? 'bg-success' : 'bg-danger'">
+                        <i class="fa" :class="approval.status === 'APPROVED' ? 'fa-check' : 'fa-times'"></i>
+                      </div>
+                      <div class="flex-grow-1">
+                        <div class="fw-semibold small">{{ userLabel(approval.approved_by_user) }}</div>
+                        <div class="text-muted" style="font-size: 0.75rem;">{{ approval.remarks || 'No remarks' }}</div>
+                      </div>
+                      <div class="text-muted small">{{ formatDisplayDate(approval.date) }}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Action Section -->
+              <div v-if="['SUBMITTED', 'APPROVAL_PENDING'].includes(requisition.status)" class="action-section-compact mt-3">
+                <div class="mb-2">
+                  <label class="form-label small fw-bold text-muted" style="font-size: 0.75rem; margin-bottom: 0.25rem;">Approval Remarks</label>
+                  <textarea 
+                    v-model="actionRemarks" 
+                    class="form-control form-control-sm" 
+                    rows="2" 
+                    placeholder="Enter your comments or reasons for approval/rejection..."
+                    style="font-size: 0.875rem;"
+                  ></textarea>
+                </div>
+                <div class="d-flex gap-2 justify-content-end">
+                  <button class="btn btn-sm btn-outline-secondary" @click="actionRemarks = ''" style="font-size: 0.8rem;">
+                    <i class="fa fa-eraser me-1"></i> Clear
+                  </button>
+                  <button class="btn btn-sm btn-success text-white" @click="approve" :disabled="loadingAction" style="font-size: 0.8rem;">
+                    <i class="fa fa-thumbs-up me-1"></i> Approve All
+                  </button>
+                  <button class="btn btn-sm btn-danger text-white" @click="reject" :disabled="loadingAction" style="font-size: 0.8rem;">
+                    <i class="fa fa-thumbs-down me-1"></i> Reject
+                  </button>
+                </div>
+              </div>
+
             </div>
-          </div>
+
+             <div v-show="activeTab === 'approval'">
+               <div class="row">
+                  <div class="col-12">
+                    <h6 class="fw-bold mb-4 text-uppercase small text-muted border-bottom pb-2">Approval Chain</h6>
+                    
+                    <!-- Stepper -->
+                    <div class="approval-stepper mb-5 ps-2">
+                      <div v-if="approvalSteps.length === 0" class="text-muted fst-italic">No approval steps defined.</div>
+                      <div v-for="step in approvalSteps" :key="step.stepNumber" class="position-relative d-flex gap-3 mb-4 last:mb-0">
+                        <!-- Step Icon/connector -->
+                        <div class="step-indicator d-flex flex-column align-items-center" style="width: 40px; min-width: 40px;">
+                            <div 
+                              class="step-circle rounded-circle d-flex align-items-center justify-content-center text-white fw-bold shadow-sm"
+                              :class="{
+                                'bg-success': step.status === 'APPROVED',
+                                'bg-danger': step.status === 'REJECTED',
+                                'bg-primary': step.status === 'CURRENT',
+                                'bg-secondary bg-opacity-25 text-muted': step.status === 'PENDING'
+                              }"
+                              style="width: 32px; height: 32px; font-size: 0.8rem; z-index: 2;"
+                            >
+                                <i v-if="step.status === 'APPROVED'" class="fa fa-check"></i>
+                                <i v-else-if="step.status === 'REJECTED'" class="fa fa-times"></i>
+                                <span v-else>{{ step.stepNumber }}</span>
+                            </div>
+                            <div 
+                              v-if="step.stepNumber !== approvalSteps.length" 
+                              class="step-line bg-secondary bg-opacity-25 position-absolute" 
+                              style="width: 2px; top: 32px; bottom: -24px; left: 19px; z-index: 1;"
+                            ></div>
+                        </div>
+
+                        <!-- Step Content -->
+                        <div class="step-content pb-2 w-100">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                              <h6 class="mb-0 fw-bold text-dark">{{ step.roleName }}</h6>
+                              <span class="badge rounded-pill border" :class="{
+                                'bg-success-subtle text-success border-success-subtle': step.status === 'APPROVED',
+                                'bg-danger-subtle text-danger border-danger-subtle': step.status === 'REJECTED',
+                                'bg-primary-subtle text-primary border-primary-subtle': step.status === 'CURRENT',
+                                'bg-light text-muted': step.status === 'PENDING'
+                              }">
+                                  STEP {{ step.stepNumber }} OF {{ step.totalSteps }}
+                              </span>
+                            </div>
+                            
+                            <div v-if="step.status === 'APPROVED' || step.status === 'REJECTED'" class="mb-1">
+                              <div class="d-flex align-items-center text-muted small mb-1">
+                                <i class="fa fa-user-circle me-1"></i>
+                                <span class="me-1">{{ step.status === 'APPROVED' ? 'Approved by' : 'Rejected by' }}</span>
+                                <span class="fw-bold text-dark">{{ step.approverName }}</span>
+                                <span class="mx-2">•</span>
+                                <span>{{ formatDisplayDate(step.date) }}</span>
+                              </div>
+                            </div>
+                            
+                            <div v-else-if="step.status === 'CURRENT'" class="text-primary small fw-medium">
+                              <i class="fa fa-clock me-1"></i> Awaiting Approval
+                            </div>
+                            <div v-else class="text-muted small">
+                              <i class="fa fa-hourglass-start me-1"></i> Pending
+                            </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+               </div>
+             </div>
+           </div>
         </div>
       </div>
     </div>
@@ -1021,6 +1946,334 @@ onMounted(fetchRequisition)
 </template>
 
 <style scoped>
+/* Sidebar Card Styles */
+.sidebar-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+  overflow: hidden;
+  background: #ffffff;
+}
+
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-bottom: 2px solid #e2e8f0;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  font-weight: 700;
+  font-size: 11px;
+  color: #0f172a;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.sidebar-header i {
+  font-size: 14px;
+  color: #2563eb;
+}
+
+.sidebar-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 12px;
+  border-bottom: 1px solid #f0f4f8;
+  transition: all 0.2s ease;
+}
+
+.sidebar-item:last-child {
+  border-bottom: none;
+}
+
+.sidebar-item:hover {
+  background: #f8fafc;
+}
+
+.item-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  border-radius: 6px;
+  background: #dbeafe;
+  color: #2563eb;
+  font-size: 14px;
+}
+
+.avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  object-fit: cover;
+}
+
+.avatar-placeholder {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background: #dbeafe;
+  color: #2563eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+}
+
+.item-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.item-title {
+  font-weight: 600;
+  font-size: 13px;
+  color: #0f172a;
+  word-break: break-word;
+}
+
+.item-label {
+  font-weight: 700;
+  font-size: 11px;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin-bottom: 4px;
+}
+
+.item-value {
+  font-weight: 600;
+  font-size: 13px;
+  color: #0f172a;
+}
+
+.fw-600 {
+  font-weight: 600;
+}
+
+.item-subtitle {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.item-hint {
+  font-size: 11px;
+  color: #94a3b8;
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+.sidebar-section-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-bottom: 2px solid #e2e8f0;
+  background: linear-gradient(135deg, #f1f5f9 0%, #e8ecf0 100%);
+  font-weight: 700;
+  font-size: 11px;
+  color: #0f172a;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 6px;
+}
+
+.sidebar-section-header i {
+  font-size: 14px;
+  color: #059669;
+}
+
+/* Item Approval Cards */
+.item-approval-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #ffffff;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.item-approval-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  border-color: #cbd5e1;
+}
+
+/* Cost Center Card Header */
+.cost-center-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+  border-bottom: 1px solid #93c5fd;
+}
+
+/* Cost Center Items Wrapper */
+.cost-center-items-wrapper {
+  background: #ffffff;
+}
+
+/* Item Row (within grouped card) */
+.item-row {
+  padding: 0.75rem 1rem;
+}
+
+.item-row.border-bottom {
+  border-bottom: 1px solid #f1f5f9;
+}
+
+/* Item Row Header */
+.item-row-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+/* Item Row Body */
+.item-row-body {
+  padding-left: 0;
+}
+
+/* Small Item Number Badge */
+.item-number-badge-small {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  color: white;
+  border-radius: 5px;
+  font-weight: 700;
+  font-size: 0.7rem;
+  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.2);
+  flex-shrink: 0;
+}
+
+.item-card-body {
+  padding: 0.875rem;
+}
+
+.edit-section {
+  background: #f8fafc;
+  padding: 0.75rem;
+  border-radius: 6px;
+  border: 1px dashed #cbd5e1;
+}
+
+/* Totals Card */
+.totals-card {
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-top: 1.5rem;
+}
+
+.totals-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+}
+
+/* Compact Totals Card */
+.totals-card-compact {
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  margin-top: 1rem;
+}
+
+.totals-row-compact {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.35rem 0;
+}
+
+/* Approval History Preview */
+.approval-history-preview {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.approval-history-item {
+  padding: 0.75rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.approval-history-item:last-child {
+  border-bottom: none;
+}
+
+.approval-status-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 0.875rem;
+}
+
+/* Action Section */
+.action-section {
+  background: linear-gradient(135deg, #fefce8 0%, #fef3c7 100%);
+  border: 1px solid #fbbf24;
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+/* Compact Action Section */
+.action-section-compact {
+  background: linear-gradient(135deg, #fefce8 0%, #fef3c7 100%);
+  border: 1px solid #fbbf24;
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+}
+
+.approval-tabs {
+  display: inline-flex;
+  gap: 0.25rem;
+  background: #f1f3f5;
+  padding: 0.35rem;
+  border-radius: 10px;
+  border: 1px solid #e2e6ea;
+}
+
+.approval-tab {
+  border: none;
+  background: transparent;
+  padding: 0.5rem 0.9rem;
+  border-radius: 8px;
+  font-weight: 600;
+  color: #6c757d;
+  font-size: 0.875rem;
+  transition: all 0.2s ease;
+}
+
+.approval-tab:hover {
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.approval-tab.active {
+  background: #ffffff;
+  color: #2f3a44;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* Timeline for approval stepper */
 .timeline {
   display: flex;
   flex-direction: column;
@@ -1133,30 +2386,6 @@ onMounted(fetchRequisition)
   border-radius: 6px;
   background: #f8f9fa;
   margin-bottom: 0.75rem;
-}
-
-.approval-tabs {
-  display: inline-flex;
-  gap: 0.25rem;
-  background: #f1f3f5;
-  padding: 0.35rem;
-  border-radius: 10px;
-  border: 1px solid #e2e6ea;
-}
-
-.approval-tab {
-  border: none;
-  background: transparent;
-  padding: 0.5rem 0.9rem;
-  border-radius: 8px;
-  font-weight: 600;
-  color: #6c757d;
-}
-
-.approval-tab.active {
-  background: #ffffff;
-  color: #2f3a44;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 /* Cost Center Summary Cards */
@@ -1377,6 +2606,18 @@ onMounted(fetchRequisition)
 
   .cost-center-card .cc-amount {
     font-size: 1rem;
+  }
+  
+  .item-card-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+  
+  .item-number-badge {
+    width: 28px;
+    height: 28px;
+    font-size: 0.75rem;
   }
 }
 </style>

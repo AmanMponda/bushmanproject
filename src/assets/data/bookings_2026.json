@@ -1,0 +1,66 @@
+[
+  {
+    "id": "feb",
+    "name": "February",
+    "areas": [
+      {
+        "id": "maswa_feb",
+        "name": "MASWA",
+        "rows": []
+      }
+    ]
+  },
+  {
+    "id": "may",
+    "name": "May",
+    "areas": [
+      {
+        "id": "maswa_may",
+        "name": "MASWA",
+        "rows": []
+      }
+    ]
+  },
+  {
+    "id": "jun",
+    "name": "June",
+    "areas": [
+      {
+        "id": "maswa_jun",
+        "name": "MASWA",
+        "rows": []
+      }
+    ]
+  },
+  {
+    "id": "jul",
+    "name": "JULY",
+    "areas": [
+      {
+        "id": "maswa_jul",
+        "name": "MASWA",
+        "rows": []
+      }
+    ]
+  },
+  {
+    "id": "aug",
+    "name": "AUGUST",
+    "areas": [
+      {
+        "id": "maswa_aug",
+        "name": "MASWA",
+        "rows": [
+          {
+            "id": "gustavo",
+            "clientName": "Gustavo Arvelo",
+            "segments": [
+              { "start": 4, "end": 17, "type": "hunt", "label": "1x1 -14 Day -Elephant/Buffalo/Plains Game" },
+              { "start": 18, "end": 18, "type": "travel" }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+]

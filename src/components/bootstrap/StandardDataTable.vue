@@ -697,14 +697,14 @@ table.table {
   margin-bottom: 0;
   border-collapse: collapse;
   background-color: #ffffff;
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
 }
 
 table.table thead th {
   border-bottom: 2px solid #dee2e6;
-  padding: 0.5rem 0.75rem;
+  padding: 0.4rem 0.6rem;
   font-weight: 700;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   color: #495057;
   text-align: left;
   vertical-align: middle;
@@ -722,10 +722,10 @@ table.table thead th.sortable:hover {
 }
 
 table.table tbody td {
-  padding: 0.5rem 0.75rem;
+  padding: 0.4rem 0.6rem;
   border-bottom: 1px solid #dee2e6;
   vertical-align: middle;
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   color: #212529;
   background-color: #ffffff;
 }

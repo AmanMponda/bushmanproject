@@ -1,73 +1,35 @@
 <template>
-  <div class="calendar-page">
+  <div class="calendar-page" ref="calendarRef" :class="{ 'is-exporting': downloadingPdf }">
     <!-- Page Header -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-4 d-print-none">
       <div>
-        <h4 class="mb-1">
-          <i class="bi bi-calendar-month" style="font-size: 24px; vertical-align: middle; margin-right: 8px"></i>
-          Hunting Schedule
+        <h4 class="mb-1 text-primary fw-bold">
+          <i class="bi bi-calendar-range me-2"></i>Hunting Schedule
         </h4>
-        <p class="text-muted small mb-0">View and manage your hunting bookings</p>
+        <p class="text-muted small mb-0">View and manage booking schedules.</p>
+      </div>
+      <div class="d-flex gap-2">
+         <button class="btn btn-outline-primary" @click="downloadPdf" :disabled="downloadingPdf">
+             <i class="bi bi-file-earmark-pdf me-1"></i> {{ downloadingPdf ? 'Preparing...' : 'Download PDF' }}
+         </button>
+         <button class="btn btn-outline-secondary" @click="printCalendar">
+             <i class="bi bi-printer me-1"></i> Print
+         </button>
       </div>
     </div>
 
     <!-- Stats Cards -->
-    <div class="row g-3 mb-4">
-      <div class="col-md-3 col-sm-6">
-        <div class="card border-0 shadow-sm h-100 stat-card stat-total">
+    <div class="row g-3 mb-4 d-print-none">
+      <div class="col-md-3 col-sm-6" v-for="(stat, index) in stats" :key="index">
+        <div class="card border-0 shadow-sm h-100 stat-card">
           <div class="card-body">
             <div class="d-flex align-items-center">
-              <div class="stat-icon">
-                <i class="bi bi-calendar-event"></i>
+              <div class="stat-icon-wrapper rounded-circle p-3 text-white" :class="stat.iconBgClass">
+                <i :class="stat.icon" class="fs-4"></i>
               </div>
-              <div class="ms-3 flex-grow-1">
-                <div class="text-muted small">Total Events</div>
-                <div class="h4 mb-0 fw-bold">{{ totalEvents }}</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-3 col-sm-6">
-        <div class="card border-0 shadow-sm h-100 stat-card stat-confirmed">
-          <div class="card-body">
-            <div class="d-flex align-items-center">
-              <div class="stat-icon">
-                <i class="bi bi-check-circle-fill"></i>
-              </div>
-              <div class="ms-3 flex-grow-1">
-                <div class="text-muted small">Confirmed</div>
-                <div class="h4 mb-0 fw-bold">{{ confirmedEvents }}</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-3 col-sm-6">
-        <div class="card border-0 shadow-sm h-100 stat-card stat-provision">
-          <div class="card-body">
-            <div class="d-flex align-items-center">
-              <div class="stat-icon">
-                <i class="bi bi-clock-history"></i>
-              </div>
-              <div class="ms-3 flex-grow-1">
-                <div class="text-muted small">Provision</div>
-                <div class="h4 mb-0 fw-bold">{{ provisionEvents }}</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-3 col-sm-6">
-        <div class="card border-0 shadow-sm h-100 stat-card stat-completed">
-          <div class="card-body">
-            <div class="d-flex align-items-center">
-              <div class="stat-icon">
-                <i class="bi bi-check-all"></i>
-              </div>
-              <div class="ms-3 flex-grow-1">
-                <div class="text-muted small">Completed</div>
-                <div class="h4 mb-0 fw-bold">{{ completedEvents }}</div>
+              <div class="ms-3">
+                <div class="text-uppercase fw-bold small text-muted mb-1">{{ stat.label }}</div>
+                <div class="h3 mb-0 fw-bold">{{ stat.value }}</div>
               </div>
             </div>
           </div>
@@ -75,1062 +37,524 @@
       </div>
     </div>
 
-    <!-- Calendar Section -->
-    <div class="card border-0 shadow-sm">
-      <div class="card-header bg-white border-bottom">
-        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
-          <!-- Jump to Date -->
-          <div class="d-flex align-items-center gap-2">
-            <label class="form-label mb-0 small text-muted">Jump to date:</label>
-            <input
-              v-model="jumpDateString"
-              type="date"
-              class="form-control form-control-sm"
-              style="width: 180px"
-              @change="handleJumpToDate"
-            />
-          </div>
-          <!-- Legend -->
+    <!-- Calendar Controls -->
+    <div class="card border-0 shadow-sm mb-4 d-print-none">
+      <div class="card-body py-3">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
           <div class="d-flex align-items-center gap-3">
-            <div class="d-flex align-items-center gap-1">
-              <span class="legend-dot legend-confirmed"></span>
-              <span class="small text-muted">Confirmed</span>
-            </div>
-            <div class="d-flex align-items-center gap-1">
-              <span class="legend-dot legend-provision"></span>
-              <span class="small text-muted">Provision</span>
-            </div>
-            <div class="d-flex align-items-center gap-1">
-              <span class="legend-dot legend-completed"></span>
-              <span class="small text-muted">Completed</span>
+            <div class="vr mx-2"></div>
+            <div class="d-flex align-items-center gap-2">
+                <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2 rounded-pill">
+                    <i class="bi bi-circle-fill me-1 small"></i> Hunt
+                </span>
+                <span class="badge bg-info-subtle text-info border border-info-subtle px-3 py-2 rounded-pill">
+                    <i class="bi bi-circle-fill me-1 small"></i> Travel
+                </span>
             </div>
           </div>
-        </div>
-      </div>
-      <div class="card-body p-3">
-        <div v-if="loadingData" class="text-center py-5">
-          <div class="spinner-border text-primary" role="status">
-            <span class="visually-hidden">Loading...</span>
-          </div>
-          <p class="text-muted mt-2 mb-0">Loading calendar events...</p>
-        </div>
-        <div v-else class="calendar-wrapper">
-          <FullCalendar ref="calendarRef" :key="calendarKey" :options="calendarOptions" />
         </div>
       </div>
     </div>
 
-    <!-- Event Details Modal -->
-    <div
-      v-if="showModal"
-      class="modal fade show"
-      style="display: block"
-      tabindex="-1"
-      @click.self="closeModal"
-    >
-      <div class="modal-dialog modal-lg modal-dialog-scrollable">
-        <div class="modal-content" @click.stop>
-          <div class="modal-header">
-            <h5 class="modal-title">
-              {{ selectedEvent?.title || 'Event Details' }}
-            </h5>
-            <span class="badge ms-2" :class="getStatusBadgeClass(selectedEvent?.extendedProps?.status || '')">
-              {{ selectedEventStatus }}
-            </span>
-            <button type="button" class="btn-close" @click="closeModal"></button>
-          </div>
-          <div v-if="selectedEvent" class="modal-body">
-            <!-- Client & Date Info -->
-            <div class="card border-primary mb-3">
-              <div class="card-header bg-primary text-white">
-                <h6 class="mb-0">
-                  <i class="bi bi-info-circle me-2"></i>
-                  Booking Information
-                </h6>
-              </div>
-              <div class="card-body">
-                <div class="row g-3">
-                  <div class="col-md-6">
-                    <div class="mb-2">
-                      <small class="text-muted d-block">Client</small>
-                      <strong>{{ selectedEvent.title || 'N/A' }}</strong>
-                    </div>
-                  </div>
-                  <div class="col-md-6">
-                    <div class="mb-2">
-                      <small class="text-muted d-block">Duration</small>
-                      <strong>{{ selectedEventDuration }} days</strong>
-                    </div>
-                  </div>
-                  <div class="col-md-6">
-                    <div class="mb-2">
-                      <small class="text-muted d-block">Start Date</small>
-                      <strong>{{ formatEventDate(selectedEvent.start) }}</strong>
-                    </div>
-                  </div>
-                  <div class="col-md-6">
-                    <div class="mb-2">
-                      <small class="text-muted d-block">End Date</small>
-                      <strong>{{ formatEventDate(selectedEvent.end) }}</strong>
-                    </div>
-                  </div>
-                  <div class="col-md-6">
-                    <div class="mb-2">
-                      <small class="text-muted d-block">Package</small>
-                      <strong>{{ selectedEvent.extendedProps?.proposed_package?.sales_package?.name || 'N/A' }}</strong>
-                    </div>
-                  </div>
-                  <div class="col-md-6">
-                    <div class="mb-2">
-                      <small class="text-muted d-block">Hunting Type</small>
-                      <strong>{{
-                        selectedEvent.extendedProps?.proposed_package?.price_list_type?.hunting_type?.name || 'N/A'
-                      }}</strong>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+    <!-- FullCalendar Wrapper -->
+    <div class="card border-0 shadow-sm">
+      <div class="card-body p-0">
+         <FullCalendar class="app-calendar" :options="calendarOptions" ref="fullCalendarRef" />
+      </div>
+    </div>
 
-            <!-- Preferences -->
-            <div class="card mb-3">
-              <div class="card-header bg-light">
-                <h6 class="mb-0">
-                  <i class="bi bi-gear me-2"></i>
-                  Preferences
-                </h6>
-              </div>
-              <div class="card-body">
-                <div class="row g-3">
-                  <div class="col-md-4">
-                    <div class="d-flex align-items-center gap-2 p-3 bg-light rounded">
-                      <i class="bi bi-people text-primary fs-4"></i>
-                      <div>
-                        <small class="text-muted d-block">Observers</small>
-                        <strong class="h5 mb-0">{{
-                          selectedEvent.extendedProps?.preference?.no_of_observers || 0
-                        }}</strong>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="col-md-4">
-                    <div class="d-flex align-items-center gap-2 p-3 bg-light rounded">
-                      <i class="bi bi-person text-primary fs-4"></i>
-                      <div>
-                        <small class="text-muted d-block">Companions</small>
-                        <strong class="h5 mb-0">{{
-                          selectedEvent.extendedProps?.preference?.no_of_companions || 0
-                        }}</strong>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="col-md-4">
-                    <div class="d-flex align-items-center gap-2 p-3 bg-light rounded">
-                      <i class="bi bi-calendar-day text-primary fs-4"></i>
-                      <div>
-                        <small class="text-muted d-block">Days</small>
-                        <strong class="h5 mb-0">{{ selectedEvent.extendedProps?.preference?.no_of_days || 0 }}</strong>
-                      </div>
-                    </div>
-                  </div>
+    <!-- Event Detail Modal -->
+    <div v-if="selectedEvent" class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5)" @click.self="closeModal">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title fw-bold">
+                        <i class="bi bi-info-circle me-2"></i>Booking Details
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" @click="closeModal"></button>
                 </div>
-              </div>
-            </div>
+                <div class="modal-body p-4">
+                    <h5 class="fw-bold mb-3 text-dark">{{ selectedEvent.title }}</h5>
+                    
+                    <div class="d-flex flex-wrap gap-2 mb-4">
+                         <span class="badge rounded-pill px-3 py-2" :class="getEventBadgeClass(selectedEvent.extendedProps.type)">
+                            {{ selectedEvent.extendedProps.type.toUpperCase() }}
+                         </span>
+                         <span class="badge bg-secondary rounded-pill px-3 py-2">
+                             <i class="bi bi-geo-alt me-1"></i> {{ selectedEvent.extendedProps.area }}
+                         </span>
+                    </div>
 
-            <!-- Species -->
-            <div v-if="selectedEvent.extendedProps?.species?.length" class="card mb-3">
-              <div class="card-header bg-light">
-                <h6 class="mb-0">
-                  <i class="bi bi-bug me-2"></i>
-                  Target Species
-                </h6>
-              </div>
-              <div class="card-body">
-                <div class="row g-3">
-                  <div v-for="specie in selectedEvent.extendedProps.species" :key="specie.id" class="col-md-6">
-                    <div class="card border-start border-success border-3">
-                      <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-start mb-2">
-                          <h6 class="mb-0">{{ specie.species?.name || 'Unknown' }}</h6>
-                          <span class="badge bg-primary">Qty: {{ specie.quantity || 0 }}</span>
+                    <div class="card bg-light border-0 rounded-3 mb-3">
+                        <div class="card-body">
+                             <div class="d-flex justify-content-between mb-2">
+                                <span class="small text-muted fw-bold text-uppercase">Duration</span>
+                                <span class="fw-bold text-dark">{{ formatDate(selectedEvent.start) }} - {{ formatDate(selectedEvent.end) }}</span>
+                             </div>
+                             <div  v-if="selectedEvent.extendedProps.description">
+                                <span class="small text-muted fw-bold text-uppercase d-block mb-1">Details</span>
+                                <p class="mb-0 text-dark">{{ selectedEvent.extendedProps.description }}</p>
+                             </div>
                         </div>
-                        <p class="text-muted small mb-1 fst-italic">
-                          {{ specie.species?.scientific_name || '' }}
-                        </p>
-                        <p class="small mb-0">{{ specie.species?.description || '' }}</p>
-                      </div>
                     </div>
-                  </div>
                 </div>
-              </div>
-            </div>
-
-            <!-- Area -->
-            <div v-if="selectedEvent.extendedProps?.areas?.length" class="card mb-3">
-              <div class="card-header bg-light">
-                <h6 class="mb-0">
-                  <i class="bi bi-geo-alt me-2"></i>
-                  Hunting Area
-                </h6>
-              </div>
-              <div class="card-body">
-                <div
-                  v-for="area in selectedEvent.extendedProps.areas"
-                  :key="area.id"
-                  class="card border-start border-info border-3 mb-2"
-                >
-                  <div class="card-body">
-                    <h6 class="mb-2">{{ area.area?.name || 'Unknown Area' }}</h6>
-                    <p class="small mb-2">{{ area.area?.description || '' }}</p>
-                    <div class="d-flex align-items-center gap-1 text-muted small">
-                      <i class="bi bi-pin-map"></i>
-                      <span>{{ area.area?.location?.name || 'Tanzania' }}</span>
-                      <span class="ms-2">
-                        ({{ area.area?.location?.geo_coordinates?.coordinates?.[0]?.lat || '0' }},
-                        {{ area.area?.location?.geo_coordinates?.coordinates?.[0]?.lng || '0' }})
-                      </span>
-                    </div>
-                  </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-light px-4" @click="closeModal">Close</button>
                 </div>
-              </div>
             </div>
-
-            <!-- Contacts -->
-            <div v-if="selectedEvent.extendedProps?.contacts?.length" class="card mb-3">
-              <div class="card-header bg-light">
-                <h6 class="mb-0">
-                  <i class="bi bi-envelope me-2"></i>
-                  Contacts
-                </h6>
-              </div>
-              <div class="card-body">
-                <div class="list-group list-group-flush">
-                  <div
-                    v-for="contact in selectedEvent.extendedProps.contacts"
-                    :key="contact.id"
-                    class="list-group-item d-flex align-items-center gap-2"
-                  >
-                    <i class="bi bi-envelope-fill text-muted"></i>
-                    <span>{{ contact.contact || 'N/A' }}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" @click="closeModal">Close</button>
-          </div>
         </div>
-      </div>
     </div>
-    <div v-if="showModal" class="modal-backdrop fade show" @click="closeModal"></div>
+
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed, nextTick } from 'vue'
 import FullCalendar from '@fullcalendar/vue3'
 import dayGridPlugin from '@fullcalendar/daygrid'
+import timeGridPlugin from '@fullcalendar/timegrid'
 import interactionPlugin from '@fullcalendar/interaction'
+import listPlugin from '@fullcalendar/list'
 import multiMonthPlugin from '@fullcalendar/multimonth'
-import type { CalendarOptions, EventInput, EventClickArg } from '@fullcalendar/core'
-import { useCalendarStore } from '@/stores/bushman/calenda-store'
+import bootstrapPlugin from '@fullcalendar/bootstrap'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
 
-// Types
-interface CalendarEvent extends EventInput {
-  id: string
-  title: string
-  start: string | Date | undefined
-  end?: string | Date | undefined
-  allDay?: boolean
-  backgroundColor?: string
-  textColor?: string
-  borderColor?: string
-  extendedProps?: {
-    species?: any[]
-    preference?: any
-    contacts?: any[]
-    proposed_package?: any
-    areas?: any[]
-    status?: string
-    package_name?: string
-    hunting_type?: string
-  }
+// Import Data
+import bookingsData2026 from '@/assets/data/bookings_2026.json'
+import bookingsData2025 from '@/assets/data/bookings_2025.json'
+
+// --- State ---
+const currentYear = ref(2026)
+const selectedEvent = ref<any>(null)
+const fullCalendarRef = ref<any>(null)
+const calendarRef = ref<HTMLElement | null>(null)
+const downloadingPdf = ref(false)
+
+// --- Stats Logic ---
+const totalEvents = ref(0)
+const huntEvents = ref(0)
+const travelEvents = ref(0)
+const activeAreas = ref(0)
+
+const stats = computed(() => [
+    { label: 'Total Events', value: totalEvents.value, icon: 'bi-calendar-check', iconBgClass: 'bg-primary' },
+    { label: 'Confirmed Hunts', value: huntEvents.value, icon: 'bi-crosshair', iconBgClass: 'bg-success' },
+    { label: 'Travels', value: travelEvents.value, icon: 'bi-airplane', iconBgClass: 'bg-info' },
+    { label: 'Active Areas', value: activeAreas.value, icon: 'bi-map', iconBgClass: 'bg-warning' },
+])
+
+// --- Helper Functions ---
+const monthsMap: Record<string, number> = {
+  jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
+  jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11
 }
 
-// Store
-const calendarStore = useCalendarStore()
+const formatDate = (date: Date) => {
+    if (!date) return '-'
+    // Subtract 1 day from end date for display because FullCalendar end date is exclusive
+    const d = new Date(date)
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
 
-// Refs
-const calendarRef = ref<InstanceType<typeof FullCalendar> | null>(null)
-const showModal = ref(false)
-const selectedEvent = ref<CalendarEvent | null>(null)
-const loadingData = ref(false)
-const calendarKey = ref(0)
-const calendarEvents = ref<CalendarEvent[]>([])
-const jumpDateString = ref(new Date().toISOString().split('T')[0])
+const getEventBadgeClass = (type: string) => {
+    return type === 'hunt' ? 'bg-success' : 'bg-info'
+}
 
-// Calendar Options
-const calendarOptions = ref<CalendarOptions>({
-  plugins: [dayGridPlugin, interactionPlugin, multiMonthPlugin],
-  initialView: 'dayGridMonth',
-  eventClick: handleEventClick,
-  events: [],
-  selectable: false,
-  editable: false,
-  weekends: true,
-  eventDisplay: 'block',
+const formatPdfDay = (day: number) => {
+    return String(day)
+}
+
+const monthLabels = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+]
+
+const printCalendar = () => {
+    window.print()
+}
+
+const buildDailyCounts = (year: number) => {
+    const rawData = year === 2026 ? bookingsData2026 : bookingsData2025
+    const map = new Map<string, { hunt: number; travel: number }>()
+
+    rawData.forEach((monthData: any) => {
+        const monthLabel = (monthData.id || monthData.name || '').toLowerCase()
+        const monthKey = monthLabel.substring(0, 3)
+        const monthIndex = monthsMap[monthKey]
+        if (monthIndex === undefined) return
+
+        if (monthData.areas) {
+            monthData.areas.forEach((area: any) => {
+                if (area.rows && area.rows.length > 0) {
+                    area.rows.forEach((row: any) => {
+                        if (row.segments) {
+                            row.segments.forEach((seg: any) => {
+                                const startDay = seg.start
+                                const endDay = seg.end
+                                for (let day = startDay; day <= endDay; day += 1) {
+                                    const dateKey = `${year}-${String(monthIndex + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+                                    if (!map.has(dateKey)) {
+                                        map.set(dateKey, { hunt: 0, travel: 0 })
+                                    }
+                                    const counts = map.get(dateKey)
+                                    if (counts) {
+                                        if (seg.type === 'hunt') counts.hunt += 1
+                                        if (seg.type === 'travel') counts.travel += 1
+                                    }
+                                }
+                            })
+                        }
+                    })
+                }
+            })
+        }
+    })
+
+    return map
+}
+
+const downloadPdf = async () => {
+    if (!calendarRef.value || downloadingPdf.value) return
+    downloadingPdf.value = true
+    await nextTick()
+
+    try {
+        const pdf = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' })
+        const pageWidth = pdf.internal.pageSize.getWidth()
+        const pageHeight = pdf.internal.pageSize.getHeight()
+        const margin = 36
+        const countsByDay = buildDailyCounts(currentYear.value)
+        const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
+        const headerTop = margin
+        
+        pdf.setLineWidth(1.5)
+        pdf.setDrawColor(0, 0, 0)
+        pdf.line(margin, headerTop - 10, pageWidth - margin, headerTop - 10)
+        
+        pdf.setFont('helvetica', 'bold')
+        pdf.setFontSize(18)
+        pdf.setTextColor(0, 0, 0)
+        pdf.text('Bushman Hunting Safaris Ltd', pageWidth / 2, headerTop + 10, { align: 'center' })
+        
+        pdf.setFontSize(14)
+        pdf.setTextColor(0, 0, 255)
+        pdf.text(`${currentYear.value} Safari Bookings`, pageWidth / 2, headerTop + 30, { align: 'center' })
+        
+        pdf.setLineWidth(1.5)
+        pdf.setDrawColor(0, 0, 0)
+        pdf.line(margin, headerTop + 40, pageWidth - margin, headerTop + 40)
+
+        const gridTop = headerTop + 60
+        const gapX = 12
+        const gapY = 14
+        const columns = 3
+        const rows = 4
+        const gridWidth = pageWidth - margin * 2
+        const gridHeight = pageHeight - gridTop - margin
+        const monthBoxWidth = (gridWidth - gapX * (columns - 1)) / columns
+        const monthBoxHeight = (gridHeight - gapY * (rows - 1)) / rows
+        const cellWidth = monthBoxWidth / 7
+        const rowHeight = Math.min(14, (monthBoxHeight - 24) / 7)
+
+        for (let monthIndex = 0; monthIndex < 12; monthIndex += 1) {
+            const col = monthIndex % columns
+            const row = Math.floor(monthIndex / columns)
+            const startX = margin + col * (monthBoxWidth + gapX)
+            const startY = gridTop + row * (monthBoxHeight + gapY)
+
+            pdf.setFontSize(10)
+            pdf.setFont('helvetica', 'bold')
+            pdf.setTextColor(0, 0, 0)
+            pdf.text(monthLabels[monthIndex], startX + monthBoxWidth / 2, startY + 10, { align: 'center' })
+
+            const firstDay = new Date(currentYear.value, monthIndex, 1).getDay()
+            const daysInMonth = new Date(currentYear.value, monthIndex + 1, 0).getDate()
+            const bodyRows: string[][] = []
+            let week = new Array(7).fill('')
+
+            for (let i = 0; i < firstDay; i += 1) {
+                week[i] = ''
+            }
+
+            for (let day = 1; day <= daysInMonth; day += 1) {
+                const weekDay = (firstDay + day - 1) % 7
+                const dateKey = `${currentYear.value}-${String(monthIndex + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+                const counts = countsByDay.get(dateKey)
+                let label = formatPdfDay(day)
+                if (counts && (counts.hunt || counts.travel)) {
+                    const huntLabel = counts.hunt ? `H${counts.hunt}` : ''
+                    const travelLabel = counts.travel ? `T${counts.travel}` : ''
+                    label = `${label}\n${huntLabel}${huntLabel && travelLabel ? ' ' : ''}${travelLabel}`
+                }
+                week[weekDay] = label
+
+                if (weekDay === 6 || day === daysInMonth) {
+                    bodyRows.push(week)
+                    week = new Array(7).fill('')
+                }
+            }
+
+            while (bodyRows.length < 6) {
+                bodyRows.push(new Array(7).fill(''))
+            }
+
+            autoTable(pdf, {
+                startY: startY + 16,
+                margin: { left: startX, right: pageWidth - startX - monthBoxWidth },
+                head: [weekDays],
+                body: bodyRows,
+                theme: 'grid',
+                styles: {
+                    fontSize: 7,
+                    cellPadding: 2,
+                    minCellHeight: rowHeight,
+                    valign: 'top',
+                    lineColor: [200, 210, 230],
+                    textColor: 20
+                },
+                headStyles: {
+                    fillColor: [245, 245, 245],
+                    textColor: 80,
+                    fontStyle: 'bold'
+                },
+                columnStyles: {
+                    0: { cellWidth },
+                    1: { cellWidth },
+                    2: { cellWidth },
+                    3: { cellWidth },
+                    4: { cellWidth },
+                    5: { cellWidth },
+                    6: { cellWidth }
+                },
+                tableWidth: monthBoxWidth
+            })
+        }
+
+        pdf.save(`calendar-${currentYear.value}.pdf`)
+    } catch (err) {
+        console.error('Failed to export calendar PDF:', err)
+    } finally {
+        downloadingPdf.value = false
+    }
+}
+
+// --- Data Transformation ---
+const processData = (year: number) => {
+    const rawData = year === 2026 ? bookingsData2026 : bookingsData2025
+    const events: any[] = []
+    
+    let tEvents = 0
+    let hEvents = 0
+    let trEvents = 0
+    const areaSet = new Set()
+
+    rawData.forEach((monthData: any) => {
+        const monthKey = monthData.id.toLowerCase().substring(0, 3)
+        const monthIndex = monthsMap[monthKey]
+        if (monthIndex === undefined) return
+
+        if (monthData.areas) {
+            monthData.areas.forEach((area: any) => {
+                if (area.rows && area.rows.length > 0) {
+                     area.rows.forEach((row: any) => {
+                         if (row.segments) {
+                             row.segments.forEach((seg: any) => {
+                                 // FullCalendar Start is inclusive, End is exclusive
+                                 const startDate = new Date(year, monthIndex, seg.start)
+                                 const endDate = new Date(year, monthIndex, seg.end + 1) // +1 day for exclusive end
+                                 
+                                 // Check event type
+                                 if (seg.type === 'hunt') {
+                                     hEvents++
+                                 } else {
+                                     trEvents++
+                                 }
+                                 tEvents++
+                                 areaSet.add(area.name)
+
+                                 events.push({
+                                     title: `${row.clientName} (${area.name})`,
+                                     start: startDate,
+                                     end: endDate,
+                                     backgroundColor: seg.type === 'hunt' ? '#198754' : '#0dcaf0',
+                                     borderColor: seg.type === 'hunt' ? '#198754' : '#0dcaf0',
+                                     textColor: '#ffffff',
+                                     classNames: [seg.type === 'hunt' ? 'event-hunt' : 'event-travel'],
+                                     extendedProps: {
+                                         type: seg.type,
+                                         area: area.name,
+                                         client: row.clientName,
+                                         description: seg.label || ''
+                                     },
+                                     allDay: true
+                                 })
+
+                             })
+                         }
+                     })
+                }
+            })
+        }
+    })
+
+    // Update Stats
+    totalEvents.value = tEvents
+    huntEvents.value = hEvents
+    travelEvents.value = trEvents
+    activeAreas.value = areaSet.size
+
+    return events
+}
+
+// --- FullCalendar Options ---
+const calendarOptions = reactive({
+  plugins: [dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin, multiMonthPlugin, bootstrapPlugin],
+  initialView: 'multiMonthYear',
+  themeSystem: 'bootstrap',
   headerToolbar: {
     left: 'prev,next today',
     center: 'title',
-    right: 'dayGridMonth,multiMonthYear downloadCalendar',
+    right: 'multiMonthYear,dayGridMonth,listMonth'
   },
-  customButtons: {
-    downloadCalendar: {
-      text: 'Download Calendar',
-      click: downloadCalendar,
-    },
-  },
-  initialDate: new Date().toISOString().split('T')[0],
-  views: {
-    multiMonthYear: {
-      type: 'multiMonth',
-      duration: { months: 12 },
-      multiMonthMaxColumns: 3,
-      multiMonthMinWidth: 280,
-      fixedWeekCount: false,
-      buttonText: 'Multi-Month Year',
-    },
-    dayGridMonth: {
-      fixedWeekCount: false,
-      buttonText: 'Month',
-    },
+  multiMonthMaxColumns: 3, // 3 months/row in year view
+  editable: false,
+  selectable: true,
+  selectMirror: true,
+  dayMaxEvents: 2, // limit events per day
+  weekends: true,
+  initialDate: `${currentYear.value}-01-01`, 
+  events: processData(currentYear.value),
+  eventClick: (info: any) => {
+      selectedEvent.value = info.event
   },
   height: 'auto',
-  contentHeight: 'auto',
-  aspectRatio: 1.35,
-  dayMaxEventRows: 3,
-  moreLinkClick: 'popover',
+  views: {
+      multiMonthYear: {
+          buttonText: 'Year Overview',
+          duration: { months: 12 }
+      }
+  }
 })
 
-// Computed Properties
-const totalEvents = computed(() => calendarEvents.value.length)
-
-const confirmedEvents = computed(() => 
-  calendarEvents.value.filter((event) => event.extendedProps?.status === 'confirmed').length
-)
-
-const provisionEvents = computed(() => 
-  calendarEvents.value.filter((event) => event.extendedProps?.status === 'provision_sales').length
-)
-
-const completedEvents = computed(() => 
-  calendarEvents.value.filter((event) => event.extendedProps?.status === 'completed').length
-)
-
-const selectedEventStatus = computed(() => {
-  const status = selectedEvent.value?.extendedProps?.status
-  if (!status) return 'Unknown'
-
-  const statusMap: Record<string, string> = {
-    confirmed: 'Confirmed',
-    pending: 'Pending',
-    provision_sales: 'Provision Sales',
-    declined: 'Declined',
-    cancelled: 'Cancelled',
-    completed: 'Completed',
-  }
-
-  return statusMap[status] || status
-})
-
-const selectedEventDuration = computed(() => {
-  if (!selectedEvent.value?.start || !selectedEvent.value?.end) return 0
-  return calculateDuration(selectedEvent.value.start, selectedEvent.value.end)
-})
-
-// Methods
-function downloadCalendar() {
-  const calendarData = generateICalendarData()
-  const blob = new Blob([calendarData], { type: 'text/calendar;charset=utf-8' })
-  const link = document.createElement('a')
-  const url = URL.createObjectURL(blob)
-  link.setAttribute('href', url)
-  link.setAttribute('download', `hunting-calendar-${new Date().toISOString().split('T')[0]}.ics`)
-  link.style.visibility = 'hidden'
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
+// --- Methods ---
+const changeYear = (year: number) => {
+    currentYear.value = year
+    const api = fullCalendarRef.value.getApi()
+    api.gotoDate(`${year}-01-01`)
+    
+    // Refresh events logic
+    api.removeAllEvents()
+    processData(year).forEach((evt: any) => api.addEvent(evt))
 }
 
-function generateICalendarData(): string {
-  const events = calendarOptions.value.events as EventInput[]
-  let icalData = `BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//Bushman//Hunting Calendar//EN
-CALSCALE:GREGORIAN
-METHOD:PUBLISH
-X-WR-CALNAME:Hunting Calendar
-X-WR-TIMEZONE:UTC
-X-WR-CALDESC:Hunting Schedule and Bookings
-`
-
-  for (const event of events) {
-    const eventData = event as any
-    const startDate = new Date(eventData.start)
-    const endDate = new Date(eventData.end || startDate)
-
-    icalData += `BEGIN:VEVENT
-UID:${eventData.id}@bushman.local
-DTSTAMP:${new Date().toISOString().replace(/[-:]/g, '').split('.')[0]}Z
-DTSTART:${startDate.toISOString().replace(/[-:]/g, '').split('.')[0]}Z
-DTEND:${endDate.toISOString().replace(/[-:]/g, '').split('.')[0]}Z
-SUMMARY:${eventData.title || 'Hunting Event'}
-DESCRIPTION:Status: ${eventData.extendedProps?.status || 'N/A'}
-END:VEVENT
-`
-  }
-
-  icalData += 'END:VCALENDAR'
-  return icalData
+const closeModal = () => {
+    selectedEvent.value = null
 }
 
-function formatEventDate(date: string | Date | undefined): string {
-  if (!date) return 'N/A'
-  try {
-    const dateObj = typeof date === 'string' ? new Date(date) : date
-    return dateObj.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    })
-  } catch {
-    return 'Invalid Date'
-  }
-}
-
-function calculateDuration(start: string | Date | null | undefined, end: string | Date | null | undefined): number {
-  if (!start || !end) return 0
-  try {
-    const startDate = new Date(start as string)
-    const endDate = new Date(end as string)
-    const diffTime = Math.abs(endDate.getTime() - startDate.getTime())
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1
-  } catch {
-    return 0
-  }
-}
-
-function getEarliestEventDate(events: CalendarEvent[]): string | null {
-  if (!events || events.length === 0) return null
-
-  let earliestDate: Date | null = null
-
-  for (const event of events) {
-    if (event.start) {
-      const eventDate = new Date(event.start as string)
-      if (!isNaN(eventDate.getTime())) {
-        if (!earliestDate || eventDate < earliestDate) {
-          earliestDate = eventDate
-        }
-      }
-    }
-  }
-
-  if (earliestDate) {
-    return earliestDate.toISOString().split('T')[0]
-  }
-
-  return null
-}
-
-function handleEventClick(clickInfo: EventClickArg) {
-  selectedEvent.value = {
-    id: clickInfo.event.id,
-    title: clickInfo.event.title,
-    start: clickInfo.event.start || undefined,
-    end: clickInfo.event.end || clickInfo.event.start || undefined,
-    extendedProps: clickInfo.event.extendedProps,
-  }
-  showModal.value = true
-}
-
-function closeModal() {
-  showModal.value = false
-}
-
-function getStatusColor(status: string): string {
-  const colorMap: Record<string, string> = {
-    pending: '#FFC107',
-    provision_sales: '#FF9800',
-    confirmed: '#4CAF50',
-    declined: '#F44336',
-    cancelled: '#9E9E9E',
-    completed: '#2196F3',
-  }
-  return colorMap[status?.toLowerCase()] || '#757575'
-}
-
-function getStatusBadgeClass(status: string): string {
-  const colorMap: Record<string, string> = {
-    pending: 'bg-warning',
-    provision_sales: 'bg-warning',
-    confirmed: 'bg-success',
-    declined: 'bg-danger',
-    cancelled: 'bg-danger',
-    completed: 'bg-primary',
-  }
-  return colorMap[status?.toLowerCase()] || 'bg-secondary'
-}
-
-function handleJumpToDate() {
-  if (!jumpDateString.value) return
-
-  const date = new Date(jumpDateString.value)
-  if (isNaN(date.getTime())) return
-
-  if (calendarRef.value) {
-    const calendarApi = calendarRef.value.getApi()
-    if (calendarApi) {
-      calendarApi.gotoDate(date)
-    }
-  }
-}
-
-async function loadCalendarEvents() {
-  loadingData.value = true
-
-  try {
-    const response = await calendarStore.getCalendarStats()
-
-    if (response && response.status === 200 && Array.isArray(response.data)) {
-      if (response.data.length > 0) {
-        const apiEvents = transformApiEvents(response.data)
-
-        calendarOptions.value.events = apiEvents
-        calendarEvents.value = apiEvents
-
-        // Set calendar to start at the earliest booked date
-        if (apiEvents.length > 0) {
-          const earliestDate = getEarliestEventDate(apiEvents)
-          if (earliestDate) {
-            calendarOptions.value.initialDate = earliestDate
-          }
-        }
-
-        calendarKey.value++
-      } else {
-        console.warn('No events found in API response')
-      }
-    } else {
-      console.error('Invalid API response:', response)
-    }
-  } catch (error) {
-    console.error('Error loading calendar events:', error)
-  } finally {
-    loadingData.value = false
-  }
-}
-
-function transformApiEvents(apiData: any[]): CalendarEvent[] {
-  const events: CalendarEvent[] = []
-
-  apiData.forEach((item: any, index: number) => {
-    try {
-      const salesInquiry = item.sales_inquiry || {}
-      const entity = salesInquiry.entity || {}
-      const preference = salesInquiry.preference || {}
-
-      // Parse dates
-      const startDate = parseApiDate(preference.start_date)
-      const endDate = parseApiDate(preference.end_date)
-
-      if (!startDate) {
-        console.warn(`Skipping event ${item.id} - invalid start date:`, preference.start_date)
-        return
-      }
-
-      // Format dates for FullCalendar
-      const eventStart = startDate.toISOString().split('T')[0]
-      const eventEnd = endDate ? endDate.toISOString().split('T')[0] : eventStart
-
-      // Calculate duration
-      const duration = calculateDuration(eventStart, eventEnd)
-
-      // Extract package and hunting type information
-      const proposedPackage = item.proposed_package || {}
-      const packageName = proposedPackage?.sales_package?.name || 'N/A'
-      const huntingType = proposedPackage?.price_list_type?.hunting_type?.name || 'N/A'
-
-      // Create event title with client name, package, hunting type, and duration
-      const clientName = entity.full_name || 'Unknown Client'
-      const eventTitle = `${clientName} - ${packageName} (${huntingType}) - ${duration}d`
-
-      // Create event
-      const event: CalendarEvent = {
-        id: item.id?.toString() || `event-${Date.now()}-${index}`,
-        title: eventTitle,
-        start: eventStart,
-        end: eventEnd,
-        allDay: true,
-        backgroundColor: getStatusColor(item.status?.status || ''),
-        textColor: '#FFFFFF',
-        borderColor: getStatusColor(item.status?.status || ''),
-        extendedProps: {
-          species: salesInquiry.preferred_species || [],
-          preference: preference,
-          contacts: entity.contacts || [],
-          proposed_package: proposedPackage,
-          areas: salesInquiry.area || [],
-          status: item.status?.status || 'unknown',
-          package_name: packageName,
-          hunting_type: huntingType,
-        },
-      }
-
-      events.push(event)
-    } catch (error) {
-      console.error('Error transforming event:', item.id, error)
-    }
-  })
-
-  // Sort by start date
-  return events.sort((a, b) => {
-    return new Date(a.start as string).getTime() - new Date(b.start as string).getTime()
-  })
-}
-
-function parseApiDate(dateString: string | undefined): Date | null {
-  if (!dateString) return null
-
-  try {
-    // Clean the date string
-    let cleanDate = dateString.trim()
-
-    // Handle MySQL datetime format
-    if (cleanDate.includes(' ')) {
-      cleanDate = cleanDate.split(' ')[0]
-    }
-
-    // Parse date
-    const date = new Date(cleanDate + 'T00:00:00')
-
-    if (isNaN(date.getTime())) {
-      console.warn('Invalid date:', dateString)
-      return null
-    }
-
-    return date
-  } catch (error) {
-    console.error('Error parsing date:', dateString, error)
-    return null
-  }
-}
-
-// Lifecycle
+// Initial Load
 onMounted(() => {
-  loadCalendarEvents()
+    processData(currentYear.value)
 })
+
 </script>
 
 <style scoped>
 .calendar-page {
-  padding: 20px;
-  background-color: #f8f9fa;
-  min-height: 100vh;
-  width: 100%;
-  overflow-x: auto;
+    /* Main page background */
+    contain: layout;
 }
 
-/* Stats Cards */
+.calendar-page.is-exporting .d-print-none,
+.calendar-page.is-exporting .modal {
+    display: none !important;
+}
+
 .stat-card {
-  transition:
-    transform 0.2s ease,
-    box-shadow 0.2s ease;
-  cursor: default;
+    transition: transform 0.2s, box-shadow 0.2s;
+    overflow: hidden;
 }
 
 .stat-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+    transform: translateY(-5px);
+    box-shadow: 0 .5rem 1rem rgba(0,0,0,.15)!important;
 }
 
-.stat-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 24px;
-}
-
-.stat-total .stat-icon {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-}
-
-.stat-confirmed .stat-icon {
-  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
-  color: white;
-}
-
-.stat-provision .stat-icon {
-  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-  color: white;
-}
-
-.stat-completed .stat-icon {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-  color: white;
-}
-
-/* Legend */
-.legend-dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-    display: inline-block;
-  }
-  
-  .legend-confirmed {
-    background-color: #22c55e;
-  }
-  
-  .legend-provision {
-    background-color: #f59e0b;
-  }
-  
-  .legend-completed {
-    background-color: #3b82f6;
-  }
-  
-  /* FullCalendar Custom Styles - Bootstrap Admin Look */
-  :deep(.fc) {
-    font-family: inherit;
-    font-size: 0.9rem;
-  }
-  
-  :deep(.fc-toolbar) {
-    padding: 12px 0;
-    margin-bottom: 12px !important;
-    flex-wrap: wrap;
-    gap: 6px;
-    align-items: center;
-    display: flex !important;
-  }
-  
-  :deep(.fc-toolbar-chunk) {
-    display: flex !important;
-    align-items: center !important;
-    gap: 6px !important;
-  }
-  
-  :deep(.fc-toolbar-title) {
-    font-size: 1.25rem !important;
-    font-weight: 600;
-    color: #212529;
-  }
-  
-  :deep(.fc-button) {
-    padding: 8px 16px !important;
-    font-size: 0.875rem !important;
-    border-radius: 6px !important;
-    border: 1px solid #dee2e6 !important;
-    background-color: #fff !important;
-    color: #212529 !important;
-    transition: all 0.2s ease !important;
-    height: 36px !important;
-    min-height: 36px !important;
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    line-height: 1 !important;
-    vertical-align: middle !important;
-    padding-top: 8px !important;
-    padding-bottom: 8px !important;
-    min-width: 100px !important;
-  }
-  
-  :deep(.fc-button.fc-downloadCalendar-button) {
-    background-color: #6b5344 !important;
-    color: #fff !important;
-    border-color: #6b5344 !important;
-    padding: 8px 16px !important;
-    height: 36px !important;
-    min-height: 36px !important;
-    line-height: 1 !important;
-    vertical-align: middle !important;
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    min-width: 100px !important;
-  }
-  
-  :deep(.fc-button.fc-downloadCalendar-button:hover) {
-    background-color: #5a4538 !important;
-    border-color: #5a4538 !important;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15) !important;
-  }
-  
-  :deep(.fc-button-group) {
-    display: inline-flex !important;
-    gap: 6px !important;
-    align-items: center !important;
-    vertical-align: middle !important;
-  }
-  
-  :deep(.fc-button-group > button) {
-    height: 36px !important;
-    min-height: 36px !important;
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    line-height: 1 !important;
-    vertical-align: middle !important;
-    padding: 8px 16px !important;
-    min-width: 100px !important;
-  }
-  
-  :deep(.fc-button:hover:not(.fc-downloadCalendar-button)) {
-    background-color: #f8f9fa !important;
-    border-color: #adb5bd !important;
-    transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
-  }
-  
-  :deep(.fc-button-primary:not(:disabled):active),
-  :deep(.fc-button-primary:not(:disabled).fc-button-active) {
-    background-color: #0d6efd !important;
-    border-color: #0d6efd !important;
-    color: #fff !important;
-    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25) !important;
-  }
-  
-  :deep(.fc-event) {
-    cursor: pointer;
-    border-radius: 6px;
-    padding: 4px 8px;
-    font-size: 0.75rem;
-    font-weight: 500;
-    transition: all 0.2s ease;
-    border: none !important;
-    margin: 2px 4px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  }
-  
-  :deep(.fc-event:hover) {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15) !important;
-    z-index: 10;
-  }
-  
-  :deep(.fc-day-today) {
-    background-color: rgba(13, 110, 253, 0.1) !important;
-  }
-  
-  :deep(.fc-day-today .fc-daygrid-day-number) {
-    font-weight: 700;
-    color: #0d6efd;
-  }
-  
-  :deep(.fc-daygrid-day-frame) {
-    min-height: 80px;
-    padding: 4px;
-  }
-  
-  :deep(.fc-daygrid-day-number) {
-    font-size: 0.875rem;
-    padding: 6px 8px;
-    color: #495057;
-    font-weight: 500;
-  }
-  
-  :deep(.fc-col-header-cell) {
-    background-color: #f8f9fa;
-    padding: 10px 0;
-    font-weight: 600;
-    font-size: 0.75rem;
-    color: #6c757d;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    border-bottom: 2px solid #dee2e6;
-  }
-  
-  :deep(.fc-view) {
-    background: white;
-    border-radius: 0;
-    border: 1px solid #dee2e6;
-  }
-  
-  :deep(.fc-scrollgrid) {
-    border: none !important;
-  }
-  
-  :deep(.fc-scrollgrid td, .fc-scrollgrid th) {
-    border-color: #dee2e6 !important;
-  }
-  
-  /* Multi-month compact layout */
-  :deep(.fc-multimonth) {
-    border: none !important;
-    background: transparent !important;
-  }
-  
-  :deep(.fc-multimonth-singlecol) {
-    display: grid !important;
-    grid-template-columns: repeat(3, 1fr) !important;
-    gap: 32px !important;
-    padding: 20px !important;
-    row-gap: 32px !important;
-  }
-  
-  :deep(.fc-multimonth-month) {
-    border: 1px solid #e9ecef;
-    border-radius: 12px;
-    margin: 0 !important;
-    background: white;
-    overflow: hidden;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-    transition: all 0.3s ease;
+.stat-icon-wrapper {
+    width: 60px;
+    height: 60px;
     display: flex;
-    flex-direction: column;
-  }
-  
-  :deep(.fc-multimonth-month:hover) {
-    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.12);
-    transform: translateY(-4px);
-    border-color: #dee2e6;
-  }
-  
-  :deep(.fc-multimonth-header) {
-    background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);
-    padding: 0;
-    flex-shrink: 0;
-  }
-  
-  :deep(.fc-multimonth-title) {
-    background: transparent;
-    color: white;
-    font-weight: 700;
-    padding: 14px 12px;
-    font-size: 0.95rem;
-    text-align: center;
-    letter-spacing: 0.3px;
-  }
-  
-  :deep(.fc-multimonth-daygrid) {
-    padding: 8px;
-    flex-grow: 1;
-  }
-  
-  :deep(.fc-multimonth-daygrid-table) {
-    font-size: 0.8rem;
-  }
-  
-  :deep(.fc-multimonth .fc-daygrid-day-frame) {
-    min-height: 42px;
-    padding: 4px;
-  }
-  
-  :deep(.fc-multimonth .fc-daygrid-day-number) {
-    font-size: 0.8rem;
-    padding: 4px 6px;
-    font-weight: 500;
-  }
-  
-  :deep(.fc-multimonth .fc-daygrid-day-events) {
-    margin-top: 3px;
-  }
-  
-  :deep(.fc-multimonth .fc-event) {
-    font-size: 0.7rem;
-    padding: 2px 5px;
-    margin: 2px 3px;
+    align-items: center;
+    justify-content: center;
+}
+
+:deep(.fc-theme-bootstrap5 a:not([href])) {
+    color: inherit;
+    text-decoration: none;
+}
+
+:deep(.fc-event) {
+    cursor: pointer;
     border-radius: 4px;
-    font-weight: 500;
-    word-break: break-word;
-  }
-  
-  :deep(.fc-multimonth .fc-col-header-cell) {
-    font-size: 0.75rem;
+    font-size: 0.85em;
+    padding: 1px 2px;
+    border: none;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+
+:deep(.fc-event:hover) {
+    filter: brightness(0.95);
+}
+
+:deep(.fc-toolbar-title) {
+    font-weight: 800;
+    font-size: 1.5rem;
+    color: #495057;
+}
+
+:deep(.fc-col-header-cell) {
+    background-color: #f8f9fa;
     padding: 8px 0;
-    font-weight: 600;
-    background-color: #f1f3f5;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
-  }
-  
-  :deep(.fc-more-link) {
-    font-size: 0.7rem;
-    color: #0d6efd;
+    font-size: 0.8rem;
+    color: #6c757d;
+}
+
+:deep(.fc-cell-today) {
+    background-color: rgba(255, 255, 0, 0.05) !important;
+}
+
+:deep(.fc-daygrid-day-number) {
     font-weight: 600;
-    text-decoration: none;
-    background: transparent;
-    padding: 2px 4px;
-    border-radius: 3px;
-    transition: all 0.2s ease;
-  }
-  
-  :deep(.fc-more-link:hover) {
-    color: #fff;
-    background-color: #0d6efd;
-    text-decoration: none;
-  }
-  
-  :deep(.fc-multimonth .fc-day-other) {
-    background-color: #fafbfc;
-  }
-  
-  :deep(.fc-multimonth .fc-day-today) {
-    background-color: rgba(13, 110, 253, 0.15) !important;
-  }
-  
-  /* Modal Styles */
-  .modal-backdrop {
-    background-color: rgba(0, 0, 0, 0.5);
-  }
-  
-  @media (max-width: 1200px) {
-    :deep(.fc-multimonth-singlecol) {
-      grid-template-columns: repeat(2, 1fr) !important;
-      gap: 28px !important;
-      row-gap: 28px !important;
+    color: #495057;
+    margin: 4px;
+}
+
+/* Modal animation */
+.modal.show {
+    transition: opacity .15s linear;
+}
+
+.modal-content {
+    border-radius: 12px;
+}
+
+.event-hunt {
+    background-color: #198754 !important;
+}
+
+.event-travel {
+    background-color: #0dcaf0 !important;
+}
+
+@media print {
+    :deep(.fc-header-toolbar) {
+        display: none;
     }
-  }
-  
-  @media (max-width: 768px) {
+    
     .calendar-page {
-      padding: 12px;
+        padding: 0;
     }
-  
-    :deep(.fc-multimonth-singlecol) {
-      grid-template-columns: 1fr !important;
-      gap: 24px !important;
-      row-gap: 24px !important;
-      padding: 12px !important;
-    }
-  
-    :deep(.fc-toolbar) {
-      flex-direction: column;
-      align-items: flex-start;
-    }
-  }
-  
-  /* Calendar Wrapper */
-  .calendar-wrapper {
-    width: 100%;
-    min-height: 600px;
-  }
-  
-  .calendar-wrapper :deep(.fc) {
-    width: 100%;
-  }
-  
-  /* Modal Styles - Bootstrap compatible */
-  .modal-body {
-    max-height: 70vh;
-    overflow-y: auto;
-  }
-  </style>
-  
+}
+</style>

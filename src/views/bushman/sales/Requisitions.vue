@@ -200,6 +200,9 @@ const dimensionTypes = ref<DimensionType[]>([])
 const dimensionValues = ref<DimensionValue[]>([])
 const vatOptions = ref<OptionItem[]>([])
 
+
+
+
 // Form tabs
 type FormTab = 'sources' | 'items' | 'attachments'
 const activeFormTab = ref<FormTab>('sources')
@@ -882,58 +885,32 @@ const openCreateForm = () => {
   isEditMode.value = false
 }
 
-const openEditForm = (req: Requisition) => {
+const openEditForm = (req: any) => {
   resetForm() // Reset first to clear any previous data
   
-  form.id = req.id
-  form.requisitionTypeId = req.requisitionTypeId
-  form.fundDirection = req.fundDirection
-  form.currencyId = req.currencyId ?? currencies.value[0]?.id ?? null
-  form.date = req.date
-  form.requiredDate = req.requiredDate
-  form.remarks = req.remarks
-
-  // Map legacy API items into per-item structures (1 requisition-item per legacy line)
-  form.items = (req.items || []).map((line) => ({
-    _key: generateKey(),
-    currencyId: form.currencyId,
-    vatId: null,
-    discountAmount: 0,
-    discountMethod: null,
-    taxMethod: form.taxMethod,
-    remarks: '',
-    materials: [
-      {
-        _key: generateKey(),
-        itemId: line.itemId,
-        unitId: line.unitId,
-        quantity: line.quantity || 1,
-        rate: Number(line.rate || 0),
-        currencyId: form.currencyId,
-        description: line.description || '',
-      },
-    ],
-    accounts: [],
-    dimensions: [],
-    _materialsExpanded: true,
-    _accountsExpanded: false,
-  }))
-
-  if (form.items.length === 0) addItem()
+  const rawReq = req
   
-  // Map existing single source (if any) into the shared form.source
-  const existingSource = (req as any).sources && (req as any).sources.length > 0 ? (req as any).sources[0] : null
+  form.id = rawReq.id
+  form.requisitionTypeId = rawReq.requisition_type?.id || rawReq.requisition_type_id || rawReq.requisitionTypeId
+  form.fundDirection = rawReq.fund_direction || rawReq.fundDirection || 'WITHDRAW'
+  form.currencyId = rawReq.currency_id || rawReq.currencyId || currencies.value[0]?.id || null
+  form.date = (rawReq.date || new Date().toISOString()).slice(0, 10)
+  form.requiredDate = (rawReq.required_date || rawReq.requiredDate || '').slice(0, 10)
+  form.remarks = rawReq.remarks || ''
+
+  // Single shared source for the whole requisition
+  const existingSource = (rawReq.sources && rawReq.sources.length > 0) ? rawReq.sources[0] : (rawReq.source || null)
   if (existingSource) {
     form.source = {
       _key: generateKey(),
-      sourceType: existingSource.source_type || null,
-      sourceId: existingSource.source_id || null,
-      accountId: existingSource.account_id || existingSource.source_id || null,
+      sourceType: existingSource.source_type || existingSource.sourceType || null,
+      sourceId: existingSource.source_id || existingSource.sourceId || null,
+      accountId: existingSource.account_id || existingSource.accountId || existingSource.source_id || null,
       payee: existingSource.payee || '',
-      modeOfPayment: existingSource.mode_of_payment || null,
+      modeOfPayment: existingSource.mode_of_payment || existingSource.modeOfPayment || null,
       currencyId: form.currencyId,
       // Requisition currency is authoritative; always set exchangeRate to 1 unless provided
-      exchangeRate: Number(existingSource.exchange_rate || 1),
+      exchangeRate: Number(existingSource.exchange_rate || existingSource.exchangeRate || 1),
       description: existingSource.description || '',
     }
   } else {
@@ -950,34 +927,100 @@ const openEditForm = (req: Requisition) => {
     }
   }
 
-  // Reconstruct cost centers with nested items from API items
-  const costCenterMap = new Map()
-  for (const line of req.items || []) {
-    const costCenterId = line.cost_center_id || (line.materials && line.materials[0]?.cost_center_id) || null
-    if (!costCenterId) continue
-    
-    if (!costCenterMap.has(costCenterId)) {
-      costCenterMap.set(costCenterId, {
-        _key: generateKey(),
-        costCenterId: costCenterId,
-        items: []
-      })
-    }
-    
-    const material = line.materials && line.materials[0] || {}
-    const account = line.accounts && line.accounts[0] || {}
-    costCenterMap.get(costCenterId).items.push({
-      _key: generateKey(),
-      itemId: material.item_id || null,
-      unitId: material.unit_of_measurement_id || null,
-      quantity: material.quantity || 1,
-      rate: Number(material.rate || 0),
-      accountId: account.account_id || null,
-      remarks: material.description || '',
-    })
-  }
+  // Detect and Reconstruct Cost Centers or Direct Items using Raw Data
+  const rawItems = rawReq.items || []
+  let hasCostCenters = false
   
-  form.costCenters = Array.from(costCenterMap.values())
+  for (const item of rawItems) {
+    if (item.cost_center_id) { hasCostCenters = true; break; }
+    if (item.materials && item.materials.some((m: any) => m.cost_center_id)) { hasCostCenters = true; break; }
+  }
+
+  if (hasCostCenters) {
+    const costCenterMap = new Map()
+    for (const line of rawItems) {
+      const costCenterId = line.cost_center_id || (line.materials && line.materials[0]?.cost_center_id) || null
+      if (!costCenterId) continue
+      
+      if (!costCenterMap.has(costCenterId)) {
+        costCenterMap.set(costCenterId, {
+          _key: generateKey(),
+          costCenterId: costCenterId,
+          items: []
+        })
+      }
+      
+      const materials = line.materials || []
+      // If mapped data (fallback), materials might be empty but fields are on line
+      if (materials.length === 0 && (line.item_id || line.itemId)) {
+         materials.push(line)
+      }
+
+      for (const material of materials) {
+         // Try snake_case first (raw), then camelCase (mapped fallback)
+         const itemId = material.item_id || material.itemId || material.item?.id || null
+         const unitId = material.unit_of_measurement_id || material.unitId || material.unit_of_measurement?.id || null
+         const quantity = Number(material.quantity || 1)
+         const rate = Number(material.rate || 0)
+         const desc = material.description || material.remarks || ''
+         
+         const account = (line.accounts && line.accounts[0]) || {}
+         const accountId = account.account_id || account.accountId || null
+
+         costCenterMap.get(costCenterId).items.push({
+          _key: generateKey(),
+          itemId,
+          unitId,
+          quantity,
+          rate,
+          accountId,
+          remarks: desc,
+        })
+      }
+    }
+    form.costCenters = Array.from(costCenterMap.values())
+    form.items = [] // Ensure direct items mode is off
+  } else {
+    // Map raw items to form items (Direct Mode)
+    form.items = rawItems.map((line: any) => {
+       const materials = line.materials || []
+       const primaryMat = materials.length > 0 ? materials[0] : line
+
+       const itemId = primaryMat.item_id || primaryMat.itemId || primaryMat.item?.id || null
+       const unitId = primaryMat.unit_of_measurement_id || primaryMat.unitId || primaryMat.unit_of_measurement?.id || null
+       const quantity = Number(primaryMat.quantity || 1)
+       const rate = Number(primaryMat.rate || 0)
+       const description = primaryMat.description || primaryMat.remarks || ''
+
+       return {
+          _key: generateKey(),
+          currencyId: form.currencyId,
+          vatId: null,
+          discountAmount: 0,
+          discountMethod: null,
+          taxMethod: form.taxMethod,
+          remarks: line.remarks || '',
+          materials: [
+            {
+              _key: generateKey(),
+              itemId,
+              unitId,
+              quantity,
+              rate,
+              currencyId: form.currencyId,
+              description,
+            },
+          ],
+          accounts: [],
+          dimensions: [],
+          _materialsExpanded: true,
+          _accountsExpanded: false,
+       }
+    })
+    
+    if (form.items.length === 0) addItem()
+    form.costCenters = [] // Ensure cost center mode is off
+  }
 
   showForm.value = true
   isEditMode.value = true
@@ -1023,6 +1066,15 @@ const validateForm = async () => {
     return false
   }
   const inferredSourceType = form.source?.sourceType || (form.source?.payee ? 'VENDOR' : null)
+  if (!inferredSourceType) {
+    await Swal.fire({
+      icon: 'warning',
+      title: 'Validation Error',
+      text: 'Select a funding source.',
+      confirmButtonColor: '#2563eb'
+    })
+    return false
+  }
   if (inferredSourceType) {
     if (inferredSourceType === 'CASH' && !form.source.accountId) {
       await Swal.fire({
@@ -1069,7 +1121,7 @@ const validateForm = async () => {
   }
 
   const costCenterHasValidItems = (cc: any) => {
-    return (cc.items || []).some((it: any) => it.itemId && it.unitId && Number(it.quantity || 0) > 0 && Number(it.rate || 0) > 0 && it.accountId)
+    return (cc.items || []).some((it: any) => it.itemId || it.accountId)
   }
 
   const anyValidLines = (form.items && form.items.some(itemHasValidLines)) || ((form as any).costCenters && (form as any).costCenters.some(costCenterHasValidItems))
@@ -1088,7 +1140,8 @@ const validateForm = async () => {
   for (const [index, item] of form.items.entries()) {
     // Validate each material line that has data
     for (const material of item.materials || []) {
-      if (material.rate || material.itemId || material.unitId || material.quantity) {
+      const hasMaterialData = material.itemId || material.unitId || Number(material.rate || 0) > 0
+      if (hasMaterialData) {
         if (!material.itemId) {
           await Swal.fire({
             icon: 'warning',
@@ -1172,50 +1225,69 @@ const validateForm = async () => {
   if ((form as any).costCenters) {
     for (const [ccIndex, cc] of ((form as any).costCenters || []).entries()) {
       for (const [itIndex, it] of (cc.items || []).entries()) {
-        if (!it.accountId) {
+        const hasLineData = !!(
+          it.itemId ||
+          it.accountId ||
+          it.unitId ||
+          Number(it.quantity || 0) > 0 ||
+          Number(it.rate || 0) > 0 ||
+          String(it.remarks || '').trim()
+        )
+
+        if (!hasLineData) {
+          continue
+        }
+
+        if (!it.accountId && !it.itemId) {
           await Swal.fire({
             icon: 'warning',
             title: 'Validation Error',
-            text: `Cost center ${ccIndex + 1}, item ${itIndex + 1}: please select an account.`,
+            text: `Cost center ${ccIndex + 1}, item ${itIndex + 1}: select an item or account.`,
             confirmButtonColor: '#2563eb'
           })
           return false
         }
-        if (!it.itemId) {
-          await Swal.fire({
-            icon: 'warning',
-            title: 'Validation Error',
-            text: `Cost center ${ccIndex + 1}, item ${itIndex + 1}: please select an item.`,
-            confirmButtonColor: '#2563eb'
-          })
-          return false
+
+        if (it.itemId) {
+          if (!it.unitId) {
+            await Swal.fire({
+              icon: 'warning',
+              title: 'Validation Error',
+              text: `Cost center ${ccIndex + 1}, item ${itIndex + 1}: please select a unit.`,
+              confirmButtonColor: '#2563eb'
+            })
+            return false
+          }
+          if (Number(it.quantity || 0) <= 0) {
+            await Swal.fire({
+              icon: 'warning',
+              title: 'Validation Error',
+              text: `Cost center ${ccIndex + 1}, item ${itIndex + 1}: quantity must be greater than zero.`,
+              confirmButtonColor: '#2563eb'
+            })
+            return false
+          }
+          if (Number(it.rate || 0) <= 0) {
+            await Swal.fire({
+              icon: 'warning',
+              title: 'Validation Error',
+              text: `Cost center ${ccIndex + 1}, item ${itIndex + 1}: rate must be greater than zero.`,
+              confirmButtonColor: '#2563eb'
+            })
+            return false
+          }
         }
-        if (!it.unitId) {
-          await Swal.fire({
-            icon: 'warning',
-            title: 'Validation Error',
-            text: `Cost center ${ccIndex + 1}, item ${itIndex + 1}: please select a unit.`,
-            confirmButtonColor: '#2563eb'
-          })
-          return false
-        }
-        if (Number(it.quantity || 0) <= 0) {
-          await Swal.fire({
-            icon: 'warning',
-            title: 'Validation Error',
-            text: `Cost center ${ccIndex + 1}, item ${itIndex + 1}: quantity must be greater than zero.`,
-            confirmButtonColor: '#2563eb'
-          })
-          return false
-        }
-        if (Number(it.rate || 0) <= 0) {
-          await Swal.fire({
-            icon: 'warning',
-            title: 'Validation Error',
-            text: `Cost center ${ccIndex + 1}, item ${itIndex + 1}: rate must be greater than zero.`,
-            confirmButtonColor: '#2563eb'
-          })
-          return false
+
+        if (it.accountId) {
+          if (Number(it.quantity || 0) <= 0 || Number(it.rate || 0) <= 0) {
+            await Swal.fire({
+              icon: 'warning',
+              title: 'Validation Error',
+              text: `Cost center ${ccIndex + 1}, item ${itIndex + 1}: account amount must be greater than zero.`,
+              confirmButtonColor: '#2563eb'
+            })
+            return false
+          }
         }
       }
     }
@@ -1335,7 +1407,7 @@ const saveForm = async (asDraft = false) => {
       return
     }
 
-    const payload = {
+    const payload: any = {
       company_id: 1,
       branch_id: form.branchId || 1,
       user_id: Number(currentUserId),
@@ -1345,7 +1417,6 @@ const saveForm = async (asDraft = false) => {
       required_date: form.requiredDate,
       date: form.date,
       remarks: form.remarks,
-      status: asDraft ? 'DRAFT' : 'SUBMITTED',
       
       items: allCostCenterItems,
       
@@ -1365,13 +1436,16 @@ const saveForm = async (asDraft = false) => {
       }),
 
     }
+    if (!asDraft) {
+      payload.submit = true
+    }
 
     if (isEditMode.value) {
       await requisitionService.update(form.id, payload)
       await Swal.fire({
         icon: 'success',
         title: 'Success',
-        text: 'Requisition updated successfully',
+        text: asDraft ? 'Draft updated successfully' : 'Requisition updated successfully',
         timer: 2000,
         showConfirmButton: false
       })
@@ -1432,10 +1506,14 @@ const handleRouteQuery = async (query: any) => {
   if (!id) return
 
   try {
+    // Always fetch fresh data to ensure we have the raw structure (needed for edit form)
+    // rather than relying on potentially mapped/partial data from other views
     const response = await requisitionService.get(id)
     const data = response?.data || response
-    const mapped = mapRequisition(data)
-    openEditForm(mapped)
+
+    // Pass the raw data directly to openEditForm
+    // This allows the form to reconstruct complex structures like Cost Centers that get lost in mapping
+    openEditForm(data)
   } catch {
     // ignore
   } finally {
@@ -1445,10 +1523,14 @@ const handleRouteQuery = async (query: any) => {
 }
 
 onMounted(async () => {
-  await Promise.all([
-    loadRequisitions(),
-    loadMetadata(),
-  ])
+  const hasEditId = !!route.query.editId
+  if (hasEditId) {
+    await loadMetadata()
+    await handleRouteQuery(route.query)
+    return
+  }
+
+  await Promise.all([loadRequisitions(), loadMetadata()])
   if (!form.requisitionTypeId && requisitionTypes.value.length) {
     form.requisitionTypeId = requisitionTypes.value[0].id
   }
