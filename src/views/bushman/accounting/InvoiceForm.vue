@@ -19,6 +19,24 @@
           <button class="btn ghost" type="button" @click="resetForm">
             <span class="btn-icon"><i class="fa fa-refresh"></i></span> Reset
           </button>
+          <button 
+            v-if="isEdit && invoice?.status === 'APPROVED' && !invoice?.journal_voucher_id"
+            class="btn primary" 
+            type="button" 
+            @click="createJournalVoucher"
+            :disabled="savingJV"
+          >
+            <span class="btn-icon"><i class="fa fa-file-alt"></i></span> {{ savingJV ? 'Creating JV...' : 'Create Journal Voucher' }}
+          </button>
+          <button 
+            v-if="isEdit && invoice?.journal_voucher_id"
+            class="btn success" 
+            type="button" 
+            @click="viewJournalVoucher"
+            disabled
+          >
+            <span class="btn-icon"><i class="fa fa-check"></i></span> JV Created (#{{ invoice.journal_voucher_id }})
+          </button>
           <button class="btn secondary" type="button" @click="submit" :disabled="saving">
             <span class="btn-icon"><i class="fa fa-save"></i></span> {{ saving ? 'Saving...' : isEdit ? 'Update Invoice' : 'Create Invoice' }}
           </button>
@@ -174,13 +192,7 @@
                 </div>
               </label>
 
-              <label class="field">
-                <span class="lbl">Reference No.</span>
-                <div class="input-wrapper">
-                  <span class="input-icon"><i class="fa fa-link"></i></span>
-                  <input v-model="form.reference_no" type="text" placeholder="e.g., PO-2026-001" />
-                </div>
-              </label>
+
             </div>
 
             <!-- SECTION 3: NOTES -->
@@ -205,103 +217,130 @@
           </div>
         </aside>
 
-        <!-- RIGHT PANEL: Line Items & Linking -->
+        <!-- RIGHT PANEL: Line Items -->
         <section class="panel center-panel">
           <div class="panel-header">
             <div class="panel-icon"><i class="fa fa-list-alt"></i></div>
             <div class="panel-title-text">
               <h3>Line Items</h3>
-              <p>Add invoice line items</p>
+              <p>Manage invoice items and amounts</p>
+            </div>
+            <button class="btn btn-primary btn-sm ms-auto" @click="addLineItem" v-if="!isAddingNewLine">
+              <i class="fa fa-plus"></i> Add Item
+            </button>
+          </div>
+
+          <!-- Line Items Table with Inline Adding -->
+          <div class="line-items-container">
+            <!-- No Items Empty State -->
+            <div v-if="form.line_items.length === 0 && !isAddingNewLine" class="empty-state">
+              <i class="fa fa-inbox"></i>
+              <p>No items added yet</p>
+              <small>Click "Add Item" button above to create your first line</small>
+            </div>
+
+            <!-- Items Table -->
+            <table v-if="form.line_items.length > 0" class="items-table">
+              <thead>
+                <tr>
+                  <th style="width: 5%">#</th>
+                  <th style="width: 40%">Description</th>
+                  <th style="width: 12%">Quantity</th>
+                  <th style="width: 15%">Unit Price</th>
+                  <th style="width: 12%">Tax %</th>
+                  <th style="width: 12%">Amount</th>
+                  <th style="width: 4%">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(item, index) in form.line_items" :key="index" class="item-row">
+                  <td class="row-number">{{ index + 1 }}</td>
+                  <td class="item-desc">{{ item.description }}</td>
+                  <td class="item-qty">{{ item.quantity }}</td>
+                  <td class="item-price">{{ formatCurrency(item.unit_price) }}</td>
+                  <td class="item-tax">{{ item.tax_rate || 0 }}%</td>
+                  <td class="item-amount"><strong>{{ formatCurrency(calculateLineAmount(item)) }}</strong></td>
+                  <td class="item-action">
+                    <button type="button" class="btn-icon" @click="removeLineItem(index)" title="Delete">
+                      <i class="fa fa-trash"></i>
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            <!-- Add New Item Form (Inline) -->
+            <div v-if="isAddingNewLine" class="add-item-form">
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Description <span class="req">*</span></label>
+                  <input 
+                    v-model="newLine.description" 
+                    type="text" 
+                    placeholder="Item description" 
+                    class="form-input"
+                    required 
+                  />
+                </div>
+                <div class="form-group">
+                  <label>Quantity <span class="req">*</span></label>
+                  <input 
+                    v-model.number="newLine.quantity" 
+                    type="number" 
+                    step="0.01" 
+                    placeholder="1" 
+                    class="form-input"
+                    required 
+                  />
+                </div>
+                <div class="form-group">
+                  <label>Unit Price <span class="req">*</span></label>
+                  <input 
+                    v-model.number="newLine.unit_price" 
+                    type="number" 
+                    step="0.01" 
+                    placeholder="0.00" 
+                    class="form-input"
+                    required 
+                  />
+                </div>
+                <div class="form-group">
+                  <label>Tax %</label>
+                  <input 
+                    v-model.number="newLine.tax_rate" 
+                    type="number" 
+                    step="0.01" 
+                    placeholder="0" 
+                    class="form-input"
+                  />
+                </div>
+              </div>
+              <div class="form-actions">
+                <button class="btn btn-success" @click="confirmAddLineItem">
+                  <i class="fa fa-check"></i> Add
+                </button>
+                <button class="btn btn-secondary" @click="cancelAddLineItem">
+                  <i class="fa fa-times"></i> Cancel
+                </button>
+              </div>
             </div>
           </div>
 
-          <!-- Add Line Item Form -->
-          <div class="form">
-            <div class="form-section">
-              <div class="section-title">
-                <span class="section-icon"><i class="fa fa-plus"></i></span>
-                Add Line Item
-              </div>
-
-              <label class="field">
-                <span class="lbl">Description <span class="req">*</span></span>
-                <div class="input-wrapper">
-                  <span class="input-icon"><i class="fa fa-align-left"></i></span>
-                  <input v-model="newLine.description" type="text" placeholder="Item description" required />
-                </div>
-              </label>
-
-              <label class="field">
-                <span class="lbl">Quantity <span class="req">*</span></span>
-                <div class="input-wrapper">
-                  <span class="input-icon"><i class="fa fa-plus-circle"></i></span>
-                  <input v-model.number="newLine.quantity" type="number" step="0.01" placeholder="1.00" required />
-                </div>
-              </label>
-
-              <label class="field">
-                <span class="lbl">Unit Price <span class="req">*</span></span>
-                <div class="input-wrapper">
-                  <span class="input-icon"><i class="fa fa-dollar"></i></span>
-                  <input v-model.number="newLine.unit_price" type="number" step="0.01" placeholder="0.00" required />
-                </div>
-              </label>
-
-              <label class="field">
-                <span class="lbl">Tax Rate (%)</span>
-                <div class="input-wrapper">
-                  <span class="input-icon"><i class="fa fa-percent"></i></span>
-                  <input v-model.number="newLine.tax_rate" type="number" step="0.01" placeholder="0.00" />
-                </div>
-              </label>
-
-              <button class="btn btn-primary full-width" @click="addLineItem">
-                <i class="fa fa-plus me-1"></i> Add Item
-              </button>
+          <!-- Line Items Summary -->
+          <div v-if="form.line_items.length > 0" class="items-summary">
+            <div class="summary-row">
+              <span>Subtotal:</span>
+              <strong>{{ formatCurrency(invoiceSummary?.subtotal || 0) }}</strong>
+            </div>
+            <div class="summary-row">
+              <span>Total Tax:</span>
+              <strong>{{ formatCurrency(invoiceSummary?.tax || 0) }}</strong>
+            </div>
+            <div class="summary-row total">
+              <span>Total Amount:</span>
+              <strong>{{ formatCurrency(invoiceSummary?.total || 0) }}</strong>
             </div>
           </div>
-
-          <!-- Line Items Table -->
-          <div v-if="form.line_items.length > 0" class="form">
-            <div class="form-section">
-              <div class="section-title">
-                <span class="section-icon"><i class="fa fa-table"></i></span>
-                Items ({{ form.line_items.length }})
-              </div>
-
-              <div class="table-responsive">
-                <table class="compact-table">
-                  <thead>
-                    <tr>
-                      <th style="width: 5%">#</th>
-                      <th style="width: 40%">Description</th>
-                      <th style="width: 12%">Qty</th>
-                      <th style="width: 15%">Price</th>
-                      <th style="width: 10%">Tax %</th>
-                      <th style="width: 10%">Amount</th>
-                      <th style="width: 6%"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr v-for="(item, index) in form.line_items" :key="index">
-                      <td class="text-center"><strong>{{ index + 1 }}</strong></td>
-                      <td>{{ item.description }}</td>
-                      <td class="text-end">{{ item.quantity }}</td>
-                      <td class="text-end">{{ formatCurrency(item.unit_price) }}</td>
-                      <td class="text-end">{{ item.tax_rate }}%</td>
-                      <td class="text-end">{{ formatCurrency(calculateLineAmount(item)) }}</td>
-                      <td class="text-center">
-                        <button type="button" class="remove-btn" @click="removeLineItem(index)">
-                          <i class="fa fa-trash"></i>
-                        </button>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-
 
         </section>
       </section>
@@ -314,6 +353,7 @@ import { onMounted, computed, ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAccountingStore } from '@/stores/bushman/accounting-store'
 import { useToast } from '@/composables/useToast'
+import Swal from 'sweetalert2'
 
 const router = useRouter()
 const route = useRoute()
@@ -325,7 +365,10 @@ const invoiceId = computed(() => route.params.id ? Number(route.params.id) : nul
 
 const saving = ref(false)
 const savingLink = ref(false)
+const savingJV = ref(false)
 const errorMessage = ref('')
+const invoice = ref<any>(null)  // To store loaded invoice
+const isAddingNewLine = ref(false)
 
 // Requisition Linking
 const selectedRequisitionId = ref('')
@@ -338,7 +381,6 @@ const form = ref({
   currency_id: '',
   invoice_date: new Date().toISOString().split('T')[0],
   due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-  reference_no: '',
   memo: '',
   line_items: [] as any[]
 })
@@ -383,10 +425,14 @@ function calculateLineAmount(item: any): number {
 }
 
 function addLineItem() {
+  isAddingNewLine.value = true
+}
+
+function confirmAddLineItem() {
   if (!newLine.value.description || !newLine.value.quantity || !newLine.value.unit_price) {
     init({
       title: 'Validation Error',
-      message: 'Please fill all required fields',
+      message: 'Please fill all required fields (Description, Quantity, Unit Price)',
       type: 'warning'
     })
     return
@@ -403,6 +449,24 @@ function addLineItem() {
     unit_price: 0,
     tax_rate: 0
   }
+  
+  isAddingNewLine.value = false
+  
+  init({
+    title: 'Success',
+    message: 'Line item added',
+    type: 'success'
+  })
+}
+
+function cancelAddLineItem() {
+  newLine.value = {
+    description: '',
+    quantity: 1,
+    unit_price: 0,
+    tax_rate: 0
+  }
+  isAddingNewLine.value = false
 }
 
 function removeLineItem(index: number) {
@@ -489,7 +553,6 @@ async function submit() {
       currency_id: Number(form.value.currency_id),
       invoice_date: form.value.invoice_date,
       due_date: form.value.due_date,
-      reference_no: form.value.reference_no,
       memo: form.value.memo,
       line_items: form.value.line_items.map((item, index) => ({
         line_no: index + 1,
@@ -528,6 +591,87 @@ async function submit() {
   }
 }
 
+// Create Journal Voucher from Invoice
+async function createJournalVoucher() {
+  if (!invoice.value) {
+    init({
+      title: 'Error',
+      message: 'Invoice data not found',
+      type: 'danger'
+    })
+    return
+  }
+
+  if (invoice.value.status !== 'APPROVED') {
+    init({
+      title: 'Error',
+      message: 'Invoice must be APPROVED to create a journal voucher',
+      type: 'danger'
+    })
+    return
+  }
+
+  const confirmResult = await Swal.fire({
+    title: 'Create Journal Voucher?',
+    text: `Create a journal voucher for invoice ${invoice.value.document_number}?`,
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonColor: '#2563eb',
+    cancelButtonColor: '#d33',
+    confirmButtonText: 'Yes, Create JV'
+  })
+
+  if (!confirmResult.isConfirmed) {
+    return
+  }
+
+  savingJV.value = true
+  try {
+    console.log('Creating JV from invoice:', invoice.value.id)
+    
+    const response = await accountingStore.createJournalVoucherFromInvoice(
+      invoice.value.id,
+      {
+        posting_date: new Date().toISOString().split('T')[0],
+        narration: `Journal Voucher from Invoice ${invoice.value.document_number}`
+      }
+    )
+
+    const createdJV = response.data.data || response.data
+    
+    console.log('JV created:', createdJV)
+    
+    // Update invoice with journal_voucher_id
+    invoice.value.journal_voucher_id = createdJV.id
+    
+    init({
+      title: 'Success',
+      message: `Journal Voucher #${createdJV.document_number || createdJV.id} created successfully`,
+      type: 'success'
+    })
+
+    // Optionally navigate to JV after a delay
+    setTimeout(() => {
+      router.push({ name: 'journal-voucher-view', params: { id: createdJV.id } })
+    }, 1500)
+  } catch (error: any) {
+    console.error('Error creating JV:', error)
+    init({
+      title: 'Error',
+      message: error?.response?.data?.message || 'Failed to create journal voucher',
+      type: 'danger'
+    })
+  } finally {
+    savingJV.value = false
+  }
+}
+
+function viewJournalVoucher() {
+  if (invoice.value?.journal_voucher_id) {
+    router.push({ name: 'journal-voucher-view', params: { id: invoice.value.journal_voucher_id } })
+  }
+}
+
 function goBack() {
   router.push({ name: 'invoices' })
 }
@@ -539,7 +683,6 @@ function resetForm() {
     currency_id: '',
     invoice_date: new Date().toISOString().split('T')[0],
     due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    reference_no: '',
     memo: '',
     line_items: []
   }
@@ -564,16 +707,16 @@ onMounted(async () => {
   if (isEdit.value && invoiceId.value) {
     try {
       const response = await accountingStore.getInvoice(invoiceId.value)
-      const invoice = response.data.data
+      const invoiceData = response.data.data
+      invoice.value = invoiceData  // Store the full invoice
       form.value = {
-        document_type_id: String(invoice.document_type_id),
-        entity_id: String(invoice.entity_id),
-        currency_id: String(invoice.currency_id),
-        invoice_date: invoice.invoice_date,
-        due_date: invoice.due_date,
-        reference_no: invoice.reference_no,
-        memo: invoice.memo,
-        line_items: invoice.line_items || []
+        document_type_id: String(invoiceData.document_type_id),
+        entity_id: String(invoiceData.entity_id),
+        currency_id: String(invoiceData.currency_id),
+        invoice_date: invoiceData.invoice_date,
+        due_date: invoiceData.due_date,
+        memo: invoiceData.memo,
+        line_items: invoiceData.line_items || []
       }
     } catch (error) {
       init({
@@ -1200,6 +1343,262 @@ h1 {
   }
   to {
     opacity: 1;
+  }
+}
+
+/* LINE ITEMS STYLES */
+.line-items-container {
+  padding: 16px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: #94a3b8;
+}
+
+.empty-state i {
+  font-size: 32px;
+  margin-bottom: 12px;
+  display: block;
+  opacity: 0.6;
+}
+
+.empty-state p {
+  margin: 8px 0;
+  font-weight: 600;
+}
+
+.empty-state small {
+  font-size: 12px;
+  color: #cbd5e1;
+}
+
+.items-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  font-size: 13px;
+}
+
+.items-table thead {
+  background: #f1f5f9;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.items-table th {
+  padding: 12px 10px;
+  text-align: left;
+  font-weight: 600;
+  color: #475569;
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+}
+
+.items-table tbody tr {
+  border-bottom: 1px solid #e5e7eb;
+  transition: background 0.2s ease;
+}
+
+.items-table tbody tr:hover {
+  background: #f8fafc;
+}
+
+.items-table td {
+  padding: 12px 10px;
+}
+
+.row-number {
+  color: #94a3b8;
+  font-weight: 600;
+  text-align: center;
+}
+
+.item-desc {
+  font-weight: 500;
+  color: #0f172a;
+}
+
+.item-qty,
+.item-price,
+.item-tax,
+.item-amount {
+  text-align: right;
+  font-weight: 500;
+}
+
+.item-amount {
+  color: #2563eb;
+  font-weight: 600;
+}
+
+.item-action {
+  text-align: center;
+}
+
+.btn-icon {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 4px;
+  transition: color 0.2s ease;
+}
+
+.btn-icon:hover {
+  color: #dc2626;
+}
+
+.add-item-form {
+  background: white;
+  border: 2px dashed #2563eb;
+  border-radius: 8px;
+  padding: 16px;
+  margin-top: 12px;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-group label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.form-input {
+  padding: 8px 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: inherit;
+  transition: border-color 0.2s ease;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px #dbeafe;
+}
+
+.form-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.btn-success,
+.btn-secondary {
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.btn-success {
+  background: #10b981;
+  color: white;
+}
+
+.btn-success:hover {
+  background: #059669;
+  box-shadow: 0 2px 4px rgba(16, 185, 129, 0.3);
+}
+
+.btn-secondary {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.btn-secondary:hover {
+  background: #d1d5db;
+}
+
+.items-summary {
+  padding: 16px;
+  background: white;
+  border-top: 2px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  font-size: 13px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.summary-row:last-child {
+  border-bottom: none;
+}
+
+.summary-row span {
+  color: #475569;
+  font-weight: 500;
+}
+
+.summary-row strong {
+  color: #1e40af;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.summary-row.total {
+  padding: 12px 0;
+  padding-top: 12px;
+  border-top: 2px solid #e2e8f0;
+  border-bottom: none;
+}
+
+.summary-row.total span {
+  color: #0f172a;
+  font-weight: 600;
+}
+
+.summary-row.total strong {
+  color: #059669;
+  font-size: 16px;
+}
+
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 12px;
+  border-radius: 6px;
+}
+
+.ms-auto {
+  margin-left: auto;
+}
+
+@media (max-width: 768px) {
+  .form-row {
+    grid-template-columns: 1fr;
   }
 }
 </style>
