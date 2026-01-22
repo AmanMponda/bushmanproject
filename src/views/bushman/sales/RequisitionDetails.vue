@@ -214,12 +214,19 @@ type ItemApprovalState = {
     rate: number
     currency_id: number
     description: string
+    _name?: string
+    _code?: string
+    _unit?: string
+    _currencySymbol?: string
   }>
   accounts: Array<{
     account_id: number
     currency_id: number
     amount: number
     description: string
+    _name?: string
+    _code?: string
+    _currencySymbol?: string
   }>
 }
 
@@ -261,6 +268,52 @@ type ApprovalChainApiResponse = {
     description?: string
   }
   levels: ApprovalChainApiLevel[]
+}
+
+type ItemApprovalHistoryChange = {
+  field: string
+  original: any
+  modified: any
+  details?: string
+}
+
+type ItemApprovalHistoryApproval = {
+  approval_id: number
+  level_id: number
+  level_name: string
+  level_number: number
+  status: 'APPROVED' | 'REJECTED'
+  approved_by: {
+    id: number
+    name: string
+    username: string
+  }
+  date: string
+  remarks: string
+  item_included: boolean
+  item_data: any | null
+  has_changes: boolean
+  changes: ItemApprovalHistoryChange[]
+}
+
+type ItemApprovalHistoryItem = {
+  item_id: number
+  original_data: any
+  approval_history: ItemApprovalHistoryApproval[]
+}
+
+type ItemApprovalHistoryResponse = {
+  summary: {
+    requisition_id: number
+    requisition_status: string
+    total_items: number
+    total_approval_levels: number
+    approval_chain_levels: Array<{
+      level_id: number
+      role_name: string
+    }>
+  }
+  items_history: ItemApprovalHistoryItem[]
 }
 
 type Requisition = {
@@ -309,6 +362,9 @@ const activeTab = ref<'response' | 'approval' | 'history'>('response')
 const originalSidebarState = ref(false)
 const actionRemarks = ref('')
 const approvalChain = ref<ApprovalChainApiResponse | null>(null)
+const itemApprovalHistory = ref<ItemApprovalHistoryResponse | null>(null)
+const itemApprovalHistoryLoading = ref(false)
+const itemApprovalHistoryError = ref('')
 
 // Per-item approval tracking
 const itemApprovalStates = ref<Map<number, ItemApprovalState>>(new Map())
@@ -321,29 +377,97 @@ const initializeItemApprovalStates = () => {
   if (!requisition.value) return
   
   const newStates = new Map<number, ItemApprovalState>()
-  
+  const history = itemApprovalHistory.value
+  // Use nextApprovalLevel if available, otherwise default to 1.
+  // Note: nextApprovalLevel logic relies on current approvals.
+  // If user is L2, nextApprovalLevel should be 2.
+  const currentLevel = nextApprovalLevel.value || 1
+
   for (const item of requisition.value.items) {
+    let sourceData: any = null
+    
+    // Check if we should use previous level data
+    if (history && currentLevel > 1) {
+       const itemHistory = history.items_history.find(h => h.item_id === item.id)
+       if (itemHistory) {
+          const prevLevelNum = currentLevel - 1
+          const prevApproval = itemHistory.approval_history.find(a => a.level_number === prevLevelNum)
+          // STRICT RULE: Use previous data ONLY if approved and included
+          if (prevApproval && prevApproval.status === 'APPROVED' && prevApproval.item_included && prevApproval.item_data) {
+             sourceData = prevApproval.item_data
+          }
+       }
+    }
+
+    // Default to original item if no history source or L1
+    const usingHistory = !!sourceData
+    if (!sourceData) {
+      sourceData = item
+    }
+
     newStates.set(item.id, {
-      selected: false,
+      selected: false, // Default unselected
       approved: null,
       editing: false,
       remarks: '',
-      discount_method: (item.discount_method as DiscountMethod) || null,
-      discount_amount: Number(item.discount_amount || 0),
-      materials: (item.materials || []).map(m => ({
-        item_id: m.item_id,
-        unit_of_measurement_id: m.unit_of_measurement_id,
-        quantity: Number(m.quantity || 0),
-        rate: Number(m.rate || 0),
-        currency_id: m.currency_id,
-        description: m.description || ''
-      })),
-      accounts: (item.accounts || []).map(a => ({
-        account_id: a.account_id,
-        currency_id: a.currency_id,
-        amount: Number(a.amount || 0),
-        description: a.description || ''
-      }))
+      discount_method: (sourceData.discount_method as DiscountMethod) || null,
+      discount_amount: Number(sourceData.discount_amount || 0),
+      
+      materials: (sourceData.materials || []).map((m: any, idx: number) => {
+        // If coming from history, structure might be flat or nested
+        // History example: { item_id, item_name, unit_of_measurement_id, quantity, rate, ... }
+        // Original example: { item_id, item: { name, code... }, ... }
+        
+        // Try to find matching original material to fill gaps if needed (e.g. codes)
+        // But rely on sourceData (history values) for critical numbers
+        
+        let name = m.item_name || m.item?.name || m.description || ''
+        let code = m.item_code || m.item?.item_code || m.item?.scientific_name || ''
+        let unit = m.unit_name || m.unit_of_measurement?.code || m.unit_of_measurement?.name || ''
+        let symbol = m.currency_symbol || m.currency?.symbol || item.currency?.symbol || ''
+        
+        // Fallback: if name is missing but we have item_id, try to find it in original item.materials?
+        // Only if structure matches or we scan all original items. But let's assume history provides enough or original provided enough.
+        // If sourceData == item (original), m.item.name works.
+        // If sourceData == item_data (history), m.item_name works.
+        
+        if (!name && !usingHistory && item.materials[idx]) {
+           name = item.materials[idx].item?.name || ''
+           code = item.materials[idx].item?.item_code || ''
+        }
+
+        return {
+          item_id: m.item_id || m.id, // Handle potential ID structure diffs
+          unit_of_measurement_id: m.unit_of_measurement_id,
+          quantity: Number(m.quantity || 0),
+          rate: Number(m.rate || 0),
+          currency_id: m.currency_id,
+          description: m.description || '',
+          _name: name,
+          _code: code,
+          _unit: unit,
+          _currencySymbol: symbol
+        }
+      }),
+      
+      accounts: (sourceData.accounts || []).map((a: any, idx: number) => {
+        // History: { account_id, account_name, account_code, amount, ... }
+        // Original: { account_id, account: { name, code }, amount ... }
+        
+        let name = a.account_name || a.account?.name || ''
+        let code = a.account_code || a.account?.code || ''
+        let symbol = a.currency_symbol || a.currency?.symbol || item.currency?.symbol || ''
+
+        return {
+          account_id: a.account_id,
+          currency_id: a.currency_id,
+          amount: Number(a.amount || 0),
+          description: a.description || '',
+          _name: name,
+          _code: code,
+          _currencySymbol: symbol
+        }
+      })
     })
   }
   
@@ -354,6 +478,9 @@ const initializeItemApprovalStates = () => {
 watch(selectAllItems, (newValue) => {
   if (!requisition.value) return
   for (const item of requisition.value.items) {
+    // Only select items that are ready for approval
+    if (!isItemReadyForApproval(item.id)) continue
+    
     const state = itemApprovalStates.value.get(item.id)
     if (state) {
       state.selected = newValue
@@ -364,8 +491,9 @@ watch(selectAllItems, (newValue) => {
 // Get selected items count
 const selectedItemsCount = computed(() => {
   let count = 0
-  itemApprovalStates.value.forEach(state => {
-    if (state.selected) count++
+  itemApprovalStates.value.forEach((state, itemId) => {
+    // Only count items that are ready for approval
+    if (state.selected && isItemReadyForApproval(itemId)) count++
   })
   return count
 })
@@ -377,6 +505,9 @@ const selectedItemsTotal = computed(() => {
   if (!requisition.value) return 0
   let total = 0
   for (const item of requisition.value.items) {
+    // Only include items that are ready for approval
+    if (!isItemReadyForApproval(item.id)) continue
+    
     const state = getItemState(item.id)
     if (!state?.selected) continue
     const lines = buildItemLines(item, state)
@@ -607,6 +738,9 @@ const totalAmount = computed(() => {
   if (!requisition.value) return 0
   let total = 0
   for (const item of requisition.value.items) {
+    // Only include items that are ready for approval
+    if (!isItemReadyForApproval(item.id)) continue
+    
     const state = getItemState(item.id)
     const lines = buildItemLines(item, state)
     total += lines.reduce((sum, line) => sum + line.amount, 0)
@@ -631,35 +765,60 @@ const buildItemLines = (item: RequisitionItem, state?: ItemApprovalState) => {
     currencySymbol?: string
   }> = []
 
+  // Prioritize STATE data which reflects current approval view (original or modified from history)
+  if (state) {
+     for (const material of state.materials) {
+        lines.push({
+           type: 'Item',
+           name: material._name || material.description || '--', // Use captured name or fallback
+           code: material._code || '',
+           unit: material._unit || '--',
+           quantity: material.quantity,
+           rate: material.rate,
+           amount: material.quantity * material.rate,
+           currencySymbol: material._currencySymbol || item.currency?.symbol || ''
+        })
+     }
+     for (const account of state.accounts) {
+        lines.push({
+           type: 'Account',
+           name: account._name || '--',
+           code: account._code,
+           unit: '1',
+           quantity: 1,
+           rate: account.amount,
+           amount: account.amount,
+           currencySymbol: account._currencySymbol || item.currency?.symbol || ''
+        })
+     }
+     return lines // Return early if state used
+  }
+
+  // Fallback to Item Original Data if no state found
   for (let index = 0; index < (item.materials || []).length; index++) {
     const material = item.materials[index]
-    const stateMaterial = state?.materials?.[index]
-    const quantity = Number(stateMaterial?.quantity ?? material.quantity ?? 0)
-    const rate = Number(stateMaterial?.rate ?? material.rate ?? 0)
     lines.push({
       type: 'Item',
       name: material.item?.name || material.description || '--',
       code: material.item?.item_code || material.item?.scientific_name || '',
       unit: material.unit_of_measurement?.code || material.unit_of_measurement?.name || '--',
-      quantity,
-      rate,
-      amount: quantity * rate,
+      quantity: Number(material.quantity || 0),
+      rate: Number(material.rate || 0),
+      amount: Number(material.quantity || 0) * Number(material.rate || 0),
       currencySymbol: material.currency?.symbol || item.currency?.symbol || '',
     })
   }
 
   for (let index = 0; index < (item.accounts || []).length; index++) {
     const account = item.accounts[index]
-    const stateAccount = state?.accounts?.[index]
-    const amount = Number(stateAccount?.amount ?? account.amount ?? 0)
     lines.push({
       type: 'Account',
       name: account.account?.name || '--',
       code: account.account?.code ,
       unit: '1',
       quantity: 1,
-      rate: amount,
-      amount: amount,
+      rate: Number(account.amount || 0),
+      amount: Number(account.amount || 0),
       currencySymbol: account.currency?.symbol || item.currency?.symbol || '',
     })
   }
@@ -707,6 +866,10 @@ const itemsByCostCenter = computed((): CostCenterGroup[] => {
 
   for (let itemIndex = 0; itemIndex < requisition.value.items.length; itemIndex++) {
     const item = requisition.value.items[itemIndex]
+    
+    // Only include items that are ready for approval
+    if (!isItemReadyForApproval(item.id)) continue
+    
     const lines = buildItemLines(item, getItemState(item.id))
     const itemTotal = lines.reduce((sum, line) => sum + line.amount, 0)
     const currencySymbol = item.currency?.symbol || lines[0]?.currencySymbol || ''
@@ -885,6 +1048,125 @@ const approvalSteps = computed(() => {
   }))
 })
 
+const modifiedItemsCount = computed(() => {
+  const items = itemApprovalHistory.value?.items_history || []
+  let count = 0
+  for (const item of items) {
+    if (item.approval_history.some((approval) => approval.has_changes)) {
+      count += 1
+    }
+  }
+  return count
+})
+
+// Categorize items by approval status for display
+const categorizedItems = computed(() => {
+  if (!requisition.value) return { ready: [], skipped: [], rejected: [], notReviewed: [] }
+  
+  const ready: Array<{ item: RequisitionItem; index: number; status: ItemApprovalStatus }> = []
+  const skipped: Array<{ item: RequisitionItem; index: number; status: ItemApprovalStatus }> = []
+  const rejected: Array<{ item: RequisitionItem; index: number; status: ItemApprovalStatus }> = []
+  const notReviewed: Array<{ item: RequisitionItem; index: number; status: ItemApprovalStatus }> = []
+  
+  requisition.value.items.forEach((item, index) => {
+    const status = getItemApprovalStatus(item.id)
+    const entry = { item, index, status }
+    
+    if (status.ready) {
+      ready.push(entry)
+    } else if (status.status === 'rejected') {
+      rejected.push(entry)
+    } else if (status.status === 'skipped') {
+      skipped.push(entry)
+    } else {
+      notReviewed.push(entry)
+    }
+  })
+  
+  return { ready, skipped, rejected, notReviewed }
+})
+
+const readyItemsCount = computed(() => categorizedItems.value.ready.length)
+const skippedItemsCount = computed(() => categorizedItems.value.skipped.length)
+const rejectedItemsCount = computed(() => categorizedItems.value.rejected.length)
+
+// Get detailed item approval status for UI feedback
+type ItemApprovalStatus = {
+  ready: boolean           // Can be approved at current level
+  status: 'pending' | 'approved' | 'rejected' | 'skipped' | 'not_reviewed'
+  previousLevel?: number
+  previousApprover?: string
+  previousRemarks?: string
+  wasModified?: boolean
+}
+
+const getItemApprovalStatus = (itemId: number): ItemApprovalStatus => {
+  const currentLevel = nextApprovalLevel.value || 1
+  
+  // Level 1 always allows all items
+  if (currentLevel <= 1) {
+    return { ready: true, status: 'pending' }
+  }
+  
+  // If history isn't loaded yet
+  if (!itemApprovalHistory.value) {
+    return { ready: false, status: 'pending' }
+  }
+  
+  const itemHistory = itemApprovalHistory.value.items_history.find(i => i.item_id === itemId)
+  if (!itemHistory) {
+    return { ready: false, status: 'not_reviewed' }
+  }
+  
+  // Check previous level status
+  const prevLevel = currentLevel - 1
+  const prevApproval = itemHistory.approval_history.find(a => a.level_number === prevLevel)
+  
+  if (!prevApproval) {
+    return { ready: false, status: 'not_reviewed', previousLevel: prevLevel }
+  }
+  
+  const approverName = prevApproval.approved_by?.name || prevApproval.approved_by?.username || 'Unknown'
+  
+  if (prevApproval.status === 'REJECTED') {
+    return {
+      ready: false,
+      status: 'rejected',
+      previousLevel: prevLevel,
+      previousApprover: approverName,
+      previousRemarks: prevApproval.remarks
+    }
+  }
+  
+  if (!prevApproval.item_included) {
+    return {
+      ready: false,
+      status: 'skipped',
+      previousLevel: prevLevel,
+      previousApprover: approverName,
+      previousRemarks: prevApproval.remarks
+    }
+  }
+  
+  if (prevApproval.status === 'APPROVED' && prevApproval.item_included) {
+    return {
+      ready: true,
+      status: 'approved',
+      previousLevel: prevLevel,
+      previousApprover: approverName,
+      previousRemarks: prevApproval.remarks,
+      wasModified: prevApproval.has_changes
+    }
+  }
+  
+  return { ready: false, status: 'pending' }
+}
+
+// Strict Approval Verification (simplified wrapper)
+const isItemReadyForApproval = (itemId: number) => {
+  return getItemApprovalStatus(itemId).ready
+}
+
 const mapRequisition = (req: any): Requisition => {
   return {
     id: req.id,
@@ -923,12 +1205,22 @@ const mapRequisition = (req: any): Requisition => {
 
 const fetchRequisition = async () => {
   loading.value = true
+  // Clear cached history to ensure fresh data for approval logic
+  itemApprovalHistory.value = null
+  
   try {
     const response = await requisitionService.get(props.id)
     const data = response?.data || response
     requisition.value = mapRequisition(data)
+    
+    await Promise.all([
+      fetchApprovalChain(),
+      // Fetch history if not in draft, to support strict approval logic
+      requisition.value.status !== 'DRAFT' ? fetchItemApprovalHistory() : Promise.resolve()
+    ])
+    
+    // Initialize states AFTER history is loaded so we can use previous level's data
     initializeItemApprovalStates()
-    await fetchApprovalChain()
   } catch (error: any) {
     await Swal.fire({
       icon: 'error',
@@ -949,6 +1241,23 @@ const fetchApprovalChain = async () => {
     approvalChain.value = response?.data?.data || response?.data || null
   } catch {
     approvalChain.value = null
+  }
+}
+
+const fetchItemApprovalHistory = async () => {
+  if (itemApprovalHistory.value || itemApprovalHistoryLoading.value) return
+  itemApprovalHistoryLoading.value = true
+  itemApprovalHistoryError.value = ''
+  try {
+    const url = `${import.meta.env.VITE_APP_BASE_URL}requisitions/${props.id}/item-approval-history`
+    const response = await axios.get(url)
+    itemApprovalHistory.value = response?.data?.data || response?.data || null
+  } catch (error: any) {
+    itemApprovalHistoryError.value =
+      error?.response?.data?.message || 'Failed to load item approval history.'
+    itemApprovalHistory.value = null
+  } finally {
+    itemApprovalHistoryLoading.value = false
   }
 }
 
@@ -991,6 +1300,9 @@ const buildApprovalItemsPayload = (selectedOnly: boolean) => {
   if (!requisition.value) return []
   const payloadItems: any[] = []
   for (const item of requisition.value.items) {
+    // strict check
+    if (!isItemReadyForApproval(item.id)) continue
+
     const state = itemApprovalStates.value.get(item.id)
     if (selectedOnly && !state?.selected) continue
     payloadItems.push(buildApprovalItemPayload(item, state))
@@ -1245,6 +1557,12 @@ onMounted(() => {
   fetchRequisition()
 })
 
+watch(activeTab, (tab) => {
+  if (tab === 'history') {
+    fetchItemApprovalHistory()
+  }
+})
+
 onUnmounted(() => {
   appOptionStore.appSidebarMinified = originalSidebarState.value
 })
@@ -1455,11 +1773,69 @@ onUnmounted(() => {
                 >
                   CHAIN OF APPROVAL
                 </button>
+                <button
+                  class="approval-tab"
+                  :class="{ active: activeTab === 'history' }"
+                  type="button"
+                  @click="activeTab = 'history'"
+                >
+                  ITEM CHANGES
+                  <span v-if="modifiedItemsCount > 0">({{ modifiedItemsCount }})</span>
+                </button>
               </div>
 
             <div v-show="activeTab === 'response'">
+              <!-- Status Summary Banner -->
+              <div v-if="['SUBMITTED', 'APPROVAL_PENDING'].includes(requisition.status) && (nextApprovalLevel || 0) > 1" class="mb-3">
+                <div class="row g-2">
+                  <div class="col-auto">
+                    <div class="status-pill bg-success-subtle text-success border border-success-subtle">
+                      <i class="fa fa-check-circle me-1"></i>
+                      <strong>{{ readyItemsCount }}</strong> Ready
+                    </div>
+                  </div>
+                  <div v-if="skippedItemsCount > 0" class="col-auto">
+                    <div class="status-pill bg-secondary-subtle text-secondary border border-secondary-subtle">
+                      <i class="fa fa-forward me-1"></i>
+                      <strong>{{ skippedItemsCount }}</strong> Skipped
+                    </div>
+                  </div>
+                  <div v-if="rejectedItemsCount > 0" class="col-auto">
+                    <div class="status-pill bg-danger-subtle text-danger border border-danger-subtle">
+                      <i class="fa fa-times-circle me-1"></i>
+                      <strong>{{ rejectedItemsCount }}</strong> Rejected
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Rejected Items Warning -->
+              <div v-if="rejectedItemsCount > 0" class="alert alert-danger d-flex align-items-start gap-2 mb-3">
+                <i class="fa fa-exclamation-triangle mt-1"></i>
+                <div>
+                  <strong>⛔ {{ rejectedItemsCount }} Item(s) Rejected at Previous Level</strong>
+                  <div class="small mt-1">
+                    <div v-for="{ item, status } in categorizedItems.rejected" :key="item.id" class="mt-1">
+                      • Item #{{ item.id }} - Rejected by {{ status.previousApprover }}
+                      <span v-if="status.previousRemarks" class="text-muted">: {{ status.previousRemarks }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Skipped Items Info -->
+              <div v-if="skippedItemsCount > 0" class="alert alert-secondary d-flex align-items-start gap-2 mb-3">
+                <i class="fa fa-forward mt-1"></i>
+                <div>
+                  <strong>{{ skippedItemsCount }} Item(s) Skipped at Previous Level</strong>
+                  <div class="small mt-1 text-muted">
+                    These items were not reviewed by the previous approver.
+                  </div>
+                </div>
+              </div>
+
               <!-- Per-Item Approval Controls -->
-              <div v-if="['SUBMITTED', 'APPROVAL_PENDING'].includes(requisition.status)" class="mb-3">
+              <div v-if="['SUBMITTED', 'APPROVAL_PENDING'].includes(requisition.status) && readyItemsCount > 0" class="mb-3">
                 <div class="alert alert-info d-flex align-items-center justify-content-between">
                   <div class="d-flex align-items-center gap-2">
                     <input 
@@ -1470,7 +1846,7 @@ onUnmounted(() => {
                     />
                     <span class="fw-bold">
                       <i class="fa fa-check-circle me-1"></i>
-                      {{ selectedItemsCount }} of {{ requisition.items.length }} items selected
+                      {{ selectedItemsCount }} of {{ readyItemsCount }} items selected
                     </span>
                   </div>
                   <div class="d-flex gap-2">
@@ -1496,6 +1872,12 @@ onUnmounted(() => {
                 </div>
               </div>
 
+              <!-- No Items Ready Message -->
+              <div v-if="['SUBMITTED', 'APPROVAL_PENDING'].includes(requisition.status) && readyItemsCount === 0 && (nextApprovalLevel || 0) > 1" class="alert alert-warning text-center">
+                <i class="fa fa-info-circle me-1"></i>
+                No items are ready for approval at this level. All items were either skipped or rejected by the previous approver.
+              </div>
+
               <!-- Items Section with Per-Item Approval -->
               <div class="mb-3">
                 <!-- Cost Center Grouped View -->
@@ -1510,9 +1892,16 @@ onUnmounted(() => {
                         <span class="fw-bold text-primary">{{ formatMoney(group.subtotal, group.currencySymbol) }}</span>
                      </div>
                         
-                     <!-- All Items in this cost center -->
+                     <!-- All Items in this cost center (Filtered by Approval Readiness) -->
                      <div class="cost-center-items-wrapper">
-                        <div v-for="({ item, itemIndex, lines }, idx) in group.items" :key="`item-${item.id}`" class="item-row" :class="{ 'border-bottom': idx < group.items.length - 1 }">
+                        <template v-for="({ item, itemIndex, lines }, idx) in group.items" :key="`item-${item.id}`">
+                        <div v-if="isItemReadyForApproval(item.id)" class="item-row" :class="{ 'border-bottom': idx < group.items.length - 1 }">
+                          <!-- Previous Approver Badge -->
+                          <div v-if="getItemApprovalStatus(item.id).wasModified" class="previous-level-badge">
+                            <i class="fa fa-pencil-alt me-1"></i>
+                            Modified by L{{ getItemApprovalStatus(item.id).previousLevel }} ({{ getItemApprovalStatus(item.id).previousApprover }})
+                          </div>
+                          
                           <!-- Item Header -->
                           <div class="item-row-header">
                             <div class="d-flex align-items-center gap-2 flex-grow-1">
@@ -1652,6 +2041,7 @@ onUnmounted(() => {
                             </template>
                           </div>
                         </div>
+                        </template>
                      </div>
                   </div>
                 </template>
@@ -1659,7 +2049,14 @@ onUnmounted(() => {
                  <!-- Flat View (No Cost Centers) -->
                 <template v-else>
                   <div class="item-approval-card mb-3">
-                  <div v-for="(item, itemIndex) in requisition.items" :key="`item-${item.id}`" class="item-row" :class="{ 'border-bottom': itemIndex < requisition.items.length - 1 }">
+                  <template v-for="(item, itemIndex) in requisition.items" :key="`item-${item.id}`">
+                  <div v-if="isItemReadyForApproval(item.id)" class="item-row" :class="{ 'border-bottom': itemIndex < requisition.items.length - 1 }">
+                    <!-- Previous Approver Badge -->
+                    <div v-if="getItemApprovalStatus(item.id).wasModified" class="previous-level-badge">
+                      <i class="fa fa-pencil-alt me-1"></i>
+                      Modified by L{{ getItemApprovalStatus(item.id).previousLevel }} ({{ getItemApprovalStatus(item.id).previousApprover }})
+                    </div>
+                    
                     <!-- Item Header -->
                     <div class="item-row-header">
                       <div class="d-flex align-items-center gap-2 flex-grow-1">
@@ -1797,6 +2194,7 @@ onUnmounted(() => {
                       </template>
                     </div>
                   </div>
+                  </template>
                   </div>
                 </template>
               </div>
@@ -1931,11 +2329,63 @@ onUnmounted(() => {
                             </div>
                             <div v-else class="text-muted small">
                               <i class="fa fa-hourglass-start me-1"></i> Pending
-                            </div>
-                        </div>
+               </div>
+             </div>
+
+             <div v-show="activeTab === 'history'">
+               <div class="row">
+                  <div class="col-12">
+                    <h6 class="fw-bold mb-3 text-uppercase small text-muted border-bottom pb-2">Item Approval History</h6>
+                    
+                    <div v-if="itemApprovalHistoryLoading" class="text-center py-5">
+                      <div class="spinner-border text-primary" role="status"></div>
+                    </div>
+
+                    <div v-else-if="!itemApprovalHistory || !itemApprovalHistory.items_history?.length" class="text-muted text-center py-4">
+                      No item approval history available.
+                    </div>
+
+                    <div v-else>
+                      <!-- Compact Timeline Card -->
+                      <div class="card shadow-sm border-0">
+                         <div class="list-group list-group-flush">
+                           <div v-for="item in itemApprovalHistory.items_history" :key="item.item_id" class="list-group-item p-3">
+                              <div class="d-flex justify-content-between align-items-center mb-2">
+                                 <span class="fw-bold text-dark">Item #{{ item.item_id }}</span>
+                                 <div class="d-flex align-items-center">
+                                    <div v-for="app in item.approval_history" :key="app.approval_id" class="ms-1" :title="`${app.level_name} by ${app.approved_by?.name}`">
+                                       <span 
+                                         class="badge rounded-pill" 
+                                         :class="app.status === 'APPROVED' ? 'bg-success' : 'bg-danger'"
+                                         style="font-size: 0.7rem; padding: 0.35rem 0.6rem;"
+                                       >
+                                          L{{ app.level_number }}
+                                       </span>
+                                    </div>
+                                 </div>
+                              </div>
+                              
+                              <!-- Changes if any -->
+                              <div v-for="app in item.approval_history" :key="`changes-${app.approval_id}`">
+                                 <div v-if="app.has_changes" class="mt-2 bg-light p-2 rounded border border-warning">
+                                    <div class="small fw-bold text-warning-emphasis mb-1">
+                                       <i class="fa fa-pencil-alt me-1"></i> Changes at L{{ app.level_number }}
+                                    </div>
+                                    <div v-for="(change, idx) in app.changes" :key="idx" class="small text-muted ms-3">
+                                       • {{ change.field }}: <span class="text-decoration-line-through">{{ change.original }}</span> ➝ <span class="fw-bold text-success">{{ change.modified }}</span>
+                                    </div>
+                                 </div>
+                              </div>
+                           </div>
+                         </div>
                       </div>
                     </div>
                   </div>
+               </div>
+             </div>
+           </div>
+         </div>
+      </div>
                </div>
              </div>
            </div>
@@ -2619,5 +3069,28 @@ onUnmounted(() => {
     height: 28px;
     font-size: 0.75rem;
   }
+}
+
+/* Status Pills */
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.4rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+/* Previous Level Badge */
+.previous-level-badge {
+  background: linear-gradient(135deg, #fef3c7 0%, #fef9c3 100%);
+  border: 1px solid #f59e0b;
+  border-radius: 4px;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.7rem;
+  color: #92400e;
+  margin-bottom: 0.5rem;
+  display: inline-flex;
+  align-items: center;
 }
 </style>

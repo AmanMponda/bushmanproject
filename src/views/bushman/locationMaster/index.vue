@@ -239,7 +239,7 @@ onMounted(() => {
   appOption.appSidebarMinified = true;
   appOption.appContentFullHeight = true;
   appOption.appContentClass = 'p-0';
-    fetchTotalData();
+    // fetchTotalData();
     getActiveTab() ;  
 })
 
@@ -312,31 +312,30 @@ const clearAllFavorites = () => {
 }
 
 
-async function fetchTotalData() {
-    isLoading.value = true;
-    try {
-        const res = await axiosInstance.get('/locations/total');
-
-        // console.log(res.data);  
-        
-
-        countries.value = res.data.countries;
-        cities.value = res.data.cities;
-        cityLinks.value = res.data.city_link;
-        stopsList.value = res.data.stops;
-        offices.value = res.data.offices;
-        branches.value=  res.data.branches;
-        servicePoints.value = res.data.service_points;
-        routesList.value = res.data.routes;
-
-
-    } catch (error) {
-        console.error(error);
-        ;
-    } finally {
-        isLoading.value = false;
-    }
-}
+// async function fetchTotalData() {
+//     isLoading.value = true;
+//     try {
+//         const res = await axiosInstance.get('/locations/total');
+//
+//         // console.log(res.data);  
+//
+//         countries.value = res.data.countries;
+//         cities.value = res.data.cities;
+//         cityLinks.value = res.data.city_link;
+//         stopsList.value = res.data.stops;
+//         offices.value = res.data.offices;
+//         branches.value=  res.data.branches;
+//         servicePoints.value = res.data.service_points;
+//         routesList.value = res.data.routes;
+//
+//
+//     } catch (error) {
+//         console.error(error);
+//         ;
+//     } finally {
+//         isLoading.value = false;
+//     }
+// }
 
 </script>
 

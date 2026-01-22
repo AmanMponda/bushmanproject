@@ -128,6 +128,7 @@ import Multiselect from 'vue-multiselect';
 import 'vue-multiselect/dist/vue-multiselect.min.css';
 import { useNotification } from '@/composables/notification';
 import { useAuthStore } from "@/stores/auth";
+const apiBaseUrl = (import.meta.env.VITE_APP_BASE_URL || '').replace(/\/+$/, '');
 const isLoading = ref(false);
 const { showAlert } = useNotification();
 const authStore = useAuthStore();
@@ -156,8 +157,7 @@ const props = defineProps({
 })
 
 const axiosInstance = axios.create({
-  baseURL: API_URL_2,
-  // baseURL: "http://127.0.0.1:8000/api/v1",
+  baseURL: apiBaseUrl,
   headers: {
     "Content-Type": "application/json",
     Authorization: authStore.token ? `Bearer ${authStore.token}` : "",
@@ -216,16 +216,21 @@ const formatQuickCityNameToUppercase = (event) => {
 
 
 const fetchFormData = async () => {
-  if (formDataLoaded.value) return; // Skip if already loaded
+  if (formDataLoaded.value && cities.value.length > 0) return; // Skip if already loaded
 
   try {
-    const response = await axiosInstance.get('locations/form-data');
+    const response = await axiosInstance.get('/locations/cities?');
     // console.log('Form Data Response:', response.data); // Debug log
 
-    serviceClasses.value = response.data.data.service_classes || [];
-    originalTerminals.value = response.data.data.original_terminals || [];
-    destinationTerminals.value = response.data.data.destination_terminals || [];
-    cities.value = response.data.data.cities || [];
+    const formData = response.data?.data ?? response.data ?? {};
+    const normalizedCities = Array.isArray(formData)
+      ? formData
+      : (formData.cities || formData.locations || []);
+
+    serviceClasses.value = formData.service_classes || [];
+    originalTerminals.value = formData.original_terminals || [];
+    destinationTerminals.value = formData.destination_terminals || [];
+    cities.value = normalizedCities;
 
     // console.log('Cities loaded:', cities.value); // Debug log
     formDataLoaded.value = true;
@@ -298,18 +303,20 @@ const citylinkpageActions = computed(() => {
 const fetchCityLinks = async () => {
   isLoading.value = true;
   try {
-    const response = await axiosInstance.get('locations/city-links');
-    cityLinks.value = response.data.data.map((d, index) => ({
+    const response = await axiosInstance.get('/city-links');
+    const payload = response.data?.data;
+    const rows = Array.isArray(payload?.data) ? payload.data : (Array.isArray(payload) ? payload : []);
+    cityLinks.value = rows.map((d, index) => ({
       sno: index + 1,
       id: d.id,
       code: d.code,
-      original_city: d.original_city,
-      destination_city: d.destination_city,
+      original_city: d.original_city?.name || d.original_city,
+      destination_city: d.destination_city?.name || d.destination_city,
       original_city_id: d.original_city_id,
       destination_city_id: d.destination_city_id,
       distance_km: d.distance_km,
       approx_hours: d.approx_hours,
-      path_geometri: d.path_geometri,
+      path_geometric: d.path_geometric,
       name: d.name
     }));
     cityLinksLoaded.value = true;
@@ -428,7 +435,7 @@ const saveCityLink = async () => {
       }
 
       // Submit as batch
-      const response = await axiosInstance.post('locations/city-links', { city_links: dataToSubmit });
+      const response = await axiosInstance.post('/city-links', { city_links: dataToSubmit });
     console.log(response.data);
     
       if (response.data.status === "success") {
@@ -490,10 +497,10 @@ const saveCityLink = async () => {
       let response;
       if (currentCityLink.value.id) {
         // Edit existing
-        response = await axiosInstance.put(`locations/city-links/${currentCityLink.value.id}`, linkData);
+        response = await axiosInstance.put(`/city-links/${currentCityLink.value.id}`, linkData);
       } else {
         // Create new - submit as single item in array
-        response = await axiosInstance.post('locations/city-links', { city_links: [linkData] });
+        response = await axiosInstance.post('/city-links', { city_links: [linkData] });
       }
 
       if (response.data.status === "success") {
@@ -696,7 +703,7 @@ const fetchRoutesList = async () => {
   // Skip if already loaded
   isLoadingRoutes.value = true;
   try {
-    const response = await axiosInstance.get('locations/routes');
+    const response = await axiosInstance.get('/routes');
     routesList.value = response.data.data.map((d, index) => ({
       sno: index + 1,
       ...d

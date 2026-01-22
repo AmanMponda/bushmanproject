@@ -9,11 +9,11 @@
             <template #code="{ row }">
               <span>{{ row.code || 'N/A' }}</span>
             </template>
-            <template #original_city_id="{ row }">
-              <span>{{ row.original_city_id || 'N/A' }}</span>
+            <template #original_city="{ row }">
+              <span>{{ row.original_city?.name || row.original_city || 'N/A' }}</span>
             </template>
-            <template #destination_city_id="{ row }">
-              <span>{{ row.destination_city_id || 'N/A' }}</span>
+            <template #destination_city="{ row }">
+              <span>{{ row.destination_city?.name || row.destination_city || 'N/A' }}</span>
             </template>
             <template #distance_km="{ row }">
               <span>{{ row.distance_km || 'N/A' }}</span>
@@ -349,13 +349,16 @@ const fetchFormData = async () => {
   if (formDataLoaded.value) return; // Skip if already loaded
 
   try {
-    const response = await axiosInstance.get('/locations/form-data');
+    const response = await axiosInstance.get('/locations/cities');
     // console.log('Form Data Response:', response.data); // Debug log
 
-    serviceClasses.value = response.data.data.service_classes || [];
-    originalTerminals.value = response.data.data.original_terminals || [];
-    destinationTerminals.value = response.data.data.destination_terminals || [];
-    cities.value = response.data.data.cities || [];
+    const formData = response.data?.data || response.data || {};
+    serviceClasses.value = formData.service_classes || [];
+    originalTerminals.value = formData.original_terminals || [];
+    destinationTerminals.value = formData.destination_terminals || [];
+    cities.value = Array.isArray(formData)
+      ? formData
+      : (formData.cities || formData.locations || []);
 
     // console.log('Cities loaded:', cities.value); // Debug log
     formDataLoaded.value = true;
@@ -453,17 +456,19 @@ const fetchCityLinks = async () => {
   isLoading.value = true;
   try {
     const response = await axiosInstance.get('/city-links');
-    cityLinks.value = response.data.data.map((d, index) => ({
+    const payload = response.data?.data;
+    const rows = Array.isArray(payload?.data) ? payload.data : (Array.isArray(payload) ? payload : []);
+    cityLinks.value = rows.map((d, index) => ({
       sno: index + 1,
       id: d.id,
       code: d.code,
-      original_city: d.original_city,
-      destination_city: d.destination_city,
+      original_city: d.original_city?.name || d.original_city,
+      destination_city: d.destination_city?.name || d.destination_city,
       original_city_id: d.original_city_id,
       destination_city_id: d.destination_city_id,
       distance_km: d.distance_km,
       approx_hours: d.approx_hours,
-      path_geometri: d.path_geometri,
+      path_geometric: d.path_geometric,
       name: d.name
     }));
     cityLinksLoaded.value = true;
@@ -2209,3 +2214,4 @@ input[type="text"] {
   max-height: 250px !important;
 }
 </style>
+

@@ -1613,7 +1613,7 @@ onUnmounted(() => {
                 >
                   <template #status="{ row }">
                     <span :class="statusBadgeClass((row as any).status)">
-                      {{ (row as any).statusLabel || (row as any).status }}
+                      {{ String((row as any).statusLabel || (row as any).status).toUpperCase() }}
                     </span>
                   </template>
                   <template #date="{ row }">
@@ -1632,13 +1632,6 @@ onUnmounted(() => {
                       @click="viewRequisition(row as any)"
                     >
                       <i class="fa fa-eye"></i>
-                    </button>
-                    <button
-                      class="btn btn-danger btn-sm"
-                      title="Delete"
-                      :disabled="(row as any).status !== 'DRAFT'"
-                    >
-                      <i class="fa fa-trash"></i>
                     </button>
                   </template>
                 </StandardDataTable>

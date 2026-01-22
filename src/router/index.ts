@@ -59,6 +59,7 @@ const ContractDetails = () => import('@/views/contracts/ContractDetails.vue');
 
 // Location Master routes
 const LocationMasterIndex = () => import('@/views/bushman/locationMaster/index.vue');
+const RouteRegister = () => import('@/views/bushman/locationMaster/routeplanning/RouteRegister.vue');
 
 // Accounting routes
 const JournalVoucherList = () => import('@/views/bushman/accounting/JournalVoucherList.vue');
@@ -154,6 +155,12 @@ const router = createRouter({
       path: "/sales/price-list",
       name: "sales-price-list",
       component: ManagePriceList,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/sales/charter-prices",
+      name: "sales-charter-prices",
+      component: () => import('@/views/bushman/sales/CharterPrices.vue'),
       meta: { requiresAuth: true }
     },
     {
@@ -560,6 +567,12 @@ const router = createRouter({
       component: LocationMasterIndex,
       meta: { requiresAuth: true },
       props: { activeTab: 'Route Planning' }
+    },
+    {
+      path: "/abs/route-master/create",
+      name: "route-master-create",
+      component: RouteRegister,
+      meta: { requiresAuth: true }
     },
 
     // Other main sections (placeholders)
