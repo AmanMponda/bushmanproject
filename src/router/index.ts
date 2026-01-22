@@ -65,6 +65,7 @@ const JournalVoucherList = () => import('@/views/bushman/accounting/JournalVouch
 const JournalVoucherForm = () => import('@/views/bushman/accounting/JournalVoucherForm.vue');
 const InvoiceList = () => import('@/views/bushman/accounting/InvoiceList.vue');
 const InvoiceForm = () => import('@/views/bushman/accounting/InvoiceForm.vue');
+const ChartOfAccounts = () => import('@/views/bushman/accounting/ChartOfAccounts.vue');
 
 // const LoginPage = () => import('@/views/auth/PageLogin.vue');
 // const CompanyDashboard = () => import('@/views/auth/CompanyDashboard.vue');
@@ -560,6 +561,13 @@ const router = createRouter({
       component: LocationMasterIndex,
       meta: { requiresAuth: true },
       props: { activeTab: 'Route Planning' }
+    },
+    // Accounting routes - Chart of Accounts
+    {
+      path: "/accounting/chart-of-accounts",
+      name: "chart-of-accounts",
+      component: ChartOfAccounts,
+      meta: { requiresAuth: true }
     },
 
     // Other main sections (placeholders)
