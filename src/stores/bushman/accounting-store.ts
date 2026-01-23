@@ -1092,6 +1092,168 @@ export const useAccountingStore = defineStore('accounting', {
       }
     },
 
+    // ==================== PAYMENT VOUCHERS ====================
+
+    async getBankCashAccounts(companyId?: number): Promise<any> {
+      this.error = null
+      try {
+        const config = {
+          method: 'get',
+          url: `${API_BASE}/accounts/bank-cash-accounts`,
+          params: {
+            company_id: companyId || 1
+          },
+          headers: { 'Content-Type': 'application/json' }
+        }
+
+        const response: any = await axios.request(config)
+        return response
+      } catch (err: any) {
+        this.error = err?.response?.data?.message || 'Error fetching bank/cash accounts'
+        console.error('Bank/Cash Accounts Error:', err)
+        throw err
+      }
+    },
+
+    async getApprovedRequisitionsForPayee(payeeId: number, fromAccountId: number, companyId?: number): Promise<any> {
+      this.error = null
+      try {
+        if (!payeeId || !fromAccountId) {
+          throw new Error('Payee ID and From Account ID are required')
+        }
+
+        const config = {
+          method: 'get',
+          url: `${API_BASE}/requisitions/approved-for-payee`,
+          params: {
+            payee_id: payeeId,
+            from_account_id: fromAccountId,
+            company_id: companyId || 1,
+            status: 'APPROVED',
+            with_balance: true
+          },
+          headers: { 'Content-Type': 'application/json' }
+        }
+
+        const response: any = await axios.request(config)
+        
+        // Validate response structure
+        if (!response.data?.data && !Array.isArray(response.data)) {
+          console.warn('Unexpected response structure for approved requisitions:', response)
+        }
+        
+        return response
+      } catch (err: any) {
+        this.error = err?.response?.data?.message || err.message || 'Error fetching approved requisitions'
+        console.error('Approved Requisitions Error:', err)
+        throw err
+      }
+    },
+
+    async savePaymentVoucherDraft(payload: any): Promise<any> {
+      this.error = null
+      try {
+        // Validate required fields
+        if (!payload.from_account_id || !payload.payee_id || !payload.currency_id) {
+          throw new Error('Missing required fields: from_account_id, payee_id, currency_id')
+        }
+
+        if (!payload.requisitions || payload.requisitions.length === 0) {
+          throw new Error('At least one requisition must be selected')
+        }
+
+        const config = {
+          method: 'post',
+          url: `${API_BASE}/payment-vouchers/draft`,
+          data: {
+            company_id: payload.company_id || 1,
+            voucher_type: 'PAYMENT',
+            posting_date: payload.posting_date,
+            branch_id: payload.branch_id || null,
+            currency_id: payload.currency_id,
+            exchange_rate: payload.exchange_rate || 1.0,
+            from_account_id: payload.from_account_id,
+            payment_method: payload.payment_method,
+            payee_id: payload.payee_id,
+            payee_account: payload.payee_account || null,
+            total_amount: payload.total_amount || 0,
+            narration: payload.narration,
+            status: 'DRAFT',
+            requisitions: payload.requisitions
+          },
+          headers: { 'Content-Type': 'application/json' }
+        }
+
+        const response: any = await axios.request(config)
+        return response
+      } catch (err: any) {
+        this.error = err?.response?.data?.message || err.message || 'Error saving payment voucher draft'
+        console.error('Save Draft Error:', err)
+        throw err
+      }
+    },
+
+    async postPaymentVoucher(payload: any): Promise<any> {
+      this.error = null
+      try {
+        // Validate required fields
+        if (!payload.from_account_id || !payload.payee_id || !payload.currency_id) {
+          throw new Error('Missing required fields: from_account_id, payee_id, currency_id')
+        }
+
+        if (!payload.requisitions || payload.requisitions.length === 0) {
+          throw new Error('At least one requisition must be selected')
+        }
+
+        const config = {
+          method: 'post',
+          url: `${API_BASE}/payment-vouchers/post`,
+          data: {
+            company_id: payload.company_id || 1,
+            voucher_type: 'PAYMENT',
+            posting_date: payload.posting_date,
+            branch_id: payload.branch_id || null,
+            currency_id: payload.currency_id,
+            exchange_rate: payload.exchange_rate || 1.0,
+            from_account_id: payload.from_account_id,
+            payment_method: payload.payment_method,
+            payee_id: payload.payee_id,
+            payee_account: payload.payee_account || null,
+            total_amount: payload.total_amount || 0,
+            narration: payload.narration,
+            status: 'POSTED',
+            requisitions: payload.requisitions
+          },
+          headers: { 'Content-Type': 'application/json' }
+        }
+
+        const response: any = await axios.request(config)
+        return response
+      } catch (err: any) {
+        this.error = err?.response?.data?.message || err.message || 'Error posting payment voucher'
+        console.error('Post Voucher Error:', err)
+        throw err
+      }
+    },
+
+    async getPaymentVouchers(filters?: any): Promise<any> {
+      this.error = null
+      try {
+        const config = {
+          method: 'get',
+          url: `${API_BASE}/payment-vouchers`,
+          params: filters || {},
+          headers: { 'Content-Type': 'application/json' }
+        }
+
+        const response: any = await axios.request(config)
+        return response
+      } catch (err: any) {
+        this.error = err?.response?.data?.message || 'Error fetching payment vouchers'
+        throw err
+      }
+    },
+
     // ==================== FILTER MANAGEMENT ====================
 
     setSearchFilter(search: string) {
@@ -1126,6 +1288,51 @@ export const useAccountingStore = defineStore('accounting', {
         type: '',
         status: '',
         documentType: ''
+      }
+    },
+
+    async fetchPayees(companyId?: number, params: any = {}): Promise<any> {
+      this.error = null
+      try {
+        const config = {
+          method: 'get',
+          url: `${API_BASE}/payees`,
+          params: {
+            company_id: companyId || 1,
+            status: 'ACTIVE',
+            ...params
+          },
+          headers: { 'Content-Type': 'application/json' }
+        }
+
+        const response: any = await axios.request(config)
+        return response
+      } catch (err: any) {
+        this.error = err?.response?.data?.message || 'Error fetching payees'
+        console.error('Fetch Payees Error:', err)
+        return { data: { data: [] } }
+      }
+    },
+
+    async fetchPayeeAccount(payeeId: number, companyId?: number): Promise<any> {
+      this.error = null
+      try {
+        const config = {
+          method: 'get',
+          url: `${API_BASE}/payment-vouchers/payee-accounts`,
+          params: {
+            payee_id: payeeId,
+            company_id: companyId || 1
+          },
+          headers: { 'Content-Type': 'application/json' }
+        }
+
+        const response: any = await axios.request(config)
+        return response.data
+      } catch (err: any) {
+        this.error = err?.response?.data?.message || 'Error fetching payee account'
+        console.error('Fetch Payee Account Error:', err)
+        return { success: false, data: null }
       }
     }
   }
