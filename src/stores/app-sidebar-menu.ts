@@ -409,7 +409,7 @@ export const useAppSidebarMenuStore = defineStore("appSidebarMenu", () => {
       text: 'Accounts',
       permission: 'CAN_VIEW_ACCOUNTS',
       children: [
-        { url: '/accounting/journal-vouchers', text: 'Journal Vouchers', permission: 'CAN_VIEW_ACCOUNTS' },
+        { url: '/accounting/journal-vouchers', text: 'Payment Vouchers', permission: 'CAN_VIEW_ACCOUNTS' },
         { url: '/accounting/invoices', text: 'Invoices', permission: 'CAN_VIEW_ACCOUNTS' },
         { url: '/accounting/chart-of-accounts', text: 'Chart of Accounts', permission: 'CAN_VIEW_ACCOUNTS' },
       ]

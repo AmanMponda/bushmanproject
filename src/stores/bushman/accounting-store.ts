@@ -141,6 +141,13 @@ export const useAccountingStore = defineStore('accounting', {
 
         const response: any = await axios.request(config)
         const responseData = response.data.data || response.data || []
+        
+        console.log('Full API Response:', response.data)
+        if (responseData.length > 0) {
+          console.log('First voucher keys:', Object.keys(responseData[0]))
+          console.log('First voucher accounts:', responseData[0].accounts)
+        }
+        
         this.journalVouchers = Array.isArray(responseData) ? responseData : []
         return response
       } catch (err: any) {
@@ -159,7 +166,7 @@ export const useAccountingStore = defineStore('accounting', {
           method: 'get',
           url: `${API_BASE}/journal-vouchers/${id}`,
           params: {
-            include: 'documentType,currency,accounts,accounts.account'
+            include: 'documentType,currency,accounts,accounts.account,branch,from_account,payee,payee_account,requisitions,requisitions.cost_center,payment_requisitions'
           },
           headers: { 'Content-Type': 'application/json' }
         }
@@ -1254,6 +1261,26 @@ export const useAccountingStore = defineStore('accounting', {
       }
     },
 
+    async getPaymentVoucher(id: number): Promise<any> {
+      this.error = null
+      try {
+        const config = {
+          method: 'get',
+          url: `${API_BASE}/payment-vouchers/${id}`,
+          params: {
+            include: 'from_account,payee,payee_account,currency,requisitions,requisitions.cost_center'
+          },
+          headers: { 'Content-Type': 'application/json' }
+        }
+
+        const response: any = await axios.request(config)
+        return response
+      } catch (err: any) {
+        this.error = err?.response?.data?.message || 'Error fetching payment voucher'
+        throw err
+      }
+    },
+
     // ==================== FILTER MANAGEMENT ====================
 
     setSearchFilter(search: string) {
@@ -1333,6 +1360,25 @@ export const useAccountingStore = defineStore('accounting', {
         this.error = err?.response?.data?.message || 'Error fetching payee account'
         console.error('Fetch Payee Account Error:', err)
         return { success: false, data: null }
+      }
+    },
+
+    async fetchPayableAccounts(params: any = {}): Promise<any> {
+      this.error = null
+      try {
+        const config = {
+          method: 'get',
+          url: `${API_BASE}/payment-vouchers/payable-accounts`,
+          params: params,
+          headers: { 'Content-Type': 'application/json' }
+        }
+
+        const response: any = await axios.request(config)
+        return response.data
+      } catch (err: any) {
+        this.error = err?.response?.data?.message || 'Error fetching payable accounts'
+        console.error('Fetch Payable Accounts Error:', err)
+        return { data: { data: [] } }
       }
     }
   }
