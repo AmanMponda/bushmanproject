@@ -354,7 +354,7 @@
               </div>
             </div>
             <div class="d-flex gap-2">
-              <button type="submit" class="btn btn-primary" :disabled="savingPrice">
+              <button type="submit" class="btn btn-primary ms-auto" :disabled="savingPrice" >
                 <span v-if="savingPrice" class="spinner-border spinner-border-sm me-1"></span>
                 {{ editItem ? 'Update' : 'Create' }} Price
               </button>
@@ -419,7 +419,7 @@
               </div>
             </div>
             <div class="d-flex gap-2">
-              <button type="submit" class="btn btn-primary" :disabled="savingCompany">
+              <button type="submit" class="btn btn-primary ms-auto" :disabled="savingCompany">
                 <span v-if="savingCompany" class="spinner-border spinner-border-sm me-1"></span>
                 {{ editItem ? 'Update' : 'Create' }} Company
               </button>
@@ -504,7 +504,7 @@
               </div>
             </div>
             <div class="d-flex gap-2">
-              <button type="submit" class="btn btn-primary" :disabled="savingAircraft">
+              <button type="submit" class="btn btn-primary ms-auto" :disabled="savingAircraft">
                 <span v-if="savingAircraft" class="spinner-border spinner-border-sm me-1"></span>
                 {{ editItem ? 'Update' : 'Create' }} Aircraft
               </button>

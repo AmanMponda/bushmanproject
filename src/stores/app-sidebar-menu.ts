@@ -350,7 +350,7 @@ export const useAppSidebarMenuStore = defineStore("appSidebarMenu", () => {
 
     {
       url: '/bushman/sales/dashboard',
-      icon: 'fa fa-institution',
+      icon: 'fa fa-chart-line',
       text: 'Sales Dashboard',
       permission: 'CAN_VIEW_BUSHMAN_DASHBOARD',
     children :[
