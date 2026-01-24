@@ -28,7 +28,7 @@ const originalSidebarState = ref(false)
 
 // Form State
 const activeFormTab = ref('sources')
-const form = reactive({
+let form = reactive({
   id: 0,
   requisitionTypeId: null as number | null,
   fundDirection: null as FundDirection | null,
