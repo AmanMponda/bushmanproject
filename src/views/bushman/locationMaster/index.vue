@@ -49,6 +49,9 @@
                                 <div v-if="activeTab === 'City'">
                                     <City class="page-container"></City>
                                 </div>
+                                <div v-if="activeTab === 'Towns'">
+                                    <Town class="page-container"></Town>
+                                </div>
                                 <div v-if="activeTab === 'Branches'">
                                     <branch class="page-container"></branch>
                                 </div>
@@ -89,6 +92,7 @@ import axios from 'axios';
 import { useAuthStore } from "@/stores/auth";
 import Country from './country.vue';
 import City from './city.vue';
+import Town from './town.vue';
 import Office from './office.vue';
 import Branch from './Branch.vue';
 import ServicePoint from './servicePoint.vue';
@@ -133,6 +137,7 @@ const { showAlert } = useNotification()
 const countries = ref(0);
 const branches = ref(0);
 const cities = ref(0);
+const towns = ref(0);
 const offices = ref(0);
 const stopsList = ref(0);
 const cityLinks = ref(0);
@@ -157,6 +162,7 @@ function getActiveTab() {
 const reportTypes = computed(() => [
     { name: 'Countries', count: countries.value, class: "bi bi-globe-europe-africa me-1 fs-5"},
     { name: 'City', count: cities.value, class: "bi bi-textarea me-1 fs-5 " },
+    { name: 'Towns', count: towns.value, class: "bi bi-house-door me-1 fs-5 " },
     { name: 'Branches', count: branches.value, class: "bi bi-buildings me-1 fs-5 " },
     { name: 'Offices', count: offices.value, class: "bi bi-building-fill me-1 fs-5 " },
     { name: 'Service Points', count: servicePoints.value, class: "bi bi-shop-window me-1 fs-5 " },
@@ -239,7 +245,7 @@ onMounted(() => {
   appOption.appSidebarMinified = true;
   appOption.appContentFullHeight = true;
   appOption.appContentClass = 'p-0';
-    // fetchTotalData();
+    fetchTypeCounts();
     getActiveTab() ;  
 })
 
@@ -309,6 +315,27 @@ const clearAllFavorites = () => {
     })
     saveFavorites()
     showAlert('All favorites cleared', 'info')
+}
+
+const fetchTypeCounts = async () => {
+    isLoading.value = true;
+    try {
+        const res = await axiosInstance.get('/locations/type-counts');
+        const counts = res.data?.data || {};
+        countries.value = counts.COUNTRY || 0;
+        cities.value = counts.CITY || 0;
+        towns.value = counts.TOWN || 0;
+        branches.value = counts.BRANCH || 0;
+        offices.value = counts.OFFICE || 0;
+        servicePoints.value = counts.SERVICE_CENTER || 0;
+        stopsList.value = counts.STOP || 0;
+        cityLinks.value = counts.CITY_LINK || 0;
+        routesList.value = counts.ROUTE || 0;
+    } catch (error) {
+        console.error(error);
+    } finally {
+        isLoading.value = false;
+    }
 }
 
 

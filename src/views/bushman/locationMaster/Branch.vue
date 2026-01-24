@@ -190,9 +190,10 @@ onMounted(async () => {
 const fetchBranches = async () => {
   isLoading.value = true;
   try {
-    const response = await axiosInstance.get('/locations/branches');
-    const data = response.data.data || response.data;
-    branches.value = (Array.isArray(data) ? data : []).map((d, index) => {
+    const response = await axiosInstance.get('/locations?type=BRANCH');
+    const payload = response.data?.data || response.data;
+    const rows = Array.isArray(payload?.data) ? payload.data : (Array.isArray(payload) ? payload : []);
+    branches.value = rows.map((d, index) => {
       return {
         sno: index + 1,
         id: d.id,
@@ -211,8 +212,10 @@ const fetchBranches = async () => {
 // Fetch cities for selection
 const fetchCities = async () => {
   try {
-    const response = await axiosInstance.get('/locations/cities');
-    cities.value = response.data.data || response.data;
+    const response = await axiosInstance.get('/locations?type=CITY');
+    const payload = response.data?.data || response.data;
+    const rows = Array.isArray(payload?.data) ? payload.data : (Array.isArray(payload) ? payload : []);
+    cities.value = rows;
   } catch (error) {
     showAlert('error', 'Failed to fetch cities');
   }
@@ -281,6 +284,7 @@ const saveBranch = async () => {
       const params = {
         'location_id': currentBranch.value.city_id.id,
         'type': 'BRANCH',
+        'operation_type': 'PHYSICAL_LOCATION',
         "name": currentBranch.value.name
       }
       response = await axiosInstance.put(`/locations/${currentBranch.value.id}`, params);
@@ -299,6 +303,7 @@ const saveBranch = async () => {
         return {
           location_id: d.city_id.id,
           type: 'BRANCH',
+          operation_type: 'PHYSICAL_LOCATION',
           name: d.name
         }
       })
