@@ -374,7 +374,7 @@ export const useAppSidebarMenuStore = defineStore("appSidebarMenu", () => {
       permission: 'CAN_VIEW_SALES',
       children: [
         { url: '/sales/price-list', text: 'Price Lists', permission: 'CAN_VIEW_PRICE_LISTS' },
-        // { url: '/sales/charter-prices', text: 'Charter Prices', permission: 'CAN_VIEW_PRICE_LISTS' },
+        { url: '/sales/charter-prices', text: 'Charter Prices', permission: 'CAN_VIEW_PRICE_LISTS' },
         { url: '/sales/sales-inquiry', text: 'Sales Quotations', permission: 'CAN_VIEW_SALES_INQUIRY' },
         { url: '/orders', text: 'Sales Orders', permission: 'CAN_VIEW_SALES_CONFIRMATIONS' },
         { url: '/contracts', text: 'Sales Contracts', permission: 'CAN_VIEW_SALES_CONTRACTS' },
@@ -423,8 +423,11 @@ export const useAppSidebarMenuStore = defineStore("appSidebarMenu", () => {
     {
       url: '/hr',
       icon: 'fa fa-users',
-      text: 'HR',
+      text: 'Human Resources',
       permission: 'CAN_VIEW_HR',
+      children: [
+        { url: '/hr/employees', text: 'Employees', permission: 'CAN_VIEW_HR' },
+      ]
     },
     {
       url: '/reports',
