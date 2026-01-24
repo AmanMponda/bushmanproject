@@ -1,16 +1,16 @@
 <template>
   <div class="ps-page">
-    <main class="content">
+    <main class="content" style="padding-top: 10px;">
       <!-- Page Title Row -->
-      <div class="page-head" style="display: flex; justify-content: space-between; align-items: flex-start; padding: 0 20px; margin-bottom: 20px;">
+      <div class="page-head" style="display: flex; justify-content: space-between; align-items: center; padding: 0 5px 5px 5px; margin-bottom: 0;">
         <div class="page-head-left">
-          <h1>{{ isViewMode ? 'View Payment Voucher' : (isEdit ? 'Edit Payment Voucher' : 'New Payment Voucher') }}</h1>
+          <h1 style="margin: 0; font-size: 24px;">{{ isViewMode ? 'View Payment Voucher' : (isEdit ? 'Edit Payment Voucher' : 'New Payment Voucher') }}</h1>
         </div>
         <div class="page-head-right" style="display: flex; gap: 12px;">
           <button 
             type="button" 
             @click="() => router.push({ name: 'journal-vouchers' })"
-            style="background: white; border: 2px solid #2563eb; color: #2563eb; cursor: pointer; font-size: 14px; font-weight: 500; padding: 8px 16px; border-radius: 6px; display: flex; align-items: center; gap: 6px; transition: all 0.2s;"
+            style="background: white; border: 2px solid #2563eb; color: #2563eb; cursor: pointer; font-size: 14px; font-weight: 500; padding: 6px 14px; border-radius: 6px; display: flex; align-items: center; gap: 6px; transition: all 0.2s;"
           >
             <i class="fa fa-arrow-left"></i> Back to List
           </button>
@@ -18,26 +18,26 @@
       </div>
 
       <!-- Tab Navigation -->
-      <div v-if="!isViewMode" style="display: flex; gap: 0; border-bottom: 2px solid #e5e7eb; background: #f9fafb; padding: 0 20px;">
+      <div v-if="!isViewMode" style="display: flex; gap: 0; border-bottom: 2px solid #e5e7eb; background: #f9fafb; padding: 0 5px;">
         <button 
           type="button" 
           @click="voucherTab = 'payment'"
           :style="{ borderBottom: voucherTab === 'payment' ? '3px solid #2563eb' : 'none', color: voucherTab === 'payment' ? '#2563eb' : '#6b7280' }"
-          style="padding: 12px 20px; font-weight: 500; cursor: pointer; border: none; background: none; transition: all 0.2s;"
+          style="padding: 8px 20px; font-weight: 500; cursor: pointer; border: none; background: none; transition: all 0.2s;"
         >
           Payment
         </button>
       </div>
 
       <!-- Error Alert -->
-      <div v-if="errorMessage" class="alert alert-danger alert-dismissible fade show mx-3" role="alert">
+      <div v-if="errorMessage" class="alert alert-danger alert-dismissible fade show mx-3 mt-2" role="alert">
         <i class="fa fa-exclamation-triangle me-2"></i>
         {{ errorMessage }}
         <button type="button" class="btn-close" @click="errorMessage = ''"></button>
       </div>
 
       <!-- Payment Tab Content -->
-      <div v-show="voucherTab === 'payment'" style="padding: 20px;">
+      <div v-show="voucherTab === 'payment'" style="padding: 0 5px 20px 5px;">
         
         <!-- LOADING STATE -->
         <div v-if="loadingVoucher" style="max-width: 1400px; margin: 0 auto; background: white; border-radius: 8px; padding: 60px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); text-align: center;">
@@ -161,7 +161,7 @@
         </div>
 
         <!-- EDITABLE FORM MODE (for DRAFT/new vouchers) -->
-        <div v-else style="max-width: 1400px; margin: 0 auto; background: white; border-radius: 8px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+        <div v-else style="max-width: 1400px; margin: 0 auto; background: white; border-radius: 8px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-top: 15px;">
 
           <!-- VOUCHER DETAILS -->
           <div style="display: grid; grid-template-columns: 1.2fr 1fr 1.2fr 1.2fr 1fr; gap: 15px; margin-bottom: 20px;">
@@ -258,7 +258,7 @@
           <!-- NOTES -->
           <div style="margin-bottom: 20px;">
             <label style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 12px;">Notes</label>
-            <textarea v-model="form.narration" placeholder="Enter notes..." style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; min-height: 100px; font-family: inherit;"></textarea>
+            <textarea v-model="form.narration" placeholder="Enter notes..." style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; min-height: 60px; resize: vertical; font-family: inherit;"></textarea>
           </div>
 
           <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;" />
@@ -1933,7 +1933,7 @@ async function loadPaymentVoucherData() {
     bankCashAccounts.value = bankCashResponse.data?.data || bankCashResponse.data || []
     
     // Fetch all payees from API
-    const payeesResponse = await accountingStore.fetchPayees(accountingStore.companyId)
+    const payeesResponse = await accountingStore.fetchPayees()
     payees.value = payeesResponse.data?.data || payeesResponse.data || []
     
     // Fetch payable accounts from API
@@ -1972,8 +1972,7 @@ async function onPayeeChange() {
   if (form.value.payee_id) {
     try {
       const response = await accountingStore.fetchPayeeAccount(
-        Number(form.value.payee_id),
-        1
+        Number(form.value.payee_id)
       )
 
       if (response.success && response.data) {
@@ -1997,12 +1996,12 @@ async function onPayeeChange() {
 
 // Lifecycle
 onMounted(async () => {
-  // Minify sidebar for create mode (like Requisition page)
-  if (!isEdit.value) {
-    originalSidebarState.value = appOptionStore.appSidebarMinified
-    appOptionStore.appSidebarMinified = true
-    sidebarMinifiedForCreate.value = true
-  }
+  // Sidebar auto-hide removed - keep user's preference
+  // if (!isEdit.value) {
+  //   originalSidebarState.value = appOptionStore.appSidebarMinified
+  //   appOptionStore.appSidebarMinified = true
+  //   sidebarMinifiedForCreate.value = true
+  // }
 
   // Add click outside listener to close search dropdown
   const handleClickOutside = (event: MouseEvent) => {

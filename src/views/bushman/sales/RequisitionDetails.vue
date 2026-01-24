@@ -1570,6 +1570,11 @@ const goBack = () => router.push('/sales/requisitions')
 const goEdit = () => {
   router.push(`/sales/requisitions/${props.id}/edit`)
 }
+const openPrintView = () => {
+  if (!requisition.value) return
+  const target = router.resolve({ name: 'sales-requisition-print', params: { id: requisition.value.id } })
+  window.open(target.href, '_blank')
+}
 
 onMounted(() => {
   originalSidebarState.value = appOptionStore.appSidebarMinified
@@ -1602,6 +1607,10 @@ onUnmounted(() => {
       <div class="d-flex gap-2">
         <button class="btn btn-white border" @click="goBack">
           <i class="fa fa-arrow-left me-1"></i> Back
+        </button>
+
+        <button v-if="requisition" class="btn btn-outline-primary" @click="openPrintView">
+          <i class="fa fa-print me-1"></i> Print PDF
         </button>
 
         <button v-if="requisition?.status === 'DRAFT'" class="btn btn-primary text-white" @click="goEdit">
@@ -1939,7 +1948,7 @@ onUnmounted(() => {
                                 <i class="fa fa-edit me-1"></i>Modified
                               </div>
                             </div>
-                            <div v-if="['SUBMITTED', 'APPROVAL_PENDING'].includes(requisition.status)"
+                            <div v-if="['SUBMITTED', 'APPROVAL_PENDING'].includes(requisition.status) && isCurrentUserNextApprover"
                               class="d-flex gap-2">
                               <button v-if="itemApprovalStates.get(item.id)?.editing" class="btn btn-sm btn-success"
                                 style="font-size: 0.75rem; padding: 0.25rem 0.5rem;" @click="saveItemChanges(item.id)">
@@ -2086,7 +2095,7 @@ onUnmounted(() => {
                               <i class="fa fa-edit me-1"></i>Modified
                             </div>
                           </div>
-                          <div v-if="['SUBMITTED', 'APPROVAL_PENDING'].includes(requisition.status)"
+                          <div v-if="['SUBMITTED', 'APPROVAL_PENDING'].includes(requisition.status) && isCurrentUserNextApprover"
                             class="d-flex gap-2">
                             <button v-if="itemApprovalStates.get(item.id)?.editing" class="btn btn-sm btn-success"
                               style="font-size: 0.75rem; padding: 0.25rem 0.5rem;" @click="saveItemChanges(item.id)">

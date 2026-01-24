@@ -11,9 +11,9 @@
             <StandardDataTable :columns="columns" :data="cities" :loading="isLoading" :filters="tableFilters"
               :defaultPageSize="tableFilters.pageSize" :disablePagination="false" :showDateFilters="false"
               :actionButtons="pageActions">
-              <<template #country="{ row }">
-                <span>{{ row.country?.name || 'N/A' }}</span>
-</template>
+              <template #region="{ row }">
+                <span>{{ row.region?.name || row.region || 'N/A' }}</span>
+              </template>
 <template #total_branches="{ row }">
   <button class=" btn btn-light rounded-pill fs-6">
     <i class="bi bi-buildings me-2" style="color: #74C0FC;"></i>{{ row.total_branches || 0 }}
@@ -61,9 +61,9 @@
       <div class="modal-body">
         <div v-if="editCity">
           <div class="mb-3">
-            <label>Country</label>
-            <Multiselect v-model="currentCity.country_id" :options="countries" label="name" track-by="id"
-              placeholder="Select Country" />
+            <label>Region</label>
+            <Multiselect v-model="currentCity.region_id" :options="regions" label="name" track-by="id"
+              placeholder="Select a region" />
           </div>
           <div class="mb-3">
             <label>City Name</label>
@@ -86,7 +86,7 @@
           <table class="table table-bordered align-middle">
             <thead class="table-light">
               <tr>
-                <th>Country</th>
+                <th>Region</th>
                 <th>City Name</th>
                 <th>City Code</th>
                 <th v-if="cityForm.length > 1" style="width: 120px;">Action</th>
@@ -96,10 +96,10 @@
             <tbody>
               <tr v-for="(city, idx) in cityForm" :key="idx">
 
-                <!-- COUNTRY -->
+                <!-- REGION -->
                 <td>
-                  <Multiselect v-model="city.country_id" :options="countries" label="name" track-by="id"
-                    placeholder="Select Country" />
+                  <Multiselect v-model="city.region_id" :options="regions" label="name" track-by="id"
+                    placeholder="Select Region" />
                 </td>
 
                 <!-- CITY NAME -->
@@ -341,8 +341,17 @@ const add_stops = ref(false);
 const status = ref(1);
 const isLoading = ref(false);
 const cities = ref([]);
-const countries = ref([]);
-const currentCity = ref({ id: null, status: 1, name: '', code: "", country_id: null });
+const stopsList = ref([]);
+const stopsColumns = ref(['stop', 'is_terminal', 'status', 'actions']);
+const stopsTableOptions = ref({
+  perPage: 5,
+  skin: 'table',
+  columnsClasses: { actions: 'actions text-center' },
+  sortable: ['stop', 'company', 'route'],
+  pagination: { nav: 'scroll', chunk: 5 },
+});
+const regions = ref([]);
+const currentCity = ref({ id: null, status: 1, name: '', code: "", region_id: null });
 const formModal = ref(null);
 // const columns = ref(['sno', 'name', 'total_branches', 'total_offices', 'status', 'actions']);
 // const table_option = ref({
@@ -370,7 +379,7 @@ const cityForm = ref([]);
 const addCity = () => {
   // console.log("Before push:", cityForm.value, typeof cityForm.value);
   cityForm.value.unshift({
-    country_id: '',
+    region_id: '',
     name: '',
     code: '',
     region: '',
@@ -421,165 +430,165 @@ const selectedCity = ref(null);
 // };
 
 // Add/Remove stop entry
-const addStop = () => {
-  stopsForm.value.push(
-    {
-      stop: '',
-      company: 2,
-      region: selectedCity.value.id,
-      route: '',
-      is_terminal: 1,
-      coordinates: '',
-      time: '',
-      status: 1,
-    });
-};
-const removeStop = (idx) => {
-  stopsForm.value.splice(idx, 1);
-};
+// const addStop = () => {
+//   stopsForm.value.push(
+//     {
+//       stop: '',
+//       company: 2,
+//       region: selectedCity.value.id,
+//       route: '',
+//       is_terminal: 1,
+//       coordinates: '',
+//       time: '',
+//       status: 1,
+//     });
+// };
+// const removeStop = (idx) => {
+//   stopsForm.value.splice(idx, 1);
+// };
 
 // Submit stops
-const submitStops = async () => {
-  try {
-    const stop = stopsForm.value[0];
-    if (!stop.stop) {
-      showAlert('error', 'Please fill all required fields');
-      return;
-    }
+// const submitStops = async () => {
+//   try {
+//     const stop = stopsForm.value[0];
+//     if (!stop.stop) {
+//       showAlert('error', 'Please fill all required fields');
+//       return;
+//     }
 
-    if (isEditingStop.value && editingStopId.value) {
-      // Update existing stop
-      await axiosInstance.put(`/locations/stops/${editingStopId.value}`, stop);
-      showAlert('success', 'Stop updated successfully');
-    } else {
-      // Create new stops (bulk)
-      const param = {
-        city_id: selectedCity.value.id,
-        stops: stopsForm.value
-      };
-      await axiosInstance.post('/locations/stops', param);
-      showAlert('success', 'Stops added successfully');
-    }
+//     if (isEditingStop.value && editingStopId.value) {
+//       // Update existing stop
+//       await axiosInstance.put(`/locations/stops/${editingStopId.value}`, stop);
+//       showAlert('success', 'Stop updated successfully');
+//     } else {
+//       // Create new stops (bulk)
+//       const param = {
+//         city_id: selectedCity.value.id,
+//         stops: stopsForm.value
+//       };
+//       await axiosInstance.post('/locations/stops', param);
+//       showAlert('success', 'Stops added successfully');
+//     }
 
-    await fetchStops(selectedCity.value.id);
-    // Reset form and editing state
-    stopsForm.value = [{
-      city_id: selectedCity.value.id,
-      stop: '',
-      company: 2,
-      region: selectedCity.value.id,
-      route: '',
-      is_terminal: 1,
-      coordinates: '',
-      time: '',
-      status: 1,
-    }];
-    isEditingStop.value = false;
-    editingStopId.value = null;
-    add_stops.value = false;
-  } catch (error) {
-    showAlert('error', 'Failed to save stop');
-  }
-};
+//     await fetchStops(selectedCity.value.id);
+//     // Reset form and editing state
+//     stopsForm.value = [{
+//       city_id: selectedCity.value.id,
+//       stop: '',
+//       company: 2,
+//       region: selectedCity.value.id,
+//       route: '',
+//       is_terminal: 1,
+//       coordinates: '',
+//       time: '',
+//       status: 1,
+//     }];
+//     isEditingStop.value = false;
+//     editingStopId.value = null;
+//     add_stops.value = false;
+//   } catch (error) {
+//     showAlert('error', 'Failed to save stop');
+//   }
+// };
 
-const stopsList = ref([]);
-const stopsColumns = ref([
-  'stop', 'is_terminal', 'status', 'actions'
-]);
-const stopsTableOptions = ref({
-  perPage: 5,
-  skin: 'table',
-  columnsClasses: { actions: 'actions text-center' },
-  sortable: ['stop', 'company', 'route'],
-  pagination: { nav: 'scroll', chunk: 5 },
-});
+// const stopsList = ref([]);
+// const stopsColumns = ref([
+//   'stop', 'is_terminal', 'status', 'actions'
+// ]);
+// const stopsTableOptions = ref({
+//   perPage: 5,
+//   skin: 'table',
+//   columnsClasses: { actions: 'actions text-center' },
+//   sortable: ['stop', 'company', 'route'],
+//   pagination: { nav: 'scroll', chunk: 5 },
+// });
 
 // Fetch stops for selected city
-const fetchStops = async (cityId) => {
-  try {
-    const response = await axiosInstance.get(`/locations/stops?city_id=${cityId}`);
-    stopsList.value = response.data.data || response.data;
-  } catch (error) {
-    showAlert('error', 'Failed to fetch stops');
-  }
-};
+// const fetchStops = async (cityId) => {
+//   try {
+//     const response = await axiosInstance.get(`/locations/stops?city_id=${cityId}`);
+//     stopsList.value = response.data.data || response.data;
+//   } catch (error) {
+//     showAlert('error', 'Failed to fetch stops');
+//   }
+// };
 
 // Open Stops Modal
-const openStopsModal = async (city) => {
-  selectedCity.value = city;
-  stopsForm.value = [
-    {
-      city_id: city.id,
-      stop: '',
-      company: 2,
-      region: city.id,
-      route: '',
-      is_terminal: 1,
-      coordinates: '',
-      time: '',
-      status: 1,
-    }
-  ];
-  await fetchStops(city.id);
-  stopsModal.value = new Modal(document.getElementById('stopsModal'));
-  stopsModal.value.show();
-};
+// const openStopsModal = async (city) => {
+//   selectedCity.value = city;
+//   stopsForm.value = [
+//     {
+//       city_id: city.id,
+//       stop: '',
+//       company: 2,
+//       region: city.id,
+//       route: '',
+//       is_terminal: 1,
+//       coordinates: '',
+//       time: '',
+//       status: 1,
+//     }
+//   ];
+//   await fetchStops(city.id);
+//   stopsModal.value = new Modal(document.getElementById('stopsModal'));
+//   stopsModal.value.show();
+// };
 
-// Edit stop
-const editStop = (stop) => {
-  stopsForm.value = [{
-    ...stop,
-    status: stop.status === 'active' ? 1 : 0,
-  }];
-  isEditingStop.value = true;
-  editingStopId.value = stop.id;
-  add_stops.value = true; // Show the form for editing
-};
+// // Edit stop
+// const editStop = (stop) => {
+//   stopsForm.value = [{
+//     ...stop,
+//     status: stop.status === 'active' ? 1 : 0,
+//   }];
+//   isEditingStop.value = true;
+//   editingStopId.value = stop.id;
+//   add_stops.value = true; // Show the form for editing
+// };
 
-// Update stop
-const updateStop = async () => {
-  const stop = stopsForm.value[0];
-  try {
-    await axiosInstance.put(`/locations/stops/${stop.id}`, stop);
-    showAlert('success', 'Stop updated successfully');
-    await fetchStops(selectedCity.value.id);
-    stopsForm.value = [{
-      city_id: selectedCity.value.id,
-      stop: '',
-      company: 2,
-      region: selectedCity.value.id,
-      route: '',
-      is_terminal: 1,
-      coordinates: '',
-      time: '',
-      status: 1,
-    }];
-  } catch (error) {
-    showAlert('error', 'Failed to update stop');
-  }
-};
+// // Update stop
+// const updateStop = async () => {
+//   const stop = stopsForm.value[0];
+//   try {
+//     await axiosInstance.put(`/locations/stops/${stop.id}`, stop);
+//     showAlert('success', 'Stop updated successfully');
+//     await fetchStops(selectedCity.value.id);
+//     stopsForm.value = [{
+//       city_id: selectedCity.value.id,
+//       stop: '',
+//       company: 2,
+//       region: selectedCity.value.id,
+//       route: '',
+//       is_terminal: 1,
+//       coordinates: '',
+//       time: '',
+//       status: 1,
+//     }];
+//   } catch (error) {
+//     showAlert('error', 'Failed to update stop');
+//   }
+// };
 
 // Delete stop
-const deleteStop = async (id) => {
-  if (!confirm('Are you sure you want to delete this stop?')) return;
-  try {
-    await axiosInstance.delete(`/locations/stops/${id}`);
-    showAlert('success', 'Stop deleted successfully');
-    await fetchStops(selectedCity.value.id);
-  } catch (error) {
-    showAlert('error', 'Failed to delete stop');
-  }
-};
+// const deleteStop = async (id) => {
+//   if (!confirm('Are you sure you want to delete this stop?')) return;
+//   try {
+//     await axiosInstance.delete(`/locations/stops/${id}`);
+//     showAlert('success', 'Stop deleted successfully');
+//     await fetchStops(selectedCity.value.id);
+//   } catch (error) {
+//     showAlert('error', 'Failed to delete stop');
+//   }
+// };
 onMounted(async () => {
   await fetchCities();
-  await fetchCountries();
+  await fetchRegions();
 });
 
 // Fetch cities
 const fetchCities = async () => {
   isLoading.value = true;
   try {
-    const response = await axiosInstance.get('/locations/cities');
+    const response = await axiosInstance.get('locations?type=CITY');
     const data = response.data.data || response.data;
     cities.value = (Array.isArray(data) ? data : []).map((d, index) => {
       return {
@@ -587,9 +596,8 @@ const fetchCities = async () => {
         id: d.id,
         name: d.name,
         code: d.code,
-        region: d.region,
+        region: d.region || d.parent_name,
         priority: d.priority,
-        country: d.country || d.parent,
         total_branches: d.total_branches || 0,
         total_offices: d.total_offices || 0,
         status: d.status || (d.is_disabled ? 0 : 1),
@@ -602,20 +610,23 @@ const fetchCities = async () => {
   }
 };
 
-// Fetch countries
-const fetchCountries = async () => {
+// Fetch regions
+const fetchRegions = async () => {
   try {
-    const response = await axiosInstance.get('/locations?type=COUNTRY');
+    const response = await axiosInstance.get('/locations?type=REGION');
     const payload = response.data?.data || response.data;
     const rows = Array.isArray(payload?.data) ? payload.data : (Array.isArray(payload) ? payload : []);
-    countries.value = rows;
+    regions.value = rows;
   } catch (error) {
-    showAlert('error', 'Failed to fetch countries');
+    showAlert('error', 'Failed to fetch regions');
   }
 };
 
 // Open modal for create/update
-const openModal = (city = null) => {
+const openModal = async (city = null) => {
+  if (!regions.value.length) {
+    await fetchRegions();
+  }
 
   // console.log("test", city);
 
@@ -624,7 +635,7 @@ const openModal = (city = null) => {
     const statusId = typeof city.status === 'number' ? city.status : (city.is_disabled ? 0 : 1);
     currentCity.value = {
       ...city,
-      country_id: city.country || city.parent || null,
+      region_id: city.region || city.parent || null,
       status: statuses.value.find((s) => s.id === statusId) || statuses.value[0],
     };
   } else {
@@ -634,7 +645,7 @@ const openModal = (city = null) => {
       status: statuses.value[0] || { id: 1, name: 'Active' },
       name: '',
       code: '',
-      country_id: null,
+      region_id: null,
     };
     cityForm.value = [];
     addCity();
@@ -671,7 +682,7 @@ const saveCity = async () => {
     if (currentCity.value.id) {
       const statusId = resolveStatusId(currentCity.value.status)
       const payload = {
-        "location_id": resolveId(currentCity.value.country_id || currentCity.value.country || currentCity.value.parent),
+        "location_id": resolveId(currentCity.value.region_id || currentCity.value.region || currentCity.value.parent),
         "name": currentCity.value.name,
         "code": (currentCity.value.code || '').toUpperCase(),
         "type": "CITY",
@@ -689,7 +700,7 @@ const saveCity = async () => {
       for (const d of cityForm.value) {
         const statusId = resolveStatusId(d.status)
         const payload = {
-          location_id: resolveId(d.country_id),
+          location_id: resolveId(d.region_id),
           name: d.name,
           code: (d.code || '').toUpperCase(),
           type: "CITY",

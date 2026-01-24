@@ -811,18 +811,12 @@ export const useAccountingStore = defineStore('accounting', {
       }
     },
 
-    async fetchBranches(companyId?: number, params: any = {}): Promise<any> {
+    async fetchBranches(params: any = {}): Promise<any> {
       this.error = null
       try {
-        // If companyId is provided, use company-specific endpoint
-        // Otherwise, fetch all branches
-        const url = companyId 
-          ? `${API_BASE}/companies/${companyId}/branches`
-          : `${API_BASE}/branches`
-        
         const config = {
           method: 'get',
-          url,
+          url: `${API_BASE}/branches`,
           params,
           headers: { 'Content-Type': 'application/json' }
         }
@@ -1101,15 +1095,12 @@ export const useAccountingStore = defineStore('accounting', {
 
     // ==================== PAYMENT VOUCHERS ====================
 
-    async getBankCashAccounts(companyId?: number): Promise<any> {
+    async getBankCashAccounts(): Promise<any> {
       this.error = null
       try {
         const config = {
           method: 'get',
           url: `${API_BASE}/accounts/bank-cash-accounts`,
-          params: {
-            company_id: companyId || 1
-          },
           headers: { 'Content-Type': 'application/json' }
         }
 
@@ -1122,7 +1113,7 @@ export const useAccountingStore = defineStore('accounting', {
       }
     },
 
-    async getApprovedRequisitionsForPayee(payeeId: number, fromAccountId: number, companyId?: number): Promise<any> {
+    async getApprovedRequisitionsForPayee(payeeId: number, fromAccountId: number): Promise<any> {
       this.error = null
       try {
         if (!payeeId || !fromAccountId) {
@@ -1135,7 +1126,6 @@ export const useAccountingStore = defineStore('accounting', {
           params: {
             payee_id: payeeId,
             from_account_id: fromAccountId,
-            company_id: companyId || 1,
             status: 'APPROVED',
             with_balance: true
           },
@@ -1318,14 +1308,14 @@ export const useAccountingStore = defineStore('accounting', {
       }
     },
 
-    async fetchPayees(companyId?: number, params: any = {}): Promise<any> {
+    async fetchPayees(params: any = {}): Promise<any> {
       this.error = null
       try {
         const config = {
           method: 'get',
           url: `${API_BASE}/payees`,
           params: {
-            company_id: companyId || 1,
+            company_id: 1,
             status: 'ACTIVE',
             ...params
           },
@@ -1341,15 +1331,14 @@ export const useAccountingStore = defineStore('accounting', {
       }
     },
 
-    async fetchPayeeAccount(payeeId: number, companyId?: number): Promise<any> {
+    async fetchPayeeAccount(payeeId: number): Promise<any> {
       this.error = null
       try {
         const config = {
           method: 'get',
           url: `${API_BASE}/payment-vouchers/payee-accounts`,
           params: {
-            payee_id: payeeId,
-            company_id: companyId || 1
+            payee_id: payeeId
           },
           headers: { 'Content-Type': 'application/json' }
         }

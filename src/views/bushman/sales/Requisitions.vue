@@ -256,12 +256,8 @@ const userLabel = (value: any): string => {
   if (typeof value === 'number') return ''
 
   return (
-    value.email ||
-    value.username ||
-    value.name ||
-    value.full_name ||
-    value.display_name ||
-    ''
+    `${value.first_name || ''} ${value.last_name || ''}`.trim().toUpperCase() ||
+  ''
   )
 }
 

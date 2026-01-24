@@ -19,6 +19,7 @@ const SalesCalendar = () => import ('@/views/bushman/details/Calendar.vue')
 const ManagePriceList = () => import('@/views/bushman/sales/ManagePriceList.vue');
 const SalesRequisitions = () => import('@/views/bushman/sales/Requisitions.vue');
 const SalesRequisitionDetails = () => import('@/views/bushman/sales/RequisitionDetails.vue');
+const SalesRequisitionPrint = () => import('@/views/bushman/sales/RequisitionPdfView.vue');
 const PriceStructureAddItem = () => import('@/views/bushman/sales/price-structures/PriceStructureAddItem.vue');
 const PriceStructureAddPrice = () => import('@/views/bushman/sales/price-structures/PriceStructureAddPrice.vue');
 const PriceStructureAddSafariExtra = () => import('@/views/bushman/sales/price-structures/PriceStructureAddSafariExtra.vue');
@@ -176,6 +177,12 @@ const router = createRouter({
       component: SalesRequisitionDetails,
       meta: { requiresAuth: true },
       props: (route) => ({ id: Number(route.params.id) })
+    },
+    {
+      path: "/sales/requisitions/:id/print",
+      name: "sales-requisition-print",
+      component: SalesRequisitionPrint,
+      meta: { requiresAuth: true }
     },
     {
       path: "/sales/requisitions/:id/edit",

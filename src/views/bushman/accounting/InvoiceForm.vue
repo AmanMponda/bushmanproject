@@ -16,12 +16,21 @@
           <button class="btn ghost" type="button" @click="goBack">
             <span class="btn-icon"><i class="fa fa-arrow-left"></i></span> Back
           </button>
-          <button class="btn ghost" type="button" @click="resetForm">
+          <button class="btn ghost" type="button" @click="resetForm" v-if="!isEdit || invoice?.status === 'DRAFT'">
             <span class="btn-icon"><i class="fa fa-refresh"></i></span> Reset
           </button>
           <button 
-            v-if="isEdit && invoice?.status === 'APPROVED' && !invoice?.journal_voucher_id"
+            v-if="isEdit && invoice?.status === 'APPROVED'"
             class="btn primary" 
+            type="button" 
+            @click="postInvoice"
+            :disabled="posting"
+          >
+            <span class="btn-icon"><i class="fa fa-paper-plane"></i></span> {{ posting ? 'Posting...' : 'Post Invoice' }}
+          </button>
+          <button 
+            v-if="isEdit && invoice?.status === 'APPROVED' && !invoice?.journal_voucher_id"
+            class="btn info" 
             type="button" 
             @click="createJournalVoucher"
             :disabled="savingJV"
@@ -37,7 +46,13 @@
           >
             <span class="btn-icon"><i class="fa fa-check"></i></span> JV Created (#{{ invoice.journal_voucher_id }})
           </button>
-          <button class="btn secondary" type="button" @click="submit" :disabled="saving">
+          <button 
+            v-if="!isEdit || invoice?.status === 'DRAFT'"
+            class="btn secondary" 
+            type="button" 
+            @click="submit" 
+            :disabled="saving"
+          >
             <span class="btn-icon"><i class="fa fa-save"></i></span> {{ saving ? 'Saving...' : isEdit ? 'Update Invoice' : 'Create Invoice' }}
           </button>
         </div>
@@ -133,7 +148,7 @@
                 <span class="lbl">Document Type <span class="req">*</span></span>
                 <div class="input-wrapper">
                   <span class="input-icon"><i class="fa fa-file-text"></i></span>
-                  <select v-model="form.document_type_id" required>
+                  <select v-model="form.document_type_id" required :disabled="isFormReadonly">
                     <option value="">-- Select Document Type --</option>
                     <option v-for="docType in documentTypes" :key="docType.id" :value="String(docType.id)">
                       {{ docType.name }} ({{ docType.code }})
@@ -146,7 +161,7 @@
                 <span class="lbl">Entity (Customer/Supplier) <span class="req">*</span></span>
                 <div class="input-wrapper">
                   <span class="input-icon"><i class="fa fa-users"></i></span>
-                  <select v-model="form.entity_id" required>
+                  <select v-model="form.entity_id" required :disabled="isFormReadonly">
                     <option value="">-- Select Entity --</option>
                     <option v-for="entity in entities" :key="entity.id" :value="String(entity.id)">
                       {{ entity.full_name || entity.name }}
@@ -159,7 +174,7 @@
                 <span class="lbl">Currency <span class="req">*</span></span>
                 <div class="input-wrapper">
                   <span class="input-icon"><i class="fa fa-dollar"></i></span>
-                  <select v-model="form.currency_id" required>
+                  <select v-model="form.currency_id" required :disabled="isFormReadonly">
                     <option value="">-- Select Currency --</option>
                     <option v-for="currency in currencies" :key="currency.id" :value="String(currency.id)">
                       {{ currency.code }} - {{ currency.name }}
@@ -180,7 +195,7 @@
                 <span class="lbl">Invoice Date <span class="req">*</span></span>
                 <div class="input-wrapper">
                   <span class="input-icon"><i class="fa fa-calendar"></i></span>
-                  <input v-model="form.invoice_date" type="date" required />
+                  <input v-model="form.invoice_date" type="date" required :disabled="isFormReadonly" />
                 </div>
               </label>
 
@@ -188,7 +203,7 @@
                 <span class="lbl">Due Date <span class="req">*</span></span>
                 <div class="input-wrapper">
                   <span class="input-icon"><i class="fa fa-calendar"></i></span>
-                  <input v-model="form.due_date" type="date" required />
+                  <input v-model="form.due_date" type="date" required :disabled="isFormReadonly" />
                 </div>
               </label>
 
@@ -210,6 +225,7 @@
                     v-model="form.memo" 
                     rows="3"
                     placeholder="Enter any additional notes"
+                    :disabled="isFormReadonly"
                   ></textarea>
                 </div>
               </label>
@@ -225,7 +241,11 @@
               <h3>Line Items</h3>
               <p>Manage invoice items and amounts</p>
             </div>
-            <button class="btn btn-primary btn-sm ms-auto" @click="addLineItem" v-if="!isAddingNewLine">
+            <button 
+              v-if="!isAddingNewLine && !isFormReadonly" 
+              class="btn btn-primary btn-sm ms-auto" 
+              @click="addLineItem"
+            >
               <i class="fa fa-plus"></i> Add Item
             </button>
           </div>
@@ -261,7 +281,13 @@
                   <td class="item-tax">{{ item.tax_rate || 0 }}%</td>
                   <td class="item-amount"><strong>{{ formatCurrency(calculateLineAmount(item)) }}</strong></td>
                   <td class="item-action">
-                    <button type="button" class="btn-icon" @click="removeLineItem(index)" title="Delete">
+                    <button 
+                      v-if="!isFormReadonly" 
+                      type="button" 
+                      class="btn-icon" 
+                      @click="removeLineItem(index)" 
+                      title="Delete"
+                    >
                       <i class="fa fa-trash"></i>
                     </button>
                   </td>
@@ -362,8 +388,10 @@ const accountingStore = useAccountingStore()
 
 const isEdit = computed(() => !!route.params.id)
 const invoiceId = computed(() => route.params.id ? Number(route.params.id) : null)
+const isFormReadonly = computed(() => isEdit.value && invoice.value?.status !== 'DRAFT')
 
 const saving = ref(false)
+const posting = ref(false)
 const savingLink = ref(false)
 const savingJV = ref(false)
 const errorMessage = ref('')
@@ -663,6 +691,58 @@ async function createJournalVoucher() {
     })
   } finally {
     savingJV.value = false
+  }
+}
+
+// Post Invoice
+async function postInvoice() {
+  if (!invoice.value) {
+    init({ message: 'Error: No invoice loaded', color: 'danger' })
+    return
+  }
+
+  if (invoice.value.status !== 'APPROVED') {
+    init({ message: 'Error: Invoice must be APPROVED to post', color: 'danger' })
+    return
+  }
+
+  const confirmResult = await Swal.fire({
+    title: 'Post Invoice?',
+    text: `Are you sure you want to post invoice #${invoice.value.document_number}? This will lock the invoice and create accounting entries.`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#2563eb',
+    cancelButtonColor: '#d33',
+    confirmButtonText: 'Yes, Post It!'
+  })
+
+  if (!confirmResult.isConfirmed) {
+    return
+  }
+
+  posting.value = true
+  try {
+    const response = await accountingStore.postInvoice(invoice.value.id)
+    const postedInvoice = response.data.data || response.data
+    
+    // Update local invoice state
+    invoice.value = postedInvoice
+    
+    init({ message: 'Success: Invoice posted successfully', color: 'success' })
+
+    // Reload the invoice to get updated status
+    setTimeout(async () => {
+      if (invoiceId.value) {
+        const refreshResponse = await accountingStore.getInvoice(invoiceId.value)
+        const invoiceData = refreshResponse.data.data
+        invoice.value = invoiceData
+      }
+    }, 500)
+  } catch (error: any) {
+    console.error('Error posting invoice:', error)
+    init({ message: 'Error: ' + (error?.response?.data?.message || 'Failed to post invoice'), color: 'danger' })
+  } finally {
+    posting.value = false
   }
 }
 

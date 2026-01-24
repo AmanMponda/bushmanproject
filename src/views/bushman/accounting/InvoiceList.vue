@@ -54,7 +54,15 @@
                     <i class="fa fa-eye"></i>
                   </button>
                   <button 
-                    v-if="(row as any).status === 'DRAFT'"
+                    v-if="canEdit(row)"
+                    class="btn btn-primary btn-sm" 
+                    title="Edit" 
+                    @click="editInvoice(row)"
+                  >
+                    <i class="fa fa-edit"></i>
+                  </button>
+                  <button 
+                    v-if="canApprove(row)"
                     class="btn btn-success btn-sm" 
                     title="Approve" 
                     @click="approveInvoice(row)"
@@ -62,32 +70,23 @@
                     <i class="fa fa-check"></i>
                   </button>
                   <button 
-                    v-if="(row as any).status === 'APPROVED' && !(row as any).journal_voucher_id"
+                    v-if="canPost(row)"
                     class="btn btn-primary btn-sm" 
-                    title="Create Journal Voucher" 
-                    @click="createJournalVoucherFromInvoice(row)"
+                    title="Post Invoice" 
+                    @click="postInvoice(row)"
                   >
-                    <i class="fa fa-file-alt"></i>
+                    <i class="fa fa-paper-plane"></i>
                   </button>
                   <button 
-                    v-if="(row as any).status === 'APPROVED' && (row as any).journal_voucher_id"
-                    class="btn btn-primary btn-sm" 
-                    title="View Journal Voucher" 
-                    @click="viewJournalVoucher(row)"
-                    disabled
-                  >
-                    <i class="fa fa-file-alt"></i>
-                  </button>
-                  <button 
-                    v-if="(row as any).status === 'POSTED' || (row as any).status === 'PARTIALLY_PAID'"
+                    v-if="canRecordPayment(row)"
                     class="btn btn-warning btn-sm" 
                     title="Record Payment" 
                     @click="recordPayment(row)"
                   >
-                    <i class="fa fa-money"></i>
+                    <i class="fa fa-money-bill"></i>
                   </button>
                   <button 
-                    v-if="(row as any).status === 'DRAFT'"
+                    v-if="canDelete(row)"
                     class="btn btn-danger btn-sm" 
                     title="Delete" 
                     @click="confirmDelete(row)"
@@ -177,6 +176,31 @@ function viewInvoice(invoice: Invoice) {
   router.push({ name: 'invoice-view', params: { id: invoice.id } })
 }
 
+function editInvoice(invoice: Invoice) {
+  router.push({ name: 'invoice-edit', params: { id: invoice.id } })
+}
+
+// Computed visibility functions
+function canEdit(invoice: Invoice): boolean {
+  return invoice.status === 'DRAFT'
+}
+
+function canApprove(invoice: Invoice): boolean {
+  return invoice.status === 'DRAFT'
+}
+
+function canPost(invoice: Invoice): boolean {
+  return invoice.status === 'APPROVED'
+}
+
+function canRecordPayment(invoice: Invoice): boolean {
+  return invoice.status === 'POSTED' || invoice.status === 'PARTIALLY_PAID'
+}
+
+function canDelete(invoice: Invoice): boolean {
+  return invoice.status === 'DRAFT'
+}
+
 function approveInvoice(invoice: Invoice) {
   Swal.fire({
     title: 'Approve Invoice?',
@@ -190,19 +214,11 @@ function approveInvoice(invoice: Invoice) {
     if (result.isConfirmed) {
       accountingStore.approveInvoice(invoice.id as number)
         .then(() => {
-          init({
-            title: 'Success',
-            message: `Invoice #${invoice.document_number} has been approved`,
-            type: 'success'
-          })
+          init({ message: 'Success: ' + `Invoice #${invoice.document_number} has been approved`, color: 'success' })
           fetchInvoices()
         })
         .catch(err => {
-          init({
-            title: 'Error',
-            message: err.response?.data?.message || 'Error approving invoice',
-            type: 'danger'
-          })
+          init({ message: 'Error: ' + err.response?.data?.message || 'Error approving invoice', color: 'danger' })
         })
     }
   })
@@ -221,19 +237,11 @@ function postInvoice(invoice: Invoice) {
     if (result.isConfirmed) {
       accountingStore.postInvoice(invoice.id as number)
         .then(() => {
-          init({
-            title: 'Success',
-            message: `Invoice #${invoice.document_number} has been posted`,
-            type: 'success'
-          })
+          init({ message: 'Success: ' + `Invoice #${invoice.document_number} has been posted`, color: 'success' })
           fetchInvoices()
         })
         .catch(err => {
-          init({
-            title: 'Error',
-            message: err.response?.data?.message || 'Error posting invoice',
-            type: 'danger'
-          })
+          init({ message: 'Error: ' + err.response?.data?.message || 'Error posting invoice', color: 'danger' })
         })
     }
   })
@@ -256,22 +264,14 @@ function createJournalVoucherFromInvoice(invoice: Invoice) {
       })
         .then((response) => {
           const createdJV = response.data.data || response.data
-          init({
-            title: 'Success',
-            message: `Journal Voucher #${createdJV.document_number || createdJV.id} created successfully`,
-            type: 'success'
-          })
+          init({ message: 'Success: ' + `Journal Voucher #${createdJV.document_number || createdJV.id} created successfully`, color: 'success' })
           // Refresh invoice list to show updated JV link
           setTimeout(() => {
             fetchInvoices()
           }, 500)
         })
         .catch(err => {
-          init({
-            title: 'Error',
-            message: err.response?.data?.message || 'Error creating journal voucher',
-            type: 'danger'
-          })
+          init({ message: 'Error: ' + err.response?.data?.message || 'Error creating journal voucher', color: 'danger' })
         })
     }
   })
@@ -300,19 +300,11 @@ function confirmDelete(invoice: Invoice) {
     if (result.isConfirmed) {
       accountingStore.deleteInvoice(invoice.id as number)
         .then(() => {
-          init({
-            title: 'Success',
-            message: `Invoice #${invoice.document_number} has been deleted`,
-            type: 'success'
-          })
+          init({ message: 'Success: ' + `Invoice #${invoice.document_number} has been deleted`, color: 'success' })
           fetchInvoices()
         })
         .catch(err => {
-          init({
-            title: 'Error',
-            message: err.response?.data?.message || 'Error deleting invoice',
-            type: 'danger'
-          })
+          init({ message: 'Error: ' + err.response?.data?.message || 'Error deleting invoice', color: 'danger' })
         })
     }
   })
@@ -410,3 +402,4 @@ onMounted(() => {
   margin: 0 0.15rem;
 }
 </style>
+
