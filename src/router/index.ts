@@ -44,6 +44,7 @@ const ManageAccounts = () => import('@/views/bushman/module-settings/ManageAccou
 const ManageUsers = () => import('@/views/bushman/module-settings/ManageUsers.vue');
 const ManageDocuments = () => import('@/views/bushman/module-settings/ManageDocuments.vue');
 const ManageInstallmentSetups = () => import('@/views/bushman/module-settings/ManageInstallmentSetups.vue');
+const ModuleSettingsIndex = () => import('@/views/bushman/module-settings/index.vue');
 const GovernmentFees = () => import('@/views/GovernmentFees.vue');
 
 const Managesalesinquiry = () => import('@/views/bushman/sales/SalesInquiries.vue');
@@ -224,7 +225,13 @@ const router = createRouter({
       meta: { requiresAuth: true }
     },
 
-
+    {
+      path: "/module-settings",
+      name: "module-settings",
+      component: ModuleSettingsIndex,
+      meta: { requiresAuth: true },
+      props: { activeTab: 'Sales & Package Settings' }
+    },
     {
       path: "/module-settings/qoutas-settings",
       name: "quotas-settings",

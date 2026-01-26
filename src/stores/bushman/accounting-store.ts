@@ -23,6 +23,8 @@ interface AccountingState {
   companies: any[]
   branches: any[]
   entities: any[]
+  items: any[]
+  bankCashAccounts: any[]
 
   // Linked Documents & Requisitions
   requisitionsForLinking: any[]
@@ -64,6 +66,8 @@ export const useAccountingStore = defineStore('accounting', {
     companies: [] as any[],
     branches: [] as any[],
     entities: [] as any[],
+    items: [] as any[],
+    bankCashAccounts: [] as any[],
 
     // Linked Documents & Requisitions
     requisitionsForLinking: [] as any[],
@@ -104,6 +108,8 @@ export const useAccountingStore = defineStore('accounting', {
     getCompanies: (state: AccountingState) => state.companies,
     getBranches: (state: AccountingState) => state.branches,
     getEntities: (state: AccountingState) => state.entities,
+    getItems: (state: AccountingState) => state.items,
+    getBankCashAccountsList: (state: AccountingState) => state.bankCashAccounts,
 
     // Linked Documents & Requisitions
     getRequisitionsForLinking: (state: AccountingState) => state.requisitionsForLinking,

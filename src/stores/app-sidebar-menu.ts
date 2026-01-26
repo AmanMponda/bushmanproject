@@ -347,26 +347,24 @@ export const useAppSidebarMenuStore = defineStore("appSidebarMenu", () => {
       text: 'Dashboard',
       permission: 'CAN_VIEW_BUSHMAN_DASHBOARD'
     },
-
     {
-      url: '/bushman/sales/dashboard',
-      icon: 'fa fa-chart-line',
-      text: 'Sales Dashboard',
-      permission: 'CAN_VIEW_BUSHMAN_DASHBOARD',
-    children :[
-
-    {
-      url: '/sales/quotas',icon: 'fa fa-star-half',text: 'Sales Quotas',permission: 'CAN_VIEW_SALES_QUOTAS'
+      url: '/sales/quotas',
+      icon: 'fa fa-star-half',
+      text: 'Sales Quotas',
+      permission: 'CAN_VIEW_SALES_QUOTAS'
     },
     {
-      url: '/sales/sales-calendar',icon: 'fa fa-calendar',text: 'Sales Calendar',permission: 'CAN_VIEW_CALENDAR'
+      url: '/sales/sales-calendar',
+      icon: 'fa fa-calendar',
+      text: 'Sales Calendar',
+      permission: 'CAN_VIEW_CALENDAR'
     },
     {
-      url: '/sales/sales-pipeline',icon: 'fa fa-project-diagram',text: 'Sales Pipeline',permission: 'CAN_VIEW_SALES_PIPELINE'
+      url: '/sales/sales-pipeline',
+      icon: 'fa fa-project-diagram',
+      text: 'Sales Pipeline',
+      permission: 'CAN_VIEW_SALES_PIPELINE'
     },
-  ],
-
-  },
     {
       url: '/sales',
       icon: 'fa fa-shopping-cart',
@@ -374,7 +372,6 @@ export const useAppSidebarMenuStore = defineStore("appSidebarMenu", () => {
       permission: 'CAN_VIEW_SALES',
       children: [
         { url: '/sales/price-list', text: 'Price Lists', permission: 'CAN_VIEW_PRICE_LISTS' },
-        { url: '/sales/charter-prices', text: 'Charter Prices', permission: 'CAN_VIEW_PRICE_LISTS' },
         { url: '/sales/sales-inquiry', text: 'Sales Quotations', permission: 'CAN_VIEW_SALES_INQUIRY' },
         { url: '/orders', text: 'Sales Orders', permission: 'CAN_VIEW_SALES_CONFIRMATIONS' },
         { url: '/contracts', text: 'Sales Contracts', permission: 'CAN_VIEW_SALES_CONTRACTS' },
@@ -423,11 +420,8 @@ export const useAppSidebarMenuStore = defineStore("appSidebarMenu", () => {
     {
       url: '/hr',
       icon: 'fa fa-users',
-      text: 'Human Resources',
+      text: 'HR',
       permission: 'CAN_VIEW_HR',
-      children: [
-        { url: '/hr/employees', text: 'Employees', permission: 'CAN_VIEW_HR' },
-      ]
     },
     {
       url: '/reports',
@@ -454,12 +448,11 @@ export const useAppSidebarMenuStore = defineStore("appSidebarMenu", () => {
 
         { url: '/module-settings/sales-package', text: 'Sales Package', permission: 'CAN_VIEW_SALES_PACKAGE' },
         { url: '/module-settings/trophy-fees', text: 'Trophy Fees', permission: 'CAN_VIEW_TROPHY_FEES' },
-        // { url: '/module-settings/upgrade-fees', text: 'Upgrade Fees', permission: 'CAN_VIEW_SALES_PACKAGE' },
+        { url: '/module-settings/upgrade-fees', text: 'Upgrade Fees', permission: 'CAN_VIEW_SALES_PACKAGE' },
         { url: '/module-settings/items', text: 'Items', permission: 'CAN_VIEW_MODULE_SETTINGS' },
         { url: '/module-settings/government-fees', text: 'Government Fees', permission: 'CAN_VIEW_MODULE_SETTINGS' },
         { url: '/module-settings/documents', text: 'Documents', permission: 'CAN_VIEW_MODULE_SETTINGS' },
         { url: '/module-settings/installment-setups', text: 'Installment Setups', permission: 'CAN_VIEW_MODULE_SETTINGS' },
-        { url: '/module-settings/users', text: 'Users', permission: 'CAN_VIEW_MODULE_SETTINGS' },
         { url: '/module-settings/approval-chain', text: 'Approval Chain', permission: 'CAN_VIEW_APPROVAL_CHAIN' },
         { url: '/module-settings/requisition-types', text: 'Requisition Types', permission: 'CAN_VIEW_MODULE_SETTINGS' },
         { url: '/module-settings/cost-centers', text: 'Cost Centers', permission: 'CAN_VIEW_MODULE_SETTINGS' },
@@ -477,22 +470,6 @@ export const useAppSidebarMenuStore = defineStore("appSidebarMenu", () => {
 
       ],
     },
-    {
-      url: '/location-master',
-      icon: 'fa fa-map-marked-alt',
-      text: 'Location Master',
-      permission: 'CAN_VIEW_MODULE_SETTINGS',
-    //   children: [
-    //     { url: '/location-master/countries', text: 'Countries', permission: 'CAN_VIEW_MODULE_SETTINGS' },
-    //     { url: '/location-master/cities', text: 'Cities', permission: 'CAN_VIEW_MODULE_SETTINGS' },
-    //     { url: '/location-master/branches', text: 'Branches', permission: 'CAN_VIEW_MODULE_SETTINGS' },
-    //     { url: '/location-master/offices', text: 'Offices', permission: 'CAN_VIEW_MODULE_SETTINGS' },
-    //     { url: '/location-master/service-points', text: 'Service Points', permission: 'CAN_VIEW_MODULE_SETTINGS' },
-    //     { url: '/location-master/stops', text: 'Stops', permission: 'CAN_VIEW_MODULE_SETTINGS' },
-    //     { url: '/location-master/city-links', text: 'City Links', permission: 'CAN_VIEW_MODULE_SETTINGS' },
-    //     { url: '/location-master/route-planning', text: 'Route Planning', permission: 'CAN_VIEW_MODULE_SETTINGS' },
-    //   ],
-     },
     {
       url: '/settings',
       icon: 'fa fa-wrench',

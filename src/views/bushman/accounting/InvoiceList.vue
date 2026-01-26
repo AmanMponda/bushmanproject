@@ -31,6 +31,11 @@
               <template #document_number="{ row }">
                 <strong>{{ (row as any).document_number || (row as any).id }}</strong>
               </template>
+              <template #invoice_type="{ row }">
+                <span class="badge" :class="getInvoiceTypeBadgeClass((row as any).invoice_type)">
+                  {{ (row as any).invoice_type || 'AR' }}
+                </span>
+              </template>
               <template #status="{ row }">
                 <span :class="getStatusClass((row as any).status)">{{ (row as any).status }}</span>
               </template>
@@ -54,15 +59,15 @@
                     <i class="fa fa-eye"></i>
                   </button>
                   <button 
-                    v-if="canEdit(row)"
-                    class="btn btn-primary btn-sm" 
+                    v-if="(row as any).status === 'DRAFT'"
+                    class="btn btn-warning btn-sm" 
                     title="Edit" 
                     @click="editInvoice(row)"
                   >
                     <i class="fa fa-edit"></i>
                   </button>
                   <button 
-                    v-if="canApprove(row)"
+                    v-if="(row as any).status === 'DRAFT'"
                     class="btn btn-success btn-sm" 
                     title="Approve" 
                     @click="approveInvoice(row)"
@@ -70,7 +75,7 @@
                     <i class="fa fa-check"></i>
                   </button>
                   <button 
-                    v-if="canPost(row)"
+                    v-if="(row as any).status === 'APPROVED'"
                     class="btn btn-primary btn-sm" 
                     title="Post Invoice" 
                     @click="postInvoice(row)"
@@ -78,7 +83,7 @@
                     <i class="fa fa-paper-plane"></i>
                   </button>
                   <button 
-                    v-if="canRecordPayment(row)"
+                    v-if="(row as any).status === 'POSTED' || (row as any).status === 'PARTIALLY_PAID'"
                     class="btn btn-warning btn-sm" 
                     title="Record Payment" 
                     @click="recordPayment(row)"
@@ -86,7 +91,7 @@
                     <i class="fa fa-money-bill"></i>
                   </button>
                   <button 
-                    v-if="canDelete(row)"
+                    v-if="(row as any).status === 'DRAFT'"
                     class="btn btn-danger btn-sm" 
                     title="Delete" 
                     @click="confirmDelete(row)"
@@ -141,6 +146,7 @@ const tableFilters = reactive({
 // Columns Definition
 const columns = computed(() => [
   { key: 'document_number', label: 'Invoice #', sortable: true, visible: true },
+  { key: 'invoice_type', label: 'Type', sortable: true, visible: true },
   { key: 'status', label: 'Status', sortable: true, visible: true },
   { key: 'invoice_date', label: 'Invoice Date', sortable: true, visible: true },
   { key: 'entity_name', label: 'Entity Name', sortable: true, visible: true },
@@ -180,27 +186,6 @@ function editInvoice(invoice: Invoice) {
   router.push({ name: 'invoice-edit', params: { id: invoice.id } })
 }
 
-// Computed visibility functions
-function canEdit(invoice: Invoice): boolean {
-  return invoice.status === 'DRAFT'
-}
-
-function canApprove(invoice: Invoice): boolean {
-  return invoice.status === 'DRAFT'
-}
-
-function canPost(invoice: Invoice): boolean {
-  return invoice.status === 'APPROVED'
-}
-
-function canRecordPayment(invoice: Invoice): boolean {
-  return invoice.status === 'POSTED' || invoice.status === 'PARTIALLY_PAID'
-}
-
-function canDelete(invoice: Invoice): boolean {
-  return invoice.status === 'DRAFT'
-}
-
 function approveInvoice(invoice: Invoice) {
   Swal.fire({
     title: 'Approve Invoice?',
@@ -227,21 +212,24 @@ function approveInvoice(invoice: Invoice) {
 function postInvoice(invoice: Invoice) {
   Swal.fire({
     title: 'Post Invoice?',
-    text: `Are you sure you want to post invoice #${invoice.document_number}? This will create a journal voucher.`,
+    html: `
+      <p>Are you sure you want to post invoice <strong>#${invoice.document_number}</strong>?</p>
+      <p>This will create a journal voucher and lock the invoice.</p>
+    `,
     icon: 'warning',
     showCancelButton: true,
     confirmButtonColor: '#3085d6',
     cancelButtonColor: '#d33',
-    confirmButtonText: 'Yes, post it!'
+    confirmButtonText: 'Yes, Post It!'
   }).then((result) => {
     if (result.isConfirmed) {
       accountingStore.postInvoice(invoice.id as number)
         .then(() => {
-          init({ message: 'Success: ' + `Invoice #${invoice.document_number} has been posted`, color: 'success' })
+          init({ message: `Invoice #${invoice.document_number} posted successfully`, color: 'success' })
           fetchInvoices()
         })
         .catch(err => {
-          init({ message: 'Error: ' + err.response?.data?.message || 'Error posting invoice', color: 'danger' })
+          init({ message: err.response?.data?.message || 'Error posting invoice', color: 'danger' })
         })
     }
   })
@@ -328,6 +316,14 @@ function getStatusClass(status: string): string {
     'VOID': 'badge bg-dark'
   }
   return statusClasses[status] || 'badge bg-light'
+}
+
+function getInvoiceTypeBadgeClass(type: string): string {
+  const typeClasses: { [key: string]: string } = {
+    'AR': 'badge bg-info',
+    'AP': 'badge bg-warning'
+  }
+  return typeClasses[type] || 'badge bg-secondary'
 }
 
 function getEntityName(invoice: Invoice): string {
