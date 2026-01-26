@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { computed, onMounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { requisitionService } from '@/stores/bushman/requisitionService'
 import Swal from 'sweetalert2'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
 
 type Requisition = {
   id: number
@@ -24,22 +26,25 @@ type Requisition = {
 }
 
 const route = useRoute()
-const router = useRouter()
 
 const loading = ref(false)
 const requisition = ref<Requisition | null>(null)
-const hasAutoPrinted = ref(false)
+const generatingPdf = ref(false)
+const hasGeneratedPdf = ref(false)
 
 const logoSrc = '/assets/img/Bushman Logo.png'
 const companyName = 'Bushman Safari Trackers'
 const companyAddressLines = [
-  'Morogoro, Tanzania',
+  'P.O Box 127, Morogoro Tanzania,',
+  'Tanzania',
+  'Mob: +255 748 771 551',
+  'Email: info@bushman-safaris.co.tz'
 ]
 
 const requisitionId = computed(() => Number(route.params.id))
 
 const formatAmount = (value: number) => {
-  return Number(value || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  return Number(value || 0).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
 }
 
 const formatMoney = (value: number, currencySymbol?: string) => {
@@ -93,7 +98,7 @@ const buildItemLines = (item: any) => {
       type: 'Item',
       code,
       name: material?.item?.name || material?.item_name || material?.description || 'Item',
-      unit: material?.unit_of_measurement?.code || material?.unit_of_measurement?.name || '--',
+      unit: material?.unit_of_measurement?.name || material?.unit_of_measurement?.code || '--',
       quantity,
       rate,
       amount: quantity * rate,
@@ -110,7 +115,7 @@ const buildItemLines = (item: any) => {
       type: 'Account',
       code,
       name: account?.account?.name || account?.account_name || account?.description || 'Account',
-      unit: '--',
+      unit: 'N/A',
       quantity: 1,
       rate: amount,
       amount,
@@ -119,6 +124,102 @@ const buildItemLines = (item: any) => {
   }
 
   return lines
+}
+
+const normalizeMasterPayload = (payload: any) => {
+  if (!payload?.requisition) return payload
+
+  const requisition = payload.requisition || {}
+  const sources = payload.sources || []
+  const dimensions = payload.latest_approved_dimensions || payload.dimensions || []
+  const defaultCurrency = sources?.[0]?.currency || null
+
+  let tempId = -1
+  const items: any[] = []
+
+  dimensions.forEach((dim: any) => {
+    const accounts = dim?.accounts || []
+    const accountLookup = new Map(accounts.map((acc: any) => [acc.account_id, acc]))
+
+    ;(dim?.account_items || []).forEach((accItem: any) => {
+      const accountDetail = accountLookup.get(accItem.account_id)
+      const reqItemId = accItem.requisition_item_id || accountDetail?.requisition_item_id || null
+      const currency = accountDetail?.currency || defaultCurrency || null
+      const currencyId = accItem.currency_id || accountDetail?.currency_id || currency?.id || null
+
+      items.push({
+        id: reqItemId || tempId--,
+        currency_id: currencyId,
+        currency,
+        materials: [],
+        accounts: [
+          {
+            id: accountDetail?.id,
+            requisition_item_id: reqItemId || undefined,
+            account_id: accItem.account_id,
+            currency_id: currencyId,
+            amount: String(accItem.total_amount ?? accItem.amount ?? 0),
+            description: null,
+            account: accountDetail?.account || accountDetail?.account_id ? accountDetail?.account : accountDetail?.account,
+            currency
+          }
+        ],
+        dimensions: [
+          {
+            dimension_type_id: dim?.dimension_type_id,
+            dimension_value_id: dim?.dimension_value_id,
+            dimension_type: typeof dim?.dimension_type === 'string' ? { name: dim?.dimension_type } : dim?.dimension_type,
+            dimension_value: typeof dim?.dimension_value === 'string' ? { name: dim?.dimension_value } : dim?.dimension_value
+          }
+        ]
+      })
+    })
+
+    ;(dim?.material_items || []).forEach((matItem: any) => {
+      const reqItemId = matItem.requisition_item_id || null
+      const quantity = Number(matItem.total_quantity ?? matItem.quantity ?? 0)
+      const totalLine = Number(matItem.total_line_total ?? 0)
+      const rate = quantity ? totalLine / quantity : 0
+      const currency = defaultCurrency || null
+      const currencyId = currency?.id || null
+
+      items.push({
+        id: reqItemId || tempId--,
+        currency_id: currencyId,
+        currency,
+        materials: [
+          {
+            id: matItem.id,
+            requisition_item_id: reqItemId || undefined,
+            item_id: matItem.item_id,
+            unit_of_measurement_id: matItem.unit_of_measurement?.id,
+            quantity: String(quantity),
+            rate: String(rate),
+            currency_id: currencyId,
+            description: null,
+            item: matItem.item_id ? { id: matItem.item_id, name: matItem.item_name } : null,
+            unit_of_measurement: matItem.unit_of_measurement || null,
+            currency
+          }
+        ],
+        accounts: [],
+        dimensions: [
+          {
+            dimension_type_id: dim?.dimension_type_id,
+            dimension_value_id: dim?.dimension_value_id,
+            dimension_type: typeof dim?.dimension_type === 'string' ? { name: dim?.dimension_type } : dim?.dimension_type,
+            dimension_value: typeof dim?.dimension_value === 'string' ? { name: dim?.dimension_value } : dim?.dimension_value
+          }
+        ]
+      })
+    })
+  })
+
+  return {
+    ...requisition,
+    sources,
+    items
+  }
 }
 
 const mapRequisition = (req: any): Requisition => {
@@ -142,6 +243,13 @@ const mapRequisition = (req: any): Requisition => {
   }
 }
 
+const getCurrencySymbol = () => {
+  const sourceCurrency = requisition.value?.sources?.[0]?.currency?.symbol
+  if (sourceCurrency) return sourceCurrency
+  const itemCurrency = requisition.value?.items?.[0]?.currency?.symbol
+  return itemCurrency || ''
+}
+
 const primarySource = computed(() => {
   return requisition.value?.sources?.[0] || null
 })
@@ -151,20 +259,29 @@ const detailRows = computed(() => {
   const rows: Array<{
     code: string
     name: string
+    unit?: string
     quantity?: number
     rate?: number
     amount: number
     currencySymbol?: string
+    costCenter?: string
   }> = []
   requisition.value.items.forEach((item: any) => {
     buildItemLines(item).forEach((line) => {
+      const dim = item?.dimensions?.[0]
+      const costCenter =
+        dim?.dimension_value?.name ||
+        dim?.dimension_value?.code ||
+        ''
       rows.push({
         code: line.code || '--',
         name: line.name,
+        unit: line.unit,
         quantity: line.quantity,
         rate: line.rate,
         amount: line.amount,
-        currencySymbol: line.currencySymbol
+        currencySymbol: line.currencySymbol,
+        costCenter
       })
     })
   })
@@ -204,9 +321,20 @@ const totalCurrencySymbol = computed(() => {
 const fetchRequisition = async () => {
   loading.value = true
   try {
-    const response = await requisitionService.get(requisitionId.value)
+    const response = await requisitionService.getMaster(requisitionId.value)
     const data = response?.data?.data || response?.data || response
-    requisition.value = mapRequisition(data)
+    const normalized = normalizeMasterPayload(data)
+    requisition.value = mapRequisition(normalized)
+    try {
+      await buildPdf()
+    } catch (error: any) {
+      await Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: error?.message || 'Failed to generate PDF.',
+        confirmButtonColor: '#2563eb',
+      })
+    }
   } catch (error: any) {
     await Swal.fire({
       icon: 'error',
@@ -220,31 +348,198 @@ const fetchRequisition = async () => {
   }
 }
 
-const handlePrint = () => {
-  window.print()
+const loadImageAsDataUrl = async (src: string) => {
+  const response = await fetch(src)
+  const blob = await response.blob()
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onloadend = () => resolve(String(reader.result || ''))
+    reader.onerror = reject
+    reader.readAsDataURL(blob)
+  })
 }
 
-const goBack = () => {
-  router.push({ name: 'sales-requisition-details', params: { id: requisitionId.value } })
+const buildPdf = async () => {
+  if (!requisition.value || generatingPdf.value || hasGeneratedPdf.value) return
+
+  generatingPdf.value = true
+  try {
+    const pdf = new jsPDF({ unit: 'pt', format: 'a4' })
+    const pageWidth = pdf.internal.pageSize.getWidth()
+    const pageHeight = pdf.internal.pageSize.getHeight()
+    const margin = 36
+    let cursorY = margin
+
+    let logoDataUrl = ''
+    try {
+      logoDataUrl = await loadImageAsDataUrl(logoSrc)
+    } catch {
+      logoDataUrl = ''
+    }
+
+    const logoWidth = 80
+    const logoHeight = 50
+    if (logoDataUrl) {
+      pdf.addImage(logoDataUrl, 'PNG', margin, cursorY + 2, logoWidth, logoHeight)
+    }
+
+    pdf.setFont('helvetica', 'bolditalic')
+    pdf.setFontSize(12)
+    pdf.setTextColor(185, 28, 28)
+    pdf.text(companyName.toUpperCase(), pageWidth / 2, cursorY + 12, { align: 'center' })
+    pdf.setTextColor(0, 0, 0)
+    pdf.setFont('helvetica', 'italic')
+    pdf.setFontSize(9)
+    companyAddressLines.forEach((line, idx) => {
+      pdf.text(line, pageWidth / 2, cursorY + 26 + idx * 11, { align: 'center' })
+    })
+
+    const headerTextHeight = 26 + (companyAddressLines.length - 1) * 11
+    const headerHeight = Math.max(logoHeight, headerTextHeight) + 8
+    cursorY += headerHeight
+
+    pdf.setDrawColor(17, 24, 39)
+    pdf.setLineWidth(0.6)
+    pdf.line(margin, cursorY, pageWidth - margin, cursorY)
+    cursorY += 16
+
+    pdf.setFont('helvetica', 'bold')
+    pdf.setFontSize(12)
+    pdf.text('PURCHASE REQUISITION', pageWidth / 2, cursorY, { align: 'center' })
+    cursorY += 12
+    pdf.line(margin, cursorY, pageWidth - margin, cursorY)
+    cursorY += 10
+
+    const fundingSource =
+      primarySource.value?.payee ||
+      primarySource.value?.entity?.full_name ||
+      primarySource.value?.entity?.name ||
+      primarySource.value?.account?.name ||
+      primarySource.value?.account?.code ||
+      '--'
+
+    autoTable(pdf, {
+      startY: cursorY,
+      theme: 'grid',
+      styles: { fontSize: 9, cellPadding: 4 },
+      body: [
+        ['REQ# :', requisition.value.code || `REQ-${requisition.value.id}`],
+        ['Created By :', userLabel(requisition.value.requested_by_user || requisition.value.user)],
+        ['Date :', formatDisplayDate(requisition.value.date)],
+        ['Type :', requisition.value.requisition_type?.name || requisition.value.requisition_type?.code || '--'],
+        ['Funding Source :', fundingSource]
+      ],
+      columnStyles: {
+        0: { cellWidth: 90 },
+        1: { cellWidth: pageWidth - margin * 2 - 90 }
+      },
+      didParseCell: (data) => {
+        if (data.column.index === 0) {
+          data.cell.styles.fontStyle = 'bold'
+          data.cell.styles.fillColor = [249, 250, 251]
+        }
+      }
+    })
+
+    cursorY = (pdf as any).lastAutoTable.finalY + 14
+
+    pdf.setFont('helvetica', 'bold')
+    pdf.setFontSize(10)
+    pdf.text('REQUESTED ITEMS', margin, cursorY)
+    cursorY += 6
+
+    const detailRows = detailRowsWithBlanks.value.map((row, idx) => [
+      String(idx + 1),
+      row.name || '',
+      '',
+      row.costCenter || '',
+      row.quantity ?? '',
+      row.unit || '',
+      row.rate ? formatMoney(row.rate, row.currencySymbol) : '',
+      row.amount ? formatMoney(row.amount, row.currencySymbol) : ''
+    ])
+
+    const contentWidth = pageWidth - margin * 2
+    const baseWidths = [24, 140, 120, 95, 40, 35, 60, 70]
+    const baseTotal = baseWidths.reduce((sum, width) => sum + width, 0)
+    const scale = (contentWidth - 2) / baseTotal
+    const scaledWidths = baseWidths.map((width) => width * scale)
+
+    autoTable(pdf, {
+      startY: cursorY,
+      theme: 'grid',
+      tableWidth: contentWidth - 2,
+      styles: { fontSize: 8, cellPadding: 2, overflow: 'linebreak' },
+      head: [['S/N', 'Item', 'Description', 'Cost Center', 'Qty', 'UOM', 'Rate', 'Amount']],
+      body: detailRows,
+      foot: [[
+        { content: 'Grand Total', colSpan: 7, styles: { halign: 'right', fontStyle: 'bold' } },
+        { content: formatMoney(grandTotal.value, totalCurrencySymbol.value), styles: { halign: 'right', fontStyle: 'bold' } }
+      ]],
+      headStyles: { fillColor: [229, 231, 235], textColor: 17, halign: 'center', valign: 'middle' },
+      footStyles: { fillColor: [243, 244, 246], textColor: 17, overflow: 'visible' },
+      columnStyles: {
+        0: { cellWidth: scaledWidths[0], halign: 'center' },
+        1: { cellWidth: scaledWidths[1] },
+        2: { cellWidth: scaledWidths[2] },
+        3: { cellWidth: scaledWidths[3] },
+        4: { cellWidth: scaledWidths[4], halign: 'right' },
+        5: { cellWidth: scaledWidths[5] },
+        6: { cellWidth: scaledWidths[6], halign: 'right' },
+        7: { cellWidth: scaledWidths[7], halign: 'right' }
+      }
+    })
+
+    cursorY = (pdf as any).lastAutoTable.finalY + 16
+
+    if (cursorY + 120 > pageHeight - margin) {
+      pdf.addPage()
+      cursorY = margin
+    }
+
+    autoTable(pdf, {
+      startY: cursorY,
+      theme: 'grid',
+      styles: { fontSize: 9, cellPadding: 4 },
+      body: [
+        ['Requested By: (Signature)', 'Approved by: (Signature)'],
+        ['', ''],
+        ['Date:', 'Date:'],
+        [formatDisplayDate(requisition.value.date), formatDisplayDate(approvalRecord.value?.date)]
+      ],
+      columnStyles: {
+        0: { cellWidth: (pageWidth - margin * 2) / 2 },
+        1: { cellWidth: (pageWidth - margin * 2) / 2 }
+      },
+      didParseCell: (data) => {
+        if (data.row.index === 1) {
+          data.cell.styles.minCellHeight = 48
+        }
+        if (data.row.index === 0 || data.row.index === 2) {
+          data.cell.styles.fillColor = [243, 244, 246]
+          data.cell.styles.fontStyle = 'bold'
+        }
+      }
+    })
+
+    const blob = pdf.output('blob')
+    const url = URL.createObjectURL(blob)
+    hasGeneratedPdf.value = true
+    window.location.replace(url)
+  } finally {
+    generatingPdf.value = false
+  }
 }
 
 onMounted(() => {
   fetchRequisition()
-})
-
-watch(requisition, (value) => {
-  if (!value || hasAutoPrinted.value) return
-  hasAutoPrinted.value = true
-  setTimeout(() => {
-    window.print()
-  }, 200)
 })
 </script>
 
 <template>
   <div class="pdf-view">
     <div class="pdf-actions d-print-none">
-      <button class="btn btn-primary text-white" type="button" @click="handlePrint">
+      <button class="btn btn-primary text-white" type="button" @click="buildPdf" :disabled="generatingPdf">
         <i class="fa fa-save me-1"></i> Save PDF
       </button>
     </div>
@@ -414,17 +709,21 @@ watch(requisition, (value) => {
 .header-table td {
   border: 1px solid #3f3f46;
   padding: 8px;
+  vertical-align: middle;
 }
 
 .header-logo {
-  width: 120px;
+  width: 200px;
   text-align: center;
 }
 
 .header-logo img {
-  max-width: 90px;
-  max-height: 60px;
+  display: block;
+  width: 120px;
+  max-width: 140px;
+  max-height: 80px;
   object-fit: contain;
+  margin: 0 auto;
 }
 
 .header-company {
