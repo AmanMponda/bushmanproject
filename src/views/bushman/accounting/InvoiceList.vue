@@ -31,6 +31,11 @@
               <template #document_number="{ row }">
                 <strong>{{ (row as any).document_number || (row as any).id }}</strong>
               </template>
+              <template #invoice_type="{ row }">
+                <span class="badge" :class="getInvoiceTypeBadgeClass((row as any).invoice_type)">
+                  {{ (row as any).invoice_type || 'AR' }}
+                </span>
+              </template>
               <template #status="{ row }">
                 <span :class="getStatusClass((row as any).status)">{{ (row as any).status }}</span>
               </template>
@@ -55,6 +60,14 @@
                   </button>
                   <button 
                     v-if="(row as any).status === 'DRAFT'"
+                    class="btn btn-warning btn-sm" 
+                    title="Edit" 
+                    @click="editInvoice(row)"
+                  >
+                    <i class="fa fa-edit"></i>
+                  </button>
+                  <button 
+                    v-if="(row as any).status === 'DRAFT'"
                     class="btn btn-success btn-sm" 
                     title="Approve" 
                     @click="approveInvoice(row)"
@@ -62,21 +75,12 @@
                     <i class="fa fa-check"></i>
                   </button>
                   <button 
-                    v-if="(row as any).status === 'APPROVED' && !(row as any).journal_voucher_id"
+                    v-if="(row as any).status === 'APPROVED'"
                     class="btn btn-primary btn-sm" 
-                    title="Create Journal Voucher" 
-                    @click="createJournalVoucherFromInvoice(row)"
+                    title="Post Invoice" 
+                    @click="postInvoice(row)"
                   >
-                    <i class="fa fa-file-alt"></i>
-                  </button>
-                  <button 
-                    v-if="(row as any).status === 'APPROVED' && (row as any).journal_voucher_id"
-                    class="btn btn-primary btn-sm" 
-                    title="View Journal Voucher" 
-                    @click="viewJournalVoucher(row)"
-                    disabled
-                  >
-                    <i class="fa fa-file-alt"></i>
+                    <i class="fa fa-paper-plane"></i>
                   </button>
                   <button 
                     v-if="(row as any).status === 'POSTED' || (row as any).status === 'PARTIALLY_PAID'"
@@ -84,7 +88,7 @@
                     title="Record Payment" 
                     @click="recordPayment(row)"
                   >
-                    <i class="fa fa-money"></i>
+                    <i class="fa fa-money-bill"></i>
                   </button>
                   <button 
                     v-if="(row as any).status === 'DRAFT'"
@@ -142,6 +146,7 @@ const tableFilters = reactive({
 // Columns Definition
 const columns = computed(() => [
   { key: 'document_number', label: 'Invoice #', sortable: true, visible: true },
+  { key: 'invoice_type', label: 'Type', sortable: true, visible: true },
   { key: 'status', label: 'Status', sortable: true, visible: true },
   { key: 'invoice_date', label: 'Invoice Date', sortable: true, visible: true },
   { key: 'entity_name', label: 'Entity Name', sortable: true, visible: true },
@@ -177,6 +182,10 @@ function viewInvoice(invoice: Invoice) {
   router.push({ name: 'invoice-view', params: { id: invoice.id } })
 }
 
+function editInvoice(invoice: Invoice) {
+  router.push({ name: 'invoice-edit', params: { id: invoice.id } })
+}
+
 function approveInvoice(invoice: Invoice) {
   Swal.fire({
     title: 'Approve Invoice?',
@@ -190,19 +199,11 @@ function approveInvoice(invoice: Invoice) {
     if (result.isConfirmed) {
       accountingStore.approveInvoice(invoice.id as number)
         .then(() => {
-          init({
-            title: 'Success',
-            message: `Invoice #${invoice.document_number} has been approved`,
-            type: 'success'
-          })
+          init({ message: 'Success: ' + `Invoice #${invoice.document_number} has been approved`, color: 'success' })
           fetchInvoices()
         })
         .catch(err => {
-          init({
-            title: 'Error',
-            message: err.response?.data?.message || 'Error approving invoice',
-            type: 'danger'
-          })
+          init({ message: 'Error: ' + err.response?.data?.message || 'Error approving invoice', color: 'danger' })
         })
     }
   })
@@ -211,29 +212,24 @@ function approveInvoice(invoice: Invoice) {
 function postInvoice(invoice: Invoice) {
   Swal.fire({
     title: 'Post Invoice?',
-    text: `Are you sure you want to post invoice #${invoice.document_number}? This will create a journal voucher.`,
+    html: `
+      <p>Are you sure you want to post invoice <strong>#${invoice.document_number}</strong>?</p>
+      <p>This will create a journal voucher and lock the invoice.</p>
+    `,
     icon: 'warning',
     showCancelButton: true,
     confirmButtonColor: '#3085d6',
     cancelButtonColor: '#d33',
-    confirmButtonText: 'Yes, post it!'
+    confirmButtonText: 'Yes, Post It!'
   }).then((result) => {
     if (result.isConfirmed) {
       accountingStore.postInvoice(invoice.id as number)
         .then(() => {
-          init({
-            title: 'Success',
-            message: `Invoice #${invoice.document_number} has been posted`,
-            type: 'success'
-          })
+          init({ message: `Invoice #${invoice.document_number} posted successfully`, color: 'success' })
           fetchInvoices()
         })
         .catch(err => {
-          init({
-            title: 'Error',
-            message: err.response?.data?.message || 'Error posting invoice',
-            type: 'danger'
-          })
+          init({ message: err.response?.data?.message || 'Error posting invoice', color: 'danger' })
         })
     }
   })
@@ -256,22 +252,14 @@ function createJournalVoucherFromInvoice(invoice: Invoice) {
       })
         .then((response) => {
           const createdJV = response.data.data || response.data
-          init({
-            title: 'Success',
-            message: `Journal Voucher #${createdJV.document_number || createdJV.id} created successfully`,
-            type: 'success'
-          })
+          init({ message: 'Success: ' + `Journal Voucher #${createdJV.document_number || createdJV.id} created successfully`, color: 'success' })
           // Refresh invoice list to show updated JV link
           setTimeout(() => {
             fetchInvoices()
           }, 500)
         })
         .catch(err => {
-          init({
-            title: 'Error',
-            message: err.response?.data?.message || 'Error creating journal voucher',
-            type: 'danger'
-          })
+          init({ message: 'Error: ' + err.response?.data?.message || 'Error creating journal voucher', color: 'danger' })
         })
     }
   })
@@ -300,19 +288,11 @@ function confirmDelete(invoice: Invoice) {
     if (result.isConfirmed) {
       accountingStore.deleteInvoice(invoice.id as number)
         .then(() => {
-          init({
-            title: 'Success',
-            message: `Invoice #${invoice.document_number} has been deleted`,
-            type: 'success'
-          })
+          init({ message: 'Success: ' + `Invoice #${invoice.document_number} has been deleted`, color: 'success' })
           fetchInvoices()
         })
         .catch(err => {
-          init({
-            title: 'Error',
-            message: err.response?.data?.message || 'Error deleting invoice',
-            type: 'danger'
-          })
+          init({ message: 'Error: ' + err.response?.data?.message || 'Error deleting invoice', color: 'danger' })
         })
     }
   })
@@ -336,6 +316,14 @@ function getStatusClass(status: string): string {
     'VOID': 'badge bg-dark'
   }
   return statusClasses[status] || 'badge bg-light'
+}
+
+function getInvoiceTypeBadgeClass(type: string): string {
+  const typeClasses: { [key: string]: string } = {
+    'AR': 'badge bg-info',
+    'AP': 'badge bg-warning'
+  }
+  return typeClasses[type] || 'badge bg-secondary'
 }
 
 function getEntityName(invoice: Invoice): string {
@@ -410,3 +398,4 @@ onMounted(() => {
   margin: 0 0.15rem;
 }
 </style>
+

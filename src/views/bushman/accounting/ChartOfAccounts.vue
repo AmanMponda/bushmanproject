@@ -195,10 +195,9 @@ const fetchAccounts = async () => {
   error.value = null
 
   try {
-    // Build URL with company_id parameter
+    // Build URL without company_id parameter
     const baseUrl = (import.meta.env.VITE_APP_BASE_URL || 'http://localhost:8000/api/v1.0/').replace(/\/$/, '')
     const url = new URL(`${baseUrl}/chart-of-accounts/tree`)
-    url.searchParams.set('company_id', String(companyId.value))
 
     const response = await fetch(url.toString())
 
@@ -239,7 +238,6 @@ const fetchAccountsByGroup = async (accountGroupId: number | string) => {
   try {
     const baseUrl = (import.meta.env.VITE_APP_BASE_URL || 'http://localhost:8000/api/v1.0/').replace(/\/$/, '')
     const url = new URL(`${baseUrl}/account-groups/${accountGroupId}/accounts`)
-    url.searchParams.set('company_id', String(companyId.value))
 
     console.log('📡 Calling API:', url.toString())
     const response = await fetch(url.toString())
@@ -297,7 +295,7 @@ const handleCreateAccountInline = async () => {
       name: newAccountForm.value.name,
       code: newAccountForm.value.code,
       parent_account_id: newAccountForm.value.parent_account_id,
-      account_group_id: newAccountForm.value.account_group_id,
+      account_group_id: Number(newAccountForm.value.account_group_id),
       company_id: companyId.value
     }
 

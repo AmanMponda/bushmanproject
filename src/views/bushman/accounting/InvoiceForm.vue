@@ -71,73 +71,41 @@
         <!-- LEFT PANEL: Invoice Details -->
         <aside class="panel left-panel">
           <div class="form">
-            <!-- SECTION 0: LINK SOURCE DOCUMENTS -->
+            <!-- SECTION 1: SOURCE -->
             <div class="form-section">
               <div class="section-title">
                 <span class="section-icon"><i class="fa fa-link"></i></span>
-                Link Source Documents
+                Source
               </div>
 
               <label class="field">
-                <span class="lbl">Select Requisition to Link</span>
+                <span class="lbl">Select Requisition (Optional)</span>
                 <div class="input-wrapper">
                   <span class="input-icon"><i class="fa fa-file-text"></i></span>
                   <select v-model="selectedRequisitionId" @change="onRequisitionSelect">
-                    <option value="">-- Select Requisition --</option>
+                    <option value="">-- None --</option>
                     <option v-for="req in requisitionsForLinking" :key="req.id" :value="String(req.id)">
                       {{ req.requisition_number || `REQ-${req.id}` }} - {{ req.requisition_type?.name }}
                     </option>
                   </select>
                 </div>
               </label>
-
-              <button 
-                v-if="selectedRequisitionId" 
-                class="btn btn-primary full-width" 
-                @click="linkRequisition"
-                :disabled="savingLink"
-              >
-                <i class="fa fa-link me-1"></i> {{ savingLink ? 'Linking...' : 'Link Requisition' }}
-              </button>
-
-              <div v-if="linkedRequisitions.length > 0" class="mt-4">
-                <div class="section-header">
-                  <h5>Linked Requisitions</h5>
-                  <span class="badge-count">{{ linkedRequisitions.length }}</span>
-                </div>
-                <div class="linked-items-list">
-                  <div v-for="link in linkedRequisitions" :key="link.id" class="linked-item">
-                    <div class="linked-item-info">
-                      <span class="linked-item-icon">📋</span>
-                      <div>
-                        <div class="linked-item-title">{{ link.requisition?.requisition_number || `REQ-${link.linkable_id}` }}</div>
-                        <div class="linked-item-meta">{{ link.requisition?.requisition_type?.name }}</div>
-                      </div>
-                    </div>
-                    <button type="button" class="btn-add-section" @click="unlinkRequisition(link.id)" title="Unlink">
-                      <i class="fa fa-times"></i>
-                    </button>
-                  </div>
-                </div>
-              </div>
             </div>
 
-            <!-- SECTION 1: BASIC INFORMATION -->
+            <!-- SECTION 2: BASIC INFO -->
             <div class="form-section">
               <div class="section-title">
                 <span class="section-icon"><i class="fa fa-info-circle"></i></span>
-                Basic Information
+                Basic Info
               </div>
 
               <label class="field">
-                <span class="lbl">Document Type <span class="req">*</span></span>
+                <span class="lbl">Invoice Type <span class="req">*</span></span>
                 <div class="input-wrapper">
-                  <span class="input-icon"><i class="fa fa-file-text"></i></span>
-                  <select v-model="form.document_type_id" required>
-                    <option value="">-- Select Document Type --</option>
-                    <option v-for="docType in documentTypes" :key="docType.id" :value="String(docType.id)">
-                      {{ docType.name }} ({{ docType.code }})
-                    </option>
+                  <span class="input-icon"><i class="fa fa-exchange-alt"></i></span>
+                  <select v-model="form.invoice_type" required :disabled="isFormDisabled">
+                    <option value="AR">AR - Accounts Receivable</option>
+                    <option value="AP">AP - Accounts Payable</option>
                   </select>
                 </div>
               </label>
@@ -146,7 +114,7 @@
                 <span class="lbl">Entity (Customer/Supplier) <span class="req">*</span></span>
                 <div class="input-wrapper">
                   <span class="input-icon"><i class="fa fa-users"></i></span>
-                  <select v-model="form.entity_id" required>
+                  <select v-model="form.entity_id" required :disabled="isFormDisabled">
                     <option value="">-- Select Entity --</option>
                     <option v-for="entity in entities" :key="entity.id" :value="String(entity.id)">
                       {{ entity.full_name || entity.name }}
@@ -156,31 +124,10 @@
               </label>
 
               <label class="field">
-                <span class="lbl">Currency <span class="req">*</span></span>
-                <div class="input-wrapper">
-                  <span class="input-icon"><i class="fa fa-dollar"></i></span>
-                  <select v-model="form.currency_id" required>
-                    <option value="">-- Select Currency --</option>
-                    <option v-for="currency in currencies" :key="currency.id" :value="String(currency.id)">
-                      {{ currency.code }} - {{ currency.name }}
-                    </option>
-                  </select>
-                </div>
-              </label>
-            </div>
-
-            <!-- SECTION 2: DATES -->
-            <div class="form-section">
-              <div class="section-title">
-                <span class="section-icon"><i class="fa fa-calendar"></i></span>
-                Dates
-              </div>
-
-              <label class="field">
                 <span class="lbl">Invoice Date <span class="req">*</span></span>
                 <div class="input-wrapper">
                   <span class="input-icon"><i class="fa fa-calendar"></i></span>
-                  <input v-model="form.invoice_date" type="date" required />
+                  <input v-model="form.invoice_date" type="date" required :disabled="isFormDisabled" />
                 </div>
               </label>
 
@@ -188,14 +135,41 @@
                 <span class="lbl">Due Date <span class="req">*</span></span>
                 <div class="input-wrapper">
                   <span class="input-icon"><i class="fa fa-calendar"></i></span>
-                  <input v-model="form.due_date" type="date" required />
+                  <input v-model="form.due_date" type="date" required :disabled="isFormDisabled" />
                 </div>
               </label>
 
+              <label class="field">
+                <span class="lbl">Currency <span class="req">*</span></span>
+                <div class="input-wrapper">
+                  <span class="input-icon"><i class="fa fa-dollar"></i></span>
+                  <select v-model="form.currency_id" required :disabled="isFormDisabled">
+                    <option value="">-- Select Currency --</option>
+                    <option v-for="currency in currencies" :key="currency.id" :value="String(currency.id)">
+                      {{ currency.code }}
+                    </option>
+                  </select>
+                </div>
+              </label>
 
+              <label class="field">
+                <span class="lbl">Exchange Rate</span>
+                <div class="input-wrapper">
+                  <span class="input-icon"><i class="fa fa-percentage"></i></span>
+                  <input 
+                    v-model.number="form.exchange_rate_to_base" 
+                    type="number" 
+                    step="0.000001"
+                    min="0"
+                    readonly
+                    :disabled="isFormDisabled" 
+                    placeholder="1.000000"
+                  />
+                </div>
+              </label>
             </div>
 
-            <!-- SECTION 3: NOTES -->
+            <!-- SECTION 5: NOTES -->
             <div class="form-section">
               <div class="section-title">
                 <span class="section-icon"><i class="fa fa-align-left"></i></span>
@@ -203,13 +177,14 @@
               </div>
 
               <label class="field">
-                <span class="lbl">Memo/Description</span>
+                <span class="lbl">Memo</span>
                 <div class="input-wrapper textarea-wrapper">
                   <span class="input-icon"><i class="fa fa-align-left"></i></span>
                   <textarea 
                     v-model="form.memo" 
                     rows="3"
-                    placeholder="Enter any additional notes"
+                    placeholder="Additional notes"
+                    :disabled="isFormDisabled"
                   ></textarea>
                 </div>
               </label>
@@ -223,9 +198,9 @@
             <div class="panel-icon"><i class="fa fa-list-alt"></i></div>
             <div class="panel-title-text">
               <h3>Line Items</h3>
-              <p>Manage invoice items and amounts</p>
+              <p>Invoice items and amounts</p>
             </div>
-            <button class="btn btn-primary btn-sm ms-auto" @click="addLineItem" v-if="!isAddingNewLine">
+            <button class="btn btn-primary btn-sm ms-auto" @click="addLineItem" v-if="!isAddingNewLine && !isFormDisabled" :disabled="isFormDisabled">
               <i class="fa fa-plus"></i> Add Item
             </button>
           </div>
@@ -236,43 +211,55 @@
             <div v-if="form.line_items.length === 0 && !isAddingNewLine" class="empty-state">
               <i class="fa fa-inbox"></i>
               <p>No items added yet</p>
-              <small>Click "Add Item" button above to create your first line</small>
+              <small>Click "Add Item" to start</small>
             </div>
 
-            <!-- Items Table -->
-            <table v-if="form.line_items.length > 0" class="items-table">
-              <thead>
-                <tr>
-                  <th style="width: 5%">#</th>
-                  <th style="width: 40%">Description</th>
-                  <th style="width: 12%">Quantity</th>
-                  <th style="width: 15%">Unit Price</th>
-                  <th style="width: 12%">Tax %</th>
-                  <th style="width: 12%">Amount</th>
-                  <th style="width: 4%">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="(item, index) in form.line_items" :key="index" class="item-row">
-                  <td class="row-number">{{ index + 1 }}</td>
-                  <td class="item-desc">{{ item.description }}</td>
-                  <td class="item-qty">{{ item.quantity }}</td>
-                  <td class="item-price">{{ formatCurrency(item.unit_price) }}</td>
-                  <td class="item-tax">{{ item.tax_rate || 0 }}%</td>
-                  <td class="item-amount"><strong>{{ formatCurrency(calculateLineAmount(item)) }}</strong></td>
-                  <td class="item-action">
-                    <button type="button" class="btn-icon" @click="removeLineItem(index)" title="Delete">
-                      <i class="fa fa-trash"></i>
-                    </button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+            <!-- Items List as Cards -->
+            <div v-if="form.line_items.length > 0" class="items-list">
+              <div v-for="(item, index) in form.line_items" :key="index" class="item-card">
+                <div class="item-card-header">
+                  <span class="item-number">#{{ index + 1 }}</span>
+                  <button 
+                    type="button" 
+                    class="btn-delete" 
+                    @click="removeLineItem(index)" 
+                    :disabled="isFormDisabled" 
+                    title="Delete"
+                  >
+                    <i class="fa fa-trash"></i>
+                  </button>
+                </div>
+                <div class="item-card-body">
+                  <div class="item-field">
+                    <label>Description</label>
+                    <div class="item-value">{{ item.description }}</div>
+                  </div>
+                  <div class="item-row-fields">
+                    <div class="item-field">
+                      <label>Quantity</label>
+                      <div class="item-value">{{ item.quantity }}</div>
+                    </div>
+                    <div class="item-field">
+                      <label>Unit Price</label>
+                      <div class="item-value">{{ formatCurrency(item.unit_price) }}</div>
+                    </div>
+                    <div class="item-field">
+                      <label>Tax Rate</label>
+                      <div class="item-value">{{ item.tax_rate || 0 }}%</div>
+                    </div>
+                    <div class="item-field">
+                      <label>Amount</label>
+                      <div class="item-value amount">{{ formatCurrency(calculateLineAmount(item)) }}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
 
             <!-- Add New Item Form (Inline) -->
             <div v-if="isAddingNewLine" class="add-item-form">
               <div class="form-row">
-                <div class="form-group">
+                <div class="form-group" style="flex: 2">
                   <label>Description <span class="req">*</span></label>
                   <input 
                     v-model="newLine.description" 
@@ -283,7 +270,7 @@
                   />
                 </div>
                 <div class="form-group">
-                  <label>Quantity <span class="req">*</span></label>
+                  <label>Qty <span class="req">*</span></label>
                   <input 
                     v-model.number="newLine.quantity" 
                     type="number" 
@@ -294,7 +281,7 @@
                   />
                 </div>
                 <div class="form-group">
-                  <label>Unit Price <span class="req">*</span></label>
+                  <label>Price <span class="req">*</span></label>
                   <input 
                     v-model.number="newLine.unit_price" 
                     type="number" 
@@ -326,18 +313,19 @@
             </div>
           </div>
 
-          <!-- Line Items Summary -->
+          <!-- SECTION 4: SUMMARY (readonly) -->
           <div v-if="form.line_items.length > 0" class="items-summary">
+            <div class="summary-header">Summary</div>
             <div class="summary-row">
               <span>Subtotal:</span>
               <strong>{{ formatCurrency(invoiceSummary?.subtotal || 0) }}</strong>
             </div>
             <div class="summary-row">
-              <span>Total Tax:</span>
+              <span>Tax:</span>
               <strong>{{ formatCurrency(invoiceSummary?.tax || 0) }}</strong>
             </div>
             <div class="summary-row total">
-              <span>Total Amount:</span>
+              <span>Total:</span>
               <strong>{{ formatCurrency(invoiceSummary?.total || 0) }}</strong>
             </div>
           </div>
@@ -370,15 +358,21 @@ const errorMessage = ref('')
 const invoice = ref<any>(null)  // To store loaded invoice
 const isAddingNewLine = ref(false)
 
+// Computed property to check if form should be disabled
+const isFormDisabled = computed(() => {
+  return isEdit.value && invoice.value && invoice.value.status !== 'DRAFT'
+})
+
 // Requisition Linking
 const selectedRequisitionId = ref('')
 const linkedRequisitions = ref([] as any[])
 
 // Form Data
 const form = ref({
-  document_type_id: '',
   entity_id: '',
+  invoice_type: 'AR', // AR = Accounts Receivable, AP = Accounts Payable
   currency_id: '',
+  exchange_rate_to_base: 1.0,
   invoice_date: new Date().toISOString().split('T')[0],
   due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
   memo: '',
@@ -394,7 +388,6 @@ const newLine = ref({
 })
 
 // Reference Data
-const documentTypes = computed(() => accountingStore.documentTypes)
 const currencies = computed(() => accountingStore.currencies)
 const entities = computed(() => accountingStore.entities)
 const requisitionsForLinking = computed(() => accountingStore.requisitionsForLinking)
@@ -429,12 +422,8 @@ function addLineItem() {
 }
 
 function confirmAddLineItem() {
-  if (!newLine.value.description || !newLine.value.quantity || !newLine.value.unit_price) {
-    init({
-      title: 'Validation Error',
-      message: 'Please fill all required fields (Description, Quantity, Unit Price)',
-      type: 'warning'
-    })
+  if (!newLine.value.description || !newLine.value.quantity || newLine.value.unit_price === undefined) {
+    init({ message: 'Validation Error: Please fill all required fields (Description, Quantity, Price)', color: 'warning' })
     return
   }
 
@@ -475,14 +464,86 @@ function removeLineItem(index: number) {
 
 // Requisition Linking Methods
 async function onRequisitionSelect() {
-  if (!selectedRequisitionId.value) return
+  if (!selectedRequisitionId.value) {
+    form.value.line_items = []
+    return
+  }
+  
   try {
-    await accountingStore.getRequisitionDetails(Number(selectedRequisitionId.value))
-  } catch (error) {
+    const response = await accountingStore.getRequisitionDetails(Number(selectedRequisitionId.value))
+    const requisition = response?.data?.data || response?.data || accountingStore.currentLinkedRequisition
+    
+    console.log('Requisition data:', requisition) // Debug
+    
+    // Try different possible paths for items
+    const items = requisition?.requisition_items || requisition?.items || requisition?.requisitionItems || []
+    
+    console.log('Found items:', items) // Debug
+    
+    if (items && items.length > 0) {
+      // Auto-populate line items from requisition
+      form.value.line_items = items.map((reqItem: any) => {
+        console.log('Processing item FULL:', JSON.stringify(reqItem, null, 2)) // Debug full item structure
+        
+        // Check if item has materials or accounts
+        const hasMaterials = reqItem.materials && reqItem.materials.length > 0
+        const hasAccounts = reqItem.accounts && reqItem.accounts.length > 0
+        
+        let description = 'Item'
+        let quantity = 1
+        let unit_price = 0
+        let tax_rate = 0
+        
+        if (hasMaterials) {
+          // Get data from first material
+          const material = reqItem.materials[0]
+          description = material.item?.name || material.description || 'Item'
+          quantity = parseFloat(material.quantity) || 1
+          unit_price = parseFloat(material.rate) || 0
+        } else if (hasAccounts) {
+          // Get data from first account
+          const account = reqItem.accounts[0]
+          description = account.account?.name || account.description || 'Account Item'
+          quantity = 1
+          unit_price = parseFloat(account.amount) || 0
+        }
+        
+        // Try to get tax rate
+        tax_rate = reqItem.tax_rate || 
+                  reqItem.taxRate ||
+                  reqItem.tax ||
+                  reqItem.vat_rate ||
+                  reqItem.vatRate ||
+                  0
+        
+        console.log('Extracted values:', { description, quantity, unit_price, tax_rate }) // Debug extracted values
+        
+        return {
+          description,
+          quantity,
+          unit_price,
+          tax_rate
+        }
+      })
+      
+      console.log('Mapped line items:', form.value.line_items) // Debug result
+      
+      init({ 
+        message: `Success: ${items.length} line items loaded from requisition`, 
+        color: 'success' 
+      })
+    } else {
+      form.value.line_items = []
+      init({ 
+        message: 'Info: Selected requisition has no line items', 
+        color: 'info' 
+      })
+    }
+  } catch (error: any) {
+    console.error('Error loading requisition:', error) // Debug
     init({
-      title: 'Error',
-      message: 'Failed to load requisition details',
-      type: 'danger'
+      message: 'Error: ' + (error.response?.data?.message || error.message || 'Failed to load requisition details'),
+      color: 'danger'
     })
   }
 }
@@ -548,12 +609,13 @@ async function submit() {
   saving.value = true
   try {
     const payload = {
-      document_type_id: Number(form.value.document_type_id),
       entity_id: Number(form.value.entity_id),
+      invoice_type: form.value.invoice_type,
       currency_id: Number(form.value.currency_id),
+      exchange_rate_to_base: form.value.exchange_rate_to_base,
       invoice_date: form.value.invoice_date,
       due_date: form.value.due_date,
-      memo: form.value.memo,
+      description: form.value.memo,
       line_items: form.value.line_items.map((item, index) => ({
         line_no: index + 1,
         description: item.description,
@@ -678,9 +740,10 @@ function goBack() {
 
 function resetForm() {
   form.value = {
-    document_type_id: '',
     entity_id: '',
+    invoice_type: 'AR',
     currency_id: '',
+    exchange_rate_to_base: 1.0,
     invoice_date: new Date().toISOString().split('T')[0],
     due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     memo: '',
@@ -695,10 +758,10 @@ function formatCurrency(amount: number): string {
   }).format(amount)
 }
 
+// Watch invoice type to auto-set party role
 // Lifecycle
 onMounted(async () => {
   await Promise.all([
-    accountingStore.fetchDocumentTypes(),
     accountingStore.fetchCurrencies(),
     accountingStore.fetchEntities(),
     accountingStore.fetchRequisitionsForLinking()
@@ -710,12 +773,13 @@ onMounted(async () => {
       const invoiceData = response.data.data
       invoice.value = invoiceData  // Store the full invoice
       form.value = {
-        document_type_id: String(invoiceData.document_type_id),
         entity_id: String(invoiceData.entity_id),
+        invoice_type: invoiceData.invoice_type || 'AR',
         currency_id: String(invoiceData.currency_id),
+        exchange_rate_to_base: invoiceData.exchange_rate_to_base || 1.0,
         invoice_date: invoiceData.invoice_date,
         due_date: invoiceData.due_date,
-        memo: invoiceData.memo,
+        memo: invoiceData.description || invoiceData.memo || '',
         line_items: invoiceData.line_items || []
       }
     } catch (error) {
@@ -1376,67 +1440,107 @@ h1 {
   color: #cbd5e1;
 }
 
-.items-table {
-  width: 100%;
-  border-collapse: collapse;
+/* Items List Cards */
+.items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.item-card {
   background: white;
-  font-size: 13px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+  transition: all 0.2s ease;
 }
 
-.items-table thead {
-  background: #f1f5f9;
-  border-bottom: 2px solid #e2e8f0;
+.item-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
-.items-table th {
-  padding: 12px 10px;
-  text-align: left;
-  font-weight: 600;
-  color: #475569;
+.item-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.item-number {
+  font-size: 12px;
+  font-weight: 700;
+  color: #64748b;
   text-transform: uppercase;
-  font-size: 11px;
   letter-spacing: 0.5px;
 }
 
-.items-table tbody tr {
-  border-bottom: 1px solid #e5e7eb;
-  transition: background 0.2s ease;
-}
-
-.items-table tbody tr:hover {
-  background: #f8fafc;
-}
-
-.items-table td {
-  padding: 12px 10px;
-}
-
-.row-number {
+.btn-delete {
+  background: none;
+  border: none;
   color: #94a3b8;
-  font-weight: 600;
-  text-align: center;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
 }
 
-.item-desc {
+.btn-delete:hover:not(:disabled) {
+  color: #dc2626;
+  background: #fee2e2;
+}
+
+.btn-delete:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.item-card-body {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.item-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.item-field label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.item-field .item-value {
+  font-size: 14px;
   font-weight: 500;
   color: #0f172a;
+  padding: 8px 10px;
+  background: #f8fafc;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
 }
 
-.item-qty,
-.item-price,
-.item-tax,
-.item-amount {
-  text-align: right;
-  font-weight: 500;
-}
-
-.item-amount {
+.item-field .item-value.amount {
   color: #2563eb;
-  font-weight: 600;
+  font-weight: 700;
+  font-size: 15px;
+  background: #dbeafe;
+  border-color: #bfdbfe;
 }
 
-.item-action {
-  text-align: center;
+.item-row-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1.2fr;
+  gap: 12px;
 }
 
 .btn-icon {
@@ -1543,6 +1647,15 @@ h1 {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.summary-header {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #64748b;
+  margin-bottom: 4px;
+  letter-spacing: 0.5px;
 }
 
 .summary-row {

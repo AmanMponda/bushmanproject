@@ -1,237 +1,341 @@
 <template>
   <div class="ps-page">
-    <main class="content">
+    <main class="content" style="padding-top: 10px;">
       <!-- Page Title Row -->
-      <div class="page-head" style="display: flex; justify-content: space-between; align-items: flex-start; padding: 0 20px; margin-bottom: 20px;">
+      <div class="page-head" style="display: flex; justify-content: space-between; align-items: center; padding: 0 5px 5px 5px; margin-bottom: 0;">
         <div class="page-head-left">
-          <h1>New Voucher</h1>
+          <h1 style="margin: 0; font-size: 24px;">{{ isViewMode ? 'View Payment Voucher' : (isEdit ? 'Edit Payment Voucher' : 'New Payment Voucher') }}</h1>
         </div>
         <div class="page-head-right" style="display: flex; gap: 12px;">
           <button 
             type="button" 
-            @click="$router.push({ name: 'journal-vouchers' })"
-            style="background: white; border: 2px solid #2563eb; color: #2563eb; cursor: pointer; font-size: 14px; font-weight: 500; padding: 8px 16px; border-radius: 6px; display: flex; align-items: center; gap: 6px; transition: all 0.2s;"
-            @mouseover="$event.currentTarget.style.background = '#eff6ff'; $event.currentTarget.style.borderColor = '#1d4ed8'; $event.currentTarget.style.color = '#1d4ed8'"
-            @mouseout="$event.currentTarget.style.background = 'white'; $event.currentTarget.style.borderColor = '#2563eb'; $event.currentTarget.style.color = '#2563eb'"
+            @click="() => router.push({ name: 'journal-vouchers' })"
+            style="background: white; border: 2px solid #2563eb; color: #2563eb; cursor: pointer; font-size: 14px; font-weight: 500; padding: 6px 14px; border-radius: 6px; display: flex; align-items: center; gap: 6px; transition: all 0.2s;"
           >
-            <i class="fa fa-arrow-left"></i> Back to Vouchers
+            <i class="fa fa-arrow-left"></i> Back to List
           </button>
         </div>
       </div>
 
       <!-- Tab Navigation -->
-      <div style="display: flex; gap: 0; border-bottom: 2px solid #e5e7eb; background: #f9fafb; padding: 0 20px;">
+      <div v-if="!isViewMode" style="display: flex; gap: 0; border-bottom: 2px solid #e5e7eb; background: #f9fafb; padding: 0 5px;">
         <button 
           type="button" 
           @click="voucherTab = 'payment'"
           :style="{ borderBottom: voucherTab === 'payment' ? '3px solid #2563eb' : 'none', color: voucherTab === 'payment' ? '#2563eb' : '#6b7280' }"
-          style="padding: 12px 20px; font-weight: 500; cursor: pointer; border: none; background: none; transition: all 0.2s;"
+          style="padding: 8px 20px; font-weight: 500; cursor: pointer; border: none; background: none; transition: all 0.2s;"
         >
           Payment
         </button>
       </div>
 
       <!-- Error Alert -->
-      <div v-if="errorMessage" class="alert alert-danger alert-dismissible fade show mx-3" role="alert">
+      <div v-if="errorMessage" class="alert alert-danger alert-dismissible fade show mx-3 mt-2" role="alert">
         <i class="fa fa-exclamation-triangle me-2"></i>
         {{ errorMessage }}
         <button type="button" class="btn-close" @click="errorMessage = ''"></button>
       </div>
 
       <!-- Payment Tab Content -->
-      <div v-show="voucherTab === 'payment'" style="padding: 24px;">
-
-      <!-- Full-width layout -->
-      <section>
-      
-        <!-- PAYMENT TAB FORM -->
-        <div style="padding: 24px; background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); width: 100%; max-width: 100%;">
-          <!-- Header Row 1: Voucher No, Branch/Depot, Voucher Date -->
-          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+      <div v-show="voucherTab === 'payment'" style="padding: 0 5px 20px 5px;">
+        
+        <!-- LOADING STATE -->
+        <div v-if="loadingVoucher" style="max-width: 1400px; margin: 0 auto; background: white; border-radius: 8px; padding: 60px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); text-align: center;">
+          <i class="fa fa-spinner fa-spin" style="font-size: 48px; color: #2563eb; margin-bottom: 20px;"></i>
+          <div style="font-size: 16px; color: #6b7280; font-weight: 500;">Loading voucher...</div>
+        </div>
+        
+        <!-- READ-ONLY VIEW MODE (for POSTED vouchers) -->
+        <div v-else-if="isViewMode" style="max-width: 1400px; margin: 0 auto; background: white; border-radius: 8px; padding: 30px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+          
+          <!-- Status Banner -->
+          <div style="background: #d1fae5; border: 2px solid #10b981; padding: 12px 20px; border-radius: 6px; margin-bottom: 25px; display: flex; align-items: center; gap: 12px;">
+            <i class="fa fa-check-circle" style="font-size: 24px; color: #059669;"></i>
             <div>
-              <label style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 14px;">Voucher No. <span style="color: #dc2626;">*</span></label>
-              <select v-model="form.voucher_number" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px;">
+              <div style="font-weight: 600; font-size: 14px; color: #065f46;">Payment Voucher Posted</div>
+              <div style="font-size: 12px; color: #047857;">This voucher has been posted and cannot be modified</div>
+            </div>
+          </div>
+
+          <!-- Voucher Information Grid -->
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 30px;">
+            <div>
+              <label style="display: block; font-size: 11px; color: #6b7280; font-weight: 500; margin-bottom: 4px; text-transform: uppercase;">Voucher Number</label>
+              <div style="font-size: 16px; font-weight: 600; color: #1f2937;">{{ loadedVoucher?.voucher_number || loadedVoucher?.document_number || form.voucher_number || 'AUTO' }}</div>
+            </div>
+            <div>
+              <label style="display: block; font-size: 11px; color: #6b7280; font-weight: 500; margin-bottom: 4px; text-transform: uppercase;">Posting Date</label>
+              <div style="font-size: 14px; font-weight: 500; color: #1f2937;">{{ form.posting_date }}</div>
+            </div>
+            <div>
+              <label style="display: block; font-size: 11px; color: #6b7280; font-weight: 500; margin-bottom: 4px; text-transform: uppercase;">Status</label>
+              <span style="background: #10b981; color: white; padding: 4px 12px; border-radius: 4px; font-size: 12px; font-weight: 600;">{{ form.status }}</span>
+            </div>
+            <div>
+              <label style="display: block; font-size: 11px; color: #6b7280; font-weight: 500; margin-bottom: 4px; text-transform: uppercase;">Currency</label>
+              <div style="font-size: 14px; font-weight: 500; color: #1f2937;">{{ loadedVoucher?.currency?.name || loadedVoucher?.currency?.code || currencies.find((c: any) => c.id === Number(form.currency_id))?.name || 'TZS' }}</div>
+            </div>
+            <div>
+              <label style="display: block; font-size: 11px; color: #6b7280; font-weight: 500; margin-bottom: 4px; text-transform: uppercase;">Exchange Rate</label>
+              <div style="font-size: 14px; font-weight: 500; color: #1f2937;">{{ form.exchange_rate }}</div>
+            </div>
+            <div>
+              <label style="display: block; font-size: 11px; color: #6b7280; font-weight: 500; margin-bottom: 4px; text-transform: uppercase;">Total Amount</label>
+              <div style="font-size: 18px; font-weight: 700; color: #059669;">{{ formatCurrency(form.total_amount || totalAmountToPay) }}</div>
+            </div>
+          </div>
+
+          <hr style="border: none; border-top: 2px solid #e5e7eb; margin: 25px 0;" />
+
+          <!-- Payment Details -->
+          <h3 style="font-size: 14px; font-weight: 600; color: #1f2937; margin-bottom: 15px;">Payment Details</h3>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 30px;">
+            <div>
+              <div style="background: #f9fafb; padding: 15px; border-radius: 6px; border: 1px solid #e5e7eb;">
+                <h4 style="font-size: 12px; color: #6b7280; font-weight: 600; margin-bottom: 12px; text-transform: uppercase;">From (Credit)</h4>
+                <div style="margin-bottom: 12px;">
+                  <label style="display: block; font-size: 11px; color: #6b7280; margin-bottom: 4px;">Account</label>
+                  <div style="font-size: 13px; font-weight: 500; color: #1f2937;">{{ fromAccountDisplay }}</div>
+                </div>
+                <div>
+                  <label style="display: block; font-size: 11px; color: #6b7280; margin-bottom: 4px;">Payment Method</label>
+                  <div style="font-size: 13px; font-weight: 500; color: #1f2937;">{{ form.payment_method || 'Not specified' }}</div>
+                </div>
+              </div>
+            </div>
+            <div>
+              <div style="background: #f9fafb; padding: 15px; border-radius: 6px; border: 1px solid #e5e7eb;">
+                <h4 style="font-size: 12px; color: #6b7280; font-weight: 600; margin-bottom: 12px; text-transform: uppercase;">To (Debit)</h4>
+                <div style="margin-bottom: 12px;">
+                  <label style="display: block; font-size: 11px; color: #6b7280; margin-bottom: 4px;">Payee Account</label>
+                  <div style="font-size: 13px; font-weight: 500; color: #1f2937;">{{ toAccountDisplay }}</div>
+                </div>
+                <div>
+                  <label style="display: block; font-size: 11px; color: #6b7280; margin-bottom: 4px;">Amount</label>
+                  <div style="font-size: 16px; font-weight: 600; color: #059669;">{{ formatCurrency(loadedVoucher?.accounts?.find((a: any) => a.transaction_type === 'DR')?.amount || form.total_amount) }}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Narration -->
+          <div v-if="form.narration" style="margin-bottom: 30px;">
+            <label style="display: block; font-size: 11px; color: #6b7280; font-weight: 500; margin-bottom: 8px; text-transform: uppercase;">Notes</label>
+            <div style="background: #f9fafb; padding: 12px; border-radius: 6px; border: 1px solid #e5e7eb; font-size: 13px; color: #1f2937; line-height: 1.6;">{{ form.narration }}</div>
+          </div>
+
+          <!-- Requisitions Table - Only show if we have requisitions -->
+          <div v-if="payeeRequisitions.length > 0">
+            <h3 style="font-size: 14px; font-weight: 600; color: #1f2937; margin-bottom: 15px;">Paid Requisitions</h3>
+            <div style="overflow-x: auto; border: 1px solid #e5e7eb; border-radius: 6px; margin-bottom: 20px;">
+              <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                <thead style="background: #f9fafb;">
+                  <tr>
+                    <th style="padding: 12px; text-align: left; font-weight: 600; border-bottom: 2px solid #e5e7eb;">No.</th>
+                    <th style="padding: 12px; text-align: left; font-weight: 600; border-bottom: 2px solid #e5e7eb;">Requisition #</th>
+                    <th style="padding: 12px; text-align: left; font-weight: 600; border-bottom: 2px solid #e5e7eb;">Description</th>
+                    <th style="padding: 12px; text-align: center; font-weight: 600; border-bottom: 2px solid #e5e7eb;">Cost Center</th>
+                    <th style="padding: 12px; text-align: right; font-weight: 600; border-bottom: 2px solid #e5e7eb;">Amount Paid</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(req, idx) in payeeRequisitions" :key="idx" style="border-bottom: 1px solid #e5e7eb;">
+                    <td style="padding: 12px; color: #6b7280;">{{ idx + 1 }}</td>
+                    <td style="padding: 12px; font-weight: 500; color: #2563eb;">{{ req.requisition_number }}</td>
+                    <td style="padding: 12px; color: #374151;">{{ req.description }}</td>
+                    <td style="padding: 12px; text-align: center;">
+                      <span style="background: #dbeafe; color: #1e40af; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 500;">{{ req.cost_center_code || req.cost_center || 'N/A' }}</span>
+                    </td>
+                    <td style="padding: 12px; text-align: right; font-weight: 600; color: #059669;">{{ formatCurrency(req.amount_to_pay || req.amount) }}</td>
+                  </tr>
+                </tbody>
+                <tfoot style="background: #f9fafb; border-top: 2px solid #e5e7eb;">
+                  <tr>
+                    <td colspan="4" style="padding: 12px; text-align: right; font-weight: 600; font-size: 14px;">Total Paid:</td>
+                    <td style="padding: 12px; text-align: right; font-weight: 700; font-size: 16px; color: #059669;">{{ formatCurrency(form.total_amount || totalAmountToPay) }}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- EDITABLE FORM MODE (for DRAFT/new vouchers) -->
+        <div v-else style="max-width: 1400px; margin: 0 auto; background: white; border-radius: 8px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-top: 15px;">
+
+          <!-- VOUCHER DETAILS -->
+          <div style="display: grid; grid-template-columns: 1.2fr 1fr 1.2fr 1.2fr 1fr; gap: 15px; margin-bottom: 20px;">
+            <div>
+              <label style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 12px;">Voucher No. <span style="color: #dc2626;">*</span></label>
+              <select v-model="form.voucher_number" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px;">
                 <option value="">-- Select --</option>
                 <option value="AUTO">AUTO</option>
                 <option value="MANUAL">MANUAL</option>
               </select>
             </div>
             <div>
-              <label style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 14px;">Branch/Depot <span style="color: #dc2626;">*</span></label>
-              <select v-model="form.branch_id" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px;">
+              <label style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 12px;">Date <span style="color: #dc2626;">*</span></label>
+              <input v-model="form.posting_date" type="date" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px;" />
+            </div>
+            <div>
+              <label style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 12px;">Branch <span style="color: #dc2626;">*</span></label>
+              <select v-model="form.branch_id" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px;">
                 <option value="">-- Select --</option>
                 <option v-for="branch in branches" :key="branch.id" :value="String(branch.id)">{{ branch.name }}</option>
               </select>
             </div>
             <div>
-              <label style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 14px;">Voucher Date <span style="color: #dc2626;">*</span></label>
-              <input v-model="form.posting_date" type="date" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px;" />
-            </div>
-          </div>
-
-          <!-- Header Row 2: Branch, Currency, Exchange Rate -->
-          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-bottom: 20px;">
-            <div>
-              <label style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 14px;">Branch</label>
-              <input v-model="form.branch_name" type="text" placeholder="Branch name" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px;" />
-            </div>
-            <div>
-              <label style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 14px;">Currency <span style="color: #dc2626;">*</span></label>
-              <select v-model="form.currency_id" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px;">
+              <label style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 12px;">Currency <span style="color: #dc2626;">*</span></label>
+              <select v-model="form.currency_id" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px;">
                 <option value="">-- Select --</option>
-                <option v-for="currency in currencies" :key="currency.id" :value="String(currency.id)">{{ currency.name }} ({{ currency.code }})</option>
+                <option v-for="currency in currencies" :key="currency.id" :value="String(currency.id)">{{ currency.name }}</option>
               </select>
             </div>
             <div>
-              <label style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 14px;">Exchange Rate</label>
-              <input v-model.number="form.exchange_rate" type="number" step="0.01" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px;" />
+              <label style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 12px;">Exchange Rate</label>
+              <input v-model.number="form.exchange_rate" type="number" step="0.01" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px;" />
             </div>
           </div>
 
-          <!-- Remarks -->
-          <div style="margin-bottom: 20px;">
-            <label style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 14px;">Remarks</label>
-            <textarea v-model="form.narration" placeholder="Narration, purpose, or reference" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px; min-height: 80px;" ></textarea>
-          </div>
+          <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;" />
 
-          <!-- PAYMENT FROM / TO Section -->
-          <div style="background: #f0f0f9; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px;">
-              
-              <!-- FROM (Credit) Section -->
-              <div>
-                <h6 style="margin: 0 0 16px 0; font-weight: 600; color: #1f2937;">From (Credit) <span style="color: #dc2626;">*</span></h6>
-                
-                <div style="margin-bottom: 12px;">
-                  <label style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 13px;">From Account <span style="color: #dc2626;">*</span></label>
-                  <select v-model="form.from_account_id" @change="onFromAccountChange" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px;">
+          <!-- PAYMENT DETAILS - MULTI ROW LAYOUT -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 20px;">
+            <!-- LEFT SIDE: PAYMENT FROM (CREDIT) -->
+            <div>
+              <h3 style="font-size: 13px; font-weight: 600; color: #1f2937; margin-bottom: 15px; padding-bottom: 8px; border-bottom: 2px solid #dbeafe;">PAYMENT FROM (Credit)</h3>
+              <div style="display: flex; flex-direction: column; gap: 12px;">
+                <div>
+                  <label style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 12px;">From Account <span style="color: #dc2626;">*</span></label>
+                  <select v-model="form.from_account_id" @change="onFromAccountChange" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px;">
                     <option value="">-- Select --</option>
                     <option v-for="account in bankCashAccounts" :key="account.id" :value="String(account.id)">{{ account.code }} - {{ account.name }}</option>
                   </select>
                 </div>
-
                 <div>
-                  <label style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 13px;">Payment Method <span style="color: #dc2626;">*</span></label>
-                  <select v-model="form.payment_method" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px;">
+                  <label style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 12px;">Payment Method <span style="color: #dc2626;">*</span></label>
+                  <select v-model="form.payment_method" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px;">
                     <option value="">-- Select --</option>
                     <option v-for="method in paymentMethods" :key="method" :value="method">{{ method }}</option>
                   </select>
                 </div>
               </div>
+            </div>
 
-              <!-- TO (Debit) Section -->
-              <div>
-                <h6 style="margin: 0 0 16px 0; font-weight: 600; color: #1f2937;">To (Debit) <span style="color: #dc2626;">*</span></h6>
-                
-                <div style="margin-bottom: 12px;">
-                  <label style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 13px;">Payee <span style="color: #dc2626;">*</span></label>
-                  <select v-model="form.payee_id" @change="onPayeeChange" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px;">
+            <!-- RIGHT SIDE: TO (DEBIT) -->
+            <div>
+              <h3 style="font-size: 13px; font-weight: 600; color: #1f2937; margin-bottom: 15px; padding-bottom: 8px; border-bottom: 2px solid #fee2e2;">TO (Debit)</h3>
+              <div style="display: flex; flex-direction: column; gap: 12px;">
+                <!-- Row 1: Payee with Fetch button -->
+                <div style="display: flex; flex-direction: column; gap: 0px;">
+                  <label style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 12px;">Payee <span style="color: #dc2626;">*</span></label>
+                  <select v-model="form.payee_id" @change="onPayeeChange" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px;">
                     <option value="">-- Select --</option>
                     <option v-for="payee in payees" :key="payee.id" :value="String(payee.id)">{{ payee.name }}</option>
                   </select>
-                </div>
-
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                  <div>
-                    <label style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 13px;">Account</label>
-                    <input v-model="form.payee_account" type="text" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px;" />
-                  </div>
-                  <div>
-                    <label style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 13px;">Total Amount</label>
-                    <input v-model.number="form.total_amount" type="number" placeholder="0.00" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px;" />
-                  </div>
-                </div>
-
-                <div style="margin-top: 12px;">
-                  <button type="button" @click="fetchEligibleRequisitions" :disabled="loadingRequisitions || !form.payee_id" :style="{ width: '100%', padding: '10px', background: '#2563eb', color: 'white', border: 'none', borderRadius: '6px', fontWeight: '500', cursor: 'pointer', opacity: loadingRequisitions || !form.payee_id ? 0.6 : 1, transition: 'opacity 0.2s' }">
-                    <i :class="['fa', loadingRequisitions ? 'fa-spinner fa-spin' : 'fa-search']" style="margin-right: 6px;"></i> {{ loadingRequisitions ? 'Loading...' : 'Fetch Eligible Requisitions' }}
+                  <button type="button" @click="fetchEligibleRequisitions" :disabled="loadingRequisitions || !form.payee_id" :style="{ width: '45%', padding: '6px 10px', marginTop: '6px', background: loadingRequisitions || !form.payee_id ? '#d1d5db' : '#2563eb', color: 'white', border: 'none', borderRadius: '4px', fontWeight: '500', fontSize: '11px', cursor: loadingRequisitions || !form.payee_id ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap', alignSelf: 'flex-end' }">
+                    <i :class="['fa', loadingRequisitions ? 'fa-spinner fa-spin' : 'fa-search']" style="margin-right: 4px;"></i> Fetch Eligible Requisitions
                   </button>
                 </div>
+                <!-- Row 2: Payee Account and Amount at same level as Payment Method -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: -12px;">
+                  <div>
+                    <label style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 12px;">Payable Account</label>
+                    <select v-model="form.payee_account" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px;">
+                      <option value="">-- Select Account --</option>
+                      <option v-for="account in payableAccounts" :key="account.id" :value="String(account.id)">{{ account.label || account.code }} - {{ account.name }}</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 12px;">Amount</label>
+                    <div style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; background: #f3f4f6; font-weight: 600; color: #059669;">{{ formatCurrency(totalAmountToPay) }}</div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
 
-          <!-- PAYEE DETAILS Section -->
-          <div style="margin-top: 24px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-              <h6 style="margin: 0; font-weight: 600; color: #1f2937; font-size: 15px;">PAYEE DETAILS</h6>
-              <button type="button" style="padding: 6px 12px; background: #f3f4f6; border: 1px solid #d1d5db; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 500;">
-                <i class="fa fa-list me-2"></i>Details
-              </button>
-            </div>
-            <p style="color: #6b7280; font-size: 12px; margin-bottom: 12px;">Showing Approved Direct Payment requisitions for selected From and To accounts</p>
-            
-            <div style="overflow-x: auto; border: 1px solid #e5e7eb; border-radius: 6px;">
-              <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
-                <thead style="background: #f3f4f6; border-bottom: 1px solid #d1d5db;">
-                  <tr>
-                    <th style="padding: 12px; text-align: left; font-weight: 600; border-right: 1px solid #e5e7eb;">No.</th>
-                    <th style="padding: 12px; text-align: left; font-weight: 600; border-right: 1px solid #e5e7eb;">Requisition #</th>
-                    <th style="padding: 12px; text-align: left; font-weight: 600; border-right: 1px solid #e5e7eb;">Description</th>
-                    <th style="padding: 12px; text-align: left; font-weight: 600; border-right: 1px solid #e5e7eb;">Cost Center</th>
-                    <th style="padding: 12px; text-align: right; font-weight: 600; border-right: 1px solid #e5e7eb;">Approved Amount</th>
-                    <th style="padding: 12px; text-align: right; font-weight: 600; border-right: 1px solid #e5e7eb;">Amount to Pay</th>
-                    <th style="padding: 12px; text-align: right; font-weight: 600; border-right: 1px solid #e5e7eb;">Balance Remaining</th>
-                    <th style="padding: 12px; text-align: center; font-weight: 600;">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-if="payeeRequisitions.length === 0" style="border-bottom: 1px solid #e5e7eb;">
-                    <td colspan="7" style="padding: 24px; text-align: center; color: #9ca3af;">No requisitions available</td>
-                  </tr>
-                  <tr v-for="(req, idx) in payeeRequisitions" :key="idx" style="border-bottom: 1px solid #e5e7eb;">
-                    <td style="padding: 12px; border-right: 1px solid #e5e7eb;">{{ idx + 1 }}</td>
-                    <td style="padding: 12px; border-right: 1px solid #e5e7eb;"><strong>{{ req.requisition_number }}</strong></td>
-                    <td style="padding: 12px; border-right: 1px solid #e5e7eb;">{{ req.description }}</td>
-                    <td style="padding: 12px; border-right: 1px solid #e5e7eb;">
-                      <span style="background: #bfdbfe; color: #1e40af; padding: 4px 8px; border-radius: 3px; font-size: 11px; font-weight: 500;">{{ req.cost_center }}</span>
-                    </td>
-                    <td style="padding: 12px; border-right: 1px solid #e5e7eb; text-align: right;">{{ formatCurrency(req.total_amount || 0) }}</td>
-                    <td style="padding: 12px; border-right: 1px solid #e5e7eb; text-align: right;">
-                      <input 
-                        v-model.number="req.amount_to_pay" 
-                        @input="onAmountToPay(idx)"
-                        type="number" 
-                        step="0.01"
-                        :max="req.total_amount"
-                        :min="0"
-                        style="width: 120px; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 11px; text-align: right;" 
-                      />
-                    </td>
-                    <td style="padding: 12px; border-right: 1px solid #e5e7eb; text-align: right;">{{ formatCurrency((req.balance_remaining || req.total_amount) - (req.amount_to_pay || 0)) }}</td>
-                    <td style="padding: 12px; text-align: center;">
-                      <button type="button" @click="removePayeeRequisition(idx)" style="background: #dc2626; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 11px;">
-                        Remove
-                      </button>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            <!-- Total Amount Summary -->
-            <div style="display: flex; justify-content: flex-end; margin-top: 16px; padding-top: 12px; border-top: 2px solid #d1d5db;">
-              <div style="background: #f0fdf4; border: 2px solid #10b981; border-radius: 6px; padding: 16px 24px; text-align: right;">
-                <div style="font-size: 13px; color: #6b7280; margin-bottom: 4px;">Total Amount to Pay</div>
-                <div style="font-size: 24px; font-weight: 700; color: #059669;">{{ formatCurrency(totalAmountToPay) }}</div>
-              </div>
-            </div>
+          <!-- NOTES -->
+          <div style="margin-bottom: 20px;">
+            <label style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 12px;">Notes</label>
+            <textarea v-model="form.narration" placeholder="Enter notes..." style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; min-height: 60px; resize: vertical; font-family: inherit;"></textarea>
           </div>
 
-          <!-- Footer Buttons -->
-          <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
-            <button type="button" @click="saveDraft" style="padding: 10px 24px; background: white; border: 1px solid #d1d5db; border-radius: 6px; font-weight: 500; cursor: pointer;">
-              <i class="fa fa-save me-2"></i> Save Draft
-            </button>
-            <button type="button" @click="() => postVoucher()" style="padding: 10px 24px; background: #059669; color: white; border: none; border-radius: 6px; font-weight: 500; cursor: pointer;">
-              <i class="fa fa-check me-2"></i> Post
-            </button>
-            <button type="button" @click="closeForm" style="padding: 10px 24px; background: white; border: 1px solid #d1d5db; border-radius: 6px; font-weight: 500; cursor: pointer;">
-              <i class="fa fa-times me-2"></i> Close
-            </button>
+          <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;" />
+
+          <!-- REQUISITIONS TABLE -->
+          <div style="overflow-x: auto; border: 1px solid #e5e7eb; border-radius: 4px; max-height: 300px; overflow-y: auto; margin-bottom: 20px;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+              <thead style="background: #f3f4f6; border-bottom: 1px solid #d1d5db; position: sticky; top: 0;">
+                <tr>
+                  <th style="padding: 8px; text-align: center; font-weight: 600; width: 40px;">No.</th>
+                  <th style="padding: 8px; text-align: left; font-weight: 600; min-width: 80px;">Req #</th>
+                  <th style="padding: 8px; text-align: left; font-weight: 600;">Description</th>
+                  <th style="padding: 8px; text-align: center; font-weight: 600; width: 70px;">Cost Ctr</th>
+                  <th style="padding: 8px; text-align: right; font-weight: 600; width: 80px;">Amount</th>
+                  <th style="padding: 8px; text-align: right; font-weight: 600; width: 90px;">Pay Amount</th>
+                  <th style="padding: 8px; text-align: right; font-weight: 600; width: 80px;">Balance</th>
+                  <th style="padding: 8px; text-align: center; font-weight: 600; width: 45px;">Act</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-if="payeeRequisitions.length === 0" style="border-bottom: 1px solid #e5e7eb;">
+                  <td colspan="8" style="padding: 20px; text-align: center; color: #9ca3af; font-size: 12px;">No requisitions</td>
+                </tr>
+                <tr v-for="(req, idx) in payeeRequisitions" :key="idx" style="border-bottom: 1px solid #e5e7eb;">
+                  <td style="padding: 8px; text-align: center; color: #6b7280;">{{ idx + 1 }}</td>
+                  <td style="padding: 8px; font-weight: 500; color: #1f2937; font-size: 11px;">{{ req.requisition_number }}</td>
+                  <td style="padding: 8px; color: #6b7280; font-size: 11px;">{{ req.description }}</td>
+                  <td style="padding: 8px; text-align: center; font-size: 10px;">
+                    <span style="background: #bfdbfe; color: #1e40af; padding: 2px 4px; border-radius: 3px; font-weight: 500;">{{ req.cost_center }}</span>
+                  </td>
+                  <td style="padding: 8px; text-align: right; font-weight: 500; color: #1f2937; font-size: 11px;">{{ formatCurrency(req.total_amount || 0) }}</td>
+                  <td style="padding: 8px; text-align: right;">
+                    <input 
+                      v-model.number="req.amount_to_pay" 
+                      @input="onAmountToPay(idx)"
+                      type="number" 
+                      step="0.01"
+                      :max="req.total_amount"
+                      :min="0"
+                      style="width: 100%; padding: 4px; border: 1px solid #d1d5db; border-radius: 3px; font-size: 11px; text-align: right;" 
+                    />
+                  </td>
+                  <td style="padding: 8px; text-align: right; color: #059669; font-weight: 500; font-size: 11px;">{{ formatCurrency((req.balance_remaining || req.total_amount) - (req.amount_to_pay || 0)) }}</td>
+                  <td style="padding: 8px; text-align: center;">
+                    <button type="button" @click="removePayeeRequisition(idx)" style="background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; padding: 3px 6px; border-radius: 3px; cursor: pointer; font-size: 10px;" onmouseover="this.style.background='#fecaca'" onmouseout="this.style.background='#fee2e2'">
+                      <i class="fa fa-trash"></i>
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- SUMMARY & ACTIONS -->
+          <div style="display: flex; justify-content: flex-end; margin-top: 20px;">
+            <div style="display: flex; flex-direction: column; gap: 15px; align-items: flex-end;">
+              <!-- TOTAL AMOUNT BOX -->
+              <div style="background: #f0fdf4; border: 2px solid #10b981; padding: 12px 16px; border-radius: 6px; min-width: 250px; text-align: right;">
+                <div style="font-size: 11px; color: #6b7280; font-weight: 500; margin-bottom: 4px;">Total Amount</div>
+                <div style="font-size: 18px; font-weight: 700; color: #059669;">{{ formatCurrency(totalAmountToPay) }}</div>
+              </div>
+
+              <!-- BUTTONS -->
+              <div style="display: flex; gap: 12px;">
+                <button type="button" @click="saveDraft" style="padding: 10px 20px; background: white; border: 1px solid #d1d5db; border-radius: 4px; font-weight: 500; cursor: pointer; font-size: 12px; color: #6b7280;">
+                  <i class="fa fa-save me-1"></i>Save Draft
+                </button>
+                <button type="button" @click="() => postVoucher()" :disabled="submittingVoucher" style="padding: 10px 20px; background: #059669; border: none; border-radius: 4px; font-weight: 500; color: white; cursor: pointer; font-size: 12px;">
+                  <i :class="['fa', submittingVoucher ? 'fa-spinner fa-spin' : 'fa-check']" style="margin-right: 4px;"></i>{{ submittingVoucher ? 'Processing' : 'Post' }}
+                </button>
+                <button type="button" @click="closeForm" style="padding: 10px 20px; background: white; border: 1px solid #d1d5db; border-radius: 4px; font-weight: 500; color: #6b7280; cursor: pointer; font-size: 12px;">
+                  <i class="fa fa-times me-1"></i>Close
+                </button>
+              </div>
+            </div>
           </div>
         </div>
-      </section>
       </div>
     </main>
 
@@ -332,14 +436,31 @@ const appOptionStore = useAppOptionStore()
 
 const isEdit = computed(() => !!route.params.id)
 const voucherId = computed(() => route.params.id ? Number(route.params.id) : null)
+const isViewMode = computed(() => {
+  // If we're editing and the loaded voucher is POSTED, it's view mode
+  if (isEdit.value && loadedVoucher.value && loadedVoucher.value.status === 'POSTED') {
+    return true
+  }
+  // Also check form status as fallback
+  if (isEdit.value && form.value.status === 'POSTED') {
+    return true
+  }
+  return false
+})
+const isPaymentVoucher = computed(() => {
+  return loadedVoucher.value?.document_type?.code === 'PV' || loadedVoucher.value?.document_type?.name?.includes('Payment')
+})
 
 const saving = ref(false)
 const savingLink = ref(false)
 const loadingRequisitions = ref(false)
+const submittingVoucher = ref(false)
 const errorMessage = ref('')
 const originalSidebarState = ref(false)
 const sidebarMinifiedForCreate = ref(false)
 const activeTab = ref('source')
+const loadedVoucher = ref<any>(null) // Store full voucher for view mode
+const loadingVoucher = ref(!!route.params.id) // Start as loading if we have an ID
 
 // Voucher Tab State
 const voucherTab = ref('payment')
@@ -427,7 +548,35 @@ const requisitionsForLinking = computed(() => accountingStore.requisitionsForLin
 const branches = ref<any[]>([])
 const bankCashAccounts = ref<any[]>([])
 const payees = ref<any[]>([])
+const payableAccounts = ref<any[]>([])
 const paymentMethods = ref<string[]>(['Bank', 'Cash', 'Cheque', 'Wire Transfer', 'Deposit', 'Mobile Money'])
+
+// Computed properties for account display in view mode
+const fromAccountDisplay = computed(() => {
+  const crAccount = loadedVoucher.value?.accounts?.find((a: any) => a.transaction_type === 'CR')
+  if (crAccount?.account) {
+    return `${crAccount.account.code || ''} - ${crAccount.account.name || ''}`.trim().replace(/^-\s*/, '')
+  }
+  // Fallback to lookup by account_id
+  const account = bankCashAccounts.value.find(a => a.id === crAccount?.account_id || a.id === Number(form.value.from_account_id))
+  if (account) {
+    return `${account.code || ''} - ${account.name || ''}`.trim().replace(/^-\s*/, '')
+  }
+  return 'Not specified'
+})
+
+const toAccountDisplay = computed(() => {
+  const drAccount = loadedVoucher.value?.accounts?.find((a: any) => a.transaction_type === 'DR')
+  if (drAccount?.account) {
+    return `${drAccount.account.code || ''} - ${drAccount.account.name || ''}`.trim().replace(/^-\s*/, '')
+  }
+  // Fallback to lookup by account_id
+  const account = payableAccounts.value.find(a => a.id === drAccount?.account_id || a.id === Number(form.value.payee_account))
+  if (account) {
+    return `${account.code || account.label?.split('-')[0]?.trim() || ''} - ${account.name || account.label?.split('-')[1]?.trim() || ''}`.trim().replace(/^-\s*/, '')
+  }
+  return 'Not specified'
+})
 
 // Balance Summary
 const balanceSummary = computed(() => {
@@ -1614,7 +1763,7 @@ async function postVoucher(voucherId?: number) {
       })
 
       // Redirect to vouchers list
-      router.push({ name: 'payment-vouchers' })
+      router.push({ name: 'journal-vouchers' })
     } catch (error: any) {
       console.error('Error posting payment voucher:', error)
       init({
@@ -1641,7 +1790,7 @@ async function postVoucher(voucherId?: number) {
 
       // Redirect to vouchers list
       setTimeout(() => {
-        router.push({ name: 'payment-vouchers' })
+        router.push({ name: 'journal-vouchers' })
       }, 1500)
     } catch (error: any) {
       console.error('Error posting payment voucher:', error)
@@ -1669,11 +1818,11 @@ function closeForm() {
       cancelButtonText: 'Cancel'
     }).then((result) => {
       if (result.isConfirmed) {
-        router.push({ name: 'payment-vouchers' })
+        router.push({ name: 'journal-vouchers' })
       }
     })
   } else {
-    router.push({ name: 'payment-vouchers' })
+    router.push({ name: 'journal-vouchers' })
   }
 }
 
@@ -1780,17 +1929,22 @@ async function loadPaymentVoucherData() {
     branches.value = branchesResponse.data?.data || branchesResponse.data || []
     
     // Fetch bank/cash accounts for the From Account dropdown
-    const bankCashResponse = await accountingStore.getBankCashAccounts(accountingStore.companyId)
+    const bankCashResponse = await accountingStore.getBankCashAccounts()
     bankCashAccounts.value = bankCashResponse.data?.data || bankCashResponse.data || []
     
     // Fetch all payees from API
-    const payeesResponse = await accountingStore.fetchPayees(accountingStore.companyId)
+    const payeesResponse = await accountingStore.fetchPayees()
     payees.value = payeesResponse.data?.data || payeesResponse.data || []
+    
+    // Fetch payable accounts from API
+    const payableAccountsResponse = await accountingStore.fetchPayableAccounts()
+    payableAccounts.value = payableAccountsResponse.data?.data || payableAccountsResponse.data || []
     
     console.log('Payment voucher data loaded:', {
       branches: branches.value.length,
       bankCashAccounts: bankCashAccounts.value.length,
-      payees: payees.value.length
+      payees: payees.value.length,
+      payableAccounts: payableAccounts.value.length
     })
   } catch (error: any) {
     console.error('Error loading payment voucher data:', error)
@@ -1814,20 +1968,19 @@ async function onPayeeChange() {
   // Clear payee requisitions when payee changes
   payeeRequisitions.value = []
 
-  // Auto-populate Account field based on payee
+  // Auto-populate Payable Account based on payee
   if (form.value.payee_id) {
     try {
       const response = await accountingStore.fetchPayeeAccount(
-        Number(form.value.payee_id),
-        1
+        Number(form.value.payee_id)
       )
 
       if (response.success && response.data) {
-        // Auto-populate Account field
+        // Auto-populate Payable Account field with default account ID
         form.value.payee_account_id = response.data.id
         form.value.payee_account_code = response.data.code
-        form.value.payee_account = response.data.label || response.data.code
-        console.log('Account auto-populated:', response.data.label)
+        form.value.payee_account = String(response.data.id) // Store as string for dropdown
+        console.log('Payable account auto-populated:', response.data.id, response.data.label)
       }
     } catch (error) {
       console.error('Error fetching payee account:', error)
@@ -1836,19 +1989,19 @@ async function onPayeeChange() {
   } else {
     // Clear account if payee is cleared
     form.value.payee_account_id = null
-    form.value.payee_account_code = null
+    form.value.payee_account_code = ''
     form.value.payee_account = ''
   }
 }
 
 // Lifecycle
 onMounted(async () => {
-  // Minify sidebar for create mode (like Requisition page)
-  if (!isEdit.value) {
-    originalSidebarState.value = appOptionStore.appSidebarMinified
-    appOptionStore.appSidebarMinified = true
-    sidebarMinifiedForCreate.value = true
-  }
+  // Sidebar auto-hide removed - keep user's preference
+  // if (!isEdit.value) {
+  //   originalSidebarState.value = appOptionStore.appSidebarMinified
+  //   appOptionStore.appSidebarMinified = true
+  //   sidebarMinifiedForCreate.value = true
+  // }
 
   // Add click outside listener to close search dropdown
   const handleClickOutside = (event: MouseEvent) => {
@@ -1876,36 +2029,101 @@ onMounted(async () => {
   }
 
   if (isEdit.value && voucherId.value) {
+    loadingVoucher.value = true
     try {
+      // Load journal voucher with payment includes
       const response = await accountingStore.getJournalVoucher(voucherId.value)
-      const voucher = response.data.data
-      form.value = {
-        document_type_id: String(voucher.document_type_id),
-        currency_id: String(voucher.currency_id),
-        document_number: voucher.document_number || '',
-        posting_date: voucher.posting_date,
-        primary_account_id: String(voucher.primary_account_id || ''),
-        exchange_rate: voucher.exchange_rate || 1.0,
-        status: voucher.status || 'DRAFT',
-        narration: voucher.narration || '',
-        accounts: voucher.accounts || [],
-        payments: voucher.payments || []
-      } as any
+      const voucher = response.data.data || response.data
+      
+      // Debug: Log the full voucher structure
+      console.log('Full voucher data:', JSON.stringify(voucher, null, 2))
+      console.log('Document type:', voucher.document_type)
+      console.log('Is Payment Voucher:', voucher.document_type?.code === 'PV')
+      console.log('Accounts:', voucher.accounts)
+      
+      // Store the full voucher for display
+      loadedVoucher.value = voucher
+      
+      // Check if this is a payment voucher by document type
+      const isPaymentVoucher = voucher.document_type?.code === 'PV' || voucher.document_type?.name?.includes('Payment')
+      
+      if (isPaymentVoucher && voucher.accounts && voucher.accounts.length >= 2) {
+        console.log('Processing as payment voucher')
+        
+        // Extract payment details from accounts
+        // CR account is the source (from_account), DR account is the destination (payee_account)
+        const creditAccount = voucher.accounts.find((a: any) => a.transaction_type === 'CR')
+        const debitAccount = voucher.accounts.find((a: any) => a.transaction_type === 'DR')
+        
+        // Extract payment method from narration (e.g., "Payment from CASH-IN-HAND via Cash")
+        const paymentMethodMatch = creditAccount?.narration?.match(/via (\w+)/)
+        const paymentMethod = paymentMethodMatch ? paymentMethodMatch[1] : ''
+        
+        // Load payment voucher data
+        form.value = {
+          ...form.value,
+          voucher_number: voucher.document_number || '',
+          posting_date: voucher.posting_date?.split('T')[0],
+          branch_id: String(voucher.branch_id || ''),
+          currency_id: String(voucher.currency_id || ''),
+          exchange_rate: 1.0,
+          from_account_id: String(creditAccount?.account_id || ''),
+          payment_method: paymentMethod,
+          payee_account: String(debitAccount?.account_id || ''),
+          total_amount: parseFloat(creditAccount?.amount || debitAccount?.amount || 0),
+          narration: voucher.narration || '',
+          status: voucher.status || 'DRAFT'
+        } as any
+        
+        console.log('Form populated with payment data:', form.value)
+      } else {
+        // Load standard journal voucher data
+        form.value = {
+          document_type_id: String(voucher.document_type_id),
+          currency_id: String(voucher.currency_id),
+          document_number: voucher.document_number || '',
+          posting_date: voucher.posting_date,
+          primary_account_id: String(voucher.primary_account_id || ''),
+          exchange_rate: voucher.exchange_rate || 1.0,
+          status: voucher.status || 'DRAFT',
+          narration: voucher.narration || '',
+          accounts: voucher.accounts || [],
+          payments: voucher.payments || []
+        } as any
+      }
 
-      // Load linked requisitions if any (for future use)
-      if (voucher.accounts && voucher.accounts.length > 0) {
-        try {
-          // This can be used to fetch and display linked documents if needed
-          // const linkedDocsResponse = await accountingStore.getLinkedDocumentsForVoucher(voucherId.value, voucher.accounts[0].id)
-        } catch (err) {
-          // Silently fail if no linked documents
-        }
+      // Check for requisitions in the voucher response
+      // They might be under 'requisitions', 'payment_requisitions', or nested in accounts
+      console.log('Checking for requisitions...')
+      console.log('voucher.requisitions:', voucher.requisitions)
+      console.log('voucher.payment_requisitions:', voucher.payment_requisitions)
+      
+      const requisitionsData = voucher.requisitions || voucher.payment_requisitions || []
+      
+      if (requisitionsData && requisitionsData.length > 0) {
+        console.log('Found requisitions:', requisitionsData)
+        payeeRequisitions.value = requisitionsData.map((req: any) => ({
+          requisition_id: req.requisition_id || req.id,
+          requisition_number: req.requisition_number || req.number || `REQ-${String(req.requisition_id || req.id || '').padStart(4, '0')}`,
+          description: req.description || req.narration || 'Payment requisition',
+          cost_center_code: req.cost_center?.code || req.cost_center_code || 'N/A',
+          cost_center: req.cost_center?.code || req.cost_center_code || 'N/A',
+          amount: req.total_amount || req.amount || 0,
+          amount_to_pay: req.amount || req.paid_amount || req.amount_to_pay || 0,
+          total_amount: req.total_amount || req.amount || 0
+        }))
+        console.log('Mapped requisitions for display:', payeeRequisitions.value)
+      } else {
+        console.log('No requisitions found in voucher data')
       }
     } catch (error) {
+      console.error('Error loading voucher:', error)
       init({
-        message: 'Failed to load journal voucher',
+        message: 'Failed to load payment voucher',
         color: 'danger'
       })
+    } finally {
+      loadingVoucher.value = false
     }
   }
 
