@@ -483,7 +483,7 @@ async function onAccountChange() {
 
   // Fetch account balance
   try {
-    const account = bankCashAccounts.value.find(acc => acc.id === Number(form.value.from_account_id))
+    const account = bankCashAccounts.value.find((acc: any) => acc.id === Number(form.value.from_account_id))
     if (account) {
       accountBalance.value = account.current_balance || 0
     }

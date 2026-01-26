@@ -1119,19 +1119,20 @@ export const useAccountingStore = defineStore('accounting', {
       }
     },
 
-    async getApprovedRequisitionsForPayee(payeeId: number, fromAccountId: number): Promise<any> {
+    async getApprovedRequisitionsForPayee(payeeId: number, fromAccountId: number, fundDirection?: string): Promise<any> {
       this.error = null
       try {
-        if (!payeeId || !fromAccountId) {
-          throw new Error('Payee ID and From Account ID are required')
+        if (!fromAccountId) {
+          throw new Error('From Account ID is required')
         }
 
         const config = {
           method: 'get',
           url: `${API_BASE}/requisitions/approved-for-payee`,
           params: {
-            payee_id: payeeId,
+            ...(payeeId && { payee_id: payeeId }),
             from_account_id: fromAccountId,
+            ...(fundDirection && { fund_direction: fundDirection }),
             status: 'APPROVED',
             with_balance: true
           },
@@ -1153,12 +1154,35 @@ export const useAccountingStore = defineStore('accounting', {
       }
     },
 
+    async getRequisitionDetails(requisitionId: number): Promise<any> {
+      this.error = null
+      try {
+        const config = {
+          method: 'get',
+          url: `${API_BASE}/requisitions/${requisitionId}`,
+          params: {
+            include: 'items,items.materials,items.accounts,materials,accounts'
+          },
+          headers: { 'Content-Type': 'application/json' }
+        }
+
+        const response: any = await axios.request(config)
+        console.log('Full API response for requisition:', response)
+        console.log('Response data structure:', JSON.stringify(response.data, null, 2))
+        return response
+      } catch (err: any) {
+        this.error = err?.response?.data?.message || err.message || 'Error fetching requisition details'
+        console.error('Requisition Details Error:', err)
+        throw err
+      }
+    },
+
     async savePaymentVoucherDraft(payload: any): Promise<any> {
       this.error = null
       try {
         // Validate required fields
-        if (!payload.from_account_id || !payload.payee_id || !payload.currency_id) {
-          throw new Error('Missing required fields: from_account_id, payee_id, currency_id')
+        if (!payload.from_account_id || !payload.currency_id) {
+          throw new Error('Missing required fields: from_account_id, currency_id')
         }
 
         if (!payload.requisitions || payload.requisitions.length === 0) {
@@ -1200,8 +1224,8 @@ export const useAccountingStore = defineStore('accounting', {
       this.error = null
       try {
         // Validate required fields
-        if (!payload.from_account_id || !payload.payee_id || !payload.currency_id) {
-          throw new Error('Missing required fields: from_account_id, payee_id, currency_id')
+        if (!payload.from_account_id || !payload.currency_id) {
+          throw new Error('Missing required fields: from_account_id, currency_id')
         }
 
         if (!payload.requisitions || payload.requisitions.length === 0) {
