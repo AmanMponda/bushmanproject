@@ -73,7 +73,7 @@
             </div>
             <div>
               <label style="display: block; font-size: 11px; color: #6b7280; font-weight: 500; margin-bottom: 4px; text-transform: uppercase;">Currency</label>
-              <div style="font-size: 14px; font-weight: 500; color: #1f2937;">{{ loadedVoucher?.currency?.name || loadedVoucher?.currency?.code || currencies.find((c: any) => c.id === Number(form.currency_id))?.name || 'TZS' }}</div>
+              <div style="font-size: 14px; font-weight: 500; color: #1f2937;">{{ loadedVoucher?.currency?.name || loadedVoucher?.currency?.code || currencies.find((c: any) => c.id === Number(form.currency_id))?.name || 'N/A' }}</div>
             </div>
             <div>
               <label style="display: block; font-size: 11px; color: #6b7280; font-weight: 500; margin-bottom: 4px; text-transform: uppercase;">Exchange Rate</label>
@@ -164,7 +164,7 @@
         <div v-else style="max-width: 1400px; margin: 0 auto; background: white; border-radius: 8px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-top: 15px;">
 
           <!-- VOUCHER DETAILS -->
-          <div style="display: grid; grid-template-columns: 1.2fr 1fr 1.2fr 1.2fr 1fr; gap: 15px; margin-bottom: 20px;">
+          <div style="display: grid; grid-template-columns: 1.2fr 1fr 1.2fr 0.8fr 1fr; gap: 15px; margin-bottom: 20px;">
             <div>
               <label style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 12px;">Voucher No. <span style="color: #dc2626;">*</span></label>
               <select v-model="form.voucher_number" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px;">
@@ -185,10 +185,12 @@
               </select>
             </div>
             <div>
-              <label style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 12px;">Currency <span style="color: #dc2626;">*</span></label>
+              <label style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 12px;">Currency</label>
               <select v-model="form.currency_id" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px;">
                 <option value="">-- Select --</option>
-                <option v-for="currency in currencies" :key="currency.id" :value="String(currency.id)">{{ currency.name }}</option>
+                <option v-for="currency in currencies" :key="currency.id" :value="String(currency.id)">
+                  {{ currency.code }} - {{ currency.name }}
+                </option>
               </select>
             </div>
             <div>
@@ -197,9 +199,13 @@
             </div>
           </div>
 
-          <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;" />
+          <!-- NOTES -->
+          <div style="margin-bottom: 20px;">
+            <label style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 12px;">Notes</label>
+            <textarea v-model="form.narration" placeholder="Enter notes..." style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; min-height: 60px; resize: vertical; font-family: inherit;"></textarea>
+          </div>
 
-          <!-- PAYMENT DETAILS - MULTI ROW LAYOUT -->
+          <!-- PAYMENT DETAILS - TWO COLUMN LAYOUT -->
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 20px;">
             <!-- LEFT SIDE: PAYMENT FROM (CREDIT) -->
             <div>
@@ -213,10 +219,11 @@
                   </select>
                 </div>
                 <div>
-                  <label style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 12px;">Payment Method <span style="color: #dc2626;">*</span></label>
-                  <select v-model="form.payment_method" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px;">
+                  <label style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 12px;">Fund Direction <span style="color: #dc2626;">*</span></label>
+                  <select v-model="form.fund_direction" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px;">
                     <option value="">-- Select --</option>
-                    <option v-for="method in paymentMethods" :key="method" :value="method">{{ method }}</option>
+                    <option value="EXPENSE">Direct payment</option>
+                    <option value="WITHDRAW">Withdraw</option>
                   </select>
                 </div>
               </div>
@@ -226,42 +233,25 @@
             <div>
               <h3 style="font-size: 13px; font-weight: 600; color: #1f2937; margin-bottom: 15px; padding-bottom: 8px; border-bottom: 2px solid #fee2e2;">TO (Debit)</h3>
               <div style="display: flex; flex-direction: column; gap: 12px;">
-                <!-- Row 1: Payee with Fetch button -->
-                <div style="display: flex; flex-direction: column; gap: 0px;">
-                  <label style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 12px;">Payee <span style="color: #dc2626;">*</span></label>
+                <div v-if="form.fund_direction === 'EXPENSE'">
+                  <label style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 12px;">Payee</label>
                   <select v-model="form.payee_id" @change="onPayeeChange" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px;">
                     <option value="">-- Select --</option>
                     <option v-for="payee in payees" :key="payee.id" :value="String(payee.id)">{{ payee.name }}</option>
                   </select>
-                  <button type="button" @click="fetchEligibleRequisitions" :disabled="loadingRequisitions || !form.payee_id" :style="{ width: '45%', padding: '6px 10px', marginTop: '6px', background: loadingRequisitions || !form.payee_id ? '#d1d5db' : '#2563eb', color: 'white', border: 'none', borderRadius: '4px', fontWeight: '500', fontSize: '11px', cursor: loadingRequisitions || !form.payee_id ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap', alignSelf: 'flex-end' }">
-                    <i :class="['fa', loadingRequisitions ? 'fa-spinner fa-spin' : 'fa-search']" style="margin-right: 4px;"></i> Fetch Eligible Requisitions
-                  </button>
                 </div>
-                <!-- Row 2: Payee Account and Amount at same level as Payment Method -->
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: -12px;">
-                  <div>
-                    <label style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 12px;">Payable Account</label>
-                    <select v-model="form.payee_account" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px;">
-                      <option value="">-- Select Account --</option>
-                      <option v-for="account in payableAccounts" :key="account.id" :value="String(account.id)">{{ account.label || account.code }} - {{ account.name }}</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 12px;">Amount</label>
-                    <div style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; background: #f3f4f6; font-weight: 600; color: #059669;">{{ formatCurrency(totalAmountToPay) }}</div>
+                <div>
+                  <label style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 12px;">Requisition Numbers</label>
+                  <div style="display: flex; gap: 8px;">
+                    <input v-model="requisitionNumbersInput" type="text" placeholder="No requisitions fetched" readonly style="flex: 1; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; background: #f9fafb; color: #6b7280;" />
+                    <button type="button" @click="fetchEligibleRequisitions" :disabled="loadingRequisitions || !form.from_account_id" style="padding: 8px 16px; background: #2563eb; color: white; border: none; border-radius: 4px; font-weight: 500; font-size: 12px; cursor: pointer; white-space: nowrap; display: flex; align-items: center; gap: 6px;" :style="{ opacity: loadingRequisitions || !form.from_account_id ? 0.5 : 1, cursor: loadingRequisitions || !form.from_account_id ? 'not-allowed' : 'pointer' }">
+                      <i :class="['fa', loadingRequisitions ? 'fa-spinner fa-spin' : 'fa-search']"></i> Fetch Eligible Requisitions
+                    </button>
                   </div>
                 </div>
               </div>
             </div>
           </div>
-
-          <!-- NOTES -->
-          <div style="margin-bottom: 20px;">
-            <label style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 12px;">Notes</label>
-            <textarea v-model="form.narration" placeholder="Enter notes..." style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; min-height: 60px; resize: vertical; font-family: inherit;"></textarea>
-          </div>
-
-          <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;" />
 
           <!-- REQUISITIONS TABLE -->
           <div style="overflow-x: auto; border: 1px solid #e5e7eb; border-radius: 4px; max-height: 300px; overflow-y: auto; margin-bottom: 20px;">
@@ -303,9 +293,14 @@
                   </td>
                   <td style="padding: 8px; text-align: right; color: #059669; font-weight: 500; font-size: 11px;">{{ formatCurrency((req.balance_remaining || req.total_amount) - (req.amount_to_pay || 0)) }}</td>
                   <td style="padding: 8px; text-align: center;">
-                    <button type="button" @click="removePayeeRequisition(idx)" style="background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; padding: 3px 6px; border-radius: 3px; cursor: pointer; font-size: 10px;" onmouseover="this.style.background='#fecaca'" onmouseout="this.style.background='#fee2e2'">
-                      <i class="fa fa-trash"></i>
-                    </button>
+                    <div style="display: flex; gap: 4px; justify-content: center;">
+                      <button type="button" @click="viewRequisitionDetails(req)" title="View Details" style="background: #dbeafe; color: #2563eb; border: 1px solid #93c5fd; padding: 3px 6px; border-radius: 3px; cursor: pointer; font-size: 10px;" onmouseover="this.style.background='#bfdbfe'" onmouseout="this.style.background='#dbeafe'">
+                        <i class="fa fa-eye"></i>
+                      </button>
+                      <button type="button" @click="removePayeeRequisition(idx)" title="Remove" style="background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; padding: 3px 6px; border-radius: 3px; cursor: pointer; font-size: 10px;" onmouseover="this.style.background='#fecaca'" onmouseout="this.style.background='#fee2e2'">
+                        <i class="fa fa-trash"></i>
+                      </button>
+                    </div>
                   </td>
                 </tr>
               </tbody>
@@ -417,6 +412,100 @@
         </div>
       </div>
     </div>
+
+    <!-- REQUISITION DETAILS MODAL -->
+    <div v-if="showRequisitionDetailsModal" @click.self="showRequisitionDetailsModal = false" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 9999; padding: 20px;">
+      <div style="background: white; border-radius: 8px; max-width: 800px; width: 100%; max-height: 90vh; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04); display: flex; flex-direction: column;">
+        <!-- Modal Header -->
+        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; display: flex; justify-content: space-between; align-items: center;">
+          <div style="display: flex; align-items: center; gap: 12px; color: white;">
+            <i class="fa fa-file-alt" style="font-size: 24px;"></i>
+            <h3 style="margin: 0; font-size: 18px; font-weight: 600;">Requisition Details</h3>
+          </div>
+          <button @click="showRequisitionDetailsModal = false" style="background: rgba(255,255,255,0.2); border: none; color: white; width: 32px; height: 32px; border-radius: 4px; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center;" onmouseover="this.style.background='rgba(255,255,255,0.3)'" onmouseout="this.style.background='rgba(255,255,255,0.2)'">
+            <i class="fa fa-times"></i>
+          </button>
+        </div>
+
+        <!-- Modal Body -->
+        <div style="padding: 20px; overflow-y: auto; flex: 1;">
+          <div v-if="loadingRequisitionDetails" style="text-align: center; padding: 40px;">
+            <i class="fa fa-spinner fa-spin" style="font-size: 32px; color: #667eea;"></i>
+            <p style="margin-top: 12px; color: #6b7280;">Loading details...</p>
+          </div>
+
+          <div v-else-if="selectedRequisitionDetails">
+            <!-- Summary Info -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; padding: 16px; background: #f9fafb; border-radius: 6px; border: 1px solid #e5e7eb;">
+              <div>
+                <div style="font-size: 11px; color: #6b7280; font-weight: 500; margin-bottom: 4px; text-transform: uppercase;">Requisition Number</div>
+                <div style="font-size: 16px; font-weight: 600; color: #667eea;">{{ selectedRequisitionDetails.requisition_number }}</div>
+              </div>
+              <div>
+                <div style="font-size: 11px; color: #6b7280; font-weight: 500; margin-bottom: 4px; text-transform: uppercase;">Cost Center</div>
+                <div style="font-size: 14px; font-weight: 500; color: #1f2937;">{{ selectedRequisitionDetails.cost_center }}</div>
+              </div>
+              <div>
+                <div style="font-size: 11px; color: #6b7280; font-weight: 500; margin-bottom: 4px; text-transform: uppercase;">Total Amount</div>
+                <div style="font-size: 18px; font-weight: 700; color: #059669;">{{ formatCurrency(selectedRequisitionDetails.total_amount || 0) }}</div>
+              </div>
+              <div>
+                <div style="font-size: 11px; color: #6b7280; font-weight: 500; margin-bottom: 4px; text-transform: uppercase;">Amount to Pay</div>
+                <div style="font-size: 18px; font-weight: 700; color: #dc2626;">{{ formatCurrency(selectedRequisitionDetails.amount_to_pay || 0) }}</div>
+              </div>
+              <div style="grid-column: 1 / -1;">
+                <div style="font-size: 11px; color: #6b7280; font-weight: 500; margin-bottom: 4px; text-transform: uppercase;">Description</div>
+                <div style="font-size: 13px; color: #374151;">{{ selectedRequisitionDetails.description || 'N/A' }}</div>
+              </div>
+            </div>
+
+            <!-- Requisition Items -->
+            <h4 style="font-size: 14px; font-weight: 600; color: #1f2937; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+              <i class="fa fa-list" style="color: #667eea;"></i>
+              Requisition Items
+            </h4>
+            <div style="overflow-x: auto; border: 1px solid #e5e7eb; border-radius: 6px;">
+              <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                <thead style="background: #f3f4f6; border-bottom: 2px solid #e5e7eb;">
+                  <tr>
+                    <th style="padding: 10px; text-align: center; font-weight: 600; color: #374151; border-right: 1px solid #e5e7eb;">#</th>
+                    <th style="padding: 10px; text-align: left; font-weight: 600; color: #374151; border-right: 1px solid #e5e7eb;">Item Description</th>
+                    <th style="padding: 10px; text-align: center; font-weight: 600; color: #374151; border-right: 1px solid #e5e7eb;">Qty</th>
+                    <th style="padding: 10px; text-align: right; font-weight: 600; color: #374151; border-right: 1px solid #e5e7eb;">Unit Price</th>
+                    <th style="padding: 10px; text-align: right; font-weight: 600; color: #374151;">Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-if="!selectedRequisitionDetails.items || selectedRequisitionDetails.items.length === 0">
+                    <td colspan="5" style="padding: 20px; text-align: center; color: #9ca3af;">No items found</td>
+                  </tr>
+                  <tr v-for="(item, idx) in selectedRequisitionDetails.items" :key="idx" style="border-bottom: 1px solid #e5e7eb;">
+                    <td style="padding: 10px; text-align: center; color: #6b7280; border-right: 1px solid #f3f4f6;">{{ Number(idx) + 1 }}</td>
+                    <td style="padding: 10px; color: #1f2937; border-right: 1px solid #f3f4f6;">{{ item.description || item.item_name || 'N/A' }}</td>
+                    <td style="padding: 10px; text-align: center; color: #374151; border-right: 1px solid #f3f4f6;">{{ item.quantity || 0 }}</td>
+                    <td style="padding: 10px; text-align: right; color: #374151; border-right: 1px solid #f3f4f6; font-family: monospace;">{{ formatCurrency(item.unit_price || item.rate || 0) }}</td>
+                    <td style="padding: 10px; text-align: right; color: #059669; font-weight: 600; font-family: monospace;">{{ formatCurrency(item.amount || (item.quantity * (item.unit_price || item.rate)) || 0) }}</td>
+                  </tr>
+                </tbody>
+                <tfoot style="background: #f9fafb; border-top: 2px solid #e5e7eb;">
+                  <tr>
+                    <td colspan="4" style="padding: 12px; text-align: right; font-weight: 600; color: #1f2937;">Total:</td>
+                    <td style="padding: 12px; text-align: right; font-weight: 700; color: #059669; font-size: 14px; font-family: monospace;">{{ formatCurrency(selectedRequisitionDetails.total_amount || 0) }}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div style="padding: 16px 20px; background: #f9fafb; border-top: 1px solid #e5e7eb; display: flex; justify-content: flex-end;">
+          <button @click="showRequisitionDetailsModal = false" style="padding: 8px 20px; background: #6b7280; color: white; border: none; border-radius: 4px; font-weight: 500; cursor: pointer; font-size: 13px;" onmouseover="this.style.background='#4b5563'" onmouseout="this.style.background='#6b7280'">
+            <i class="fa fa-times" style="margin-right: 6px;"></i>Close
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -493,6 +582,7 @@ const form = ref({
   payee_account: '',
   payee_account_id: null,
   payee_account_code: '',
+  fund_direction: '',
   total_amount: 0
 })
 
@@ -504,6 +594,11 @@ const selectedRequisitions = ref<any[]>([])
 
 // Single Selected Requisition (for linking)
 const selectedRequisition = ref<any>(null)
+
+// Requisition Details Modal
+const showRequisitionDetailsModal = ref(false)
+const selectedRequisitionDetails = ref<any>(null)
+const loadingRequisitionDetails = ref(false)
 
 // Requisition Search
 const showRequisitionModal = ref(false)
@@ -606,6 +701,14 @@ const totalAmount = computed(() => {
 // Total Amount to Pay (sum of all amount_to_pay in payee requisitions)
 const totalAmountToPay = computed(() => {
   return payeeRequisitions.value.reduce((sum, r) => sum + (r.amount_to_pay || 0), 0)
+})
+
+// Requisition Numbers Input (display fetched requisition numbers)
+const requisitionNumbersInput = computed(() => {
+  if (payeeRequisitions.value.length === 0) {
+    return 'No requisitions fetched'
+  }
+  return payeeRequisitions.value.map(r => r.requisition_number).join(', ')
 })
 
 // Methods
@@ -1476,19 +1579,19 @@ async function submitJournalVoucher() {
 // ==================== PAYMENT VOUCHER METHODS ====================
 
 async function fetchEligibleRequisitions() {
-  // Validation: Payee must be selected
-  if (!form.value.payee_id) {
+  // Validation: From account must be selected
+  if (!form.value.from_account_id) {
     init({
-      message: 'Please select a payee first',
+      message: 'Please select a From (Credit) account first',
       color: 'warning'
     })
     return
   }
 
-  // Validation: From account must be selected
-  if (!form.value.from_account_id) {
+  // Validation: Fund direction must be selected
+  if (!form.value.fund_direction) {
     init({
-      message: 'Please select a From (Credit) account first',
+      message: 'Please select a Fund Direction first',
       color: 'warning'
     })
     return
@@ -1501,9 +1604,11 @@ async function fetchEligibleRequisitions() {
     payeeRequisitions.value = []
     
     // Fetch approved requisitions for this payee from the backend
+    // Filter by fund_direction to get requisitions matching the selected type
     const response = await accountingStore.getApprovedRequisitionsForPayee(
       Number(form.value.payee_id),
-      Number(form.value.from_account_id)
+      Number(form.value.from_account_id),
+      form.value.fund_direction
     )
     
     const requisitions = response.data?.data || response.data || []
@@ -1519,9 +1624,9 @@ async function fetchEligibleRequisitions() {
 
     // Transform requisitions for the payment table
     payeeRequisitions.value = requisitions.map((req: any) => ({
-      id: req.id,
-      requisition_id: req.id,
-      requisition_number: req.requisition_number || `REQ-${String(req.id).padStart(4, '0')}`,
+      id: req.requisition_id || req.id,
+      requisition_id: req.requisition_id || req.id,
+      requisition_number: req.requisition_number || `REQ-${String(req.requisition_id || req.id).padStart(4, '0')}`,
       description: req.description || req.narrative || req.narration || 'General requisition',
       cost_center: req.cost_center || req.cost_center_code || 'N/A',
       total_amount: parseFloat(String(req.total_amount || req.amount || 0)),
@@ -1531,6 +1636,14 @@ async function fetchEligibleRequisitions() {
       payee_id: req.payee_id || form.value.payee_id,
       posting_date: req.posting_date || new Date().toISOString().split('T')[0]
     }))
+
+    // Auto-populate currency from first requisition if available
+    if (requisitions.length > 0 && requisitions[0].currency_id) {
+      form.value.currency_id = String(requisitions[0].currency_id)
+      if (requisitions[0].exchange_rate) {
+        form.value.exchange_rate = requisitions[0].exchange_rate
+      }
+    }
 
     // Update total amount from sum of requisitions
     form.value.total_amount = totalAmountToPay.value
@@ -1589,6 +1702,91 @@ function removePayeeRequisition(index: number) {
   }
 }
 
+async function viewRequisitionDetails(requisition: any) {
+  try {
+    loadingRequisitionDetails.value = true
+    showRequisitionDetailsModal.value = true
+    selectedRequisitionDetails.value = null
+
+    // Fetch full requisition details from backend
+    const response = await accountingStore.getRequisitionDetails(requisition.requisition_id || requisition.id)
+    
+    const reqData = response.data?.data || response.data
+    
+    console.log('Full reqData:', reqData)
+    console.log('Items array:', reqData?.items)
+    
+    // Extract items - they can be nested in different ways
+    let allItems: any[] = []
+    
+    if (reqData?.items && Array.isArray(reqData.items)) {
+      // Process each item and check for nested materials or accounts
+      reqData.items.forEach((item: any, index: number) => {
+        console.log(`Item ${index}:`, item)
+        
+        // First priority: Materials
+        if (item.materials && Array.isArray(item.materials) && item.materials.length > 0) {
+          console.log(`Item ${index} has materials:`, item.materials)
+          item.materials.forEach((material: any) => {
+            console.log('Material object:', material)
+            allItems.push({
+              description: material.description || material.material_description || material.item_name || material.material_name || material.name || material.item?.name || material.code || 'Material',
+              quantity: parseFloat(material.quantity || material.qty || 0),
+              unit_price: parseFloat(material.rate || material.unit_price || material.price || 0),
+              amount: parseFloat(material.line_total || material.amount || material.total || (parseFloat(material.quantity || 0) * parseFloat(material.rate || material.unit_price || 0)) || 0)
+            })
+          })
+        }
+        // Second priority: Accounts
+        else if (item.accounts && Array.isArray(item.accounts) && item.accounts.length > 0) {
+          console.log(`Item ${index} has accounts:`, item.accounts)
+          item.accounts.forEach((account: any) => {
+            console.log('Account object:', account)
+            allItems.push({
+              description: account.description || account.account_description || account.account_name || account.account?.name || account.account?.code || account.name || account.code || 'Account',
+              quantity: 1,
+              unit_price: parseFloat(account.amount || account.total || account.debit || account.credit || 0),
+              amount: parseFloat(account.amount || account.total || account.debit || account.credit || 0)
+            })
+          })
+        }
+        // Fallback: Use item properties directly
+        else {
+          console.log(`Item ${index} using direct properties`)
+          allItems.push({
+            description: item.description || item.item_description || item.narration || item.remarks || item.name || item.code || `Item ${index + 1}`,
+            quantity: parseFloat(item.quantity || item.qty || 0),
+            unit_price: parseFloat(item.rate || item.unit_price || item.price || 0),
+            amount: parseFloat(item.line_total || item.amount || item.total || item.item_total || (parseFloat(item.quantity || 0) * parseFloat(item.rate || item.unit_price || 0)) || 0)
+          })
+        }
+      })
+    }
+    
+    console.log('Mapped items:', allItems)
+    
+    selectedRequisitionDetails.value = {
+      requisition_number: requisition.requisition_number,
+      cost_center: requisition.cost_center,
+      description: requisition.description,
+      total_amount: requisition.total_amount,
+      amount_to_pay: requisition.amount_to_pay,
+      items: allItems
+    }
+    
+    console.log('Requisition details loaded:', selectedRequisitionDetails.value)
+  } catch (error: any) {
+    console.error('Error fetching requisition details:', error)
+    init({
+      message: 'Failed to load requisition details',
+      color: 'danger'
+    })
+    showRequisitionDetailsModal.value = false
+  } finally {
+    loadingRequisitionDetails.value = false
+  }
+}
+
 async function saveDraft() {
   // Validation: At least one requisition must be selected
   if (payeeRequisitions.value.length === 0) {
@@ -1603,14 +1801,6 @@ async function saveDraft() {
   if (!form.value.from_account_id) {
     init({
       message: 'Please select a From (Credit) account',
-      color: 'warning'
-    })
-    return
-  }
-
-  if (!form.value.payee_id) {
-    init({
-      message: 'Please select a payee',
       color: 'warning'
     })
     return
@@ -1637,7 +1827,7 @@ async function saveDraft() {
       exchange_rate: form.value.exchange_rate || 1.0,
       from_account_id: Number(form.value.from_account_id),
       payment_method: form.value.payment_method,
-      payee_id: Number(form.value.payee_id),
+      ...(form.value.payee_id && { payee_id: Number(form.value.payee_id) }),
       payee_account: form.value.payee_account,
       total_amount: form.value.total_amount || payeeRequisitions.value.reduce((sum, r) => sum + r.amount_to_pay, 0),
       narration: form.value.narration,
@@ -1697,9 +1887,9 @@ async function postVoucher(voucherId?: number) {
     }
 
     // Validation: Required fields
-    if (!form.value.from_account_id || !form.value.payee_id || !form.value.currency_id) {
+    if (!form.value.from_account_id || !form.value.currency_id) {
       init({
-        message: 'Please fill all required fields (From Account, Payee, Currency)',
+        message: 'Please fill all required fields (From Account, Currency)',
         color: 'warning'
       })
       return
@@ -1739,7 +1929,7 @@ async function postVoucher(voucherId?: number) {
         exchange_rate: form.value.exchange_rate || 1.0,
         from_account_id: Number(form.value.from_account_id),
         payment_method: form.value.payment_method,
-        payee_id: Number(form.value.payee_id),
+        ...(form.value.payee_id && { payee_id: Number(form.value.payee_id) }),
         payee_account: form.value.payee_account,
         total_amount: form.value.total_amount || payeeRequisitions.value.reduce((sum, r) => sum + r.amount_to_pay, 0),
         narration: form.value.narration,
@@ -1963,35 +2153,9 @@ function onFromAccountChange() {
 }
 
 // Handle Payee selection change
-async function onPayeeChange() {
-  console.log('Payee changed to:', form.value.payee_id)
+function onPayeeChange() {
   // Clear payee requisitions when payee changes
   payeeRequisitions.value = []
-
-  // Auto-populate Payable Account based on payee
-  if (form.value.payee_id) {
-    try {
-      const response = await accountingStore.fetchPayeeAccount(
-        Number(form.value.payee_id)
-      )
-
-      if (response.success && response.data) {
-        // Auto-populate Payable Account field with default account ID
-        form.value.payee_account_id = response.data.id
-        form.value.payee_account_code = response.data.code
-        form.value.payee_account = String(response.data.id) // Store as string for dropdown
-        console.log('Payable account auto-populated:', response.data.id, response.data.label)
-      }
-    } catch (error) {
-      console.error('Error fetching payee account:', error)
-      // Don't show error to user, field can be filled manually if needed
-    }
-  } else {
-    // Clear account if payee is cleared
-    form.value.payee_account_id = null
-    form.value.payee_account_code = ''
-    form.value.payee_account = ''
-  }
 }
 
 // Lifecycle
