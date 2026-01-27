@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { toRefs, computed, ref, nextTick, onMounted } from 'vue'
+import { toRefs, computed, ref, nextTick, onMounted, watch } from 'vue'
 import CurrencyInput from '@/components/CurrencyInput.vue'
 import Datepicker from '@/components/plugins/Datepicker.vue'
 import vSelect from 'vue-select'
@@ -17,6 +17,8 @@ type Props = {
   itemsOptions: any[]
   unitsOptions: any[]
   accounts: any[]
+  sourceAccounts: any[]
+  replenishAccounts: any[]
   users: any[] 
   locations: any[] 
   entities: any[] 
@@ -39,6 +41,8 @@ const {
   itemsOptions,
   unitsOptions,
   accounts,
+  sourceAccounts,
+  replenishAccounts,
   users,
   locations,
   entities,
@@ -84,7 +88,7 @@ const sourceSelection = computed<string | null>({
     if (type === 'CASH') {
       source.accountId = parsedId
       source.sourceId = null
-      const account = (accounts.value || []).find((a: any) => a.id === parsedId)
+      const account = (sourceAccounts.value || []).find((a: any) => a.id === parsedId)
       if (account && !source.payee) {
         source.payee = account.name
       }
@@ -126,6 +130,18 @@ const emit = defineEmits<{
 onMounted(() => {
   if (!form.value?.requiredDate) {
     form.value.requiredDate = new Date().toISOString().slice(0, 10)
+  }
+})
+
+// Clear direct payment fields when switching to Withdraw to avoid showing stale amounts
+watch(() => form.value?.fundDirection, (val) => {
+  if (val === 'WITHDRAW') {
+    if (!form.value) return
+    if (!form.value.source) form.value.source = {}
+    form.value.source.amount = 0
+    form.value.source.paymentMethod = null
+    form.value.source.modeOfPayment = null
+    // Keep payee/source fields as they are
   }
 })
 
@@ -312,9 +328,9 @@ const sourceOptions = computed(() => {
   const options = []
 
   // Cash accounts with group label
-  if (accounts.value && accounts.value.length > 0) {
+  if (sourceAccounts.value && sourceAccounts.value.length > 0) {
     options.push({ label: "💰 Accounts", value: null, $isDisabled: true, isHeader: true })
-    accounts.value.forEach((account: any) => {
+    sourceAccounts.value.forEach((account: any) => {
       options.push({
         label: account.code ? `${account.name} (${account.code})` : account.name,
         value: `CASH:${account.id}`,
@@ -437,7 +453,7 @@ const attachmentReferenceOptions = computed(() => {
     const source = form.value?.source
     if (!source?.sourceType) return []
     if (source.sourceType === 'CASH' && source.accountId) {
-      const account = (accounts.value || []).find((a: any) => a.id === source.accountId)
+      const account = (sourceAccounts.value || []).find((a: any) => a.id === source.accountId)
       return [{ label: account?.name || `Account #${source.accountId}`, value: `CASH:${source.accountId}` }]
     }
     if (source.sourceType === 'STORE' && source.sourceId) {
@@ -667,6 +683,57 @@ const dropdownPosition = (dropdownList: HTMLElement, component: any, { width, to
       dropdownList.style.visibility = 'visible'
       dropdownList.style.display = 'block'
     }
+  } catch (e) {
+    // ignore
+  }
+}
+
+// Force dropdown to open downward (used for withdraw source account)
+const dropdownPositionDown = (dropdownList: HTMLElement, component: any, { width, top, left }: any) => {
+  try {
+    const triggerEl: HTMLElement | null = component && component.$el ? component.$el as HTMLElement : null
+    if (!triggerEl) return
+
+    const rect = triggerEl.getBoundingClientRect()
+    const GAP = 0
+    const MAX_HEIGHT = 300
+
+    const offsetParent = dropdownList.offsetParent as HTMLElement | null
+    const isLocalMenu = !!offsetParent && offsetParent !== document.body
+
+    if (isLocalMenu) {
+      dropdownList.style.position = 'absolute'
+      dropdownList.style.top = `${Math.round(triggerEl.offsetHeight)}px`
+      dropdownList.style.bottom = 'auto'
+      dropdownList.style.left = '0'
+      dropdownList.style.width = '100%'
+      dropdownList.style.maxHeight = `${MAX_HEIGHT}px`
+      dropdownList.style.height = 'auto'
+      dropdownList.style.overflowY = 'auto'
+      dropdownList.style.zIndex = '9999'
+      dropdownList.style.boxSizing = 'border-box'
+      dropdownList.style.visibility = 'visible'
+      dropdownList.style.display = 'block'
+      return
+    }
+
+    const spaceBelow = window.innerHeight - rect.bottom
+    const maxHeight = Math.min(MAX_HEIGHT, Math.max(40, spaceBelow - GAP))
+    const topPos = Math.round(rect.bottom + GAP)
+
+    // Use fixed positioning to avoid clipping by scroll/overflow containers
+    dropdownList.style.position = 'fixed'
+    dropdownList.style.top = `${topPos}px`
+    dropdownList.style.bottom = 'auto'
+    dropdownList.style.left = `${Math.round(rect.left)}px`
+    dropdownList.style.width = `${Math.round(rect.width)}px`
+    dropdownList.style.maxHeight = `${Math.round(maxHeight)}px`
+    dropdownList.style.height = 'auto'
+    dropdownList.style.overflowY = 'auto'
+    dropdownList.style.zIndex = '9999'
+    dropdownList.style.boxSizing = 'border-box'
+    dropdownList.style.visibility = 'visible'
+    dropdownList.style.display = 'block'
   } catch (e) {
     // ignore
   }
@@ -1307,7 +1374,7 @@ const onItemAccountSelect = (line: any, value: string | null) => {
 
               <div v-else-if="form.fundDirection === 'WITHDRAW'">
                 <!-- FROM Section -->
-                <div class="rounded-3 border overflow-hidden mb-0">
+                <div class="rounded-3 border mb-0">
                   <div class="px-3 py-2 fw-bold d-flex justify-content-between align-items-center"
                     style="background-color: #f8fafc; border-bottom: 1px solid #e2e8f0;">
                     <span>FROM <span class="text-muted fw-normal">(Source Account)</span></span>
@@ -1337,8 +1404,8 @@ const onItemAccountSelect = (line: any, value: string | null) => {
                           <v-select ref="sourceAccountSelect" v-model="sourceSelection"
                             class="v-select-field v-select-grouped" :options="sourceOptions"
                             :reduce="(opt) => opt.value" :filterable="true" :filter="filterSourceOptions"
-                            :selectable="(opt) => !opt.isHeader" :append-to-body="false"
-                            :calculate-position="dropdownPosition" @search="onSourceSearch" label="label"
+                            :selectable="(opt) => !opt.isHeader" :append-to-body="true"
+                            :calculate-position="dropdownPositionDown" @search="onSourceSearch" label="label"
                             placeholder="Select source account...">
                             <template #option="{ label, isHeader }">
                               <div :class="{ 'source-header': isHeader, 'source-option': !isHeader }">
@@ -1350,31 +1417,8 @@ const onItemAccountSelect = (line: any, value: string | null) => {
                       </label>
                     </div>
 
-                    <div class="row">
-                      <label class="field col-md-6">
-                        <span class="lbl">Payment <span class="req">*</span></span>
-                        <div class="input-wrapper">
-                          <span class="input-icon" v-if="false"><i class="fa fa-money"></i></span>
-                          <CurrencyInput
-                            v-model="form.source.amount"
-                            class="form-control"
-                            placeholder="0.00"
-                          />
-                        </div>
-                      </label>
-
-                      <label class="field col-md-6">
-                        <span class="lbl">Amount <span class="req">*</span></span>
-                        <div class="input-wrapper">
-                          <input :value="form.source.amount ? formatAmount(form.source.amount) : '0 TZS'" readonly
-                            type="text" class="form-control fw-bold bg-light text-end" placeholder="0 TZS" />
-                        </div>
-                      </label>
-                    </div>
                   </div>
                 </div>
-
-                <!-- Separator -->
                 <div class="text-center my-1 position-relative"
                   style="z-index: 2; margin-top: -12px !important; margin-bottom: -12px !important;">
                   <div
@@ -1396,7 +1440,7 @@ const onItemAccountSelect = (line: any, value: string | null) => {
                         <span class="lbl">Receiving Account <span class="req">*</span></span>
                         <div class="input-wrapper has-v-select">
                           <span class="input-icon"><i class="fa fa-bank"></i></span>
-                          <v-select v-model="form.source.receivingAccountId" class="v-select-field" :options="accounts"
+                          <v-select v-model="form.source.receivingAccountId" class="v-select-field" :options="replenishAccounts"
                             :reduce="(opt) => opt.id" label="name" placeholder="Select receiving account...">
                             <template #option="{ name, code }">
                               <div>{{ name }} <span v-if="code" class="text-muted">({{ code }})</span></div>

@@ -65,6 +65,8 @@ const currencies = ref<any[]>([])
 const itemsOptions = ref<any[]>([])
 const unitsOptions = ref<any[]>([])
 const accounts = ref<any[]>([])
+const sourceAccounts = ref<any[]>([])
+const replenishAccounts = ref<any[]>([])
 const users = ref<any[]>([])
 const locations = ref<any[]>([])
 const entities = ref<any[]>([])
@@ -167,6 +169,22 @@ const processMetadata = (metadata: any) => {
     // Map accounts
     const accts = metadata.accounts || []
     accounts.value = (Array.isArray(accts) ? accts : []).map((account: any) => ({
+      id: account.id,
+      name: account.name || account.account_name || `Account ${account.id}`,
+      code: account.code || account.account_number,
+      account_number: account.account_number,
+    }))
+
+    const sourceAccts = metadata.source_accounts || []
+    sourceAccounts.value = (Array.isArray(sourceAccts) ? sourceAccts : []).map((account: any) => ({
+      id: account.id,
+      name: account.name || account.account_name || `Account ${account.id}`,
+      code: account.code || account.account_number,
+      account_number: account.account_number,
+    }))
+
+    const replenishAccts = metadata.replenish_accounts || []
+    replenishAccounts.value = (Array.isArray(replenishAccts) ? replenishAccts : []).map((account: any) => ({
       id: account.id,
       name: account.name || account.account_name || `Account ${account.id}`,
       code: account.code || account.account_number,
@@ -777,6 +795,8 @@ const resetForm = () => {} // Logic needed if passed to form? form.value reset?
       :units-options="unitsOptions"
       :cost-centers-options="costCentersOptions"
       :accounts="accounts"
+      :source-accounts="sourceAccounts"
+      :replenish-accounts="replenishAccounts"
       :users="users"
       :locations="locations"
       :entities="entities"

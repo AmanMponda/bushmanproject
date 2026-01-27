@@ -192,6 +192,8 @@ const itemsOptions = ref<OptionItem[]>([])
 const unitsOptions = ref<OptionItem[]>([])
 const currencies = ref<OptionItem[]>([])
 const accounts = ref<AccountOption[]>([])
+const sourceAccounts = ref<AccountOption[]>([])
+const replenishAccounts = ref<AccountOption[]>([])
 const branches = ref<BranchOption[]>([])
 const users = ref<UserOption[]>([])
 const locations = ref<OptionItem[]>([])
@@ -745,6 +747,22 @@ const loadMetadata = async () => {
     // Map accounts
     const accts = metadata.accounts || []
     accounts.value = (Array.isArray(accts) ? accts : []).map((account: any) => ({
+      id: account.id,
+      name: account.name || account.account_name || `Account ${account.id}`,
+      code: account.code || account.account_number,
+      account_number: account.account_number,
+    }))
+
+    const sourceAccts = metadata.source_accounts || []
+    sourceAccounts.value = (Array.isArray(sourceAccts) ? sourceAccts : []).map((account: any) => ({
+      id: account.id,
+      name: account.name || account.account_name || `Account ${account.id}`,
+      code: account.code || account.account_number,
+      account_number: account.account_number,
+    }))
+
+    const replenishAccts = metadata.replenish_accounts || []
+    replenishAccounts.value = (Array.isArray(replenishAccts) ? replenishAccts : []).map((account: any) => ({
       id: account.id,
       name: account.name || account.account_name || `Account ${account.id}`,
       code: account.code || account.account_number,
@@ -1557,6 +1575,8 @@ onUnmounted(() => {
       :items-options="itemsOptions"
       :units-options="unitsOptions"
       :accounts="accounts"
+      :source-accounts="sourceAccounts"
+      :replenish-accounts="replenishAccounts"
       :users="users"
       :locations="locations"
       :entities="entities"

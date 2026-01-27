@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onBeforeUnmount, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { requisitionService } from '@/stores/bushman/requisitionService'
 import Swal from 'sweetalert2'
@@ -31,6 +31,8 @@ const loading = ref(false)
 const requisition = ref<Requisition | null>(null)
 const generatingPdf = ref(false)
 const hasGeneratedPdf = ref(false)
+const pdfUrl = ref<string | null>(null)
+const approvalStages = ref<any[]>([])
 
 const companyName = 'Bushman Safari Trackers'
 const companyAddress = 'P.O Box 127, Morogoro Tanzania | Mob: +255 748 771 551 | Email: info@bushman-safaris.co.tz'
@@ -62,7 +64,7 @@ const userLabel = (value: any): string => {
   const firstName = value.first_name || ''
   const lastName = value.last_name || ''
   const fullName = `${firstName} ${lastName}`.trim()
-  return fullName || value.email || value.username || '--'
+  return fullName || value.username || '--'
 }
 
 const mapRequisition = (req: any): Requisition => {
@@ -158,6 +160,28 @@ const approvalRecord = computed(() => {
   return approvals[approvals.length - 1]
 })
 
+const latestStageApproval = () => {
+  const stages = approvalStages.value || []
+  let latest: any = null
+  stages.forEach((stage: any) => {
+    ;(stage?.approvals || []).forEach((app: any) => {
+      if (!app?.date) return
+      if (!latest || new Date(app.date).getTime() > new Date(latest.date).getTime()) {
+        latest = { ...app, position: stage?.position }
+      }
+    })
+  })
+  return latest
+}
+
+const approverPositions = computed(() => {
+  const stages = approvalStages.value || []
+  const positions = stages
+    .map((s: any) => s?.position?.role_name || s?.position?.short)
+    .filter(Boolean)
+  return positions
+})
+
 const grandTotal = computed(() => {
   return detailRows.value.reduce((sum, row) => sum + Number(row.amount || 0), 0)
 })
@@ -178,6 +202,7 @@ const fetchRequisition = async () => {
     // Map the main requisition
     const baseReq = data?.requisition || data
     requisition.value = mapRequisition(baseReq)
+    approvalStages.value = data?.approval_stages || []
 
     // Handle sources
     if (data?.sources) {
@@ -402,36 +427,52 @@ const buildPdf = async () => {
     // Right: Authorized By
     
     // Move signature block to the bottom of the page
-    const sigHeight = 60
-    let sigY = pageHeight - margin - sigHeight
+    const positions = approverPositions.value
+    const approvalsCount = positions.length || 1
+    const columnGap = 24
+    const signatureCellWidth = Math.max(120, Math.floor((pageWidth - (margin * 2) - (columnGap * approvalsCount)) / (approvalsCount + 1)))
+    const totalSignaturesWidth = (signatureCellWidth * (approvalsCount + 1)) + (columnGap * approvalsCount)
+    const sigStartX = Math.max(margin, margin + Math.max(0, (pageWidth - (margin * 2) - totalSignaturesWidth) / 2) - 16)
+    const rowGap = 36
+    const positionsBlockHeight = rowGap
+    const sigBlockHeight = 60 + (positionsBlockHeight ? positionsBlockHeight + 6 : 0)
+    let sigY = pageHeight - margin - sigBlockHeight
 
     // If there's not enough space on current page for signatures, add a new page
     if ((pdf as any).lastAutoTable && (pdf as any).lastAutoTable.finalY + 40 > sigY) {
       pdf.addPage()
-      sigY = pageHeight - margin - sigHeight
+      sigY = pageHeight - margin - sigBlockHeight
     }
 
-    const lineLen = 220
+    const lineLen = signatureCellWidth
 
-    // Left Signature
-    pdf.line(margin, sigY, margin + lineLen, sigY)
+    // Requested By (first slot)
+    pdf.line(sigStartX, sigY, sigStartX + lineLen, sigY)
+    pdf.setFont('helvetica', 'bold')
     pdf.setFontSize(9)
-    pdf.text('Requested By (Signature)', margin, sigY + 12)
-    pdf.text(`Name: ${requestedBy} | Date: ${reqDate}`, margin, sigY + 26)
+    pdf.text('Requested By', sigStartX, sigY + 12)
+    pdf.text(`Date: ${reqDate}`, sigStartX, sigY + 26)
 
-    // Right Signature
-    const rightMargin = pageWidth - margin - lineLen
-    const approver = userLabel(requisition.value.handler_user || approvalRecord.value?.approved_by_user)
-    const approvalDate = formatDisplayDate(approvalRecord.value?.date)
-
-    pdf.line(rightMargin, sigY, rightMargin + lineLen, sigY)
-    pdf.text('Authorized By (Signature)', rightMargin, sigY + 12)
-    pdf.text(`Name: ${approver} | Date: ${approvalDate}`, rightMargin, sigY + 26)
+    // Approval chain slots (one per position), aligned on same row
+    const listStartY = sigY
+    if (positions.length) {
+      pdf.setFont('helvetica', 'bold')
+      pdf.setFontSize(9)
+      positions.forEach((pos, idx) => {
+        const x = sigStartX + (idx + 1) * (lineLen + columnGap)
+        pdf.line(x, listStartY, x + lineLen, listStartY)
+        pdf.text(String(pos), x, listStartY + 12)
+        pdf.text('Date: ............', x, listStartY + 26)
+      })
+    }
 
     const blob = pdf.output('blob')
+    if (pdfUrl.value) {
+      URL.revokeObjectURL(pdfUrl.value)
+    }
     const url = URL.createObjectURL(blob)
+    pdfUrl.value = url
     hasGeneratedPdf.value = true
-    window.open(url, '_blank')
   } finally {
     generatingPdf.value = false
   }
@@ -439,6 +480,12 @@ const buildPdf = async () => {
 
 onMounted(() => {
   fetchRequisition()
+})
+
+onBeforeUnmount(() => {
+  if (pdfUrl.value) {
+    URL.revokeObjectURL(pdfUrl.value)
+  }
 })
 </script>
 
@@ -454,6 +501,10 @@ onMounted(() => {
     <div v-else-if="!requisition" class="error-container">
       <p class="text-muted">No requisition data available.</p>
     </div>
+
+    <div v-else class="pdf-container">
+      <iframe v-if="pdfUrl" class="pdf-frame" :src="pdfUrl" title="Requisition PDF"></iframe>
+    </div>
   </div>
 </template>
 
@@ -464,12 +515,27 @@ onMounted(() => {
   align-items: center;
   min-height: 100vh;
   background: #f5f5f5;
+  flex-direction: column;
 }
 
 .loading-container,
 .error-container {
   text-align: center;
   padding: 2rem;
+}
+
+.pdf-container {
+  width: 100%;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.pdf-frame {
+  flex: 1;
+  width: 100%;
+  border: none;
+  background: #fff;
 }
 
 :global(.app-header),

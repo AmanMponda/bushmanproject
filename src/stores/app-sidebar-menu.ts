@@ -54,11 +54,14 @@ export const useAppSidebarMenuStore = defineStore("appSidebarMenu", () => {
   // Avoid synchronous localStorage read at module level for better performance
 
   const commonMenuItems = computed<MenuItem[]>(() => [
-
+    {
+      is_header: true,
+      text: 'Company Dashboard'
+    },
     {
       url: "/companies-dashboard",
       icon: "fa fa-home",
-      text: "Apps",
+      text: "Home",
     },
     {
       is_divider: true,
@@ -74,7 +77,7 @@ export const useAppSidebarMenuStore = defineStore("appSidebarMenu", () => {
     },
     {
       url: "/ma-cargo/sales-dashboard",
-      icon: "fa fa-line-chart",
+      icon: "fa fa-chart-line",
       text: "Sales",
       permission: "CAN_VIEW_GENERAL_DASHBOARD"
     },
@@ -98,13 +101,13 @@ export const useAppSidebarMenuStore = defineStore("appSidebarMenu", () => {
     },
     {
       url: "/ma-cargo/fuel-dashboard",
-      icon: "fa-solid fa-gas-pump",
+      icon: "fa fa-gas-pump",
       text: "Fuel",
       permission: "CAN_VIEW_FUEL_DASHBOARD"
     },
     {
       url: "/ma-cargo/store-dashboard",
-      icon: "fa fa-industry",
+      icon: "fa fa-store",
       text: "Store",
       permission: "CAN_VIEW_INVENTORY_DASHBOARD"
     },
@@ -116,13 +119,13 @@ export const useAppSidebarMenuStore = defineStore("appSidebarMenu", () => {
     },
     {
       url: "/ma-cargo/healthy-safety-dashboard",
-      icon: "fa fa-heartbeat",
+      icon: "fa fa-shield-heart",
       text: "Healthy & Safety",
       permission: "CAN_VIEW_HEALTHY_SAFETY_DASHBOARD"
     },
     {
       url: "/ma-cargo/insurance-dashboard",
-      icon: "fa fa-shield-alt",
+      icon: "fa fa-shield",
       text: "Insurance",
       permission: "CAN_VIEW_INSURANCE_DASHBOARD"
     },
@@ -134,13 +137,13 @@ export const useAppSidebarMenuStore = defineStore("appSidebarMenu", () => {
     },
     {
       url: "/ma-cargo/administration-dashboard",
-      icon: "fas fa-folder-open",
+      icon: "fa fa-folder-open",
       text: "Administration",
       permission: "CAN_VIEW_ADMINISTRATION_DASHBOARD"
     },
     {
       url: "/ma-cargo/reports",
-      icon: "fa fa-chart-bar",
+      icon: "fa fa-file-alt",
       text: "Reports",
       permission: "CAN_VIEW_REPORTS"
     },
@@ -348,93 +351,76 @@ export const useAppSidebarMenuStore = defineStore("appSidebarMenu", () => {
       permission: 'CAN_VIEW_BUSHMAN_DASHBOARD'
     },
     {
-      url: '/sales/quotas',
-      icon: 'fa fa-star-half',
-      text: 'Sales Quotas',
-      permission: 'CAN_VIEW_SALES_QUOTAS'
-    },
-    {
-      url: '/sales/sales-calendar',
-      icon: 'fa fa-calendar',
-      text: 'Sales Calendar',
-      permission: 'CAN_VIEW_CALENDAR'
-    },
-    {
-      url: '/sales/sales-pipeline',
-      icon: 'fa fa-project-diagram',
-      text: 'Sales Pipeline',
-      permission: 'CAN_VIEW_SALES_PIPELINE'
-    },
-    {
       url: '/sales',
-      icon: 'fa fa-shopping-cart',
+      icon: 'fa fa-chart-line',
       text: 'Sales',
       permission: 'CAN_VIEW_SALES',
       children: [
-        { url: '/sales/price-list', text: 'Price Lists', permission: 'CAN_VIEW_PRICE_LISTS' },
-        { url: '/sales/charter-prices', text: 'Charter Prices', permission: 'CAN_VIEW_PRICE_LISTS' },
-        { url: '/sales/sales-inquiry', text: 'Sales Quotations', permission: 'CAN_VIEW_SALES_INQUIRY' },
-        { url: '/orders', text: 'Sales Orders', permission: 'CAN_VIEW_SALES_CONFIRMATIONS' },
-        { url: '/contracts', text: 'Sales Contracts', permission: 'CAN_VIEW_SALES_CONTRACTS' },
+        { url: '/sales/quotas', icon: 'fa fa-star-half', text: 'Sales Quotas', permission: 'CAN_VIEW_SALES_QUOTAS' },
+        { url: '/sales/sales-calendar', icon: 'fa fa-calendar', text: 'Sales Calendar', permission: 'CAN_VIEW_CALENDAR' },
+        { url: '/sales/sales-pipeline', icon: 'fa fa-project-diagram', text: 'Sales Pipeline', permission: 'CAN_VIEW_SALES_PIPELINE' },
+        { url: '/sales/price-list', icon: 'fa fa-tags', text: 'Price Lists', permission: 'CAN_VIEW_PRICE_LISTS' },
+        { url: '/sales/charter-prices', icon: 'fa fa-dollar-sign', text: 'Charter Prices', permission: 'CAN_VIEW_PRICE_LISTS' },
+        { url: '/sales/sales-inquiry', icon: 'fa fa-search-dollar', text: 'Sales Quotations', permission: 'CAN_VIEW_SALES_INQUIRY' },
+        { url: '/orders', icon: 'fa fa-shopping-cart', text: 'Sales Orders', permission: 'CAN_VIEW_SALES_CONFIRMATIONS' },
+        { url: '/contracts', icon: 'fa fa-file-contract', text: 'Sales Contracts', permission: 'CAN_VIEW_SALES_CONTRACTS' },
       ],
-
-    },
-    {
-      url: '/sales/requisitions',
-      icon: 'fa fa-file-alt',
-      text: 'Requisitions',
-      permission: 'CAN_VIEW_SALES'
     },
     {
       url: '/operations',
-      icon: 'fa fa-tasks',
-      text: 'Operations',
+      icon: 'fa fa-cog',
+      text: 'Operation',
       permission: 'CAN_VIEW_OPERATIONS',
       children: [
-        { url: '/operations/hunting-license', text: 'Hunting permits', permission: 'CAN_VIEW_HUNTING_LICENSE' },
-        { url: '/operations/game', text: 'Hunting Games', permission: 'CAN_VIEW_GAME' },       
-        { url: '/operations/game-requitions', text: 'Game requisitions', permission: 'CAN_VIEW_GAME_REQUISITIONS' },
-        // { url: '/operations/hunting-license', text: 'Hunting License', permission: 'CAN_VIEW_HUNTING_LICENSE' },
-        // { url: '/operations/game', text: 'Game', permission: 'CAN_VIEW_GAME' },
-        // { url: '/operations/game-requitions', text: 'Game Requisitions', permission: 'CAN_VIEW_GAME_REQUISITIONS' },
+        { url: '/operations/hunting-license', icon: 'fa fa-certificate', text: 'Hunting Permits', permission: 'CAN_VIEW_HUNTING_LICENSE' },
+        { url: '/operations/game', icon: 'fa fa-paw', text: 'Hunting Games', permission: 'CAN_VIEW_GAME' },
+        { url: '/operations/game-requitions', icon: 'fa fa-clipboard-list', text: 'Game Requisitions', permission: 'CAN_VIEW_GAME_REQUISITIONS' },
       ],
-
-    },  
-
-    {
-      url: '/accounting/journal-vouchers',
-      icon: 'fa fa-book',
-      text: 'Accounts',
-      permission: 'CAN_VIEW_ACCOUNTS',
-      children: [
-        { url: '/accounting/journal-vouchers', text: 'Payment Vouchers', permission: 'CAN_VIEW_ACCOUNTS' },
-        { url: '/accounting/invoices', text: 'Invoices', permission: 'CAN_VIEW_ACCOUNTS' },
-        { url: '/accounting/chart-of-accounts', text: 'Chart of Accounts', permission: 'CAN_VIEW_ACCOUNTS' },
-      ]
     },
     {
       url: '/procurement',
-      icon: 'fa fa-shopping-bag',
+      icon: 'fa fa-shopping-cart',
       text: 'Procurement',
       permission: 'CAN_VIEW_PROCUREMENT',
     },
     {
+      url: '/store',
+      icon: 'fa fa-store',
+      text: 'Store',
+      permission: 'CAN_VIEW_STORE',
+    },
+    {
+      url: '/accounting',
+      icon: 'fa fa-calculator',
+      text: 'Accounts',
+      permission: 'CAN_VIEW_ACCOUNTS',
+      children: [
+        { url: '/sales/requisitions', icon: 'fa fa-file-alt', text: 'Requisitions', permission: 'CAN_VIEW_SALES' },
+        { url: '/accounting/journal-vouchers', icon: 'fa fa-receipt', text: 'Payment Vouchers', permission: 'CAN_VIEW_ACCOUNTS' },
+        { url: '/accounting/invoices', icon: 'fa fa-file-invoice', text: 'Invoices', permission: 'CAN_VIEW_ACCOUNTS' },
+        { url: '/accounting/chart-of-accounts', icon: 'fa fa-book', text: 'Chart of Accounts', permission: 'CAN_VIEW_ACCOUNTS' },
+      ]
+    },
+    {
       url: '/hr',
       icon: 'fa fa-users',
-      text: 'HR',
+      text: 'HRM',
       permission: 'CAN_VIEW_HR',
     },
     {
-      url: '/reports',
-      icon: 'fa fa-chart-bar',
-      text: 'Reports',
-      permission: 'CAN_VIEW_REPORTS',
+      url: '/administration',
+      icon: 'fa fa-folder-open',
+      text: 'Administration',
+      permission: 'CAN_VIEW_ADMINISTRATION',
+      children: [
+        { url: '/location-master', icon: 'fa fa-map-marker-alt', text: 'Location Master' },
+      ]
     },
     {
-      url: '/location-master',
-      icon: 'fa fa-map-marker-alt',
-      text: 'Location Master',
-      // permission: 'CAN_VIEW_LOCATION_MASTER',
+      url: '/reports',
+      icon: 'fa fa-file-alt',
+      text: 'Reports',
+      permission: 'CAN_VIEW_REPORTS',
     },
     {
       text: 'Settings',
