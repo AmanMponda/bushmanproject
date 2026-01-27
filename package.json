@@ -58,6 +58,7 @@
     "device-uuid": "^1.0.4",
     "highlight.js": "^11.11.1",
     "highlightjs": "^9.16.2",
+    "html2canvas": "^1.4.1",
     "jquery": "^3.7.1",
     "jspdf": "^3.0.4",
     "jspdf-autotable": "^5.0.2",

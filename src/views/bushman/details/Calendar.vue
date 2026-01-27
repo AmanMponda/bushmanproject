@@ -1,115 +1,97 @@
 <template>
-  <div class="calendar-page" ref="calendarRef" :class="{ 'is-exporting': downloadingPdf }">
-    <!-- Page Header -->
-    <div class="d-flex justify-content-between align-items-center mb-4 d-print-none">
-      <div>
-        <h4 class="mb-1 text-primary fw-bold">
-          <i class="bi bi-calendar-range me-2"></i>Hunting Schedule
-        </h4>
-        <p class="text-muted small mb-0">View and manage booking schedules.</p>
-      </div>
-      <div class="d-flex gap-2">
-         <button class="btn btn-outline-primary" @click="downloadPdf" :disabled="downloadingPdf">
-             <i class="bi bi-file-earmark-pdf me-1"></i> {{ downloadingPdf ? 'Preparing...' : 'Download PDF' }}
-         </button>
-         <button class="btn btn-outline-secondary" @click="printCalendar">
-             <i class="bi bi-printer me-1"></i> Print
-         </button>
+  <div class="calendar-page" ref="calendarRef">
+    <!-- Simple Header -->
+    <div class="cal-header">
+      <div class="header-content">
+        <div class="header-left">
+          <h1 class="cal-heading">Safari Calendar</h1>
+          <span class="cal-year-badge">{{ currentYear }}</span>
+        </div>
+        <div class="header-actions">
+          <button class="cal-btn cal-btn-secondary" @click="downloadPdf" :disabled="downloadingPdf">
+            <i class="bi bi-file-pdf"></i>
+            <span>{{ downloadingPdf ? 'Generating...' : 'Export PDF' }}</span>
+          </button>
+        </div>
       </div>
     </div>
 
-    <!-- Stats Cards -->
-    <div class="row g-3 mb-4 d-print-none">
-      <div class="col-md-3 col-sm-6" v-for="(stat, index) in stats" :key="index">
-        <div class="card border-0 shadow-sm h-100 stat-card">
-          <div class="card-body">
-            <div class="d-flex align-items-center">
-              <div class="stat-icon-wrapper rounded-circle p-3 text-white" :class="stat.iconBgClass">
-                <i :class="stat.icon" class="fs-4"></i>
-              </div>
-              <div class="ms-3">
-                <div class="text-uppercase fw-bold small text-muted mb-1">{{ stat.label }}</div>
-                <div class="h3 mb-0 fw-bold">{{ stat.value }}</div>
-              </div>
-            </div>
-          </div>
-        </div>
+    <!-- Quick Stats -->
+    <div class="stats-grid">
+      <div class="stat-item">
+        <div class="stat-number">{{ totalEvents }}</div>
+        <div class="stat-text">Total Bookings</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-number">{{ huntEvents }}</div>
+        <div class="stat-text">Hunts</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-number">{{ travelEvents }}</div>
+        <div class="stat-text">Travel Days</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-number">{{ activeAreas.value }}</div>
+        <div class="stat-text">Active Areas</div>
       </div>
     </div>
 
     <!-- Calendar Controls -->
-    <div class="card border-0 shadow-sm mb-4 d-print-none">
-      <div class="card-body py-3">
-        <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
-          <div class="d-flex align-items-center gap-3">
-            <div class="vr mx-2"></div>
-            <div class="d-flex align-items-center gap-2">
-                <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2 rounded-pill">
-                    <i class="bi bi-circle-fill me-1 small"></i> Hunt
-                </span>
-                <span class="badge bg-info-subtle text-info border border-info-subtle px-3 py-2 rounded-pill">
-                    <i class="bi bi-circle-fill me-1 small"></i> Travel
-                </span>
-            </div>
+    <div class="cal-controls">
+      <div class="nav-buttons">
+        <button class="cal-btn-nav" @click="prev"><i class="bi bi-chevron-left"></i></button>
+        <button class="cal-btn-nav today-btn" @click="today">Today</button>
+        <button class="cal-btn-nav" @click="next"><i class="bi bi-chevron-right"></i></button>
+      </div>
+      <h2 class="current-view-title">{{ calendarTitle }}</h2>
+      <div class="view-switcher">
+        <button class="view-btn" :class="{ active: activeView === 'multiMonthYear' }" @click="setView('multiMonthYear')">Year</button>
+        <button class="view-btn" :class="{ active: activeView === 'dayGridMonth' }" @click="setView('dayGridMonth')">Month</button>
+        <button class="view-btn" :class="{ active: activeView === 'listMonth' }" @click="setView('listMonth')">List</button>
+      </div>
+    </div>
+
+    <!-- Legend -->
+    <div class="cal-legend">
+      <div class="legend-item"><span class="legend-dot hunt"></span> Hunt</div>
+      <div class="legend-item"><span class="legend-dot travel"></span> Travel</div>
+    </div>
+
+    <!-- Calendar -->
+    <div class="calendar-wrapper">
+      <FullCalendar :options="calendarOptions" ref="fullCalendarRef" />
+    </div>
+
+    <!-- Event Modal -->
+    <div v-if="selectedEvent" class="event-modal-overlay" @click.self="closeModal">
+      <div class="event-modal">
+        <div class="event-modal-header" :style="{ background: selectedEvent.extendedProps.type === 'hunt' ? '#10b981' : '#0ea5e9' }">
+          <h3>{{ selectedEvent.title }}</h3>
+          <button class="modal-close" @click="closeModal"><i class="bi bi-x"></i></button>
+        </div>
+        <div class="event-modal-body">
+          <div class="event-detail">
+            <strong>Type:</strong>
+            <span class="event-badge" :class="selectedEvent.extendedProps.type">{{ selectedEvent.extendedProps.type }}</span>
+          </div>
+          <div class="event-detail">
+            <strong>Area:</strong> {{ selectedEvent.extendedProps.area }}
+          </div>
+          <div class="event-detail">
+            <strong>Dates:</strong> {{ formatDate(selectedEvent.start) }} - {{ formatDate(selectedEvent.end) }}
+          </div>
+          <div class="event-detail" v-if="selectedEvent.extendedProps.description">
+            <strong>Notes:</strong> {{ selectedEvent.extendedProps.description }}
           </div>
         </div>
       </div>
-    </div>
-
-    <!-- FullCalendar Wrapper -->
-    <div class="card border-0 shadow-sm">
-      <div class="card-body p-0">
-         <FullCalendar class="app-calendar" :options="calendarOptions" ref="fullCalendarRef" />
-      </div>
-    </div>
-
-    <!-- Event Detail Modal -->
-    <div v-if="selectedEvent" class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5)" @click.self="closeModal">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content border-0 shadow-lg">
-                <div class="modal-header bg-primary text-white">
-                    <h5 class="modal-title fw-bold">
-                        <i class="bi bi-info-circle me-2"></i>Booking Details
-                    </h5>
-                    <button type="button" class="btn-close btn-close-white" @click="closeModal"></button>
-                </div>
-                <div class="modal-body p-4">
-                    <h5 class="fw-bold mb-3 text-dark">{{ selectedEvent.title }}</h5>
-                    
-                    <div class="d-flex flex-wrap gap-2 mb-4">
-                         <span class="badge rounded-pill px-3 py-2" :class="getEventBadgeClass(selectedEvent.extendedProps.type)">
-                            {{ selectedEvent.extendedProps.type.toUpperCase() }}
-                         </span>
-                         <span class="badge bg-secondary rounded-pill px-3 py-2">
-                             <i class="bi bi-geo-alt me-1"></i> {{ selectedEvent.extendedProps.area }}
-                         </span>
-                    </div>
-
-                    <div class="card bg-light border-0 rounded-3 mb-3">
-                        <div class="card-body">
-                             <div class="d-flex justify-content-between mb-2">
-                                <span class="small text-muted fw-bold text-uppercase">Duration</span>
-                                <span class="fw-bold text-dark">{{ formatDate(selectedEvent.start) }} - {{ formatDate(selectedEvent.end) }}</span>
-                             </div>
-                             <div  v-if="selectedEvent.extendedProps.description">
-                                <span class="small text-muted fw-bold text-uppercase d-block mb-1">Details</span>
-                                <p class="mb-0 text-dark">{{ selectedEvent.extendedProps.description }}</p>
-                             </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer border-0 pt-0">
-                    <button type="button" class="btn btn-light px-4" @click="closeModal">Close</button>
-                </div>
-            </div>
-        </div>
     </div>
 
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, computed, nextTick } from 'vue'
+import { ref, reactive, onMounted, computed, nextTick, watch } from 'vue'
 import FullCalendar from '@fullcalendar/vue3'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import timeGridPlugin from '@fullcalendar/timegrid'
@@ -126,6 +108,9 @@ import bookingsData2025 from '@/assets/data/bookings_2025.json'
 
 // --- State ---
 const currentYear = ref(2026)
+const calendarTitle = ref('')
+const availableYears = [2025, 2026]
+const activeView = ref('multiMonthYear')
 const selectedEvent = ref<any>(null)
 const fullCalendarRef = ref<any>(null)
 const calendarRef = ref<HTMLElement | null>(null)
@@ -138,10 +123,10 @@ const travelEvents = ref(0)
 const activeAreas = ref(0)
 
 const stats = computed(() => [
-    { label: 'Total Events', value: totalEvents.value, icon: 'bi-calendar-check', iconBgClass: 'bg-primary' },
-    { label: 'Confirmed Hunts', value: huntEvents.value, icon: 'bi-crosshair', iconBgClass: 'bg-success' },
-    { label: 'Travels', value: travelEvents.value, icon: 'bi-airplane', iconBgClass: 'bg-info' },
-    { label: 'Active Areas', value: activeAreas.value, icon: 'bi-map', iconBgClass: 'bg-warning' },
+    { label: 'Total Events', value: totalEvents.value, icon: 'bi-calendar-check', iconBgClass: 'bg-blue' },
+    { label: 'Confirmed Hunts', value: huntEvents.value, icon: 'bi-crosshair', iconBgClass: 'bg-green' },
+    { label: 'Travels', value: travelEvents.value, icon: 'bi-airplane', iconBgClass: 'bg-cyan' },
+    { label: 'Active Areas', value: activeAreas.value, icon: 'bi-map', iconBgClass: 'bg-orange' },
 ])
 
 // --- Helper Functions ---
@@ -155,10 +140,6 @@ const formatDate = (date: Date) => {
     // Subtract 1 day from end date for display because FullCalendar end date is exclusive
     const d = new Date(date)
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-}
-
-const getEventBadgeClass = (type: string) => {
-    return type === 'hunt' ? 'bg-success' : 'bg-info'
 }
 
 const formatPdfDay = (day: number) => {
@@ -332,7 +313,15 @@ const downloadPdf = async () => {
             })
         }
 
-        pdf.save(`calendar-${currentYear.value}.pdf`)
+        const blob = pdf.output('blob')
+        const url = URL.createObjectURL(blob)
+        const previewWindow = window.open('', '_blank', 'noopener')
+        if (previewWindow) {
+            previewWindow.location.href = url
+        } else {
+            window.location.href = url
+        }
+        setTimeout(() => URL.revokeObjectURL(url), 60000)
     } catch (err) {
         console.error('Failed to export calendar PDF:', err)
     } finally {
@@ -341,15 +330,14 @@ const downloadPdf = async () => {
 }
 
 // --- Data Transformation ---
-const processData = (year: number) => {
-    const rawData = year === 2026 ? bookingsData2026 : bookingsData2025
+const processYearData = (year: number, rawData: any[]) => {
     const events: any[] = []
     
-    let tEvents = 0
-    let hEvents = 0
-    let trEvents = 0
-    const areaSet = new Set()
-
+    // We calculate stats here, but since we now load multiple years, 
+    // we should only count stats for the "currentYear" to avoid confusion, 
+    // or we need a separate stats calculation function.
+    // For simplicity, let's extract stats calculation to a watcher.
+    
     rawData.forEach((monthData: any) => {
         const monthKey = monthData.id.toLowerCase().substring(0, 3)
         const monthIndex = monthsMap[monthKey]
@@ -365,21 +353,12 @@ const processData = (year: number) => {
                                  const startDate = new Date(year, monthIndex, seg.start)
                                  const endDate = new Date(year, monthIndex, seg.end + 1) // +1 day for exclusive end
                                  
-                                 // Check event type
-                                 if (seg.type === 'hunt') {
-                                     hEvents++
-                                 } else {
-                                     trEvents++
-                                 }
-                                 tEvents++
-                                 areaSet.add(area.name)
-
                                  events.push({
                                      title: `${row.clientName} (${area.name})`,
                                      start: startDate,
                                      end: endDate,
-                                     backgroundColor: seg.type === 'hunt' ? '#198754' : '#0dcaf0',
-                                     borderColor: seg.type === 'hunt' ? '#198754' : '#0dcaf0',
+                                     backgroundColor: seg.type === 'hunt' ? '#10b981' : '#0ea5e9',
+                                     borderColor: seg.type === 'hunt' ? '#10b981' : '#0ea5e9',
                                      textColor: '#ffffff',
                                      classNames: [seg.type === 'hunt' ? 'event-hunt' : 'event-travel'],
                                      extendedProps: {
@@ -398,14 +377,48 @@ const processData = (year: number) => {
             })
         }
     })
+    return events
+}
 
-    // Update Stats
+const getAllEvents = () => {
+    const events2025 = processYearData(2025, bookingsData2025)
+    const events2026 = processYearData(2026, bookingsData2026)
+    return [...events2025, ...events2026]
+}
+
+const calculateStats = (year: number) => {
+    const rawData = year === 2026 ? bookingsData2026 : bookingsData2025
+    let tEvents = 0
+    let hEvents = 0
+    let trEvents = 0
+    const areaSet = new Set()
+
+    rawData.forEach((monthData: any) => {
+        if (monthData.areas) {
+            monthData.areas.forEach((area: any) => {
+                if (area.rows && area.rows.length > 0) {
+                     area.rows.forEach((row: any) => {
+                         if (row.segments) {
+                             row.segments.forEach((seg: any) => {
+                                 if (seg.type === 'hunt') {
+                                     hEvents++
+                                 } else {
+                                     trEvents++
+                                 }
+                                 tEvents++
+                                 areaSet.add(area.name)
+                             })
+                         }
+                     })
+                }
+            })
+        }
+    })
+
     totalEvents.value = tEvents
     huntEvents.value = hEvents
     travelEvents.value = trEvents
     activeAreas.value = areaSet.size
-
-    return events
 }
 
 // --- FullCalendar Options ---
@@ -413,11 +426,7 @@ const calendarOptions = reactive({
   plugins: [dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin, multiMonthPlugin, bootstrapPlugin],
   initialView: 'multiMonthYear',
   themeSystem: 'bootstrap',
-  headerToolbar: {
-    left: 'prev,next today',
-    center: 'title',
-    right: 'multiMonthYear,dayGridMonth,listMonth'
-  },
+  headerToolbar: false, // Custom toolbar used
   multiMonthMaxColumns: 3, // 3 months/row in year view
   editable: false,
   selectable: true,
@@ -425,9 +434,22 @@ const calendarOptions = reactive({
   dayMaxEvents: 2, // limit events per day
   weekends: true,
   initialDate: `${currentYear.value}-01-01`, 
-  events: processData(currentYear.value),
+  events: getAllEvents(),
   eventClick: (info: any) => {
       selectedEvent.value = info.event
+  },
+  datesSet: (info: any) => {
+      calendarTitle.value = info.view.title
+      activeView.value = info.view?.type || activeView.value
+      
+      // Update current year based on view's center date to keep stats relevant
+      const midDate = info.view.currentStart
+      if (midDate) {
+          const year = midDate.getFullYear()
+          if (availableYears.includes(year) && year !== currentYear.value) {
+              currentYear.value = year
+          }
+      }
   },
   height: 'auto',
   views: {
@@ -439,122 +461,447 @@ const calendarOptions = reactive({
 })
 
 // --- Methods ---
-const changeYear = (year: number) => {
-    currentYear.value = year
+const jumpToYear = (year: number) => {
     const api = fullCalendarRef.value.getApi()
     api.gotoDate(`${year}-01-01`)
-    
-    // Refresh events logic
-    api.removeAllEvents()
-    processData(year).forEach((evt: any) => api.addEvent(evt))
+}
+
+const next = () => fullCalendarRef.value.getApi().next()
+const prev = () => fullCalendarRef.value.getApi().prev()
+const today = () => fullCalendarRef.value.getApi().today()
+
+const setView = (view: 'multiMonthYear' | 'dayGridMonth' | 'listMonth') => {
+    activeView.value = view
+    const api = fullCalendarRef.value.getApi()
+    api.changeView(view)
 }
 
 const closeModal = () => {
     selectedEvent.value = null
 }
 
+// Watchers
+watch(currentYear, (newYear) => {
+    calculateStats(newYear)
+})
+
 // Initial Load
 onMounted(() => {
-    processData(currentYear.value)
+    calculateStats(currentYear.value)
 })
 
 </script>
 
 <style scoped>
 .calendar-page {
-    /* Main page background */
-    contain: layout;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 2rem;
+  background: #fafbfc;
+  min-height: 100vh;
 }
 
-.calendar-page.is-exporting .d-print-none,
-.calendar-page.is-exporting .modal {
-    display: none !important;
+/* Header */
+.cal-header {
+  margin-bottom: 2rem;
 }
 
-.stat-card {
-    transition: transform 0.2s, box-shadow 0.2s;
-    overflow: hidden;
+.header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
 }
 
-.stat-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 .5rem 1rem rgba(0,0,0,.15)!important;
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
 }
 
-.stat-icon-wrapper {
-    width: 60px;
-    height: 60px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+.cal-heading {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin: 0;
 }
 
-:deep(.fc-theme-bootstrap5 a:not([href])) {
-    color: inherit;
-    text-decoration: none;
+.cal-year-badge {
+  background: #10b981;
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 600;
 }
 
-:deep(.fc-event) {
-    cursor: pointer;
-    border-radius: 4px;
-    font-size: 0.85em;
-    padding: 1px 2px;
-    border: none;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+.header-actions {
+  display: flex;
+  gap: 0.75rem;
 }
 
-:deep(.fc-event:hover) {
-    filter: brightness(0.95);
+.cal-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.25rem;
+  border-radius: 8px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.95rem;
 }
 
-:deep(.fc-toolbar-title) {
-    font-weight: 800;
-    font-size: 1.5rem;
-    color: #495057;
+.cal-btn-secondary {
+  background: white;
+  color: #374151;
+  border: 1px solid #e5e7eb;
+}
+
+.cal-btn-secondary:hover:not(:disabled) {
+  background: #f9fafb;
+  border-color: #d1d5db;
+}
+
+.cal-btn-secondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Stats Grid */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.stat-item {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  text-align: center;
+}
+
+.stat-number {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #10b981;
+  line-height: 1;
+  margin-bottom: 0.5rem;
+}
+
+.stat-text {
+  font-size: 0.875rem;
+  color: #6b7280;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Controls */
+.cal-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: white;
+  padding: 1rem 1.5rem;
+  border-radius: 12px;
+  margin-bottom: 1rem;
+  border: 1px solid #e5e7eb;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.nav-buttons {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.cal-btn-nav {
+  background: white;
+  border: 1px solid #e5e7eb;
+  color: #374151;
+  padding: 0.5rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-weight: 600;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cal-btn-nav.today-btn {
+  width: auto;
+  padding: 0.5rem 1rem;
+}
+
+.cal-btn-nav:hover {
+  background: #f9fafb;
+  border-color: #d1d5db;
+}
+
+.current-view-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 0;
+  flex: 1;
+  text-align: center;
+}
+
+.view-switcher {
+  display: flex;
+  gap: 0.25rem;
+  background: #f3f4f6;
+  padding: 0.25rem;
+  border-radius: 8px;
+}
+
+.view-btn {
+  background: transparent;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  color: #6b7280;
+  transition: all 0.2s;
+  font-size: 0.875rem;
+}
+
+.view-btn.active {
+  background: white;
+  color: #1a1a1a;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+.view-btn:hover:not(.active) {
+  color: #374151;
+}
+
+/* Legend */
+.cal-legend {
+  display: flex;
+  gap: 1.5rem;
+  padding: 0.75rem 1rem;
+  background: white;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  border: 1px solid #e5e7eb;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #374151;
+}
+
+.legend-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+}
+
+.legend-dot.hunt {
+  background: #10b981;
+}
+
+.legend-dot.travel {
+  background: #0ea5e9;
+}
+
+/* Calendar Wrapper */
+.calendar-wrapper {
+  background: white;
+  border-radius: 12px;
+  padding: 1.5rem;
+  border: 1px solid #e5e7eb;
+}
+
+/* Event Modal */
+.event-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.event-modal {
+  background: white;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 480px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.event-modal-header {
+  padding: 1.5rem;
+  color: white;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.event-modal-header h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.modal-close {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: white;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.modal-close:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.event-modal-body {
+  padding: 1.5rem;
+}
+
+.event-detail {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  font-size: 0.95rem;
+}
+
+.event-detail:last-child {
+  margin-bottom: 0;
+}
+
+.event-detail strong {
+  color: #6b7280;
+  font-weight: 600;
+  min-width: 80px;
+  font-size: 0.875rem;
+}
+
+.event-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.event-badge.hunt {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.event-badge.travel {
+  background: #dbeafe;
+  color: #075985;
+}
+
+/* FullCalendar Customization */
+:deep(.fc) {
+  font-family: inherit;
+}
+
+:deep(.fc-theme-standard td),
+:deep(.fc-theme-standard th) {
+  border-color: #e5e7eb;
 }
 
 :deep(.fc-col-header-cell) {
-    background-color: #f8f9fa;
-    padding: 8px 0;
-    text-transform: uppercase;
-    font-size: 0.8rem;
-    color: #6c757d;
-}
-
-:deep(.fc-cell-today) {
-    background-color: rgba(255, 255, 0, 0.05) !important;
+  background: #f9fafb;
+  padding: 0.75rem 0.5rem;
+  font-weight: 600;
+  font-size: 0.75rem;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 :deep(.fc-daygrid-day-number) {
-    font-weight: 600;
-    color: #495057;
-    margin: 4px;
+  color: #1a1a1a;
+  padding: 0.5rem;
+  font-weight: 600;
 }
 
-/* Modal animation */
-.modal.show {
-    transition: opacity .15s linear;
+:deep(.fc-daygrid-day.fc-day-today) {
+  background: #f0fdf4 !important;
 }
 
-.modal-content {
-    border-radius: 12px;
+:deep(.fc-event) {
+  border: none !important;
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
 }
 
-.event-hunt {
-    background-color: #198754 !important;
+:deep(.fc-event.event-hunt) {
+  background: #10b981 !important;
 }
 
-.event-travel {
-    background-color: #0dcaf0 !important;
+:deep(.fc-event.event-travel) {
+  background: #0ea5e9 !important;
 }
 
-@media print {
-    :deep(.fc-header-toolbar) {
-        display: none;
-    }
-    
-    .calendar-page {
-        padding: 0;
-    }
+:deep(.fc-multimonth-title) {
+  font-weight: 700;
+  font-size: 0.875rem;
+  color: #1a1a1a;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .calendar-page {
+    padding: 1rem;
+  }
+
+  .cal-heading {
+    font-size: 1.5rem;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .cal-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .current-view-title {
+    text-align: left;
+    order: -1;
+    margin-bottom: 0.75rem;
+  }
+
+  .nav-buttons {
+    justify-content: center;
+  }
 }
 </style>

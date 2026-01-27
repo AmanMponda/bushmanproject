@@ -431,6 +431,12 @@ export const useAppSidebarMenuStore = defineStore("appSidebarMenu", () => {
       permission: 'CAN_VIEW_REPORTS',
     },
     {
+      url: '/location-master',
+      icon: 'fa fa-map-marker-alt',
+      text: 'Location Master',
+      // permission: 'CAN_VIEW_LOCATION_MASTER',
+    },
+    {
       text: 'Settings',
       is_header: true,
     },

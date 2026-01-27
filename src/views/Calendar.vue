@@ -87,8 +87,8 @@
                         <option :value="2026">2026</option>
                     </select>
                 </div>
-                <button class="btn btn-outline-primary" @click="downloadPdf" :disabled="downloadingPdf">
-                    <i class="bi bi-file-earmark-pdf me-1"></i> {{ downloadingPdf ? 'Preparing...' : 'Download PDF' }}
+                <button class="btn btn-outline-primary" @click="openPdfDialog">
+                    <i class="bi bi-file-earmark-pdf me-1"></i> Export PDF
                 </button>
                 <button class="btn btn-outline-secondary" @click="printCalendar">
                     <i class="bi bi-printer me-1"></i> Print
@@ -155,6 +155,22 @@
                 </div>
             </div>
         </div>
+    </div>
+
+    <!-- Event Details Modal -->
+    <div v-if="showPdfDialog" class="pdf-modal-overlay" @click.self="closePdfDialog">
+      <div class="pdf-modal-card">
+        <div class="pdf-modal-header">
+          <div>
+            <div class="pdf-modal-kicker">Bushman</div>
+            <h5 class="pdf-modal-title">PDF Management</h5>
+          </div>
+          <button type="button" class="btn-close" @click="closePdfDialog"></button>
+        </div>
+        <div class="pdf-modal-body">
+          <CalendarPdfExport :year="currentYear" />
+        </div>
+      </div>
     </div>
 
     <!-- Event Details Modal -->
@@ -370,6 +386,7 @@ import jsPDF from 'jspdf'
 import html2canvas from 'html2canvas'
 import bookingsData2026 from '@/assets/data/bookings_2026.json'
 import bookingsData2025 from '@/assets/data/bookings_2025.json'
+import CalendarPdfExport from './bushman/details/CalendarPdfExport.vue'
 
 const totalEvents = ref(15)
 const confirmedEvents = ref(12)
@@ -378,6 +395,7 @@ const completedEvents = ref(5)
 const currentYear = ref(2026)
 const calendarRef = ref<HTMLElement | null>(null)
 const downloadingPdf = ref(false)
+const showPdfDialog = ref(false)
 
 // --- Custom Scheduler Data Types ---
 interface BookingSegment {
@@ -610,6 +628,14 @@ const downloadPdf = async () => {
     }
 }
 
+const openPdfDialog = () => {
+    showPdfDialog.value = true
+}
+
+const closePdfDialog = () => {
+    showPdfDialog.value = false
+}
+
 onMounted(() => {
     loadDataForYear(currentYear.value)
 })
@@ -622,6 +648,59 @@ onMounted(() => {
 
 .calendar-page.is-exporting .d-print-none {
   display: none !important;
+}
+
+.pdf-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.5);
+  backdrop-filter: blur(4px);
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 24px;
+  z-index: 1060;
+  overflow: auto;
+}
+
+.pdf-modal-card {
+  background: #ffffff;
+  width: min(1200px, 96vw);
+  border-radius: 14px;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.25);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  max-height: 92vh;
+}
+
+.pdf-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #ffffff;
+}
+
+.pdf-modal-kicker {
+  font-size: 0.7rem;
+  letter-spacing: 0.12rem;
+  text-transform: uppercase;
+  color: #6b7280;
+  font-weight: 700;
+}
+
+.pdf-modal-title {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #111827;
+}
+
+.pdf-modal-body {
+  overflow: auto;
+  background: #f9fafb;
 }
 
 .stat-card {

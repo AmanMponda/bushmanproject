@@ -287,6 +287,7 @@ type ItemApprovalSnapshot = {
     item_id?: number
     item_name?: string
     quantity: number
+    rate?: number
     total: number
     unit?: string
   }>
@@ -714,7 +715,7 @@ const statusBadgeClass = (status: RequisitionStatus) => {
 }
 
 const formatAmount = (value: number) => {
-  return Number(value || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  return Number(value || 0).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })
 }
 
 
@@ -1308,12 +1309,17 @@ const buildApprovalItemSnapshots = (approval: any): Map<number, ItemApprovalSnap
       const itemId = matItem.requisition_item_id
       if (!itemId) return
 
+      const quantity = Number(matItem.total_quantity ?? matItem.quantity ?? 0)
+      const total = Number(matItem.total_line_total ?? matItem.total ?? 0)
+      const rawRate = Number(matItem.rate)
+      const rate = Number.isFinite(rawRate) ? rawRate : quantity ? total / quantity : 0
       const entry = itemMap.get(itemId) || { accounts: [], materials: [] }
       entry.materials.push({
         item_id: matItem.item_id,
         item_name: matItem.item_name || matItem.item?.name || '',
-        quantity: Number(matItem.total_quantity ?? matItem.quantity ?? 0),
-        total: Number(matItem.total_line_total ?? matItem.total ?? 0),
+        quantity,
+        rate,
+        total,
         unit: matItem.unit_of_measurement?.code || matItem.unit_of_measurement?.name || ''
       })
       itemMap.set(itemId, entry)
@@ -1554,7 +1560,8 @@ const normalizeMasterPayload = (payload: any) => {
         const reqItemId = matItem.requisition_item_id || null
         const quantity = Number(matItem.total_quantity ?? matItem.quantity ?? 0)
         const totalLine = Number(matItem.total_line_total ?? 0)
-        const rate = quantity ? totalLine / quantity : 0
+        const rawRate = Number(matItem.rate)
+        const rate = Number.isFinite(rawRate) ? rawRate : quantity ? totalLine / quantity : 0
         const currency = defaultCurrency || null
         const currencyId = currency?.id || null
 
@@ -1591,7 +1598,13 @@ const normalizeMasterPayload = (payload: any) => {
     return builtItems
   }
 
-  const latestDimensions = payload.latest_approved_dimensions || getLatestApprovedDimensions(approvalStages) || null
+  const latestApproved = Array.isArray(payload.latest_approved_dimensions)
+    ? payload.latest_approved_dimensions
+    : null
+  const latestDimensions =
+    (latestApproved && latestApproved.length ? latestApproved : null) ||
+    getLatestApprovedDimensions(approvalStages) ||
+    null
   const baseItems = buildItemsFromDimensions(dimensions)
   const latestItems = latestDimensions ? buildItemsFromDimensions(latestDimensions) : null
   const items = latestItems || baseItems
