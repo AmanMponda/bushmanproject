@@ -146,13 +146,13 @@ defineExpose({ show, hide });
 
 <style scoped>
 .modal-header {
-    background-color: #f8f9fa;
+    /* background-color: #f8f9fa; */
     border-bottom: 1px solid #dee2e6;
 }
 
 .modal-footer {
     border-top: 1px solid #dee2e6;
-    background-color: #f8f9fa;
+   /* background-color: #f8f9fa; */
 }
 
 /* Smooth transitions */

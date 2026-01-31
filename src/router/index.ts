@@ -498,6 +498,12 @@ const router = createRouter({
       component: ModuleComingSoon,
       meta: { requiresAuth: true }
     },
+    {
+      path: "/module-settings/vehicle-models",
+      name: "vehicle-models",
+      component: () => import('@/views/bushman/module-settings/VehicleModels.vue'),
+      meta: { requiresAuth: true }
+    },
 
     // Procurement Settings Routes
     {
