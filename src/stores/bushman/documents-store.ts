@@ -115,5 +115,14 @@ export const useDocumentsStore = defineStore('documents-store', {
       }
       return axios.request(config)
     },
+
+    // Get a viewable URL for the document (returns blob URL for inline viewing)
+    async getViewableUrl(id: number | string): Promise<string> {
+      const response = await this.downloadDocument(id)
+      const blob = response.data
+      const mimeType = response.headers['content-type'] || 'application/octet-stream'
+      const viewableBlob = new Blob([blob], { type: mimeType })
+      return window.URL.createObjectURL(viewableBlob)
+    },
   },
 })

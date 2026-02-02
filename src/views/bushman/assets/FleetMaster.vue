@@ -18,9 +18,30 @@
         <div class="row layout-top-spacing bg-white rounded">
           <div class="col-xl-12 col-lg-12 col-sm-12 layout-spacing">
           <div class="panel br-6 p-0">
+            <div class="px-3 pt-3">
+              <ul class="nav nav-tabs overflow-auto flex-nowrap compact-tabs compact-tabs-left">
+                <li class="nav-item">
+                  <a href="#" class="nav-link" :class="{ active: activeListTab === 'vehicles' }" @click.prevent="activeListTab = 'vehicles'">
+                    <i class="fa fa-car me-1"></i>Vehicles
+                  </a>
+                </li>
+                <li class="nav-item">
+                  <a href="#" class="nav-link" :class="{ active: activeListTab === 'models' }" @click.prevent="activeListTab = 'models'">
+                    <i class="fa fa-cogs me-1"></i>Models
+                  </a>
+                </li>
+              </ul>
+            </div>
             <div class="custom-table p-3">
-              <StandardDataTable :columns="vehicleColumns" :data="vehicles" :loading="loadingVehicles" :disable-search="false"
-                :disable-pagination="false" :action-buttons="pageActions">
+              <StandardDataTable
+                v-if="activeListTab === 'vehicles'"
+                :columns="vehicleColumns"
+                :data="vehicles"
+                :loading="loadingVehicles"
+                :disable-search="false"
+                :disable-pagination="false"
+                :action-buttons="pageActions"
+              >
                 <template #registration="slotProps">
                   <span class="badge bg-warning text-dark">
                     <i class="fa fa-car me-1"></i>{{ (slotProps.row as any)?.registration_number || '-' }}
@@ -55,6 +76,38 @@
                   </div>
                 </template>
               </StandardDataTable>
+
+              <div v-else class="models-table">
+                <StandardDataTable
+                  :columns="modelColumns"
+                  :data="vehicleModelsList"
+                  :loading="loadingVehicleModels"
+                  :disable-search="false"
+                  :disable-pagination="false"
+                  :action-buttons="pageActions"
+                >
+                  <template #make="slotProps">
+                    <span class="fw-semibold">{{ (slotProps.row as any)?.make || '-' }}</span>
+                  </template>
+                  <template #model="slotProps">
+                    <span>{{ (slotProps.row as any)?.model || '-' }}</span>
+                    <span v-if="(slotProps.row as any)?.variant" class="text-muted"> • {{ (slotProps.row as any)?.variant }}</span>
+                  </template>
+                  <template #type="slotProps">
+                    <span class="badge bg-light text-dark border">{{ (slotProps.row as any)?.type || '-' }}</span>
+                  </template>
+                  <template #actions="slotProps">
+                    <div class="d-flex gap-1">
+                      <button class="btn btn-outline-primary btn-sm" title="Edit Model" @click="openEditModelForm(slotProps.row)">
+                        <i class="fa fa-edit"></i>
+                      </button>
+                      <button class="btn btn-danger btn-sm" title="Delete Model" @click="confirmDeleteModel(slotProps.row)">
+                        <i class="fa fa-trash"></i>
+                      </button>
+                    </div>
+                  </template>
+                </StandardDataTable>
+              </div>
             </div>
           </div>
         </div>
@@ -64,253 +117,148 @@
 
     <!-- VEHICLE DETAILS VIEW (READ-ONLY, FULL PAGE) -->
     <template v-else-if="showVehicleDetailsPage">
-      <div class="card">
-        <div class="card-header bg-white d-flex align-items-center justify-content-between">
-          <div>
-            <h5 class="mb-0"><i class="fa fa-car me-2"></i>Vehicle Details</h5>
-            <small class="text-muted">{{ vehicleDetails?.registration_number || vehicleDetails?.name || '-' }}</small>
-          </div>
-          <button type="button" class="btn btn-outline-secondary" @click="backToVehicleList">
-            <i class="fa fa-arrow-left me-2"></i>Back to List
+      <VehicleProfile
+        :vehicle-details="vehicleDetails"
+        :vehicle-documents="vehicleDocuments"
+        :uploading="uploading"
+        :loading="loadingVehicles"
+        :preview-map="previewMap"
+        @back="backToVehicleList"
+        @refresh="refreshVehicleDetails"
+        @edit="vehicleDetails && openEditVehicleForm(vehicleDetails)"
+        @add="openAddVehicleForm"
+        @refresh-documents="refreshVehicleDocuments"
+        @file-change="onVehicleFileChange"
+        @upload-document="uploadVehicleDocument"
+        @download-document="downloadVehicleDocument"
+        @open-image-preview="openImagePreview"
+      />
+    </template>
+
+    <VehicleFormModal
+      id="vehicleFormModal"
+      ref="vehicleFormModalRef"
+      :title="editingVehicleId ? 'Edit Vehicle' : 'Add New Vehicle'"
+      :subtitle="editingVehicleId ? 'Editing vehicle details' : 'Register a new vehicle'"
+      :vehicle-form="vehicleForm"
+      :vehicle-models="vehicleModels"
+      :fuel-items="fuelItems"
+      :vehicle-form-error="vehicleFormError"
+      :saving-vehicle="savingVehicle"
+      @save="saveVehicle"
+      @cancel="closeVehicleForm"
+      @close="handleVehicleFormClose"
+      @hidden="handleVehicleFormHidden"
+    />
+
+    <StandardModal
+      id="vehicleModelModal"
+      ref="vehicleModelModalRef"
+      :title="editingModelId ? 'Edit Vehicle Model' : 'Add Vehicle Model'"
+      size="lg"
+      :scrollable="true"
+      :show-footer="false"
+      @close="handleModelFormClose"
+      @hidden="handleModelFormHidden"
+    >
+      <div v-if="modelFormError" class="alert alert-danger">{{ modelFormError }}</div>
+      <div class="row g-3">
+        <div class="col-md-4">
+          <label class="form-label">Make <span class="text-danger">*</span></label>
+          <input v-model="modelForm.make" type="text" class="form-control" placeholder="Toyota" />
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Model <span class="text-danger">*</span></label>
+          <input v-model="modelForm.model" type="text" class="form-control" placeholder="Hiace" />
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Variant</label>
+          <input v-model="modelForm.variant" type="text" class="form-control" placeholder="2.5L" />
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Type <span class="text-danger">*</span></label>
+          <select v-model="modelForm.type" class="form-select">
+            <option value="">-- Select Type --</option>
+            <option v-for="t in vehicleModelTypes" :key="t" :value="t">{{ t }}</option>
+          </select>
+        </div>
+        <div class="col-md-8">
+          <label class="form-label">Description</label>
+          <input v-model="modelForm.description" type="text" class="form-control" placeholder="Optional description" />
+        </div>
+      </div>
+
+      <div class="d-flex justify-content-end gap-2 mt-4">
+        <button type="button" class="btn btn-outline-secondary btn-sm" @click="closeModelForm">Cancel</button>
+        <button type="button" class="btn btn-primary btn-sm" @click="saveVehicleModel" :disabled="savingModel">
+          <span v-if="savingModel" class="spinner-border spinner-border-sm me-1"></span>
+          {{ editingModelId ? 'Update' : 'Create' }}
+        </button>
+      </div>
+    </StandardModal>
+
+    <!-- Document Viewer Modal -->
+    <div v-if="showDocumentViewer" class="document-viewer-overlay" @click.self="closeDocumentViewer">
+      <div class="document-viewer-container">
+        <div class="document-viewer-header">
+          <h5 class="mb-0 text-truncate">
+            <i class="fa fa-file-alt me-2"></i>{{ documentViewerName }}
+          </h5>
+          <button class="btn btn-light btn-sm" @click="closeDocumentViewer">
+            <i class="fa fa-times"></i>
           </button>
         </div>
-        <div class="card-body" style="max-height: 70vh; overflow-y: auto;">
-          <div v-if="!vehicleDetails" class="alert alert-info">
-            <i class="fa fa-spinner fa-spin me-2"></i>Loading vehicle details...
+        <div class="document-viewer-body">
+          <div v-if="documentViewerLoading" class="d-flex justify-content-center align-items-center h-100">
+            <div class="spinner-border text-primary" role="status">
+              <span class="visually-hidden">Loading...</span>
+            </div>
           </div>
-          <template v-else>
-            <!-- BASIC INFORMATION -->
-            <div class="border-bottom pb-3 mb-4">
-              <h6 class="text-primary mb-3"><i class="fa fa-info-circle me-2"></i>Basic Information</h6>
-              <div class="row g-3">
-                <div class="col-md-4">
-                  <label class="form-label text-muted">Registration Number</label>
-                  <div class="fw-semibold">{{ vehicleDetails.registration_number || '-' }}</div>
-                </div>
-                <div class="col-md-4">
-                  <label class="form-label text-muted">Make</label>
-                  <div class="fw-semibold">{{ vehicleDetails.make || vehicleDetails.motor_vehicle?.vehicle_model?.make || '-' }}</div>
-                </div>
-                <div class="col-md-4">
-                  <label class="form-label text-muted">Model</label>
-                  <div class="fw-semibold">{{ vehicleDetails.model || vehicleDetails.motor_vehicle?.vehicle_model?.model || '-' }}</div>
-                </div>
-                <div class="col-md-4">
-                  <label class="form-label text-muted">Manufacture Year</label>
-                  <div class="fw-semibold">{{ vehicleDetails.manufacture_year || '-' }}</div>
-                </div>
-                <div class="col-md-4">
-                  <label class="form-label text-muted">Chassis Number</label>
-                  <div class="fw-semibold">{{ vehicleDetails.chassis_number || '-' }}</div>
-                </div>
-                <div class="col-md-4">
-                  <label class="form-label text-muted">Engine Number</label>
-                  <div class="fw-semibold">{{ vehicleDetails.engine_number || '-' }}</div>
-                </div>
-                <div class="col-md-4">
-                  <label class="form-label text-muted">Color</label>
-                  <div class="fw-semibold">{{ vehicleDetails.color || '-' }}</div>
-                </div>
-                <div class="col-md-4">
-                  <label class="form-label text-muted">Fuel Type</label>
-                  <div class="fw-semibold">{{ vehicleDetails.fuel_used?.name || '-' }}</div>
-                </div>
-                <div class="col-md-4">
-                  <label class="form-label text-muted">Registration Date</label>
-                  <div class="fw-semibold">{{ formatLongDate(vehicleDetails.acquisition_date) || '-' }}</div>
-                </div>
-              </div>
-            </div>
-
-            <!-- TECHNICAL SPECIFICATIONS -->
-            <div class="border-bottom pb-3 mb-4">
-              <h6 class="text-primary mb-3"><i class="fa fa-cog me-2"></i>Technical Specifications</h6>
-              <div class="row g-3">
-                <div class="col-md-4">
-                  <label class="form-label text-muted">Engine Capacity (cc)</label>
-                  <div class="fw-semibold">{{ vehicleDetails.engine_capacity_cc || '-' }}</div>
-                </div>
-                <div class="col-md-4">
-                  <label class="form-label text-muted">Tank Capacity (liters)</label>
-                  <div class="fw-semibold">{{ vehicleDetails.tank_capacity_liters || '-' }}</div>
-                </div>
-                <div class="col-md-4">
-                  <label class="form-label text-muted">Gross Weight (kg)</label>
-                  <div class="fw-semibold">{{ vehicleDetails.gross_weight || '-' }}</div>
-                </div>
-                <div class="col-md-4">
-                  <label class="form-label text-muted">Tare Weight (kg)</label>
-                  <div class="fw-semibold">{{ vehicleDetails.tare_weight || '-' }}</div>
-                </div>
-                <div class="col-md-4">
-                  <label class="form-label text-muted">Axle Count</label>
-                  <div class="fw-semibold">{{ vehicleDetails.axle_count || '-' }}</div>
-                </div>
-              </div>
-            </div>
-
-            <!-- DESCRIPTION -->
-            <div v-if="vehicleDetails.description" class="pb-3 mb-4">
-              <label class="form-label text-muted">Description</label>
-              <div class="border p-3 rounded bg-light">{{ vehicleDetails.description }}</div>
-            </div>
-
-            <!-- DOCUMENTS SECTION -->
-            <div>
-              <h6 class="text-primary mb-3"><i class="fa fa-file me-2"></i>Documents</h6>
-              <div class="mb-3">
-                <input type="file" class="form-control form-control-sm" @change="onVehicleFileChange" />
-                <div class="mt-2 d-flex gap-2">
-                  <button class="btn btn-primary btn-sm" @click="uploadVehicleDocument" :disabled="uploading">
-                    <span v-if="uploading" class="spinner-border spinner-border-sm me-1"></span>Upload
-                  </button>
-                  <button class="btn btn-outline-secondary btn-sm" @click="vehicleDetails?.id && refreshVehicleDocuments(vehicleDetails.id)">Refresh</button>
-                </div>
-              </div>
-              <div v-if="vehicleDocuments.length">
-                <ul class="list-group">
-                  <li class="list-group-item d-flex justify-content-between align-items-center" v-for="doc in vehicleDocuments" :key="doc.id">
-                    <div class="d-flex align-items-center gap-3">
-                      <div v-if="(doc.mime_type || '').toString().toLowerCase().startsWith('image')" class="thumbnail">
-                        <img v-if="previewMap[doc.id]" :src="previewMap[doc.id]" class="img-thumbnail small-thumb" @click="openImagePreview(doc)" style="cursor:pointer" />
-                        <div v-else class="small text-muted">Loading...</div>
-                      </div>
-                      <div>
-                        <div class="fw-semibold">{{ doc.name || doc.title || doc.code || ('Doc #' + doc.id) }}</div>
-                        <div class="small text-muted">{{ doc.mime_type || doc.file_type || '' }}</div>
-                      </div>
-                    </div>
-                    <div class="btn-group">
-                      <button class="btn btn-outline-primary btn-sm" @click="downloadVehicleDocument(doc)"><i class="fa fa-download"></i></button>
-                    </div>
-                  </li>
-                </ul>
-              </div>
-              <div v-else class="text-muted small">No documents uploaded for this vehicle.</div>
+          <template v-else-if="documentViewerUrl">
+            <!-- PDF Viewer -->
+            <iframe 
+              v-if="documentViewerMimeType.includes('pdf')"
+              :src="documentViewerUrl"
+              class="document-iframe"
+              frameborder="0"
+            ></iframe>
+            <!-- Image Viewer -->
+            <img 
+              v-else-if="documentViewerMimeType.startsWith('image')"
+              :src="documentViewerUrl"
+              class="document-image"
+              alt="Document"
+            />
+            <!-- Other files - show message -->
+            <div v-else class="d-flex flex-column justify-content-center align-items-center h-100 text-center p-4">
+              <i class="fa fa-file-alt fa-4x text-muted mb-3"></i>
+              <h6>Preview not available for this file type</h6>
+              <p class="text-muted small mb-3">File type: {{ documentViewerMimeType || 'Unknown' }}</p>
+              <a :href="documentViewerUrl" download class="btn btn-primary">
+                <i class="fa fa-download me-1"></i> Download to View
+              </a>
             </div>
           </template>
         </div>
       </div>
-    </template>
-
-    <!-- VEHICLE FORM VIEW -->
-    <template v-else>
-      <div class="card">
-        <div class="card-header bg-white">
-          <h5 class="mb-0">{{ editingVehicleId ? 'Edit Vehicle' : 'Add New Vehicle' }}</h5>
-          <small class="text-muted">{{ editingVehicleId ? 'Editing vehicle details' : 'Register a new vehicle' }}</small>
-        </div>
-        <div class="card-body">
-          <div v-if="vehicleFormError" class="alert alert-danger">{{ vehicleFormError }}</div>
-          <div class="row g-3">
-            <div class="col-md-3">
-              <label class="form-label">Vehicle Model <span class="text-danger">*</span></label>
-              <select v-model="vehicleForm.vehicle_model_id" class="form-select" required>
-                <option value="">-- Select Model --</option>
-                <option v-for="m in vehicleModels" :key="m.id" :value="m.id">{{ m.full_name || [m.make, m.model, m.variant].filter(Boolean).join(' ') }}</option>
-              </select>
-            </div>
-            <div class="col-md-3">
-              <label class="form-label">Registration Number</label>
-              <input v-model="vehicleForm.registration_number" type="text" class="form-control" placeholder="KAA 100A" />
-            </div>
-            <div class="col-md-3">
-              <label class="form-label">Chassis Number</label>
-              <input v-model="vehicleForm.chassis_number" type="text" class="form-control" placeholder="VIN123" />
-            </div>
-            <div class="col-md-3">
-              <label class="form-label">Manufacture Year</label>
-              <input v-model.number="vehicleForm.manufacture_year" type="number" class="form-control" min="1900" :max="new Date().getFullYear()+1" />
-            </div>
-
-            <div class="col-md-3">
-              <label class="form-label">Color</label>
-              <input v-model="vehicleForm.color" type="text" class="form-control" />
-            </div>
-            <div class="col-md-3">
-              <label class="form-label">Fuel Type</label>
-              <select v-model="vehicleForm.fuel_used_id" class="form-select">
-                <option :value="null">-- Select Fuel --</option>
-                <option v-for="fuel in fuelItems" :key="fuel.id" :value="fuel.id">{{ fuel.name }}</option>
-              </select>
-            </div>
-            <div class="col-md-3">
-              <label class="form-label">Registration Date</label>
-              <input v-model="vehicleForm.acquisition_date" type="date" class="form-control" />
-            </div>
-            <div class="col-md-3">
-              <label class="form-label">Engine Number</label>
-              <input v-model="vehicleForm.engine_number" type="text" class="form-control" placeholder="ENG789012" />
-            </div>
-
-            <div class="col-12">
-              <h6 class="border-bottom pb-2 mb-3">
-                <i class="fa fa-cog me-2"></i>Technical Specifications
-              </h6>
-            </div>
-
-            <div class="col-md-4">
-              <label class="form-label">Engine Capacity (cc)</label>
-              <input v-model.number="vehicleForm.engine_capacity_cc" type="number" class="form-control" placeholder="4500" />
-            </div>
-
-            <div class="col-md-4">
-              <label class="form-label">Tank Capacity (liters)</label>
-              <input v-model.number="vehicleForm.tank_capacity_liters" type="number" class="form-control" placeholder="138" />
-            </div>
-
-            <div class="col-md-4"></div>
-
-            <div class="col-md-4">
-              <label class="form-label">Gross Weight (kg)</label>
-              <input v-model.number="vehicleForm.gross_weight" type="number" class="form-control" placeholder="3500" />
-            </div>
-
-            <div class="col-md-4">
-              <label class="form-label">Tare Weight (kg)</label>
-              <input v-model.number="vehicleForm.tare_weight" type="number" class="form-control" placeholder="2400" />
-            </div>
-
-            <div class="col-md-4">
-              <label class="form-label">Axle Count</label>
-              <input v-model.number="vehicleForm.axle_count" type="number" class="form-control" min="1" />
-            </div>
-
-            <div class="col-12">
-              <label class="form-label">Description</label>
-              <textarea v-model="vehicleForm.description" rows="3" class="form-control" placeholder="Add vehicle description or notes"></textarea>
-            </div>
-
-            <div class="col-12">
-              <div class="form-check form-switch">
-                <input class="form-check-input" type="checkbox" v-model="vehicleForm.is_active" id="vf_active" />
-                <label class="form-check-label" for="vf_active">Active</label>
-              </div>
-            </div>
-          </div>
-
-          <div class="d-flex justify-content-end gap-2 mt-4">
-            <button type="button" class="btn btn-outline-secondary btn-sm" @click="closeVehicleForm">Cancel</button>
-            <button type="button" class="btn btn-primary btn-sm" @click="saveVehicle" :disabled="savingVehicle">
-              <span v-if="savingVehicle" class="spinner-border spinner-border-sm me-1"></span>
-              {{ editingVehicleId ? 'Update' : 'Create' }}
-            </button>
-          </div>
-        </div>
-      </div>
-    </template>
+    </div>
 
     <!-- Vehicle Details Modal removed: now handled by full-page details view -->
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useToast } from '@/composables/useToast'
 import { useSwal } from '@/composables/useSwal'
 import vehicleAssetService, { type VehicleAsset } from '@/services/vehicleAssetService'
+import vehicleModelService, { type VehicleModel } from '@/services/vehicleModelService'
 import StandardDataTable from '@/components/bootstrap/StandardDataTable.vue'
-import { useDocumentsStore } from '@/stores/bushman/documents-store' 
+import VehicleProfile from '@/views/bushman/assets/VehicleProfile.vue'
+import VehicleFormModal from '@/views/bushman/assets/VehicleFormModal.vue'
+import StandardModal from '@/components/plugins/StandardModal.vue'
+import { useDocumentsStore } from '@/stores/bushman/documents-store'
+import { useAuthStore } from '@/stores/auth'
 const toast = useToast()
 const swal = useSwal()
 
@@ -322,6 +270,7 @@ const vehicles = ref<VehicleAsset[]>([])
 const vehicleModels = ref<any[]>([])
 const fuelItems = ref<any[]>([])
 const summary = ref<any>({})
+const activeListTab = ref<'vehicles' | 'models'>('vehicles')
 
 const vehicleFilters = ref({
   search: '',
@@ -330,11 +279,34 @@ const vehicleFilters = ref({
   vehicle_model_id: ''
 })
 
+watch(activeListTab, (next) => {
+  if (next === 'models' && vehicleModelsList.value.length === 0 && !loadingVehicleModels.value) {
+    fetchVehicleModels()
+  }
+})
+
 // Vehicle form state
 const selectedVehicle = ref<VehicleAsset | null>(null)
 const editingVehicleId = ref<number | null>(null)
 const vehicleFormError = ref('')
 const savingVehicle = ref(false)
+const vehicleFormModalRef = ref<{ show: () => void; hide: () => void } | null>(null)
+
+// Vehicle models state
+const vehicleModelsList = ref<VehicleModel[]>([])
+const loadingVehicleModels = ref(false)
+const vehicleModelTypes = ref<string[]>([])
+const editingModelId = ref<number | null>(null)
+const modelFormError = ref('')
+const savingModel = ref(false)
+const vehicleModelModalRef = ref<{ show: () => void; hide: () => void } | null>(null)
+const modelForm = ref<any>({
+  make: '',
+  model: '',
+  variant: '',
+  type: '',
+  description: ''
+})
 const vehicleForm = ref<any>({
   code: '',
   status: 'ACTIVE',
@@ -395,26 +367,43 @@ const vehiclesCount = computed(() => vehicles.value.length)
 const pageActions = computed(() => {
   const actions = []
   if (showVehicleList.value) {
-    actions.push(
-      {
-        label: 'Refresh',
-        icon: 'fa fa-sync',
-        class: 'btn btn-outline-secondary',
-        method: () => refreshVehicles(),
-      },
-      {
-        label: 'Print PDF',
-        icon: 'fa fa-file-pdf',
-        class: 'btn btn-outline-secondary',
-        method: () => openFleetMasterPdf(),
-      },
-      {
-        label: 'Add Vehicle',
-        icon: 'fa fa-plus',
-        class: 'btn btn-primary',
-        method: () => openAddVehicleForm(),
-      }
-    )
+    if (activeListTab.value === 'vehicles') {
+      actions.push(
+        {
+          label: 'Refresh',
+          icon: 'fa fa-sync',
+          class: 'btn btn-outline-secondary',
+          method: () => refreshVehicles(),
+        },
+        {
+          label: 'Print PDF',
+          icon: 'fa fa-file-pdf',
+          class: 'btn btn-outline-secondary',
+          method: () => openFleetMasterPdf(),
+        },
+        {
+          label: 'Add Vehicle',
+          icon: 'fa fa-plus',
+          class: 'btn btn-primary',
+          method: () => openAddVehicleForm(),
+        }
+      )
+    } else {
+      actions.push(
+        {
+          label: 'Refresh',
+          icon: 'fa fa-sync',
+          class: 'btn btn-outline-secondary',
+          method: () => fetchVehicleModels(),
+        },
+        {
+          label: 'Add Model',
+          icon: 'fa fa-plus',
+          class: 'btn btn-primary',
+          method: () => openAddModelForm(),
+        }
+      )
+    }
   }
   return actions
 })
@@ -428,6 +417,13 @@ const vehicleColumns = [
   { key: 'registration_date', label: 'Registration Date', sortable: true, visible: true },
   { key: 'chassis', label: 'Chassis', sortable: false, visible: true },
   // Actions column to show View/Edit/Delete buttons
+  { key: 'actions', label: 'Actions', sortable: false, visible: true }
+]
+
+const modelColumns = [
+  { key: 'make', label: 'Make', sortable: true, visible: true },
+  { key: 'model', label: 'Model', sortable: true, visible: true },
+  { key: 'type', label: 'Car', sortable: true, visible: true },
   { key: 'actions', label: 'Actions', sortable: false, visible: true }
 ]
 
@@ -505,17 +501,138 @@ async function fetchMetadata() {
   }
 } 
 
+async function fetchVehicleModelMetadata() {
+  try {
+    const res = await vehicleModelService.getMetadata()
+    const data = res.data
+    vehicleModelTypes.value = data.vehicle_types || []
+  } catch (err) {
+    toast.error('Failed to load vehicle model metadata')
+  }
+}
+
+async function fetchVehicleModels() {
+  loadingVehicleModels.value = true
+  try {
+    const res = await vehicleModelService.listVehicleModels()
+    vehicleModelsList.value = res.data.data || res.data || []
+    vehicleModelsList.value = vehicleModelsList.value.map((m: any) => {
+      if (!m.full_name) {
+        m.full_name = [m.make, m.model, m.variant].filter(Boolean).join(' ')
+      }
+      return m
+    })
+  } catch (err) {
+    toast.error('Failed to load vehicle models')
+  } finally {
+    loadingVehicleModels.value = false
+  }
+}
+
+function resetModelForm() {
+  modelForm.value = {
+    make: '',
+    model: '',
+    variant: '',
+    type: vehicleModelTypes.value[0] || '',
+    description: ''
+  }
+  modelFormError.value = ''
+}
+
+function openAddModelForm() {
+  editingModelId.value = null
+  resetModelForm()
+  vehicleModelModalRef.value?.show()
+}
+
+function openEditModelForm(model: VehicleModel) {
+  editingModelId.value = model.id ?? null
+  modelForm.value = {
+    make: model.make || '',
+    model: model.model || '',
+    variant: model.variant || '',
+    type: model.type || '',
+    description: model.description || ''
+  }
+  modelFormError.value = ''
+  vehicleModelModalRef.value?.show()
+}
+
+function closeModelForm() {
+  vehicleModelModalRef.value?.hide()
+  resetModelForm()
+  editingModelId.value = null
+}
+
+function handleModelFormClose() {
+  resetModelForm()
+  editingModelId.value = null
+}
+
+function handleModelFormHidden() {
+  resetModelForm()
+  editingModelId.value = null
+}
+
+async function saveVehicleModel() {
+  modelFormError.value = ''
+  if (!modelForm.value.make || !modelForm.value.model || !modelForm.value.type) {
+    modelFormError.value = 'Make, Model and Type are required'
+    return
+  }
+  savingModel.value = true
+  try {
+    if (editingModelId.value) {
+      await vehicleModelService.updateVehicleModel(editingModelId.value, modelForm.value)
+      toast.success('Vehicle model updated successfully')
+    } else {
+      await vehicleModelService.createVehicleModel(modelForm.value)
+      toast.success('Vehicle model created successfully')
+    }
+    closeModelForm()
+    await fetchVehicleModels()
+    await fetchMetadata()
+  } catch (err: any) {
+    const message = err.response?.data?.message || err.message || 'Failed to save vehicle model'
+    toast.error(message)
+  } finally {
+    savingModel.value = false
+  }
+}
+
+async function confirmDeleteModel(model: VehicleModel) {
+  const confirmed = await swal.confirm({
+    title: 'Delete Vehicle Model',
+    text: `Are you sure you want to delete "${model.full_name || model.model}"? This action cannot be undone.`,
+    confirmButtonText: 'Delete',
+    cancelButtonText: 'Cancel'
+  })
+
+  if (!confirmed || !model.id) return
+
+  try {
+    await vehicleModelService.deleteVehicleModel(model.id)
+    toast.success('Vehicle model deleted successfully')
+    await fetchVehicleModels()
+    await fetchMetadata()
+  } catch (err: any) {
+    const msg = err.response?.data?.message || 'Failed to delete vehicle model'
+    toast.error(msg)
+  }
+}
+
 function openAddVehicleForm() {
   editingVehicleId.value = null
   selectedVehicle.value = null
   resetVehicleForm()
   vehicleFormError.value = ''
-  showVehicleList.value = false
+  vehicleFormModalRef.value?.show()
 }
 
 function openEditVehicleForm(vehicle: VehicleAsset) {
   openVehicleForm(vehicle)
-  showVehicleList.value = false
+  vehicleFormModalRef.value?.show()
 }
 
 function openVehicleForm(vehicle?: VehicleAsset) {
@@ -579,12 +696,24 @@ function resetVehicleForm() {
   }
 }
 
-function closeVehicleForm() {
-  showVehicleList.value = true
+function resetVehicleFormState() {
   selectedVehicle.value = null
   editingVehicleId.value = null
   vehicleFormError.value = ''
   resetVehicleForm()
+}
+
+function closeVehicleForm() {
+  vehicleFormModalRef.value?.hide()
+  resetVehicleFormState()
+}
+
+function handleVehicleFormClose() {
+  resetVehicleFormState()
+}
+
+function handleVehicleFormHidden() {
+  resetVehicleFormState()
 }
 
 function generateVehicleCode() {
@@ -670,6 +799,11 @@ async function openVehicleDetails(vehicle: VehicleAsset) {
     showVehicleList.value = true
     showVehicleDetailsPage.value = false
   }
+}
+
+async function refreshVehicleDetails() {
+  if (!vehicleDetails.value) return
+  await openVehicleDetails(vehicleDetails.value)
 }
 
 function backToVehicleList() {
@@ -845,6 +979,45 @@ async function downloadVehicleDocument(doc: any) {
   }
 }
 
+// Document viewer modal state
+const showDocumentViewer = ref(false)
+const documentViewerUrl = ref<string | null>(null)
+const documentViewerName = ref<string>('')
+const documentViewerMimeType = ref<string>('')
+const documentViewerLoading = ref(false)
+
+async function viewVehicleDocument(doc: any) {
+  try {
+    documentViewerLoading.value = true
+    documentViewerName.value = doc.name || doc.title || 'Document'
+    documentViewerMimeType.value = doc.mime_type || ''
+    showDocumentViewer.value = true
+    
+    // Fetch the document and create a blob URL for viewing (inline to avoid HMR issues)
+    const response = await documentsStore.downloadDocument(doc.id)
+    const blob = response.data
+    const mimeType = doc.mime_type || response.headers['content-type'] || 'application/octet-stream'
+    const viewableBlob = new Blob([blob], { type: mimeType })
+    documentViewerUrl.value = window.URL.createObjectURL(viewableBlob)
+  } catch (err) {
+    console.error('Failed to open document:', err)
+    toast.error('Failed to open document')
+    showDocumentViewer.value = false
+  } finally {
+    documentViewerLoading.value = false
+  }
+}
+
+function closeDocumentViewer() {
+  if (documentViewerUrl.value) {
+    try { window.URL.revokeObjectURL(documentViewerUrl.value) } catch (e) {}
+  }
+  documentViewerUrl.value = null
+  documentViewerName.value = ''
+  documentViewerMimeType.value = ''
+  showDocumentViewer.value = false
+}
+
 function closeVehicleDetails() {
   // Revoke previews
   Object.keys(previewMap.value).forEach((k) => {
@@ -983,7 +1156,9 @@ onMounted(async () => {
   await Promise.all([
     fetchVehicles(),
     fetchSummary(),
-    fetchMetadata()
+    fetchMetadata(),
+    fetchVehicleModelMetadata(),
+    fetchVehicleModels()
   ])
 
   // Expose refresh function for dev/debug and ensure HMR doesn't break references
@@ -1008,6 +1183,42 @@ defineExpose({ refreshVehicleDocuments })
   color: #0d6efd;
   font-weight: 600;
 }
+
+.compact-tabs .nav-link {
+  padding: 0.35rem 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  border-top-left-radius: 6px;
+  border-top-right-radius: 6px;
+}
+
+.compact-tabs-left {
+  width: auto;
+}
+
+.compact-tabs-left .nav-item {
+  flex: 0 0 auto;
+}
+
+.models-table :deep(table.table thead th),
+.models-table :deep(table.table tbody td) {
+  padding-left: 1rem;
+  padding-right: 1rem;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.models-table :deep(table.table thead th) {
+  background: #eef2f6;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #4b5563;
+  padding-top: 0.6rem;
+  padding-bottom: 0.6rem;
+}
+
 
 code {
   background: rgba(0, 123, 255, 0.1);
@@ -1074,6 +1285,62 @@ code {
 .fleet-master-list :deep(.btn:hover) {
   transform: none !important;
   transition: none !important;
+}
+
+/* Document Viewer Modal Styles */
+.document-viewer-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  z-index: 9999;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+}
+
+.document-viewer-container {
+  background: white;
+  border-radius: 8px;
+  width: 100%;
+  max-width: 1200px;
+  height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+}
+
+.document-viewer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: #f8f9fa;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.document-viewer-body {
+  flex: 1;
+  overflow: hidden;
+  background: #f1f1f1;
+}
+
+.document-iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+.document-image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  display: block;
+  margin: auto;
 }
 
 </style>

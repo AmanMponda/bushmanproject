@@ -40,6 +40,7 @@ const props = withDefaults(
     serverSide?: boolean
     totalItems?: number
     selectable?: boolean
+    hideHeaderActions?: boolean
   }>(),
   {
     columns: () => [],
@@ -57,6 +58,7 @@ const props = withDefaults(
     serverSide: false,
     totalItems: 0,
     selectable: false,
+    hideHeaderActions: false,
   }
 )
 
@@ -322,6 +324,10 @@ function clearFilters() {
   applyFilters()
 }
 
+function toggleFilters() {
+  showAdvancedFilters.value = !showAdvancedFilters.value
+}
+
 // Checkbox selection functions
 function toggleRowSelection(row, index) {
   const rowId = row.id || index
@@ -362,10 +368,16 @@ function emitSelectionChange() {
   })
   emit('selection-change', selected)
 }
+
+defineExpose({ toggleFilters })
 </script>
 
 <template>
   <div>
+    <div v-if="$slots['header-controls']" class="mb-3">
+      <slot name="header-controls"></slot>
+    </div>
+
     <!-- Search and Action Buttons Header -->
     <div v-if="!props.disableSearch" class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
       <div class="flex-grow-1" style="max-width: 350px">
@@ -389,7 +401,7 @@ function emitSelectionChange() {
           </button>
         </div>
       </div>
-      <div class="d-flex gap-2">
+      <div v-if="!props.hideHeaderActions" class="d-flex gap-2">
         <!-- Action Buttons -->
         <button
           v-for="action in actionButtons"
@@ -410,7 +422,7 @@ function emitSelectionChange() {
           class="btn btn-outline-info"
           :disabled="props.disableSearch"
           :readonly="props.disableSearch"
-          @click="showAdvancedFilters = !showAdvancedFilters"
+          @click="toggleFilters"
         >
           <i class="fa fa-filter me-1"></i>
           {{ showAdvancedFilters ? 'Hide Filters' : 'Filters' }}

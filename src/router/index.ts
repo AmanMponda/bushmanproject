@@ -49,6 +49,7 @@ const ManageUsers = () => import('@/views/bushman/module-settings/ManageUsers.vu
 const ManageDocuments = () => import('@/views/bushman/module-settings/ManageDocuments.vue');
 const ManageInstallmentSetups = () => import('@/views/bushman/module-settings/ManageInstallmentSetups.vue');
 const ManageEntityCategories = () => import('@/views/bushman/module-settings/ManageEntityCategories.vue');
+const EntityManagement = () => import('@/views/bushman/module-settings/EntityManagement.vue');
 const GovernmentFees = () => import('@/views/GovernmentFees.vue');
 const ModuleComingSoon = () => import('@/views/bushman/module-settings/ModuleComingSoon.vue');
 const AssetGroups = () => import('@/views/bushman/module-settings/AssetGroups.vue');
@@ -470,6 +471,12 @@ const router = createRouter({
       path: "/module-settings/entity-categories",
       name: "entity-categories",
       component: ManageEntityCategories,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/module-settings/entities",
+      name: "entity-management",
+      component: EntityManagement,
       meta: { requiresAuth: true }
     },
 

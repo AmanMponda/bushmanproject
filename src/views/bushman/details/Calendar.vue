@@ -8,9 +8,9 @@
           <span class="cal-year-badge">{{ currentYear }}</span>
         </div>
         <div class="header-actions">
-          <button class="cal-btn cal-btn-secondary" @click="downloadPdf" :disabled="downloadingPdf">
+          <button class="cal-btn cal-btn-secondary" @click="showPdfSettings = true">
             <i class="bi bi-file-pdf"></i>
-            <span>{{ downloadingPdf ? 'Generating...' : 'Export PDF' }}</span>
+            <span>Export PDF</span>
           </button>
         </div>
       </div>
@@ -31,7 +31,7 @@
         <div class="stat-text">Travel Days</div>
       </div>
       <div class="stat-item">
-        <div class="stat-number">{{ activeAreas.value }}</div>
+        <div class="stat-number">{{ activeAreas }}</div>
         <div class="stat-text">Active Areas</div>
       </div>
     </div>
@@ -87,6 +87,9 @@
       </div>
     </div>
 
+    <!-- PDF Generator Component -->
+    <CalendarPdfGenerator v-model="showPdfSettings" />
+
   </div>
 </template>
 
@@ -98,18 +101,38 @@ import timeGridPlugin from '@fullcalendar/timegrid'
 import interactionPlugin from '@fullcalendar/interaction'
 import listPlugin from '@fullcalendar/list'
 import multiMonthPlugin from '@fullcalendar/multimonth'
+import CalendarPdfGenerator from './CalendarPdfGenerator.vue'
 import bootstrapPlugin from '@fullcalendar/bootstrap'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 
-// Import Data
-import bookingsData2026 from '@/assets/data/bookings_2026.json'
-import bookingsData2025 from '@/assets/data/bookings_2025.json'
+// Booking data store (will be loaded dynamically, later from API)
+const bookingsDataStore: Record<number, any[]> = {}
+
+const loadBookingData = async (year: number): Promise<any[]> => {
+    if (bookingsDataStore[year]) {
+        return bookingsDataStore[year]
+    }
+    
+    try {
+        // Try to dynamically import the year's data
+        const data = await import(`@/assets/data/bookings_${year}.json`)
+        bookingsDataStore[year] = data.default || data
+        return bookingsDataStore[year]
+    } catch (error) {
+        console.warn(`No booking data found for year ${year}, using empty data`)
+        // Return empty bookings structure - ready for API integration
+        bookingsDataStore[year] = []
+        return bookingsDataStore[year]
+    }
+}
 
 // --- State ---
-const currentYear = ref(2026)
+const currentYear = ref(new Date().getFullYear())
 const calendarTitle = ref('')
-const availableYears = [2025, 2026]
+const showPdfSettings = ref(false)
+const currentYearValue = new Date().getFullYear()
+const availableYears = Array.from({ length: 8 }, (_, i) => currentYearValue - 2 + i)
 const activeView = ref('multiMonthYear')
 const selectedEvent = ref<any>(null)
 const fullCalendarRef = ref<any>(null)
@@ -155,8 +178,8 @@ const printCalendar = () => {
     window.print()
 }
 
-const buildDailyCounts = (year: number) => {
-    const rawData = year === 2026 ? bookingsData2026 : bookingsData2025
+const buildDailyCounts = async (year: number) => {
+    const rawData = await loadBookingData(year)
     const map = new Map<string, { hunt: number; travel: number }>()
 
     rawData.forEach((monthData: any) => {
@@ -204,129 +227,273 @@ const downloadPdf = async () => {
         const pdf = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' })
         const pageWidth = pdf.internal.pageSize.getWidth()
         const pageHeight = pdf.internal.pageSize.getHeight()
-        const margin = 36
-        const countsByDay = buildDailyCounts(currentYear.value)
+        const margin = 25
         const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
-        const headerTop = margin
-        
-        pdf.setLineWidth(1.5)
-        pdf.setDrawColor(0, 0, 0)
-        pdf.line(margin, headerTop - 10, pageWidth - margin, headerTop - 10)
-        
-        pdf.setFont('helvetica', 'bold')
-        pdf.setFontSize(18)
-        pdf.setTextColor(0, 0, 0)
-        pdf.text('Bushman Hunting Safaris Ltd', pageWidth / 2, headerTop + 10, { align: 'center' })
-        
-        pdf.setFontSize(14)
-        pdf.setTextColor(0, 0, 255)
-        pdf.text(`${currentYear.value} Safari Bookings`, pageWidth / 2, headerTop + 30, { align: 'center' })
-        
-        pdf.setLineWidth(1.5)
-        pdf.setDrawColor(0, 0, 0)
-        pdf.line(margin, headerTop + 40, pageWidth - margin, headerTop + 40)
+        // Colors (as tuples for TypeScript)
+        const primaryGreen: [number, number, number] = [16, 185, 129]
+        const huntGreen: [number, number, number] = [16, 185, 129]
+        const travelBlue: [number, number, number] = [14, 165, 233]
+        const headerBg: [number, number, number] = [245, 247, 250]
+        const borderColor: [number, number, number] = [229, 231, 235]
+        const textDark: [number, number, number] = [17, 24, 39]
+        const textMuted: [number, number, number] = [107, 114, 128]
+        const white: [number, number, number] = [255, 255, 255]
+        const accentOrange: [number, number, number] = [249, 115, 22]
 
-        const gridTop = headerTop + 60
-        const gapX = 12
-        const gapY = 14
-        const columns = 3
-        const rows = 4
-        const gridWidth = pageWidth - margin * 2
-        const gridHeight = pageHeight - gridTop - margin
-        const monthBoxWidth = (gridWidth - gapX * (columns - 1)) / columns
-        const monthBoxHeight = (gridHeight - gapY * (rows - 1)) / rows
-        const cellWidth = monthBoxWidth / 7
-        const rowHeight = Math.min(14, (monthBoxHeight - 24) / 7)
+        // Get events for colored bars
+        const rawData = await loadBookingData(currentYear.value)
+        const eventsMap = buildEventsMap(rawData, currentYear.value)
 
-        for (let monthIndex = 0; monthIndex < 12; monthIndex += 1) {
-            const col = monthIndex % columns
-            const row = Math.floor(monthIndex / columns)
-            const startX = margin + col * (monthBoxWidth + gapX)
-            const startY = gridTop + row * (monthBoxHeight + gapY)
+        // Generate 2 pages (6 months each)
+        const monthsPerPage = 6
+        const totalPages = 2
 
-            pdf.setFontSize(10)
+        for (let pageNum = 0; pageNum < totalPages; pageNum++) {
+            if (pageNum > 0) {
+                pdf.addPage()
+            }
+
+            const startMonth = pageNum * monthsPerPage
+            const endMonth = startMonth + monthsPerPage
+
+            // --- Header ---
+            const headerHeight = 55
+            
+            // Header background with gradient effect
+            pdf.setFillColor(...primaryGreen)
+            pdf.roundedRect(margin, margin, pageWidth - margin * 2, headerHeight, 8, 8, 'F')
+            
+            // Safari logo/icon placeholder
+            pdf.setFillColor(255, 255, 255)
+            pdf.circle(margin + 30, margin + headerHeight / 2, 15, 'F')
+            pdf.setFillColor(...primaryGreen)
             pdf.setFont('helvetica', 'bold')
-            pdf.setTextColor(0, 0, 0)
-            pdf.text(monthLabels[monthIndex], startX + monthBoxWidth / 2, startY + 10, { align: 'center' })
+            pdf.setFontSize(16)
+            pdf.text('B', margin + 25, margin + headerHeight / 2 + 5)
+            
+            // Title
+            pdf.setFont('helvetica', 'bold')
+            pdf.setFontSize(22)
+            pdf.setTextColor(...white)
+            pdf.text('Safari Booking Calendar', margin + 55, margin + 25)
+            
+            // Subtitle with year and page range
+            pdf.setFont('helvetica', 'normal')
+            pdf.setFontSize(11)
+            pdf.setTextColor(255, 255, 255)
+            const monthRange = `${monthLabels[startMonth]} - ${monthLabels[endMonth - 1]} ${currentYear.value}`
+            pdf.text(monthRange, margin + 55, margin + 42)
+            
+            // Page indicator
+            pdf.setFillColor(255, 255, 255)
+            pdf.roundedRect(pageWidth - margin - 80, margin + 15, 65, 25, 4, 4, 'F')
+            pdf.setFont('helvetica', 'bold')
+            pdf.setFontSize(10)
+            pdf.setTextColor(...primaryGreen)
+            pdf.text(`Page ${pageNum + 1} of ${totalPages}`, pageWidth - margin - 48, margin + 32, { align: 'center' })
 
-            const firstDay = new Date(currentYear.value, monthIndex, 1).getDay()
-            const daysInMonth = new Date(currentYear.value, monthIndex + 1, 0).getDate()
-            const bodyRows: string[][] = []
-            let week = new Array(7).fill('')
+            // --- Calendar Grid (6 months: 3 columns x 2 rows) ---
+            const gridTop = margin + headerHeight + 15
+            const gapX = 12
+            const gapY = 12
+            const columns = 3
+            const rows = 2
+            const gridWidth = pageWidth - margin * 2
+            const gridHeight = pageHeight - gridTop - margin - 35
+            const monthBoxWidth = (gridWidth - gapX * (columns - 1)) / columns
+            const monthBoxHeight = (gridHeight - gapY * (rows - 1)) / rows
+            const cellWidth = monthBoxWidth / 7
+            const cellHeight = (monthBoxHeight - 32) / 6.5 // More rows for weeks
 
-            for (let i = 0; i < firstDay; i += 1) {
-                week[i] = ''
-            }
+            for (let i = 0; i < monthsPerPage; i++) {
+                const monthIndex = startMonth + i
+                if (monthIndex >= 12) break
 
-            for (let day = 1; day <= daysInMonth; day += 1) {
-                const weekDay = (firstDay + day - 1) % 7
-                const dateKey = `${currentYear.value}-${String(monthIndex + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-                const counts = countsByDay.get(dateKey)
-                let label = formatPdfDay(day)
-                if (counts && (counts.hunt || counts.travel)) {
-                    const huntLabel = counts.hunt ? `H${counts.hunt}` : ''
-                    const travelLabel = counts.travel ? `T${counts.travel}` : ''
-                    label = `${label}\n${huntLabel}${huntLabel && travelLabel ? ' ' : ''}${travelLabel}`
+                const col = i % columns
+                const row = Math.floor(i / columns)
+                const startX = margin + col * (monthBoxWidth + gapX)
+                const startY = gridTop + row * (monthBoxHeight + gapY)
+
+                // Month box background with shadow effect
+                pdf.setFillColor(...white)
+                pdf.setDrawColor(...borderColor)
+                pdf.setLineWidth(1)
+                pdf.roundedRect(startX, startY, monthBoxWidth, monthBoxHeight, 6, 6, 'FD')
+
+                // Month header with accent color
+                pdf.setFillColor(...primaryGreen)
+                pdf.roundedRect(startX, startY, monthBoxWidth, 26, 6, 6, 'F')
+                // Cover bottom corners
+                pdf.setFillColor(...primaryGreen)
+                pdf.rect(startX, startY + 20, monthBoxWidth, 6, 'F')
+                
+                pdf.setFont('helvetica', 'bold')
+                pdf.setFontSize(11)
+                pdf.setTextColor(...white)
+                pdf.text(monthLabels[monthIndex].toUpperCase(), startX + monthBoxWidth / 2, startY + 17, { align: 'center' })
+
+                // Weekday headers
+                const weekHeaderY = startY + 38
+                pdf.setFont('helvetica', 'bold')
+                pdf.setFontSize(7)
+                pdf.setTextColor(...textMuted)
+                for (let d = 0; d < 7; d++) {
+                    const dayX = startX + d * cellWidth + cellWidth / 2
+                    pdf.text(weekDays[d].substring(0, 2), dayX, weekHeaderY, { align: 'center' })
                 }
-                week[weekDay] = label
 
-                if (weekDay === 6 || day === daysInMonth) {
-                    bodyRows.push(week)
-                    week = new Array(7).fill('')
+                // Separator line
+                pdf.setDrawColor(...borderColor)
+                pdf.setLineWidth(0.5)
+                pdf.line(startX + 5, weekHeaderY + 5, startX + monthBoxWidth - 5, weekHeaderY + 5)
+
+                // Calendar days
+                const firstDay = new Date(currentYear.value, monthIndex, 1).getDay()
+                const daysInMonth = new Date(currentYear.value, monthIndex + 1, 0).getDate()
+                const cellStartY = weekHeaderY + 12
+
+                let currentRow = 0
+                for (let day = 1; day <= daysInMonth; day++) {
+                    const weekDay = (firstDay + day - 1) % 7
+                    const cellX = startX + weekDay * cellWidth
+                    const cellY = cellStartY + currentRow * cellHeight
+                    const dateKey = `${currentYear.value}-${String(monthIndex + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+                    
+                    // Check if today
+                    const today = new Date()
+                    const isToday = today.getFullYear() === currentYear.value && 
+                                    today.getMonth() === monthIndex && 
+                                    today.getDate() === day
+
+                    // Today highlight
+                    if (isToday) {
+                        pdf.setFillColor(...accentOrange)
+                        pdf.circle(cellX + cellWidth / 2, cellY + 5, 8, 'F')
+                        pdf.setTextColor(...white)
+                    } else {
+                        pdf.setTextColor(...textDark)
+                    }
+                    
+                    // Day number
+                    pdf.setFont('helvetica', isToday ? 'bold' : 'normal')
+                    pdf.setFontSize(8)
+                    pdf.text(String(day), cellX + cellWidth / 2, cellY + 8, { align: 'center' })
+
+                    // Event bars for this day
+                    const dayEvents = eventsMap.get(dateKey) || []
+                    let barY = cellY + 13
+                    const barHeight = 4
+                    const maxBars = 3 // Show up to 3 events
+
+                    dayEvents.slice(0, maxBars).forEach((evt: any, idx: number) => {
+                        if (evt.type === 'hunt') {
+                            pdf.setFillColor(...huntGreen)
+                        } else {
+                            pdf.setFillColor(...travelBlue)
+                        }
+                        pdf.roundedRect(cellX + 1, barY, cellWidth - 2, barHeight, 1, 1, 'F')
+                        barY += barHeight + 1
+                    })
+
+                    // Show "+n" indicator if more events
+                    if (dayEvents.length > maxBars) {
+                        pdf.setFontSize(5)
+                        pdf.setTextColor(...textMuted)
+                        pdf.text(`+${dayEvents.length - maxBars}`, cellX + cellWidth / 2, barY + 3, { align: 'center' })
+                    }
+
+                    if (weekDay === 6) {
+                        currentRow++
+                    }
                 }
             }
 
-            while (bodyRows.length < 6) {
-                bodyRows.push(new Array(7).fill(''))
-            }
+            // --- Footer with Legend ---
+            const footerY = pageHeight - margin - 10
+            
+            // Footer background
+            pdf.setFillColor(...headerBg)
+            pdf.roundedRect(margin, footerY - 15, pageWidth - margin * 2, 25, 4, 4, 'F')
+            
+            // Legend
+            pdf.setFontSize(8)
+            pdf.setFont('helvetica', 'bold')
+            
+            // Hunt legend
+            pdf.setFillColor(...huntGreen)
+            pdf.roundedRect(margin + 15, footerY - 6, 14, 8, 2, 2, 'F')
+            pdf.setTextColor(...textDark)
+            pdf.text('Hunt', margin + 33, footerY + 1)
+            
+            // Travel legend
+            pdf.setFillColor(...travelBlue)
+            pdf.roundedRect(margin + 80, footerY - 6, 14, 8, 2, 2, 'F')
+            pdf.text('Travel', margin + 98, footerY + 1)
 
-            autoTable(pdf, {
-                startY: startY + 16,
-                margin: { left: startX, right: pageWidth - startX - monthBoxWidth },
-                head: [weekDays],
-                body: bodyRows,
-                theme: 'grid',
-                styles: {
-                    fontSize: 7,
-                    cellPadding: 2,
-                    minCellHeight: rowHeight,
-                    valign: 'top',
-                    lineColor: [200, 210, 230],
-                    textColor: 20
-                },
-                headStyles: {
-                    fillColor: [245, 245, 245],
-                    textColor: 80,
-                    fontStyle: 'bold'
-                },
-                columnStyles: {
-                    0: { cellWidth },
-                    1: { cellWidth },
-                    2: { cellWidth },
-                    3: { cellWidth },
-                    4: { cellWidth },
-                    5: { cellWidth },
-                    6: { cellWidth }
-                },
-                tableWidth: monthBoxWidth
-            })
+            // Today legend
+            pdf.setFillColor(...accentOrange)
+            pdf.circle(margin + 160, footerY - 2, 5, 'F')
+            pdf.text('Today', margin + 170, footerY + 1)
+
+            // Generated date
+            pdf.setFont('helvetica', 'normal')
+            pdf.setTextColor(...textMuted)
+            pdf.text(`Generated: ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`, pageWidth - margin - 15, footerY + 1, { align: 'right' })
         }
 
-        const blob = pdf.output('blob')
-        const url = URL.createObjectURL(blob)
-        const previewWindow = window.open('', '_blank', 'noopener')
-        if (previewWindow) {
-            previewWindow.location.href = url
-        } else {
-            window.location.href = url
-        }
-        setTimeout(() => URL.revokeObjectURL(url), 60000)
+        // Open PDF in new tab for viewing
+        const pdfBlob = pdf.output('blob')
+        const blobUrl = URL.createObjectURL(pdfBlob)
+        window.open(blobUrl, '_blank')
+        
+        // Clean up blob URL after some time
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 120000)
+        
     } catch (err) {
         console.error('Failed to export calendar PDF:', err)
     } finally {
         downloadingPdf.value = false
     }
+}
+
+// Helper to build events map for PDF
+const buildEventsMap = (rawData: any[], year: number) => {
+    const map = new Map<string, Array<{ type: string; label: string }>>()
+
+    rawData.forEach((monthData: any) => {
+        const monthLabel = (monthData.id || monthData.name || '').toLowerCase()
+        const monthKey = monthLabel.substring(0, 3)
+        const monthIndex = monthsMap[monthKey]
+        if (monthIndex === undefined) return
+
+        if (monthData.areas) {
+            monthData.areas.forEach((area: any) => {
+                if (area.rows && area.rows.length > 0) {
+                    area.rows.forEach((row: any) => {
+                        if (row.segments) {
+                            row.segments.forEach((seg: any) => {
+                                const startDay = seg.start
+                                const endDay = seg.end
+                                for (let day = startDay; day <= endDay; day += 1) {
+                                    const dateKey = `${year}-${String(monthIndex + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+                                    if (!map.has(dateKey)) {
+                                        map.set(dateKey, [])
+                                    }
+                                    map.get(dateKey)?.push({
+                                        type: seg.type,
+                                        label: row.clientName || seg.label || ''
+                                    })
+                                }
+                            })
+                        }
+                    })
+                }
+            })
+        }
+    })
+
+    return map
 }
 
 // --- Data Transformation ---
@@ -380,14 +547,26 @@ const processYearData = (year: number, rawData: any[]) => {
     return events
 }
 
-const getAllEvents = () => {
-    const events2025 = processYearData(2025, bookingsData2025)
-    const events2026 = processYearData(2026, bookingsData2026)
-    return [...events2025, ...events2026]
+// Load all events for available years dynamically
+const getAllEvents = async () => {
+    const allEvents: any[] = []
+    
+    // Load data for a range of years dynamically
+    for (const year of availableYears) {
+        try {
+            const rawData = await loadBookingData(year)
+            const yearEvents = processYearData(year, rawData)
+            allEvents.push(...yearEvents)
+        } catch (error) {
+            console.warn(`Could not load events for year ${year}`)
+        }
+    }
+    
+    return allEvents
 }
 
-const calculateStats = (year: number) => {
-    const rawData = year === 2026 ? bookingsData2026 : bookingsData2025
+const calculateStats = async (year: number) => {
+    const rawData = await loadBookingData(year)
     let tEvents = 0
     let hEvents = 0
     let trEvents = 0
@@ -426,7 +605,7 @@ const calendarOptions = reactive({
   plugins: [dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin, multiMonthPlugin, bootstrapPlugin],
   initialView: 'multiMonthYear',
   themeSystem: 'bootstrap',
-  headerToolbar: false, // Custom toolbar used
+  headerToolbar: false as const, // Custom toolbar used
   multiMonthMaxColumns: 3, // 3 months/row in year view
   editable: false,
   selectable: true,
@@ -434,7 +613,7 @@ const calendarOptions = reactive({
   dayMaxEvents: 2, // limit events per day
   weekends: true,
   initialDate: `${currentYear.value}-01-01`, 
-  events: getAllEvents(),
+  events: [] as any[], // Will be loaded dynamically
   eventClick: (info: any) => {
       selectedEvent.value = info.event
   },
@@ -460,6 +639,12 @@ const calendarOptions = reactive({
   }
 })
 
+// Load events dynamically on mount
+const loadCalendarEvents = async () => {
+    const events = await getAllEvents()
+    calendarOptions.events = events
+}
+
 // --- Methods ---
 const jumpToYear = (year: number) => {
     const api = fullCalendarRef.value.getApi()
@@ -481,13 +666,14 @@ const closeModal = () => {
 }
 
 // Watchers
-watch(currentYear, (newYear) => {
-    calculateStats(newYear)
+watch(currentYear, async (newYear) => {
+    await calculateStats(newYear)
 })
 
 // Initial Load
-onMounted(() => {
-    calculateStats(currentYear.value)
+onMounted(async () => {
+    await loadCalendarEvents()
+    await calculateStats(currentYear.value)
 })
 
 </script>
