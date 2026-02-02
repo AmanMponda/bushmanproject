@@ -13,12 +13,6 @@
       <div class="col-xl-12 col-lg-12 col-sm-12 layout-spacing">
         <div class="panel br-6 p-0">
           <div class="custom-table p-3">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-              <div>
-                <h2 class="mb-0">Supplier Management</h2>
-              </div>
-              <!-- Actions moved into table toolbar -->
-            </div>
 
             <StandardDataTable :columns="columns" :data="suppliers" :loading="loading" :filters="tableFilters"
               :custom-filters="customFilters" :actionButtons="supplierActionButtons" :show-date-filters="false"
@@ -431,6 +425,7 @@
 <script setup lang="ts">
 import axios from 'axios'
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import Swal from 'sweetalert2'
 import handleErrors from '@/stores/bushman/errorHandler'
 import StandardDataTable from '@/components/bootstrap/StandardDataTable.vue'
@@ -444,6 +439,8 @@ const accountsEndpoint = import.meta.env.VITE_APP_ACCOUNTS_COMPANY_VSET_URL
 const countriesEndpoint = import.meta.env.VITE_APP_COUNTRIES_URL
 const currenciesEndpoint = import.meta.env.VITE_APP_CURRENCIES_URL
 const supplierMetadataEndpoint = 'supplier-metadata'
+
+const router = useRouter()
 
 const loading = ref(false)
 const saving = ref(false)
@@ -639,6 +636,10 @@ const customFilters = computed(() => [
   }
 ])
 
+const openCreateSupplierPage = () => {
+  router.push({ name: 'procurement-suppliers-create' })
+}
+
 // Table action buttons (appear next to Filters in StandardDataTable)
 const supplierActionButtons = [
   {
@@ -651,7 +652,7 @@ const supplierActionButtons = [
     label: 'Add Supplier',
     icon: 'fa fa-plus',
     class: 'btn-primary',
-    method: () => openSupplierModal()
+    method: () => openCreateSupplierPage()
   }
 ]
 
@@ -781,8 +782,10 @@ const categoryLabelFromList = (value: any, list: any[]) => {
   return parentName ? `${parentName} > ${name}` : name
 }
 
-const classificationCategoryLabel = (value: any) =>
-  categoryLabelFromList(value, flatClassificationCategories.value)
+const classificationCategoryLabel = (value: any) => {
+  const category = flatClassificationCategories.value.find((item: any) => item.id === value)
+  return category?.display_name || category?.name || ''
+}
 const assignableCategoryLabel = (value: any) =>
   categoryLabelFromList(value, additionalCategories.value)
 
@@ -1018,6 +1021,10 @@ const resetSupplierForm = () => {
 }
 
 const openSupplierModal = (supplier?: any) => {
+  if (!supplier) {
+    openCreateSupplierPage()
+    return
+  }
   resetSupplierForm()
   editingSupplier.value = supplier || null
 

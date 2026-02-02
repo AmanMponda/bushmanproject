@@ -80,35 +80,35 @@ const selectTab = (tab: TabItem) => {
 }
 
 .form-panel-content.with-padding {
-  padding: 14px;
+  padding: 8px;
 }
 
 .tabs-float {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 4px 14px;
+  gap: 8px;
+  padding: 4px 8px;
   flex-wrap: wrap;
 }
 
 .tabs {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
 }
 
 .tab {
   border: 2px solid #e2e8f0;
   background: #ffffff;
-  border-radius: 10px;
-  padding: 10px 16px;
+  border-radius: 8px;
+  padding: 6px 10px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   gap: 8px;
   font-weight: 600;
-  font-size: 13px;
+  font-size: 12px;
   color: #475569;
   transition: all 0.2s ease;
 }
@@ -137,9 +137,9 @@ const selectTab = (tab: TabItem) => {
 .tab-count {
   background: #dbeafe;
   color: #1e40af;
-  padding: 2px 8px;
+  padding: 1px 6px;
   border-radius: 10px;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
 }
 

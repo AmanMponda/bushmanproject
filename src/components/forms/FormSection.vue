@@ -39,7 +39,7 @@ const gridClass = computed(() => {
 
 <style scoped>
 .form-section {
-  margin-bottom: 1.5rem;
+  margin-bottom: 0.75rem;
 }
 
 .form-section:last-child {
@@ -47,7 +47,7 @@ const gridClass = computed(() => {
 }
 
 .form-section--bordered {
-  padding-bottom: 1.5rem;
+  padding-bottom: 0.75rem;
   border-bottom: 1px solid var(--bs-border-color, #dee2e6);
 }
 
@@ -60,11 +60,11 @@ const gridClass = computed(() => {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 0.875rem;
+  font-size: 0.75rem;
   font-weight: 600;
   color: var(--bs-dark, #212529);
-  margin-bottom: 1rem;
-  padding-bottom: 0.5rem;
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.25rem;
   border-bottom: 2px solid var(--bs-primary, #0d6efd);
   border-bottom-width: 2px;
   border-image: linear-gradient(90deg, var(--bs-primary, #0d6efd), transparent) 1;
@@ -79,20 +79,20 @@ const gridClass = computed(() => {
 }
 
 .section-description {
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   color: var(--bs-secondary, #6c757d);
-  margin-bottom: 1rem;
+  margin-bottom: 0.5rem;
 }
 
 .section-content {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 0.5rem;
 }
 
 .section-grid {
   display: grid;
-  gap: 1rem;
+  gap: 0.5rem;
 }
 
 .section-grid--2 {

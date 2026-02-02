@@ -66,6 +66,7 @@ const ContractList = () => import('@/views/contracts/ContractList.vue');
 const ContractForm = () => import('@/views/contracts/ContractForm.vue');
 const ContractDetails = () => import('@/views/contracts/ContractDetails.vue');
 const Suppliers = () => import('@/views/bushman/procurement/Suppliers.vue');
+const SupplierCreate = () => import('@/views/bushman/procurement/SupplierCreate.vue');
 const SupplierPdf = () => import('@/views/bushman/procurement/SupplierPdf.vue');
 
 // Location Master routes
@@ -337,6 +338,12 @@ const router = createRouter({
       path: "/procurement/suppliers",
       name: "procurement-suppliers",
       component: Suppliers,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/procurement/suppliers/create",
+      name: "procurement-suppliers-create",
+      component: SupplierCreate,
       meta: { requiresAuth: true }
     },
     {

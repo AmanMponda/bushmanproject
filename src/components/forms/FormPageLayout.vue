@@ -10,7 +10,15 @@
               <span v-else>{{ icon }}</span>
             </span>
             <template v-for="(crumb, index) in breadcrumbs" :key="index">
-              <span :class="{ active: index === breadcrumbs.length - 1 }">{{ crumb }}</span>
+              <RouterLink
+                v-if="isBreadcrumbLink(crumb)"
+                :to="crumb.to"
+                class="crumb-link"
+                :class="{ active: index === breadcrumbs.length - 1 }"
+              >
+                {{ crumb.label }}
+              </RouterLink>
+              <span v-else :class="{ active: index === breadcrumbs.length - 1 }">{{ getBreadcrumbLabel(crumb) }}</span>
               <template v-if="index < breadcrumbs.length - 1"> / </template>
             </template>
           </div>
@@ -114,12 +122,14 @@ interface Step {
   active?: boolean
 }
 
+type BreadcrumbItem = string | { label: string; to?: string }
+
 interface Props {
   // Page header
   title: string
   subtitle?: string
   icon?: string
-  breadcrumbs?: string[]
+  breadcrumbs?: BreadcrumbItem[]
   
   // Progress steps
   showProgress?: boolean
@@ -202,6 +212,14 @@ const leftPanelStyle = computed(() => ({
 const rightPanelStyle = computed(() => ({
   width: props.rightWidth
 }))
+
+const getBreadcrumbLabel = (crumb: BreadcrumbItem) => {
+  return typeof crumb === 'string' ? crumb : crumb.label
+}
+
+const isBreadcrumbLink = (crumb: BreadcrumbItem) => {
+  return typeof crumb !== 'string' && !!crumb.to
+}
 </script>
 
 <style scoped>
@@ -239,7 +257,7 @@ const rightPanelStyle = computed(() => ({
 
 /* Content */
 .content {
-  padding: 14px 16px 20px;
+  padding: 8px 10px 12px;
   margin: 0 auto;
 }
 
@@ -248,8 +266,8 @@ const rightPanelStyle = computed(() => ({
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 12px;
+  gap: 10px;
+  margin-bottom: 6px;
   flex-wrap: wrap;
 }
 
@@ -261,10 +279,10 @@ const rightPanelStyle = computed(() => ({
 .crumbs {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 12px;
+  gap: 4px;
+  font-size: 11px;
   color: #64748b;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.4px;
   text-transform: uppercase;
   font-weight: 600;
 }
@@ -274,13 +292,22 @@ const rightPanelStyle = computed(() => ({
   color: var(--primary);
 }
 
+.crumb-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.crumb-link:hover {
+  text-decoration: underline;
+}
+
 .crumb-icon {
   font-size: 14px;
 }
 
 h1 {
-  margin: 6px 0 4px;
-  font-size: 28px;
+  margin: 4px 0 2px;
+  font-size: 22px;
   font-weight: 800;
   color: var(--text);
   letter-spacing: -0.5px;
@@ -289,7 +316,7 @@ h1 {
 .subtitle {
   margin: 0;
   color: var(--text-secondary);
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .head-actions {
@@ -305,8 +332,8 @@ h1 {
   align-items: center;
   justify-content: center;
   gap: 0;
-  margin-bottom: 12px;
-  padding: 10px 16px;
+  margin-bottom: 6px;
+  padding: 6px 10px;
   background: var(--card);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow);
@@ -316,8 +343,8 @@ h1 {
 .step {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 16px;
+  gap: 8px;
+  padding: 6px 10px;
   border-radius: 30px;
   transition: all 0.3s ease;
 }
@@ -345,8 +372,8 @@ h1 {
 }
 
 .step-number {
-  width: 28px;
-  height: 28px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
   background: var(--border);
   color: var(--text-secondary);
@@ -354,12 +381,12 @@ h1 {
   align-items: center;
   justify-content: center;
   font-weight: 700;
-  font-size: 13px;
+  font-size: 11px;
   transition: all 0.3s ease;
 }
 
 .step-label {
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 600;
   color: var(--text-secondary);
 }
@@ -369,11 +396,11 @@ h1 {
 }
 
 .step-connector {
-  width: 60px;
-  height: 3px;
+  width: 40px;
+  height: 2px;
   background: var(--border);
   border-radius: 2px;
-  margin: 0 8px;
+  margin: 0 6px;
   transition: all 0.3s ease;
 }
 
@@ -416,19 +443,19 @@ h1 {
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 8px 12px;
+  padding: 6px 10px;
   background: #f8fafc;
   border-bottom: 2px solid var(--border);
 }
 
 .panel-icon {
-  width: 32px;
-  height: 32px;
+  width: 26px;
+  height: 26px;
   border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
+  font-size: 14px;
 }
 
 .left-panel .panel-icon {
@@ -452,14 +479,14 @@ h1 {
 
 .panel-title-text h3 {
   margin: 0;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 700;
   color: #0f172a;
 }
 
 .panel-title-text p {
   margin: 2px 0 0;
-  font-size: 12px;
+  font-size: 11px;
   color: #64748b;
 }
 
@@ -471,6 +498,7 @@ h1 {
 
 .center-panel {
   min-height: 500px;
+  overflow: visible;
 }
 
 .left-panel {
@@ -485,8 +513,8 @@ h1 {
   right: 0;
   background: var(--card);
   border-top: 1px solid var(--border);
-  padding: 12px 16px;
-  margin-top: 14px;
+  padding: 8px 10px;
+  margin-top: 8px;
   box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.08);
   z-index: 100;
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
@@ -514,7 +542,7 @@ h1 {
   }
   
   h1 {
-    font-size: 24px;
+    font-size: 20px;
   }
   
   .progress-steps {
@@ -529,7 +557,7 @@ h1 {
 
 @media (max-width: 576px) {
   .content {
-    padding: 10px;
+    padding: 8px;
   }
   
   .page-head {
@@ -543,11 +571,11 @@ h1 {
   }
   
   h1 {
-    font-size: 20px;
+    font-size: 18px;
   }
   
   .subtitle {
-    font-size: 13px;
+    font-size: 12px;
   }
 }
 </style>

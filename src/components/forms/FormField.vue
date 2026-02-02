@@ -53,13 +53,13 @@ const errorMessage = computed(() => props.error)
 .form-field {
   display: flex;
   flex-direction: column;
-  gap: 0.375rem;
+  gap: 0.25rem;
 }
 
 .form-field--horizontal {
   flex-direction: row;
   align-items: center;
-  gap: 1rem;
+  gap: 0.5rem;
 }
 
 .form-field--horizontal .field-label {
@@ -76,7 +76,7 @@ const errorMessage = computed(() => props.error)
   display: flex;
   align-items: center;
   gap: 0.375rem;
-  font-size: 0.875rem;
+  font-size: 0.75rem;
   font-weight: 500;
   color: var(--bs-dark, #212529);
 }
@@ -95,7 +95,7 @@ const errorMessage = computed(() => props.error)
 }
 
 .optional-mark {
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   color: var(--bs-secondary, #6c757d);
   font-weight: 400;
 }
@@ -121,7 +121,7 @@ const errorMessage = computed(() => props.error)
 .field-input-wrapper.with-icon :deep(input),
 .field-input-wrapper.with-icon :deep(select),
 .field-input-wrapper.with-icon :deep(textarea) {
-  padding-left: 2.5rem;
+  padding-left: 2rem;
 }
 
 .form-field--error :deep(input),
@@ -138,12 +138,12 @@ const errorMessage = computed(() => props.error)
 }
 
 .field-hint {
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   color: var(--bs-secondary, #6c757d);
 }
 
 .field-error {
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   color: var(--bs-danger, #dc3545);
   display: flex;
   align-items: center;
@@ -154,8 +154,8 @@ const errorMessage = computed(() => props.error)
 :deep(select),
 :deep(textarea) {
   width: 100%;
-  padding: 0.625rem 0.875rem;
-  font-size: 0.9375rem;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.85rem;
   border: 1px solid var(--bs-border-color, #dee2e6);
   border-radius: 8px;
   background-color: #fff;
@@ -184,5 +184,32 @@ const errorMessage = computed(() => props.error)
 
 :deep(select) {
   cursor: pointer;
+}
+
+:deep(.multiselect) {
+  min-height: 34px;
+}
+
+:deep(.multiselect__tags) {
+  min-height: 34px;
+  padding: 2px 28px 2px 6px;
+  border-radius: 8px;
+  border: 1px solid var(--bs-border-color, #dee2e6);
+}
+
+:deep(.multiselect__input),
+:deep(.multiselect__single),
+:deep(.multiselect__placeholder) {
+  font-size: 0.85rem;
+  line-height: 1.2;
+}
+
+:deep(.multiselect__placeholder) {
+  margin-bottom: 0;
+  padding-top: 0;
+}
+
+:deep(.multiselect__select) {
+  height: 32px;
 }
 </style>

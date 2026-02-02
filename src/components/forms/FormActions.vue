@@ -119,16 +119,16 @@ const positionClass = computed(() => `form-actions--${props.position}`)
   display: flex;
   align-items: center;
   gap: 1rem;
-  padding: 1rem 0;
-  margin-top: 1rem;
+  padding: 0.5rem 0;
+  margin-top: 0.5rem;
   border-top: 1px solid var(--bs-border-color, #dee2e6);
 }
 
 .form-actions--sticky {
   position: sticky;
   bottom: 0;
-  padding: 1rem 1.25rem;
-  margin: 0 -1.25rem -1.25rem;
+  padding: 0.65rem 0.85rem;
+  margin: 0 -0.85rem -0.85rem;
   background: #fff;
   z-index: 10;
   box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.08);
@@ -163,10 +163,10 @@ const positionClass = computed(() => `form-actions--${props.position}`)
   align-items: center;
   justify-content: center;
   gap: 0.375rem;
-  padding: 0.625rem 1.25rem;
-  font-size: 0.875rem;
+  padding: 0.5rem 0.9rem;
+  font-size: 0.8rem;
   font-weight: 500;
-  border-radius: 8px;
+  border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s ease;
   border: 1px solid transparent;
@@ -227,7 +227,7 @@ const positionClass = computed(() => `form-actions--${props.position}`)
 @media (max-width: 576px) {
   .form-actions {
     flex-direction: column;
-    gap: 0.75rem;
+    gap: 0.5rem;
   }
   
   .actions-left,
@@ -242,8 +242,8 @@ const positionClass = computed(() => `form-actions--${props.position}`)
   }
   
   .form-actions--sticky {
-    margin: 0 -1rem -1rem;
-    padding: 0.75rem 1rem;
+    margin: 0 -0.85rem -0.85rem;
+    padding: 0.65rem 0.85rem;
   }
 }
 </style>

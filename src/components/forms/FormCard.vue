@@ -69,8 +69,8 @@ const iconClass = computed(() => `icon-${props.iconVariant}`)
 .form-card {
   background: #fff;
   border-radius: 12px;
-  overflow: hidden;
-  margin-bottom: 1.5rem;
+  overflow: visible;
+  margin-bottom: 0.75rem;
 }
 
 .form-card--default {
@@ -99,7 +99,7 @@ const iconClass = computed(() => `icon-${props.iconVariant}`)
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: 1rem 1.25rem;
+  padding: 0.65rem 0.85rem;
   background: var(--bs-gray-50, #f8f9fa);
   border-bottom: 1px solid var(--bs-border-color, #dee2e6);
 }
@@ -111,13 +111,13 @@ const iconClass = computed(() => `icon-${props.iconVariant}`)
 }
 
 .header-icon {
-  width: 40px;
-  height: 40px;
+  width: 30px;
+  height: 30px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 10px;
-  font-size: 1.125rem;
+  font-size: 0.95rem;
 }
 
 .icon-primary {
@@ -150,14 +150,14 @@ const iconClass = computed(() => `icon-${props.iconVariant}`)
 }
 
 .card-title {
-  font-size: 1rem;
+  font-size: 0.9rem;
   font-weight: 600;
   color: var(--bs-dark, #212529);
   margin: 0;
 }
 
 .card-subtitle {
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   color: var(--bs-secondary, #6c757d);
   margin: 0.25rem 0 0;
 }
@@ -183,7 +183,7 @@ const iconClass = computed(() => `icon-${props.iconVariant}`)
 }
 
 .card-body {
-  padding: 1.25rem;
+  padding: 0.85rem;
 }
 
 .card-body--flush {
@@ -191,7 +191,7 @@ const iconClass = computed(() => `icon-${props.iconVariant}`)
 }
 
 .card-footer {
-  padding: 1rem 1.25rem;
+  padding: 0.75rem 0.85rem;
   background: var(--bs-gray-50, #f8f9fa);
   border-top: 1px solid var(--bs-border-color, #dee2e6);
 }
