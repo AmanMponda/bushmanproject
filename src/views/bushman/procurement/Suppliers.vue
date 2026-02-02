@@ -68,8 +68,8 @@
 
     <!-- Add/Edit Supplier Modal -->
     <StandardModal ref="supplierModalRef" id="supplier-modal"
-      :title="editingSupplier ? 'Edit Supplier' : 'New Supplier'" size="lg" :scrollable="true"
-      :backdrop="'static'" :keyboard="false" @hidden="handleSupplierModalHidden">
+      :title="editingSupplier ? 'Edit Supplier' : 'New Supplier'" size="lg" :scrollable="true" :backdrop="'static'"
+      :keyboard="false" @hidden="handleSupplierModalHidden">
       <template #header>
         <i class="fa fa-building me-2"></i> {{ editingSupplier ? 'Edit Supplier' : 'New Supplier' }}
       </template>
@@ -96,9 +96,9 @@
 
             <div class="col-md-12">
               <label class="form-label">Classification Categories <span class="text-danger">*</span></label>
-              <Multiselect v-model="supplierCategory.additional_category_ids"
-                :options="classificationCategoryOptions" :multiple="true" :close-on-select="false"
-                :custom-label="classificationCategoryLabel" placeholder="Select classification categories" />
+              <Multiselect v-model="supplierCategory.additional_category_ids" :options="classificationCategoryOptions"
+                :multiple="true" :close-on-select="false" :custom-label="classificationCategoryLabel"
+                placeholder="Select classification categories" />
               <small class="text-muted">Choose at least one classification category for the supplier.</small>
             </div>
           </div>
@@ -187,244 +187,244 @@
     </StandardModal>
 
     <!-- Supplier Details Modal -->
-  <div class="modal fade" :class="{ show: showViewModal }" :style="{ display: showViewModal ? 'block' : 'none' }"
-    tabindex="-1">
-    <div class="modal-dialog modal-xl">
-      <div class="modal-content">
-        <div class="modal-header">
-          <div>
-            <h5 class="modal-title">Supplier Details</h5>
-            <div class="text-muted small">{{ viewSupplier?.full_name || '-' }}</div>
+    <div class="modal fade" :class="{ show: showViewModal }" :style="{ display: showViewModal ? 'block' : 'none' }"
+      tabindex="-1">
+      <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+          <div class="modal-header">
+            <div>
+              <h5 class="modal-title">Supplier Details</h5>
+              <div class="text-muted small">{{ viewSupplier?.full_name || '-' }}</div>
+            </div>
+            <button type="button" class="btn-close" @click="closeViewModal"></button>
           </div>
-          <button type="button" class="btn-close" @click="closeViewModal"></button>
-        </div>
-        <div class="modal-body">
-          <ul class="nav nav-tabs mb-3" role="tablist">
-            <li class="nav-item" role="presentation">
-              <button class="nav-link" :class="{ active: activeTab === 'basic' }" @click="activeTab = 'basic'">Basic
-                Info</button>
-            </li>
-            <li class="nav-item" role="presentation">
-              <button class="nav-link" :class="{ active: activeTab === 'contacts' }"
-                @click="activeTab = 'contacts'">Contacts</button>
-            </li>
-            <li class="nav-item" role="presentation">
-              <button class="nav-link" :class="{ active: activeTab === 'identities' }"
-                @click="activeTab = 'identities'">Identities</button>
-            </li>
-            <li class="nav-item" role="presentation">
-              <button class="nav-link" :class="{ active: activeTab === 'categories' }"
-                @click="activeTab = 'categories'">Categories</button>
-            </li>
-          </ul>
+          <div class="modal-body">
+            <ul class="nav nav-tabs mb-3" role="tablist">
+              <li class="nav-item" role="presentation">
+                <button class="nav-link" :class="{ active: activeTab === 'basic' }" @click="activeTab = 'basic'">Basic
+                  Info</button>
+              </li>
+              <li class="nav-item" role="presentation">
+                <button class="nav-link" :class="{ active: activeTab === 'contacts' }"
+                  @click="activeTab = 'contacts'">Contacts</button>
+              </li>
+              <li class="nav-item" role="presentation">
+                <button class="nav-link" :class="{ active: activeTab === 'identities' }"
+                  @click="activeTab = 'identities'">Identities</button>
+              </li>
+              <li class="nav-item" role="presentation">
+                <button class="nav-link" :class="{ active: activeTab === 'categories' }"
+                  @click="activeTab = 'categories'">Categories</button>
+              </li>
+            </ul>
 
-          <div v-if="activeTab === 'basic'">
-            <div class="row g-3">
-              <div class="col-md-4">
-                <label class="form-label text-muted">Code</label>
-                <div class="fw-semibold">{{ viewSupplier?.code || '-' }}</div>
+            <div v-if="activeTab === 'basic'">
+              <div class="row g-3">
+                <div class="col-md-4">
+                  <label class="form-label text-muted">Code</label>
+                  <div class="fw-semibold">{{ viewSupplier?.code || '-' }}</div>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label text-muted">Status</label>
+                  <div>
+                    <span class="badge" :class="statusBadge(viewSupplier?.status)">
+                      {{ viewSupplier?.status || 'DRAFT' }}
+                    </span>
+                  </div>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label text-muted">Type</label>
+                  <div class="fw-semibold">{{ viewSupplier?.type || '-' }}</div>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label text-muted">Full Name</label>
+                  <div class="fw-semibold">{{ viewSupplier?.full_name || '-' }}</div>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label text-muted">Trading Name</label>
+                  <div class="fw-semibold">{{ viewSupplier?.trading_name || '-' }}</div>
+                </div>
+                <div class="col-md-6" v-if="viewSupplier?.company_profile">
+                  <label class="form-label text-muted">Business Type</label>
+                  <div class="fw-semibold">{{ viewSupplier?.company_profile?.business_type || '-' }}</div>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label text-muted">Country</label>
+                  <div class="fw-semibold">{{ viewSupplier?.country?.name || '-' }}</div>
+                </div>
               </div>
-              <div class="col-md-4">
-                <label class="form-label text-muted">Status</label>
-                <div>
-                  <span class="badge" :class="statusBadge(viewSupplier?.status)">
-                    {{ viewSupplier?.status || 'DRAFT' }}
+            </div>
+
+            <div v-else-if="activeTab === 'contacts'">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <h6 class="mb-0">Contacts</h6>
+                <button class="btn btn-outline-primary btn-sm" @click="addContactToView">
+                  <i class="fa fa-plus me-1"></i>Add Contact
+                </button>
+              </div>
+              <div v-for="(contact, index) in viewContacts" :key="index" class="row g-2 align-items-end mb-2">
+                <div class="col-md-3">
+                  <label class="form-label">Type</label>
+                  <Multiselect v-model="contact.type" :options="contactTypeValues" :custom-label="contactTypeLabel"
+                    placeholder="Select type" />
+                </div>
+                <div class="col-md-8">
+                  <label class="form-label">Contact</label>
+                  <input v-model="contact.contact" type="text" class="form-control" />
+                </div>
+                <div class="col-md-1 d-flex">
+                  <button class="btn btn-outline-danger btn-sm" @click="removeViewContact(index)">
+                    <i class="fa fa-trash"></i>
+                  </button>
+                </div>
+              </div>
+              <div class="d-flex justify-content-end mt-3">
+                <button class="btn btn-primary" @click="saveContacts" :disabled="saving">
+                  <span v-if="saving" class="spinner-border spinner-border-sm me-2"></span>
+                  Save Contacts
+                </button>
+              </div>
+            </div>
+
+            <div v-else-if="activeTab === 'identities'">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <h6 class="mb-0">Identity Documents</h6>
+                <button class="btn btn-outline-primary btn-sm" @click="addIdentityRow">
+                  <i class="fa fa-plus me-1"></i>Add Identity
+                </button>
+              </div>
+              <div v-for="(identity, index) in viewIdentities" :key="index" class="row g-2 align-items-end mb-2">
+                <div class="col-md-3">
+                  <label class="form-label">Type</label>
+                  <Multiselect v-if="identityTypeOptions.length" v-model="identity.identity_type_id"
+                    :options="identityTypeValues" :custom-label="identityTypeLabel" placeholder="Select type" />
+                  <input v-else v-model="identity.identity_type_id" type="number" class="form-control" />
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label">Number</label>
+                  <input v-model="identity.identity_number" type="text" class="form-control" />
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label">Issued Date</label>
+                  <input v-model="identity.issued_date" type="date" class="form-control" />
+                </div>
+                <div class="col-md-2">
+                  <label class="form-label">Expiry</label>
+                  <input v-model="identity.dates.expire_date" type="date" class="form-control" />
+                </div>
+                <div class="col-md-1 d-flex">
+                  <button class="btn btn-outline-danger btn-sm" @click="removeIdentityRow(index, identity)">
+                    <i class="fa fa-trash"></i>
+                  </button>
+                </div>
+              </div>
+              <div class="d-flex justify-content-end mt-3">
+                <button class="btn btn-primary" @click="saveIdentities" :disabled="saving">
+                  <span v-if="saving" class="spinner-border spinner-border-sm me-2"></span>
+                  Save Identities
+                </button>
+              </div>
+            </div>
+
+            <div v-else-if="activeTab === 'categories'">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <h6 class="mb-0">Categories</h6>
+                <button class="btn btn-outline-primary btn-sm" @click="openCategoryAssignModal">
+                  <i class="fa fa-plus me-1"></i>Add Category
+                </button>
+              </div>
+              <StandardDataTable :columns="categoryColumns" :data="viewCategories" :loading="false"
+                :disable-search="true" :show-date-filters="false">
+                <template #display_name="{ row }">
+                  <span class="badge bg-secondary bg-opacity-20 text-dark">
+                    <i class="fa fa-tag me-1"></i>{{ row.display_name || row.name }}
                   </span>
-                </div>
-              </div>
-              <div class="col-md-4">
-                <label class="form-label text-muted">Type</label>
-                <div class="fw-semibold">{{ viewSupplier?.type || '-' }}</div>
-              </div>
-              <div class="col-md-6">
-                <label class="form-label text-muted">Full Name</label>
-                <div class="fw-semibold">{{ viewSupplier?.full_name || '-' }}</div>
-              </div>
-              <div class="col-md-6">
-                <label class="form-label text-muted">Trading Name</label>
-                <div class="fw-semibold">{{ viewSupplier?.trading_name || '-' }}</div>
-              </div>
-              <div class="col-md-6" v-if="viewSupplier?.company_profile">
-                <label class="form-label text-muted">Business Type</label>
-                <div class="fw-semibold">{{ viewSupplier?.company_profile?.business_type || '-' }}</div>
-              </div>
-              <div class="col-md-6">
-                <label class="form-label text-muted">Country</label>
-                <div class="fw-semibold">{{ viewSupplier?.country?.name || '-' }}</div>
-              </div>
+                </template>
+                <template #parent_category="{ row }">
+                  <span v-if="row.parent_id" class="badge bg-info bg-opacity-20 text-info">
+                    <i class="fa fa-level-up-alt me-1"></i>
+                    {{categories.find((c: any) => c.id === row.parent_id)?.display_name || '--'}}
+                  </span>
+                  <span v-else class="text-muted">-- Root --</span>
+                </template>
+                <template #actions="{ row }">
+                  <button v-if="row.name !== 'SUPPLIER'" class="btn btn-outline-danger btn-sm" title="Remove"
+                    @click="removeCategory(row)">
+                    <i class="fa fa-trash"></i>
+                  </button>
+                </template>
+              </StandardDataTable>
             </div>
-          </div>
-
-          <div v-else-if="activeTab === 'contacts'">
-            <div class="d-flex justify-content-between align-items-center mb-2">
-              <h6 class="mb-0">Contacts</h6>
-              <button class="btn btn-outline-primary btn-sm" @click="addContactToView">
-                <i class="fa fa-plus me-1"></i>Add Contact
-              </button>
-            </div>
-            <div v-for="(contact, index) in viewContacts" :key="index" class="row g-2 align-items-end mb-2">
-              <div class="col-md-3">
-                <label class="form-label">Type</label>
-                <Multiselect v-model="contact.type" :options="contactTypeValues"
-                  :custom-label="contactTypeLabel" placeholder="Select type" />
-              </div>
-              <div class="col-md-8">
-                <label class="form-label">Contact</label>
-                <input v-model="contact.contact" type="text" class="form-control" />
-              </div>
-              <div class="col-md-1 d-flex">
-                <button class="btn btn-outline-danger btn-sm" @click="removeViewContact(index)">
-                  <i class="fa fa-trash"></i>
-                </button>
-              </div>
-            </div>
-            <div class="d-flex justify-content-end mt-3">
-              <button class="btn btn-primary" @click="saveContacts" :disabled="saving">
-                <span v-if="saving" class="spinner-border spinner-border-sm me-2"></span>
-                Save Contacts
-              </button>
-            </div>
-          </div>
-
-          <div v-else-if="activeTab === 'identities'">
-            <div class="d-flex justify-content-between align-items-center mb-2">
-              <h6 class="mb-0">Identity Documents</h6>
-              <button class="btn btn-outline-primary btn-sm" @click="addIdentityRow">
-                <i class="fa fa-plus me-1"></i>Add Identity
-              </button>
-            </div>
-            <div v-for="(identity, index) in viewIdentities" :key="index" class="row g-2 align-items-end mb-2">
-              <div class="col-md-3">
-                <label class="form-label">Type</label>
-                <Multiselect v-if="identityTypeOptions.length" v-model="identity.identity_type_id"
-                  :options="identityTypeValues" :custom-label="identityTypeLabel" placeholder="Select type" />
-                <input v-else v-model="identity.identity_type_id" type="number" class="form-control" />
-              </div>
-              <div class="col-md-3">
-                <label class="form-label">Number</label>
-                <input v-model="identity.identity_number" type="text" class="form-control" />
-              </div>
-              <div class="col-md-3">
-                <label class="form-label">Issued Date</label>
-                <input v-model="identity.issued_date" type="date" class="form-control" />
-              </div>
-              <div class="col-md-2">
-                <label class="form-label">Expiry</label>
-                <input v-model="identity.dates.expire_date" type="date" class="form-control" />
-              </div>
-              <div class="col-md-1 d-flex">
-                <button class="btn btn-outline-danger btn-sm" @click="removeIdentityRow(index, identity)">
-                  <i class="fa fa-trash"></i>
-                </button>
-              </div>
-            </div>
-            <div class="d-flex justify-content-end mt-3">
-              <button class="btn btn-primary" @click="saveIdentities" :disabled="saving">
-                <span v-if="saving" class="spinner-border spinner-border-sm me-2"></span>
-                Save Identities
-              </button>
-            </div>
-          </div>
-
-          <div v-else-if="activeTab === 'categories'">
-            <div class="d-flex justify-content-between align-items-center mb-2">
-              <h6 class="mb-0">Categories</h6>
-              <button class="btn btn-outline-primary btn-sm" @click="openCategoryAssignModal">
-                <i class="fa fa-plus me-1"></i>Add Category
-              </button>
-            </div>
-            <StandardDataTable :columns="categoryColumns" :data="viewCategories" :loading="false" :disable-search="true"
-              :show-date-filters="false">
-              <template #display_name="{ row }">
-                <span class="badge bg-secondary bg-opacity-20 text-dark">
-                  <i class="fa fa-tag me-1"></i>{{ row.display_name || row.name }}
-                </span>
-              </template>
-              <template #parent_category="{ row }">
-                <span v-if="row.parent_id" class="badge bg-info bg-opacity-20 text-info">
-                  <i class="fa fa-level-up-alt me-1"></i>
-                  {{ categories.find((c: any) => c.id === row.parent_id)?.display_name || '--' }}
-                </span>
-                <span v-else class="text-muted">-- Root --</span>
-              </template>
-              <template #actions="{ row }">
-                <button v-if="row.name !== 'SUPPLIER'" class="btn btn-outline-danger btn-sm" title="Remove"
-                  @click="removeCategory(row)">
-                  <i class="fa fa-trash"></i>
-                </button>
-              </template>
-            </StandardDataTable>
           </div>
         </div>
       </div>
     </div>
-  </div>
 
-  <!-- Assign Category Modal -->
-  <div class="modal fade" :class="{ show: showAssignCategoryModal }"
-    :style="{ display: showAssignCategoryModal ? 'block' : 'none' }" tabindex="-1">
-    <div class="modal-dialog modal-lg">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title">Assign Category</h5>
-          <button type="button" class="btn-close" @click="closeCategoryAssignModal"></button>
-        </div>
-        <div class="modal-body">
-          <form @submit.prevent="assignCategory">
-            <div class="row g-3">
-              <div class="col-md-6">
-                <label class="form-label">Category</label>
-                <Multiselect v-model="assignCategoryForm.category_id" :options="assignableCategoryOptions"
-                  :custom-label="assignableCategoryLabel" placeholder="Select category" />
-                <small class="text-muted">Select a supplier category (e.g., Food Suppliers, Spare Parts)</small>
-              </div>
-              <div class="col-md-6">
-                <label class="form-label">Category Code</label>
-                <input v-model="assignCategoryForm.code" type="text" class="form-control" placeholder="SUPP-001" />
-              </div>
-              <div class="col-md-6">
-                <label class="form-label">Default Payable Account</label>
-                <Multiselect v-model="assignCategoryForm.default_payable_account_id" :options="accountOptions"
-                  :custom-label="accountLabel" placeholder="Select account" />
-              </div>
-              <div class="col-md-6">
-                <label class="form-label">Default Receivable Account</label>
-                <Multiselect v-model="assignCategoryForm.default_receivable_account_id" :options="accountOptions"
-                  :custom-label="accountLabel" placeholder="Select account" />
-              </div>
-              <div class="col-md-6">
-                <label class="form-label">Effective From</label>
-                <input v-model="assignCategoryForm.effective_from" type="date" class="form-control" />
-              </div>
-              <div class="col-md-6">
-                <label class="form-label">Effective To</label>
-                <input v-model="assignCategoryForm.effective_to" type="date" class="form-control" />
-              </div>
-              <div class="col-md-6 d-flex align-items-center">
-                <div class="form-check mt-4">
-                  <input v-model="assignCategoryForm.is_active" type="checkbox" class="form-check-input"
-                    id="assignCategoryActive" />
-                  <label class="form-check-label" for="assignCategoryActive">Is Active</label>
+    <!-- Assign Category Modal -->
+    <div class="modal fade" :class="{ show: showAssignCategoryModal }"
+      :style="{ display: showAssignCategoryModal ? 'block' : 'none' }" tabindex="-1">
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Assign Category</h5>
+            <button type="button" class="btn-close" @click="closeCategoryAssignModal"></button>
+          </div>
+          <div class="modal-body">
+            <form @submit.prevent="assignCategory">
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label class="form-label">Category</label>
+                  <Multiselect v-model="assignCategoryForm.category_id" :options="assignableCategoryOptions"
+                    :custom-label="assignableCategoryLabel" placeholder="Select category" />
+                  <small class="text-muted">Select a supplier category (e.g., Food Suppliers, Spare Parts)</small>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Category Code</label>
+                  <input v-model="assignCategoryForm.code" type="text" class="form-control" placeholder="SUPP-001" />
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Default Payable Account</label>
+                  <Multiselect v-model="assignCategoryForm.default_payable_account_id" :options="accountOptions"
+                    :custom-label="accountLabel" placeholder="Select account" />
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Default Receivable Account</label>
+                  <Multiselect v-model="assignCategoryForm.default_receivable_account_id" :options="accountOptions"
+                    :custom-label="accountLabel" placeholder="Select account" />
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Effective From</label>
+                  <input v-model="assignCategoryForm.effective_from" type="date" class="form-control" />
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Effective To</label>
+                  <input v-model="assignCategoryForm.effective_to" type="date" class="form-control" />
+                </div>
+                <div class="col-md-6 d-flex align-items-center">
+                  <div class="form-check mt-4">
+                    <input v-model="assignCategoryForm.is_active" type="checkbox" class="form-check-input"
+                      id="assignCategoryActive" />
+                    <label class="form-check-label" for="assignCategoryActive">Is Active</label>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div class="d-flex justify-content-end mt-4">
-              <button type="button" class="btn btn-outline-secondary me-2"
-                @click="closeCategoryAssignModal">Cancel</button>
-              <button type="submit" class="btn btn-primary" :disabled="assigning">
-                <span v-if="assigning" class="spinner-border spinner-border-sm me-2"></span>
-                Assign Category
-              </button>
-            </div>
-          </form>
+              <div class="d-flex justify-content-end mt-4">
+                <button type="button" class="btn btn-outline-secondary me-2"
+                  @click="closeCategoryAssignModal">Cancel</button>
+                <button type="submit" class="btn btn-primary" :disabled="assigning">
+                  <span v-if="assigning" class="spinner-border spinner-border-sm me-2"></span>
+                  Assign Category
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       </div>
     </div>
-  </div>
 
-  <div v-if="(showSupplierModal || showViewModal || showAssignCategoryModal) && !showSupplierModal"
-    class="modal-backdrop fade show"></div>
+    <div v-if="(showSupplierModal || showViewModal || showAssignCategoryModal) && !showSupplierModal"
+      class="modal-backdrop fade show"></div>
   </div>
 </template>
 
@@ -802,7 +802,7 @@ const hierarchicalCategories = computed(() => {
 
 // Get root supplier categories (e.g., Food Suppliers, Spare Parts, Fuel)
 const rootSupplierCategories = computed(() => {
-  return additionalCategories.value.filter((c: any) => !c.parent_id || 
+  return additionalCategories.value.filter((c: any) => !c.parent_id ||
     !additionalCategories.value.some((p: any) => p.id === c.parent_id))
 })
 
@@ -875,7 +875,8 @@ const normalizeSuppliersResponse = (payload: any) => {
 const fetchSuppliers = async () => {
   loading.value = true
   try {
-    const response = await axios.get('http://localhost:8000/api/v1.0/suppliers/table-view', {
+    const url = `${import.meta.env.VITE_APP_BASE_URL}suppliers/table-view`
+    const response = await axios.get(url, {
       headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }
     })
 
@@ -1027,7 +1028,7 @@ const openSupplierModal = (supplier?: any) => {
     // Always keep status as ACTIVE for supplier form
     supplierForm.type = supplier.type || 'COMPANY'
     supplierForm.status = 'ACTIVE'
-      supplier.company_profile?.tax_residency_country_id ?? supplier.company_profile?.tax_residency_country?.id
+    supplier.company_profile?.tax_residency_country_id ?? supplier.company_profile?.tax_residency_country?.id
 
     supplierForm.country_id = findById(countries.value, countryId) || null
     supplierForm.nationality_id = findById(nationalities.value, nationalityId) || null
@@ -1385,5 +1386,4 @@ onMounted(() => {
   transform: scale(1.05);
   transition: transform 0.2s ease;
 }
-
 </style>
