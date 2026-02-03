@@ -112,7 +112,7 @@ const reportTypes = computed(() => [
   { name: 'Stops', count: 0, class: "bi bi-geo-alt me-3 fs-4" },
 ]);
 
-// console.log(countries.value.length);
+//
 const selectedTypes = ref(new Set())
 const query = ref('')
 const sortBy = ref('name')
@@ -326,8 +326,7 @@ const fetchServicePoints = async () => {
   try {
     const response = await axiosInstance.get('service-points');
     servicePoints.value = response.data.data.map((d, index) => {
-    //   console.log(d);
-      return {
+    //return {
         sno: index + 1,
         id: d.id,
         office: d.office,

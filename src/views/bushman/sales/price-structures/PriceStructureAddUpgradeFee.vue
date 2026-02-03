@@ -239,8 +239,7 @@ const matchesSpecies = (fee: any, speciesId: number | null) => {
     const feeSpeciesName = (fee?.species_name || fee?.species?.name || '').trim().toLowerCase()
     const feeName = (fee?.name || fee?.label || '').trim().toLowerCase()
 
-    /*
-    console.log(`[Name-only matching] Checking "${fee.name}" for species "${speciesName}" (core: "${coreKeyword}"):`, {
+    /*:`, {
       feeSpeciesName,
       feeName,
       coreKeyword,
@@ -251,17 +250,15 @@ const matchesSpecies = (fee: any, speciesId: number | null) => {
 
     // Check if species_name contains the core keyword (handles "1st buffalo", "buffalo", etc.)
     if (feeSpeciesName && feeSpeciesName.includes(coreKeyword)) {
-      // console.log(`✓ Matched by species_name containing "${coreKeyword}": ${fee.name}`)
-      return true
+      //return true
     }
     // Check if fee name/label contains the core keyword
     if (feeName && feeName.includes(coreKeyword)) {
-      // console.log(`✓ Matched by fee name containing "${coreKeyword}": ${fee.name}`)
-      return true
+      //return true
     }
 
     // No match for buffalo/elephant - return false (don't fall through to ID matching)
-    // console.log(`✗ No name match for "${fee.name}" with species "${speciesName}" (core: "${coreKeyword}")`)
+    //`)
     return false
   }
 
@@ -277,8 +274,7 @@ const matchesSpecies = (fee: any, speciesId: number | null) => {
   // For all other species, use species_id matching first
   const feeSpeciesId = fee?.species_id ?? fee?.species?.id ?? fee?.speciesId ?? null
   if (feeSpeciesId && Number(feeSpeciesId) === Number(speciesId)) {
-    // console.log(`✓ Matched by species_id: ${fee.name}`)
-    return true
+    //return true
   }
 
   // Fallback to name matching for other species (strict)
@@ -320,11 +316,6 @@ const filteredTrophyFeeOptions = computed(() => {
   const filtered = trophyFeeOptions.value.filter((fee: any) => matchesSpecies(fee, speciesId))
 
   const selectedSpeciesName = getSpeciesName(speciesId)
-  console.log(`Filtering trophy fees for species ID ${speciesId} (${selectedSpeciesName}):`, {
-    totalFees: trophyFeeOptions.value.length,
-    filteredFees: filtered.length,
-    filtered: filtered.map(f => ({ id: f.id, name: f.name, species_id: f.species_id, species_name: f.species_name }))
-  })
 
   return filtered.length > 0 ? filtered : trophyFeeOptions.value
 })
@@ -481,10 +472,6 @@ onMounted(async () => {
     }
 
     trophyFeeOptions.value = mapTrophyFees(Array.isArray(trophySource) ? trophySource : [])
-
-    console.log('Trophy fees loaded:', trophyFeeOptions.value)
-    console.log('Species options:', speciesOptions.value)
-
     syncTrophyFeeForSpecies(form.value.species_id)
 
   } catch (err) {

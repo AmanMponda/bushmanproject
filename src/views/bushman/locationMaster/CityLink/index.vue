@@ -190,8 +190,7 @@ const openModalSafely = async (modalId, modalRef) => {
       return;
     }
 
-    // console.log(`Opening modal: ${modalId}`);
-    debugModal(modalId);
+    //debugModal(modalId);
 
     // Dispose existing modal instance if it exists
     if (modalRef.value) {
@@ -212,11 +211,11 @@ const openModalSafely = async (modalId, modalRef) => {
 
       // Add event listeners for debugging
       modalElement.addEventListener('shown.bs.modal', () => {
-        // console.log(`Modal ${modalId} shown successfully`);
+        // no-op
       });
 
       modalElement.addEventListener('hidden.bs.modal', () => {
-        // console.log(`Modal ${modalId} hidden`);
+        // no-op
       });
 
       modalRef.value.show();
@@ -266,8 +265,7 @@ const openModalSafely = async (modalId, modalRef) => {
         }
       };
 
-      // console.log(`Modal ${modalId} opened manually`);
-    }
+  }
   } catch (error) {
     console.error(`Error opening modal ${modalId}:`, error);
     showAlert('error', `Failed to open modal: ${modalId}`);
@@ -350,7 +348,7 @@ const fetchFormData = async () => {
 
   try {
     const response = await axiosInstance.get('/locations/cities');
-    // console.log('Form Data Response:', response.data); // Debug log
+    //// Debug log
 
     const formData = response.data?.data || response.data || {};
     serviceClasses.value = formData.service_classes || [];
@@ -360,7 +358,7 @@ const fetchFormData = async () => {
       ? formData
       : (formData.cities || formData.locations || []);
 
-    // console.log('Cities loaded:', cities.value); // Debug log
+    //// Debug log
     formDataLoaded.value = true;
 
   } catch (error) {
@@ -1020,9 +1018,7 @@ const filteredLinks = computed(() => {
     .map(r => (r.city_link_id?.id ?? r.city_link_id)) // handle object or number
     .filter(id => id != null);
 
-  // console.log("Selected IDs:", selectedIds);
-
-  // ✅ Return cityLinks that are NOT selected
+  //// ✅ Return cityLinks that are NOT selected
   return cityLinks.value.filter(link => !selectedIds.includes(link.id));
 });
 
@@ -1072,20 +1068,21 @@ const subRouteTableOption = ref({
 
 const fetchSubRoutesList = async () => {
   if (subRoutesLoaded.value) return; // Skip if already loaded
-
+  
   isLoadingSubRoutes.value = true;
+  
   try {
     const response = await axiosInstance.get('/sub-routes');
-    // console.log(response.data);
-
-    subRoutesList.value = response.data.data.map((d, index) => ({
-      sno: index + 1,
-      ...d
+    
+    // Uncomment these lines for the function to actually work
+    subRoutesList.value = response.data.data.map((d, index) => ({ 
+      sno: index + 1, 
+      ...d 
     }));
-    // console.log(subRoutesList.value);
     subRoutesLoaded.value = true;
-
+    
   } catch (error) {
+    console.error('Error fetching subroutes:', error); // Add logging
     showAlert('error', 'Failed to fetch subroutes');
   } finally {
     isLoadingSubRoutes.value = false;

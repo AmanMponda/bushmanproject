@@ -17,7 +17,7 @@ type RequisitionStatus =
   | 'CANCELLED'
   | 'CLOSED'
 
-type FundDirection = 'WITHDRAW' | 'EXPENSE'
+type FundDirection = 'WITHDRAW' | 'DIRECT_PAYMENT'
 type SourceType = 'CASH' | 'STORE' | 'VENDOR' | 'SERVICE_PROVIDER'
 type ModeOfPayment = 'CASH' | 'TT' | 'CREDIT'
 type TaxMethod = 'EXCLUSIVE' | 'INCLUSIVE' | 'EXEMPT'
@@ -1260,7 +1260,7 @@ const mapRequisition = (req: any): Requisition => {
     requisition_type_id: req.requisition_type_id,
     requisition_type: req.requisition_type,
     form_behavior_json: req.form_behavior_json,
-    fund_direction: req.fund_direction || 'EXPENSE',
+    fund_direction: req.fund_direction || 'DIRECT_PAYMENT',
     required_date: req.required_date || '',
     date: req.date || req.created_at?.slice(0, 10) || '',
     status: req.status || 'DRAFT',
@@ -2147,13 +2147,13 @@ onUnmounted(() => {
               </div>
               <div class="item-content">
                 <div class="item-label">Fund Direction</div>
-                <div class="item-value">{{ requisition.fund_direction === 'WITHDRAW' ? 'Direct Payment' : 'Expense' }}
+                <div class="item-value">{{ requisition.fund_direction === 'DIRECT_PAYMENT' ? 'Direct Payment' : 'Withdraw' }}
                 </div>
-                <div class="item-hint" v-if="requisition.fund_direction === 'WITHDRAW'">
+                <div class="item-hint" v-if="requisition.fund_direction === 'DIRECT_PAYMENT'">
                   The payment will be made directly to the vendor/payee.
                 </div>
                 <div class="item-hint" v-else>
-                  Expense claim to be reimbursed.
+                  Internal fund withdrawal request.
                 </div>
               </div>
             </div>

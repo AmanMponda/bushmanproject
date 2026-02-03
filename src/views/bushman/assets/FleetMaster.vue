@@ -130,6 +130,7 @@
         @refresh-documents="refreshVehicleDocuments"
         @file-change="onVehicleFileChange"
         @upload-document="uploadVehicleDocument"
+        @view-document="viewVehicleDocument"
         @download-document="downloadVehicleDocument"
         @open-image-preview="openImagePreview"
       />
@@ -459,8 +460,6 @@ async function fetchVehicles() {
       const yearB = b.manufacture_year || b.motor_vehicle?.manufacture_year || 9999
       return yearA - yearB
     })
-
-    console.log('🚗 Vehicles loaded:', vehicles.value.map((v: any) => ({ id: v.id, registration: v.registration_number || v.name, year: v.manufacture_year })))
   } catch (err) {
     toast.error('Failed to load vehicles')
   } finally {
@@ -485,7 +484,6 @@ async function fetchMetadata() {
     
     // Get all fuel items and filter to only actual fuel types
     let allFuelItems = data.fuel_items || []
-    console.log('📋 All items from API:', allFuelItems.map((f: any) => ({ id: f.id, name: f.name })))
     
     // Filter to only include actual fuel types - exclude non-fuel items
     fuelItems.value = allFuelItems.filter((item: any) => {
@@ -494,8 +492,6 @@ async function fetchMetadata() {
       const excludePatterns = ['charter', 'companion', 'hunter', 'cost', 'pricelist', 'filter', 'test', 'package', 'oil', 'service']
       return !excludePatterns.some(pattern => name.includes(pattern))
     })
-    
-    console.log('⛽ Filtered fuel items:', fuelItems.value.map((f: any) => f.name))
   } catch (err) {
     toast.error('Failed to load metadata')
   }
@@ -777,9 +773,7 @@ async function openVehicleDetails(vehicle: VehicleAsset) {
     try {
       const res = await vehicleAssetService.findByRegistration(vehicle.registration_number)
       const found = res.data?.data || res.data
-      id = (found as any)?.id ?? (found as any)?.asset_id ?? (found as any)?.pk ?? null
-      console.log('🔍 Resolved vehicle id by registration:', id)
-    } catch (err) {
+      id = (found as any)?.id ?? (found as any)?.asset_id ?? (found as any)?.pk ?? null} catch (err) {
       console.warn('Failed to resolve vehicle by registration', vehicle.registration_number)
     }
   }
@@ -850,8 +844,6 @@ async function refreshVehicleDocuments(vehicleId: number) {
       const mime = (doc.mime_type || '').toString().toLowerCase()
       if (mime.startsWith('image')) loadPreview(doc)
     })
-
-    console.log('🎯 Documents for', expectedCode, '=>', vehicleDocuments.value.map((d:any) => ({ id: d.id, name: d.name, code: d.code })))
   } catch (err) {
     toast.error('Failed to load vehicle documents')
     vehicleDocuments.value = []

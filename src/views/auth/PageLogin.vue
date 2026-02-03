@@ -103,18 +103,17 @@ const submitForm = async () => {
       `login`, param
     );
 
-    // console.log('Login response:', response.data);
-    if (response.data.success === true) {
+    //if (response.data.success === true) {
 
-      authStore.setUser(response.data.user);
-      authStore.setToken(response.data.access_token, response.data.expires_in);
-      authStore.setCompanies(response.data.companies_ids);
-      authStore.setServices(response.data.services);
+    authStore.setUser(response.data.user);
+    authStore.setToken(response.data.access_token, response.data.expires_in);
+    authStore.setCompanies(response.data.companies_ids);
+    authStore.setServices(response.data.services);
 
-      setTimeout(() => {
-        router.push("/companies-dashboard");
-      }, 360);
-    }
+    setTimeout(() => {
+      router.push("/companies-dashboard");
+    }, 360);
+
   } catch (err) {
     error.value = "Invalid username or password.";
     console.error('Login error:', err);

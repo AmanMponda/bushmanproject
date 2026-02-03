@@ -24,7 +24,13 @@ const handleErrors = (errorResponse: any) => {
         errors.push(`${field.replace(/_/g, ' ')}: ${errorValue}`)
       }
     } else {
-      errors.push('Unexpected server response format.')
+      // Non-object response (e.g., string or other) - try to use backend-provided message
+      const msg = (typeof data === 'string' && data) || data?.message || data?.error || errorResponse?.message || response?.message
+      if (msg) {
+        errors.push(String(msg))
+      } else {
+        errors.push('Unexpected server response format.')
+      }
     }
   }
   return errors

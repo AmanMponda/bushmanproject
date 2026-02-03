@@ -344,7 +344,7 @@ const fetchTypeCounts = async () => {
 //     try {
 //         const res = await axiosInstance.get('/locations/total');
 //
-//         // console.log(res.data);  
+//         //
 //
 //         countries.value = res.data.countries;
 //         cities.value = res.data.cities;

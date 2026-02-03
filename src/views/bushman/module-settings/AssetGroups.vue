@@ -317,12 +317,9 @@ async function loadData() {
     if (filters.value.is_active !== '') params.is_active = filters.value.is_active
     if (filters.value.as_tree) params.as_tree = true
 
-    console.log('[AssetGroups] Loading with params:', params)
     const response = await assetGroupService.listAssetGroups(params)
-    console.log('[AssetGroups] Response:', response)
-    
     assetGroups.value = response.data?.data || response.data || []
-    
+
     // Load all groups for parent dropdown (if not already loaded)
     if (!allGroups.value.length) {
       try {
@@ -374,10 +371,7 @@ function closeOffcanvas() {
   offcanvasRef.value?.resetForm()
 }
 
-async function handleSave(payload: Partial<AssetGroup>) {
-  console.log('[AssetGroups] Save event received from offcanvas')
-  
-  // Offcanvas already handled the API call, just refresh the list
+async function handleSave(payload: Partial<AssetGroup>) {// Offcanvas already handled the API call, just refresh the list
   closeOffcanvas()
   await loadData()
   

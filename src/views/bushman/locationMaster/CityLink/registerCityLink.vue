@@ -220,7 +220,7 @@ const fetchFormData = async () => {
 
   try {
     const response = await axiosInstance.get('/locations/cities?');
-    // console.log('Form Data Response:', response.data); // Debug log
+    //// Debug log
 
     const formData = response.data?.data ?? response.data ?? {};
     const normalizedCities = Array.isArray(formData)
@@ -232,7 +232,7 @@ const fetchFormData = async () => {
     destinationTerminals.value = formData.destination_terminals || [];
     cities.value = normalizedCities;
 
-    // console.log('Cities loaded:', cities.value); // Debug log
+    //// Debug log
     formDataLoaded.value = true;
 
   } catch (error) {
@@ -435,10 +435,7 @@ const saveCityLink = async () => {
       }
 
       // Submit as batch
-      const response = await axiosInstance.post('/city-links', { city_links: dataToSubmit });
-    console.log(response.data);
-    
-      if (response.data.status === "success") {
+      const response = await axiosInstance.post('/city-links', { city_links: dataToSubmit });if (response.data.status === "success") {
         showAlert('success', `${dataToSubmit.length} City Links saved successfully`);
         // cityLinkModal.value.hide();
         isLoading.value = false;
@@ -866,9 +863,7 @@ const filteredLinks = computed(() => {
     .map(r => (r.city_link_id?.id ?? r.city_link_id)) // handle object or number
     .filter(id => id != null);
 
-  // console.log("Selected IDs:", selectedIds);
-
-  // ✅ Return cityLinks that are NOT selected
+  //// ✅ Return cityLinks that are NOT selected
   return cityLinks.value.filter(link => !selectedIds.includes(link.id));
 });
 
@@ -922,13 +917,10 @@ const fetchSubRoutesList = async () => {
   isLoadingSubRoutes.value = true;
   try {
     const response = await axiosInstance.get('sub-routes');
-    // console.log(response.data);
-
     subRoutesList.value = response.data.data.map((d, index) => ({
       sno: index + 1,
       ...d
     }));
-    // console.log(subRoutesList.value);
     subRoutesLoaded.value = true;
 
   } catch (error) {

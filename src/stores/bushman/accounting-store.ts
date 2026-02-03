@@ -147,13 +147,7 @@ export const useAccountingStore = defineStore('accounting', {
 
         const response: any = await axios.request(config)
         const responseData = response.data.data || response.data || []
-        
-        console.log('Full API Response:', response.data)
-        if (responseData.length > 0) {
-          console.log('First voucher keys:', Object.keys(responseData[0]))
-          console.log('First voucher accounts:', responseData[0].accounts)
-        }
-        
+
         this.journalVouchers = Array.isArray(responseData) ? responseData : []
         return response
       } catch (err: any) {
@@ -931,14 +925,14 @@ export const useAccountingStore = defineStore('accounting', {
       }
     },
 
-    async getRequisitionDetails(requisitionId: number): Promise<any> {
+    async getRequisitionDetails(requisitionId: number, options: { include?: string } = {}): Promise<any> {
       this.error = null
       try {
         const config = {
           method: 'get',
           url: `${API_BASE}/requisitions/${requisitionId}`,
           params: {
-            include: 'requisitionType,company,branch,items,items.materials,items.accounts,sources'
+            include: options.include || 'requisitionType,company,branch,items,items.materials,items.accounts,sources'
           },
           headers: { 'Content-Type': 'application/json' }
         }
@@ -1140,12 +1134,21 @@ export const useAccountingStore = defineStore('accounting', {
         }
 
         const response: any = await axios.request(config)
-        
-        // Validate response structure
+
+        // Validate response structure - prefer backend message when structure unexpected
         if (!response.data?.data && !Array.isArray(response.data)) {
-          console.warn('Unexpected response structure for approved requisitions:', response)
+          const backendMsg = response?.data?.message || response?.data?.error || response?.message || null
+          if (backendMsg) {
+            this.error = String(backendMsg)
+          } else {
+            console.warn('Unexpected response structure for approved requisitions:', response)
+            this.error = 'Unexpected response structure for approved requisitions'
+          }
+        } else {
+          // Clear previous error when response looks fine
+          this.error = null
         }
-        
+
         return response
       } catch (err: any) {
         this.error = err?.response?.data?.message || err.message || 'Error fetching approved requisitions'
@@ -1154,25 +1157,39 @@ export const useAccountingStore = defineStore('accounting', {
       }
     },
 
-    async getRequisitionDetails(requisitionId: number): Promise<any> {
+    /**
+     * Get eligible requisitions for journal voucher creation
+     * Uses the new endpoint that returns APPROVED requisitions with funding accounts
+     * @param accountId - The funding account ID (required)
+     * @param filters - Optional filters (payee, fund_direction, requisition_id)
+     */
+    async getEligibleRequisitions(accountId: number, filters: { payee?: string; fund_direction?: string; requisition_id?: number } = {}): Promise<any> {
       this.error = null
       try {
+        if (!accountId) {
+          throw new Error('Account ID is required')
+        }
+
+        const params: any = {
+          account_id: accountId
+        }
+
+        if (filters.payee) params.payee = filters.payee
+        if (filters.fund_direction) params.fund_direction = filters.fund_direction
+        if (filters.requisition_id) params.requisition_id = filters.requisition_id
+
         const config = {
           method: 'get',
-          url: `${API_BASE}/requisitions/${requisitionId}`,
-          params: {
-            include: 'items,items.materials,items.accounts,materials,accounts'
-          },
+          url: `${API_BASE}/journal-vouchers/eligible-requisitions`,
+          params,
           headers: { 'Content-Type': 'application/json' }
         }
 
         const response: any = await axios.request(config)
-        console.log('Full API response for requisition:', response)
-        console.log('Response data structure:', JSON.stringify(response.data, null, 2))
         return response
       } catch (err: any) {
-        this.error = err?.response?.data?.message || err.message || 'Error fetching requisition details'
-        console.error('Requisition Details Error:', err)
+        this.error = err?.response?.data?.message || err.message || 'Error fetching eligible requisitions'
+        console.error('Eligible Requisitions Error:', err)
         throw err
       }
     },

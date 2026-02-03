@@ -267,30 +267,23 @@ function getStatusClass(status: string): string {
 }
 
 function calculateTotalDebit(voucher: JournalVoucher): number {
-  console.log('Voucher:', voucher.document_number, 'Accounts:', voucher.accounts)
-  
   // Use the same logic as the view page: get amount from DR account in accounts array
   if (voucher.accounts && voucher.accounts.length > 0) {
-    console.log('Found accounts array with length:', voucher.accounts.length)
     const drAccount = voucher.accounts.find((a: any) => a.transaction_type === 'DR' || a.transaction_type === 'DEBIT')
-    console.log('DR Account found:', drAccount)
     if (drAccount && drAccount.amount) {
-      console.log('Amount from DR account:', drAccount.amount)
       return parseFloat(String(drAccount.amount))
     }
   }
-  
+
   // Fallback to total_amount if accounts not loaded
   if (voucher.total_amount) {
-    console.log('Using total_amount:', voucher.total_amount)
     return parseFloat(String(voucher.total_amount))
   }
+
   if ((voucher as any).amount) {
-    console.log('Using amount:', (voucher as any).amount)
     return parseFloat(String((voucher as any).amount))
   }
-  
-  console.log('No amount found, returning 0')
+
   return 0
 }
 

@@ -377,7 +377,6 @@ const cityForm = ref([]);
 
 
 const addCity = () => {
-  // console.log("Before push:", cityForm.value, typeof cityForm.value);
   cityForm.value.unshift({
     region_id: '',
     name: '',
@@ -385,7 +384,6 @@ const addCity = () => {
     region: '',
     status: 1,
   });
-
 };
 
 const removeCity = (idx) => {
@@ -627,8 +625,6 @@ const openModal = async (city = null) => {
   if (!regions.value.length) {
     await fetchRegions();
   }
-
-  // console.log("test", city);
 
   if (city) {
     editCity.value = true;

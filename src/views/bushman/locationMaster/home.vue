@@ -89,9 +89,7 @@ const openModal = (city = null) => {
   } else {
     currentCity.value = { id: null, name: '', country_id: '', status: "" };
   }
-  // console.log("IT WORKES");
-
-  formModal.value = new Modal(document.getElementById('cityModal'));
+  //formModal.value = new Modal(document.getElementById('cityModal'));
   formModal.value.show();
 };
 
@@ -108,8 +106,7 @@ const saveCity = async () => {
       }
       response = await axiosInstance.put(`cities/${currentCity.value.id}`, payload);
     } else {
-      // console.log(currentCity.value);
-      const payload = {
+      //const payload = {
         "country_id": currentCity.value.country_id.id,
         "name": currentCity.value.name.toUpperCase(),
         "city": currentCity.value.name.toUpperCase(),

@@ -365,31 +365,23 @@ function closeOffcanvas() {
 }
 
 async function handleSubmit() {
-  console.log('[Offcanvas] ========== SUBMIT STARTED ==========')
-  console.log('[Offcanvas] Form values:', form.value)
-  
   error.value = ''
-  
+
   // Validate
   if (!form.value.code?.trim()) {
     error.value = 'Code is required'
-    console.log('[Offcanvas] Validation failed: Code required')
     return
   }
   if (!form.value.name?.trim()) {
     error.value = 'Name is required'
-    console.log('[Offcanvas] Validation failed: Name required')
     return
   }
   if (!form.value.asset_class) {
     error.value = 'Asset Class is required'
-    console.log('[Offcanvas] Validation failed: Asset Class required')
     return
   }
 
-  console.log('[Offcanvas] Validation passed')
   saving.value = true
-  console.log('[Offcanvas] Saving state set to TRUE')
 
   const payload: Partial<AssetGroup> = {
     company_id: 1,
@@ -410,25 +402,15 @@ async function handleSubmit() {
     }
   }
 
-  console.log('[Offcanvas] Payload prepared:', JSON.stringify(payload, null, 2))
-  console.log('[Offcanvas] Is edit mode:', isEditMode.value)
-  console.log('[Offcanvas] assetGroupService:', assetGroupService)
-  console.log('[Offcanvas] About to call API...')
-  
   try {
     let response
     if (isEditMode.value && props.assetGroupToEdit?.id) {
       // Update
-      console.log('[Offcanvas] >>> Calling UPDATE API for ID:', props.assetGroupToEdit.id)
-      response = await assetGroupService.updateAssetGroup(props.assetGroupToEdit.id, payload)
-      console.log('[Offcanvas] <<< Update response:', response)
+      // response = await assetGroupService.updateAssetGroup(props.assetGroupToEdit.id, payload)
       toast.success('Asset group updated successfully')
     } else {
       // Create
-      console.log('[Offcanvas] >>> Calling CREATE API')
-      console.log('[Offcanvas] >>> URL will be: http://localhost:8000/api/v1.0/asset-groups')
-      response = await assetGroupService.createAssetGroup(payload)
-      console.log('[Offcanvas] <<< Create response:', response)
+      // response = await assetGroupService.createAssetGroup(payload)
       toast.success('Asset group created successfully')
     }
     

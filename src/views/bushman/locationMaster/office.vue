@@ -442,9 +442,7 @@ const openModal = (office = null, multiple = false) => {
         code: ''
       };
   }
-  // console.log("filter branch", currentOffice.value.branch_id);
-
-  formModal.value = new Modal(document.getElementById('officeModal'));
+  //formModal.value = new Modal(document.getElementById('officeModal'));
   formModal.value.show();
 };
 

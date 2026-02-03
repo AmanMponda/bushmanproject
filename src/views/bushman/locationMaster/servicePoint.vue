@@ -236,7 +236,6 @@ const fetchServicePoints = async () => {
     const payload = response.data?.data || response.data;
     const rows = Array.isArray(payload?.data) ? payload.data : (Array.isArray(payload) ? payload : []);
     servicePoints.value = rows.map((d, index) => {
-      // console.log(d);
       return {
         sno: index + 1,
         id: d.id,
@@ -244,7 +243,7 @@ const fetchServicePoints = async () => {
         office_id: d.office_id || d.location_id,
         name: d.name,
         supervisor: d.supervisor,
-      }
+      };
     });
   } catch (error) {
     showAlert('error', 'Failed to fetch service points');

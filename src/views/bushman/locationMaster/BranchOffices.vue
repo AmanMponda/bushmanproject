@@ -438,8 +438,7 @@ const offices = ref([]);
 // Methods
 // const fetchBranchData = async () => {
 
-// console.log("branch test",branch.value);
-
+//
 //   try {
 //     loading.value = true;
 //     // First get the branch details from city-branches endpoint
@@ -503,10 +502,7 @@ const offices = ref([]);
 
 const fetchBranchData = async () => {
 
-// console.log("branch test",branch.value); 
-
-   
-  try {
+//try {
     loading.value = true;
     // First get the branch details from city-branches endpoint
     const branchResponse = await axios.get(`${API_URL4}branches/${route.params.id}`, {
@@ -635,8 +631,7 @@ const saveOffice = async () => {
     } else {
       // Single Create / Update
       if (currentOffice.value.id) {
-        // console.log('Updating office:', currentOffice.value);
-        await axiosInstance.put(`offices/${currentOffice.value.id}`, currentOffice.value);
+        //await axiosInstance.put(`offices/${currentOffice.value.id}`, currentOffice.value);
       } else {
         await axiosInstance.post('offices', {
           name: currentOffice.value.name,
@@ -708,8 +703,8 @@ const viewOfficeLocation = (office) => {
   modal.show();
 };
 
-// const zoomIn = () => { console.log('Zooming in...'); };
-// const zoomOut = () => { console.log('Zooming out...'); };
+// const zoomIn = () => {};
+// const zoomOut = () => {};
 const showPinInfo = () => { showAlert('info', `Office Location: ${selectedOffice.value?.name} at ${selectedOffice.value?.address}`); };
 
 // Watch for route changes

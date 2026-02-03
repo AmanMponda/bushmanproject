@@ -636,14 +636,7 @@ const canSubmit = computed(() => {
   const hasCurrency = !!form.currencyId
   
   // Debug logging
-  if (!hasName || !hasArea || !hasDates || !hasCurrency) {
-    console.log('canSubmit debug:', {
-      hasName: { value: hasName, name: form.name },
-      hasArea: { value: hasArea, areaId: form.areaId },
-      hasDates: { value: hasDates, startDate: form.startDate, endDate: form.endDate, hasValidDates: hasValidDates.value },
-      hasCurrency: { value: hasCurrency, currencyId: form.currencyId }
-    })
-  }
+  if (!hasName || !hasArea || !hasDates || !hasCurrency) {}
   
   return hasName && hasArea && hasDates && hasCurrency
 })

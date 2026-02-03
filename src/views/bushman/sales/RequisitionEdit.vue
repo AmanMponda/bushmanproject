@@ -8,8 +8,7 @@ import { useAppOptionStore } from '@/stores/app-option'
 import { useAuthStore } from '@/stores/auth'
 import Swal from 'sweetalert2'
 
-// Copied Types
-type FundDirection = 'WITHDRAW' | 'EXPENSE'
+type FundDirection = 'WITHDRAW' | 'DIRECT_PAYMENT'
 type TaxMethod = 'EXCLUSIVE' | 'INCLUSIVE' | 'EXEMPT'
 
 const route = useRoute()
@@ -166,30 +165,60 @@ const processMetadata = (metadata: any) => {
       symbol: currency.symbol,
     }))
     
-    // Map accounts
-    const accts = metadata.accounts || []
-    accounts.value = (Array.isArray(accts) ? accts : []).map((account: any) => ({
+    // Helper to map accounts standardizing fields
+    const mapAccountStandard = (account: any): any => ({
       id: account.id,
       name: account.name || account.account_name || `Account ${account.id}`,
       code: account.code || account.account_number,
       account_number: account.account_number,
-    }))
+      parent_account_id: account.parent_account_id,
+      children: Array.isArray(account.children) ? account.children.map(mapAccountStandard) : [] 
+    })
+
+    // Process accounts into hierarchy if needed
+    const processAccountsHierarchy = (rawAccounts: any[]) => {
+      if (!Array.isArray(rawAccounts)) return []
+      
+      const mapped = rawAccounts.map(mapAccountStandard)
+      
+      // Check if we assume it is already a tree
+      const hasChildren = mapped.some(a => a.children && a.children.length > 0)
+      if (hasChildren) {
+         return mapped
+      }
+      
+      // If flat list with parent_ids, build hierarchy
+      const hasParents = mapped.some(a => a.parent_account_id)
+      if (hasParents) {
+        const accountMap = new Map()
+        mapped.forEach(a => {
+          a.children = [] 
+          accountMap.set(a.id, a)
+        })
+        
+        const roots: any[] = []
+        mapped.forEach(a => {
+          if (a.parent_account_id && accountMap.has(a.parent_account_id)) {
+            accountMap.get(a.parent_account_id).children.push(a)
+          } else {
+            roots.push(a)
+          }
+        })
+        return roots
+      }
+
+      return mapped
+    }
+    
+    // Map accounts with hierarchy processing
+    const accts = metadata.accounts || []
+    accounts.value = processAccountsHierarchy(accts)
 
     const sourceAccts = metadata.source_accounts || []
-    sourceAccounts.value = (Array.isArray(sourceAccts) ? sourceAccts : []).map((account: any) => ({
-      id: account.id,
-      name: account.name || account.account_name || `Account ${account.id}`,
-      code: account.code || account.account_number,
-      account_number: account.account_number,
-    }))
+    sourceAccounts.value = processAccountsHierarchy(sourceAccts)
 
     const replenishAccts = metadata.replenish_accounts || []
-    replenishAccounts.value = (Array.isArray(replenishAccts) ? replenishAccts : []).map((account: any) => ({
-      id: account.id,
-      name: account.name || account.account_name || `Account ${account.id}`,
-      code: account.code || account.account_number,
-      account_number: account.account_number,
-    }))
+    replenishAccounts.value = processAccountsHierarchy(replenishAccts)
     
     // Map branches (may not be in edit endpoint, but keep for compatibility)
     const brnchs = metadata.branches || []
@@ -300,7 +329,6 @@ const processMetadata = (metadata: any) => {
     // Store enums if available
     if (metadata.enums) {
       // Can be used for source_types, payment_modes, etc.
-      console.log('Available enums:', metadata.enums)
     }
 }
 
@@ -518,39 +546,13 @@ onMounted(async () => {
      // Process metadata first so currencies/types/etc. are available
      processMetadata(metadata)
      
-     // Debug log to identify any missing data
-     console.log('Edit page - Metadata loaded:', {
-       requisitionTypes: requisitionTypes.value.length,
-       currencies: currencies.value.length,
-       accounts: accounts.value.length,
-       dimensionTypes: dimensionTypes.value.length,
-       dimensionValues: dimensionValues.value.length,
-       costCentersOptions: costCentersOptions.value.length,
-       items: itemsOptions.value.length,
-       users: users.value.length,
-       entities: entities.value.length,
-       locations: locations.value.length,
-     })
-     console.log('Edit page - Requisition data:', requisition)
-     
-     // Initialize form with requisition data
+     // Debug log to identify any missing data// Initialize form with requisition data
      initializeForm(requisition)
      
      // Debug: verify form state after initialization
-     console.log('Edit page - Form after init:', {
-       id: form.id,
-       requisitionTypeId: form.requisitionTypeId,
-       currencyId: form.currencyId,
-       fundDirection: form.fundDirection,
-       costCenters: form.costCenters,
-       costCentersCount: form.costCenters.length,
-       items: form.items.length,
-       source: form.source,
-     })
-     
      // Debug cost center items in detail
      if (form.costCenters.length > 0) {
-       console.log('Edit page - Cost Center Details:', form.costCenters.map((cc: any) => ({
+       const debugCostCenters = form.costCenters.map((cc: any) => ({
          costCenterId: cc.costCenterId,
          itemsCount: cc.items?.length || 0,
          items: cc.items?.map((item: any) => ({
@@ -559,7 +561,8 @@ onMounted(async () => {
            quantity: item.quantity,
            rate: item.rate,
          }))
-       })))
+       }))
+       // console.log('debugCostCenters', debugCostCenters)
      }
   } catch (err: any) {
     console.error('Edit page load error:', err)

@@ -669,16 +669,12 @@ const authStore = useAuthStore();
 const debugModal = (modalId) => {
   const modalElement = document.getElementById(modalId);
   // if (modalElement) {
-  //   console.log(`Modal ${modalId} state:`, {
-  //     display: modalElement.style.display,
-  //     classes: modalElement.className,
-  //     ariaHidden: modalElement.getAttribute('aria-hidden'),
+  //,
   //     ariaModal: modalElement.getAttribute('aria-modal'),
   //     isVisible: modalElement.offsetParent !== null
   //   });
   // } else {
-  //   console.log(`Modal ${modalId} not found in DOM`);
-  // }
+  //// }
 };
 
 // Helper function to safely open modals
@@ -692,8 +688,7 @@ const openModalSafely = async (modalId, modalRef) => {
       return;
     }
 
-    // console.log(`Opening modal: ${modalId}`);
-    debugModal(modalId);
+    //debugModal(modalId);
 
     // Dispose existing modal instance if it exists
     if (modalRef.value) {
@@ -714,12 +709,10 @@ const openModalSafely = async (modalId, modalRef) => {
 
       // Add event listeners for debugging
       // modalElement.addEventListener('shown.bs.modal', () => {
-      //   console.log(`Modal ${modalId} shown successfully`);
-      // });
+      //// });
 
       // modalElement.addEventListener('hidden.bs.modal', () => {
-      //   console.log(`Modal ${modalId} hidden`);
-      // });
+      //// });
 
       modalRef.value.show();
 
@@ -768,8 +761,7 @@ const openModalSafely = async (modalId, modalRef) => {
         }
       };
 
-      // console.log(`Modal ${modalId} opened manually`);
-    }
+  }
   } catch (error) {
     console.error(`Error opening modal ${modalId}:`, error);
     showAlert('error', `Failed to open modal: ${modalId}`);
@@ -907,14 +899,14 @@ const fetchroutes = async () => {
 
 //   try {
 //     const response = await axiosInstance.get('/locations/form-data');
-//     // console.log('Form Data Response:', response.data); // Debug log
+//     //// Debug log
 
 //     serviceClasses.value = response.data.data.service_classes || [];
 //     originalTerminals.value = response.data.data.original_terminals || [];
 //     destinationTerminals.value = response.data.data.destination_terminals || [];
 //     cities.value = response.data.data.cities || [];
 
-//     // console.log('Cities loaded:', cities.value); // Debug log
+//     //// Debug log
 //     formDataLoaded.value = true;
 
 //   } catch (error) {
@@ -1552,9 +1544,7 @@ const filteredLinks = computed(() => {
     .map(r => (r.city_link_id?.id ?? r.city_link_id)) // handle object or number
     .filter(id => id != null);
 
-  // console.log("Selected IDs:", selectedIds);
-
-  // ✅ Return cityLinks that are NOT selected
+  //// ✅ Return cityLinks that are NOT selected
   return cityLinks.value.filter(link => !selectedIds.includes(link.id));
 });
 
@@ -1608,14 +1598,11 @@ const fetchSubRoutesList = async () => {
   isLoadingSubRoutes.value = true;
   try {
     const response = await axiosInstance.get('/sub-routes');
-    // console.log(response.data);
-
-    subRoutesList.value = response.data.data.map((d, index) => ({
-      sno: index + 1,
-      ...d
-    }));
-    // console.log(subRoutesList.value);
-    subRoutesLoaded.value = true;
+subRoutesList.value = response.data.data.map((d, index) => ({
+        sno: index + 1,
+        ...d
+      }));
+      subRoutesLoaded.value = true;
 
   } catch (error) {
     showAlert('error', 'Failed to fetch subroutes');

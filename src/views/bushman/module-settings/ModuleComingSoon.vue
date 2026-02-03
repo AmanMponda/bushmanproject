@@ -64,7 +64,6 @@ const router = useRouter()
 
 // Optional: You can track which feature was accessed
 onMounted(() => {
-  console.log('Coming soon page accessed from:', router.currentRoute.value.path)
 })
 </script>
 

@@ -161,7 +161,7 @@
             <div class="row g-3">
               <div class="col-lg-3 col-md-6">
                 <label class="form-label fw-500">Currency <span class="text-danger">*</span></label>
-                <select v-model="form.currency" class="form-select" required @change="console.log('Currency selected:', form.currency)">
+                <select v-model="form.currency" class="form-select" required @change="">
                   <option value="">-- Select Currency --</option>
                   <option v-for="curr in currencies" :key="curr.id" :value="curr.id">
                     {{ curr.label || `${curr.symbol} - ${curr.name}` }}
@@ -1338,15 +1338,7 @@ const isEdit = computed(() => !!id.value)
 const orderTypes = computed(() => orderStore.orderTypes)
 const orderStatuses = computed(() => orderStore.orderStatuses)
 const currencies = computed(() => {
-  const data = orderStore.currencies
-  console.log('Currencies computed - data length:', data?.length, 'data:', data)
-  if (data && data.length > 0) {
-    console.log('First currency item:', data[0])
-    console.log('Currency item keys:', Object.keys(data[0]))
-    console.log('Label value:', data[0].label)
-    console.log('Symbol:', data[0].symbol)
-    console.log('Name:', data[0].name)
-  }
+  const data = orderStore.currenciesif (data && data.length > 0) {)}
   return data
 })
 const enquiries = computed(() => orderStore.enquiries)
@@ -1355,9 +1347,7 @@ const dietaryPreferences = computed(() => orderStore.dietaryPreferences)
 const allergies = computed(() => orderStore.allergies)
 const partyRoles = computed(() => orderStore.partyRoles)
 const itemCategories = computed(() => {
-  const data = orderStore.itemCategories
-  console.log('Item Categories:', data?.length || 0, data)
-  return data || []
+  const data = orderStore.itemCategoriesreturn data || []
 })
 const entities = computed(() => orderStore.entities || [])
 const installmentDaysTypes = computed(() => {
@@ -1368,9 +1358,7 @@ const installmentAmountTypes = computed(() => {
 })
 
 const unitOfMeasurements = computed(() => {
-  const data = orderStore.unitOfMeasurements || []
-  console.log('Unit of Measurements:', data?.length || 0, data)
-  return data
+  const data = orderStore.unitOfMeasurements || []return data
 })
 
 const filteredQuotations = computed(() => {
@@ -1692,20 +1680,8 @@ const submit = async () => {
     cancelButtonText: 'Cancel'
   })
 
-  if (!confirmation.isConfirmed) {
-    console.log('User cancelled the operation')
-    return
-  }
-
-  console.log('Submit clicked - checking form validation')
-  console.log('Form data:', {
-    orderType: form.orderType,
-    status: form.status,
-    orderDate: form.orderDate,
-    currency: form.currency
-  })
-
-  if (!form.orderType || !form.status || !form.orderDate || !form.currency) {
+  if (!confirmation.isConfirmed) {return
+  }if (!form.orderType || !form.status || !form.orderDate || !form.currency) {
     console.warn('Validation failed - missing required fields')
     Swal.fire({
       title: 'Missing Required Fields',
@@ -1730,14 +1706,9 @@ const submit = async () => {
       cancelButtonText: 'Cancel'
     })
 
-    if (!itemsWarning.isConfirmed) {
-      console.log('User cancelled due to missing items warning')
-      return
+    if (!itemsWarning.isConfirmed) {return
     }
-  }
-
-  console.log('Validation passed - submitting order')
-  saving.value = true
+  }saving.value = true
   try {
     // Prepare participants data (order_participants table)
     // Only include participants with count > 0
@@ -1844,13 +1815,7 @@ const submit = async () => {
         is_deposit: inst.isDeposit ? 1 : 0,
         currency_id: inst.currencyId ? parseInt(inst.currencyId as string) : parseInt(form.currency as string),
       })),
-    }
-
-    console.log('Payload:', payload)
-
-    if (isEdit.value) {
-      console.log('Updating order:', id.value)
-      await orderStore.updateOrder(id.value, payload)
+    }if (isEdit.value) {await orderStore.updateOrder(id.value, payload)
       
       // Success alert
       Swal.fire({
@@ -1859,13 +1824,9 @@ const submit = async () => {
         icon: 'success',
         confirmButtonColor: '#3085d6',
         confirmButtonText: 'OK'
-      }).then(() => {
-        console.log('Order updated, redirecting to /orders')
-        router.push('/orders')
+      }).then(() => {router.push('/orders')
       })
-    } else {
-      console.log('Creating new order')
-      await orderStore.createOrder(payload)
+    } else {await orderStore.createOrder(payload)
       
       // Success alert
       Swal.fire({
@@ -1874,9 +1835,7 @@ const submit = async () => {
         icon: 'success',
         confirmButtonColor: '#3085d6',
         confirmButtonText: 'OK'
-      }).then(() => {
-        console.log('Order created, redirecting to /orders')
-        router.push('/orders')
+      }).then(() => {router.push('/orders')
       })
     }
   } catch (error: any) {

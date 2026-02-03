@@ -31,11 +31,7 @@ export const useCalendarStore = defineStore('calendar_store', {
 
         const response = await axios.request(config)
 
-        // API response received (debug logs removed)
-        console.log({
-          status: response.status,
-          dataType: typeof response.data,
-          isArray: Array.isArray(response.data),
+        // API response received (debug logs removed),
           dataLength: Array.isArray(response.data) ? response.data.length : 'Not an array',
         })
 

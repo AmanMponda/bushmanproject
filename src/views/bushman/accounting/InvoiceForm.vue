@@ -471,19 +471,14 @@ async function onRequisitionSelect() {
   
   try {
     const response = await accountingStore.getRequisitionDetails(Number(selectedRequisitionId.value))
-    const requisition = response?.data?.data || response?.data || accountingStore.currentLinkedRequisition
-    
-    console.log('Requisition data:', requisition) // Debug
+    const requisition = response?.data?.data || response?.data || accountingStore.currentLinkedRequisition// Debug
     
     // Try different possible paths for items
-    const items = requisition?.requisition_items || requisition?.items || requisition?.requisitionItems || []
-    
-    console.log('Found items:', items) // Debug
+    const items = requisition?.requisition_items || requisition?.items || requisition?.requisitionItems || []// Debug
     
     if (items && items.length > 0) {
       // Auto-populate line items from requisition
-      form.value.line_items = items.map((reqItem: any) => {
-        console.log('Processing item FULL:', JSON.stringify(reqItem, null, 2)) // Debug full item structure
+      form.value.line_items = items.map((reqItem: any) => { // Debug full item structure
         
         // Check if item has materials or accounts
         const hasMaterials = reqItem.materials && reqItem.materials.length > 0
@@ -514,9 +509,7 @@ async function onRequisitionSelect() {
                   reqItem.tax ||
                   reqItem.vat_rate ||
                   reqItem.vatRate ||
-                  0
-        
-        console.log('Extracted values:', { description, quantity, unit_price, tax_rate }) // Debug extracted values
+                  0// Debug extracted values
         
         return {
           description,
@@ -524,9 +517,7 @@ async function onRequisitionSelect() {
           unit_price,
           tax_rate
         }
-      })
-      
-      console.log('Mapped line items:', form.value.line_items) // Debug result
+      })// Debug result
       
       init({ 
         message: `Success: ${items.length} line items loaded from requisition`, 
@@ -688,10 +679,7 @@ async function createJournalVoucher() {
   }
 
   savingJV.value = true
-  try {
-    console.log('Creating JV from invoice:', invoice.value.id)
-    
-    const response = await accountingStore.createJournalVoucherFromInvoice(
+  try {const response = await accountingStore.createJournalVoucherFromInvoice(
       invoice.value.id,
       {
         posting_date: new Date().toISOString().split('T')[0],
@@ -699,11 +687,7 @@ async function createJournalVoucher() {
       }
     )
 
-    const createdJV = response.data.data || response.data
-    
-    console.log('JV created:', createdJV)
-    
-    // Update invoice with journal_voucher_id
+    const createdJV = response.data.data || response.data// Update invoice with journal_voucher_id
     invoice.value.journal_voucher_id = createdJV.id
     
     init({

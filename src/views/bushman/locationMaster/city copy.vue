@@ -362,8 +362,7 @@ const cityForm = ref([]);
 
 
 const addCity = () => {
-  // console.log("Before push:", cityForm.value, typeof cityForm.value);
-  cityForm.value.unshift({
+  //cityForm.value.unshift({
     country_id: '',
     name: '',
     code: '',
@@ -608,9 +607,7 @@ const fetchCountries = async () => {
 // Open modal for create/update
 const openModal = (city = null) => {
 
-  // console.log("test", city);
-
-  if (city) {
+  //if (city) {
     editCity.value = true;
     currentCity.value = { ...city };
   } else {
@@ -648,8 +645,7 @@ const saveCity = async () => {
 
       response = await axiosInstance.put(`cities/${currentCity.value.id}`, payload);
     } else {
-      // console.log(currentCity.value);
-      const payload = cityForm.value.map(d => {
+      //const payload = cityForm.value.map(d => {
         return {
           country_id: d.country_id.id, // assuming d.country_id is the selected object
           name: d.name,

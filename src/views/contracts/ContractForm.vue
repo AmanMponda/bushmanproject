@@ -294,22 +294,10 @@ const onOrderSelect = async () => {
     return
   }
 
-  try {
-    console.log('🔍 Selected Order ID:', selectedOrderId.value)
-    
-    // Fetch COMPLETE order from DATABASE with all relations
+  try { // Fetch COMPLETE order from DATABASE with all relations
     const response = await orderStore.getOrder(Number(selectedOrderId.value))
-    console.log('📦 Order API Response:', response)
-    
     const order = response.data.data || response.data
-    console.log('✅ Order Data Extracted:', order)
-    console.log('🔍 Order contract_type_id field:', {
-      value: order.contract_type_id,
-      type: typeof order.contract_type_id,
-      exists: 'contract_type_id' in order,
-      keys: Object.keys(order).filter(k => k.includes('type') || k.includes('contract'))
-    })
-    
+
     if (!order) {
       throw new Error('Order not found in database')
     }
@@ -321,12 +309,8 @@ const onOrderSelect = async () => {
     form.title = `Contract for Order #${order.order_number}`
     
     // Ensure contract types are loaded before trying to use them
-    if (!contractStore.contractTypes || contractStore.contractTypes.length === 0) {
-      console.log('⚠️ Contract types not yet loaded, fetching now...')
-      try {
-        await contractStore.fetchContractTypes()
-        console.log('✅ Contract types fetched:', contractStore.contractTypes)
-      } catch (error) {
+    if (!contractStore.contractTypes || contractStore.contractTypes.length === 0) {try {
+        await contractStore.fetchContractTypes()} catch (error) {
         console.error('❌ Error fetching contract types:', error)
       }
     }
@@ -334,40 +318,15 @@ const onOrderSelect = async () => {
     // Orders don't have contract_type_id - auto-select first available type from store
     // If no types available, use fallback default type ID
     if (contractStore.contractTypes && contractStore.contractTypes.length > 0) {
-      form.contractTypeId = String(contractStore.contractTypes[0].id)
-      console.log('📌 Auto-selected first Contract Type:', {
-        typeId: form.contractTypeId,
-        typeName: contractStore.contractTypes[0].name
-      })
-    } else {
+      form.contractTypeId = String(contractStore.contractTypes[0].id)} else {
       // Fallback: Use a default contract type ID when none are available in database
       // Backend will handle this gracefully
-      form.contractTypeId = '1'
-      console.log('⚠️ No contract types in database, using fallback default type ID: 1')
-    }
+      form.contractTypeId = '1'}
     
     form.status = 'DRAFT'
     form.startDate = order.order_date ? order.order_date.split('T')[0] : new Date().toISOString().split('T')[0]
     form.endDate = order.expected_date ? order.expected_date.split('T')[0] : ''
-    form.financialSummary = `Order #${order.order_number}: ${order.total || 0}`
-    
-    console.log('📝 Form Auto-Populated:', {
-      contractNumber: form.contractNumber,
-      title: form.title,
-      contractTypeId: form.contractTypeId,
-      startDate: form.startDate
-    })
-    
-    // DEPLOYMENT DEBUG: Verify fields are actually set in the form object
-    console.log('🐛 DEPLOYMENT DEBUG - Checking form object after population:')
-    console.log('   contractNumber:', form.contractNumber, 'type:', typeof form.contractNumber)
-    console.log('   title:', form.title, 'type:', typeof form.title)
-    console.log('   contractTypeId:', form.contractTypeId, 'type:', typeof form.contractTypeId)
-    console.log('   startDate:', form.startDate, 'type:', typeof form.startDate)
-    console.log('   Full form object keys:', Object.keys(form))
-    console.log('   Full form object:', form)
-    
-    // Get parties from DATABASE - map exactly as returned by API
+    form.financialSummary = `Order #${order.order_number}: ${order.total || 0}`// DEPLOYMENT DEBUG: Verify fields are actually set in the form object)// Get parties from DATABASE - map exactly as returned by API
     form.parties = []
     if (order.parties && Array.isArray(order.parties)) {
       form.parties = order.parties.map((party: any) => ({
@@ -390,22 +349,11 @@ const onOrderSelect = async () => {
       relationType: 'CREATED_FROM'
     }]
     
-    // Debug: Check what fields are available in order
-    console.log('🔍 Order fields available:', Object.keys(order))
-    console.log('� Full order object:', order)
-    
-    // Set required fields from order - use order.id as fallback
+    // Debug: Check what fields are available in order)// Set required fields from order - use order.id as fallback
     form.salesConfirmationProposalId = order.sales_confirmation_proposal_id || order.quotation_id || order.proposal_id || order.id
     form.entityId = order.entity_id || order.buyer_entity_id || order.seller_entity_id || (order.entity?.id) || order.id
-    
-    console.log('✅ Mapped required fields:', {
-      salesConfirmationProposalId: form.salesConfirmationProposalId,
-      entityId: form.entityId
-    })
-    
     orderDataLoaded.value = true
     const partyCount = form.parties.length
-    console.log('✨ Order loaded successfully with', partyCount, 'parties')
     init({ 
       message: `✓ Order #${order.order_number} loaded from database (${partyCount} parties loaded)`, 
       color: 'success' 
@@ -433,12 +381,7 @@ const submit = async () => {
   try {
     saving.value = true
 
-    // Debug: log all required fields before validation
-    console.log('🔍 VALIDATION CHECK:', {
-      contractTypeId: form.contractTypeId,
-      status: form.status,
-      allPresent: !!(form.contractTypeId && form.status)
-    })
+    // Debug: log all required fields before validation})
 
     // Validate ONLY required fields that backend needs
     // contractTypeId will have fallback value if no types in database
@@ -475,8 +418,6 @@ const submit = async () => {
       sales_confirmation_proposal_id: form.salesConfirmationProposalId,
       entity_id: form.entityId
     }
-
-    console.log('📤 SENDING PAYLOAD TO BACKEND:', JSON.stringify(payload, null, 2))
 
     if (isEdit.value) {
       await Swal.fire({
@@ -575,46 +516,33 @@ onMounted(async () => {
   originalSidebarState.value = appOptionStore.appSidebarMinified
   appOptionStore.appSidebarMinified = true
 
-  // Fetch all contract metadata from DATABASE - not hardcoded
-  console.log('🔄 Starting to fetch contract metadata...')
-  
-  // Fetch each independently so one error doesn't block the others
+  // Fetch all contract metadata from DATABASE - not hardcoded// Fetch each independently so one error doesn't block the others
   try {
-    await contractStore.fetchContractTypes()
-    console.log('✅ Contract Types:', contractStore.contractTypes)
-  } catch (error) {
+    await contractStore.fetchContractTypes()} catch (error) {
     console.error('❌ Error fetching contract types:', error)
   }
 
   try {
-    await contractStore.fetchContractStatuses()
-    console.log('✅ Contract Statuses:', contractStore.contractStatuses)
-  } catch (error) {
+    await contractStore.fetchContractStatuses()} catch (error) {
     console.error('❌ Error fetching contract statuses:', error)
   }
 
   try {
-    await contractStore.fetchPartyRoles()
-    console.log('✅ Party Roles:', contractStore.partyRoles)
-  } catch (error) {
+    await contractStore.fetchPartyRoles()} catch (error) {
     console.error('❌ Error fetching party roles:', error)
   }
 
   try {
-    await contractStore.fetchCurrencies()
-    console.log('✅ Currencies:', contractStore.currencies)
-  } catch (error) {
+    await contractStore.fetchCurrencies()} catch (error) {
     console.error('❌ Error fetching currencies:', error)
   }
 
   try {
     // Fetch available orders from DATABASE for Quick Start
-    console.log('🔄 Fetching available orders...')
     await orderStore.listOrders({
       limit: 100,
       include: 'parties,parties.entity,items'
     })
-    console.log('✅ Orders loaded:', orderStore.orders.length, 'orders available')
   } catch (error) {
     console.error('❌ Error fetching orders:', error)
   }

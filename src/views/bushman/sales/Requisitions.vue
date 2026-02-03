@@ -20,7 +20,7 @@ type RequisitionStatus =
   | 'CANCELLED'
   | 'CLOSED'
 
-type FundDirection = 'WITHDRAW' | 'EXPENSE'
+type FundDirection = 'WITHDRAW' | 'DIRECT_PAYMENT'
 type SourceType = 'CASH' | 'STORE' | 'PARTIES' | 'VENDOR' | 'SERVICE_PROVIDER'
 type ModeOfPayment = 'CASH' | 'TT' | 'CREDIT'
 type TaxMethod = 'EXCLUSIVE' | 'INCLUSIVE' | 'EXEMPT'
@@ -744,30 +744,61 @@ const loadMetadata = async () => {
       symbol: currency.symbol,
     }))
     
-    // Map accounts
-    const accts = metadata.accounts || []
-    accounts.value = (Array.isArray(accts) ? accts : []).map((account: any) => ({
+    // Helper to map accounts standardizing fields
+    const mapAccountStandard = (account: any): any => ({
       id: account.id,
       name: account.name || account.account_name || `Account ${account.id}`,
       code: account.code || account.account_number,
       account_number: account.account_number,
-    }))
+      parent_account_id: account.parent_account_id,
+      children: Array.isArray(account.children) ? account.children.map(mapAccountStandard) : [] 
+    })
+
+    // Process accounts into hierarchy if needed
+    const processAccountsHierarchy = (rawAccounts: any[]) => {
+      if (!Array.isArray(rawAccounts)) return []
+      
+      const mapped = rawAccounts.map(mapAccountStandard)
+      
+      // Check if we assume it is already a tree (some node has children)
+      const hasChildren = mapped.some(a => a.children && a.children.length > 0)
+      if (hasChildren) {
+         return mapped
+      }
+      
+      // If flat list with parent_ids, build hierarchy
+      const hasParents = mapped.some(a => a.parent_account_id)
+      if (hasParents) {
+        const accountMap = new Map()
+        // Initialize map and clear children
+        mapped.forEach(a => {
+          a.children = [] 
+          accountMap.set(a.id, a)
+        })
+        
+        const roots: any[] = []
+        mapped.forEach(a => {
+          if (a.parent_account_id && accountMap.has(a.parent_account_id)) {
+            accountMap.get(a.parent_account_id).children.push(a)
+          } else {
+            roots.push(a)
+          }
+        })
+        return roots
+      }
+
+      return mapped
+    }
+    
+    // Map accounts with hierarchy processing
+    const accts = metadata.accounts || []
+    accounts.value = processAccountsHierarchy(accts)
 
     const sourceAccts = metadata.source_accounts || []
-    sourceAccounts.value = (Array.isArray(sourceAccts) ? sourceAccts : []).map((account: any) => ({
-      id: account.id,
-      name: account.name || account.account_name || `Account ${account.id}`,
-      code: account.code || account.account_number,
-      account_number: account.account_number,
-    }))
+    sourceAccounts.value = processAccountsHierarchy(sourceAccts)
 
     const replenishAccts = metadata.replenish_accounts || []
-    replenishAccounts.value = (Array.isArray(replenishAccts) ? replenishAccts : []).map((account: any) => ({
-      id: account.id,
-      name: account.name || account.account_name || `Account ${account.id}`,
-      code: account.code || account.account_number,
-      account_number: account.account_number,
-    }))
+    replenishAccounts.value = processAccountsHierarchy(replenishAccts)
     
     // Map branches
     const brnchs = metadata.branches || []
@@ -776,13 +807,23 @@ const loadMetadata = async () => {
       name: branch.name || `Branch ${branch.id}`,
     }))
     
-    // Map users
+    // Map users (include a 'label' field with 'First Last' to satisfy vue-select defaults)
     const usrs = metadata.users || []
-    users.value = (Array.isArray(usrs) ? usrs : []).map((user: any) => ({
-      id: user.id,
-      name: user.name || user.full_name || user.email || `User ${user.id}`,
-      email: user.email,
-    }))
+    users.value = (Array.isArray(usrs) ? usrs : []).map((user: any) => {
+      const first = (user.first_name || user.firstName || '')?.toString().trim()
+      const last = (user.last_name || user.lastName || '')?.toString().trim()
+      const full = `${first} ${last}`.trim()
+      const display = full || user.name || user.full_name || user.email || `User ${user.id}`
+      return {
+        id: user.id,
+        name: display,
+        label: display,
+        email: user.email,
+        first_name: user.first_name || user.firstName || '',
+        last_name: user.last_name || user.lastName || '',
+        username: user.username || ''
+      }
+    })
 
     // Map locations and entities if provided
     const locs = metadata.locations || []

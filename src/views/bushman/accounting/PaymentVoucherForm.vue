@@ -661,9 +661,7 @@ onMounted(async () => {
     accountingStore.getBankCashAccounts(),
     accountingStore.fetchEntities(),
     accountingStore.fetchPaymentInstruments().catch(() => {
-      // Silently fail if payment instruments endpoint doesn't exist
-      console.log('Using fallback payment methods')
-    })
+      // Silently fail if payment instruments endpoint doesn't exist})
   ])
 })
 

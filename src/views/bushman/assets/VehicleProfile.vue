@@ -46,7 +46,7 @@
         </div>
       </div>
 
-      <div class="card-header p-0 border-bottom">viewVehicleDocument
+      <div class="card-header p-0 border-bottom">
         <ul class="nav nav-tabs w-100 overflow-auto flex-nowrap mt-2 compact-tabs">
           <li v-for="tab in detailTabs" :key="tab.key" class="nav-item flex-fill text-center">
             <a href="#" class="nav-link" :class="{ active: activeVehicleTab === tab.key }" @click.prevent="activeVehicleTab = tab.key">

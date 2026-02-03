@@ -238,20 +238,15 @@ const fetchAccountsByGroup = async (accountGroupId: number | string) => {
   try {
     const baseUrl = (import.meta.env.VITE_APP_BASE_URL || 'http://localhost:8000/api/v1.0/').replace(/\/$/, '')
     const url = new URL(`${baseUrl}/account-groups/${accountGroupId}/accounts`)
-
-    console.log('📡 Calling API:', url.toString())
     const response = await fetch(url.toString())
-    
+
     const data = await response.json()
-    console.log('📥 API Response:', data)
-    
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`)
     }
 
     // Backend returns { group: {...}, accounts: [...] }
     accountsByGroup.value = Array.isArray(data) ? data : (data.accounts || [])
-    console.log('✅ Filtered accounts stored:', accountsByGroup.value)
   } catch (err) {
     console.error('❌ Error fetching accounts by group:', err)
     accountsByGroup.value = []

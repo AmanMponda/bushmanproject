@@ -93,14 +93,8 @@ const primarySource = computed(() => {
 })
 
 const detailRows = computed(() => {
-  if (!requisition.value?.items?.length) {
-    console.log('No items available for detail rows')
-    return []
-  }
-  
-  console.log('Processing items for detail rows:', requisition.value.items)
-  
-  const rows: Array<{
+  if (!requisition.value?.items?.length) {return []
+  }const rows: Array<{
     name: string
     quantity: number
     unit: string
@@ -110,16 +104,12 @@ const detailRows = computed(() => {
   }> = []
 
   requisition.value.items.forEach((item: any, itemIndex: number) => {
-    console.log(`Processing item ${itemIndex}:`, item)
-    
     const materials = item?.materials || []
     for (const material of materials) {
       const quantity = Number(material?.quantity || 0)
       const rate = Number(material?.rate || 0)
       const symbol = material?.currency?.symbol || item?.currency?.symbol || ''
       const itemName = material?.item?.name || material?.item_name || material?.description || 'Item'
-      
-      console.log('Adding material row:', { itemName, quantity, rate })
       
       rows.push({
         name: itemName,
@@ -137,8 +127,6 @@ const detailRows = computed(() => {
       const symbol = account?.currency?.symbol || item?.currency?.symbol || ''
       const accountName = account?.account?.name || account?.account_name || account?.description || 'Account'
       
-      console.log('Adding account row:', { accountName, amount })
-      
       rows.push({
         name: accountName,
         unit: '--',
@@ -150,7 +138,6 @@ const detailRows = computed(() => {
     }
   })
   
-  console.log('Final detail rows:', rows)
   return rows
 })
 
@@ -195,11 +182,7 @@ const fetchRequisition = async () => {
   loading.value = true
   try {
     const response = await requisitionService.getMaster(requisitionId.value)
-    const data = response?.data?.data || response?.data || response
-    
-    console.log('Raw API Response:', data)
-    
-    // Map the main requisition
+    const data = response?.data?.data || response?.data || response// Map the main requisition
     const baseReq = data?.requisition || data
     requisition.value = mapRequisition(baseReq)
     approvalStages.value = data?.approval_stages || []
@@ -213,14 +196,10 @@ const fetchRequisition = async () => {
     let finalItems: any[] = []
     
     // 1. Check if items already exist in the requisition
-    if (baseReq?.items && Array.isArray(baseReq.items) && baseReq.items.length > 0) {
-      console.log('Using items from requisition.items:', baseReq.items)
-      finalItems = baseReq.items
+    if (baseReq?.items && Array.isArray(baseReq.items) && baseReq.items.length > 0) {finalItems = baseReq.items
     }
     // 2. Check for dimension-based items
-    else if (data?.latest_approved_dimensions || data?.dimensions) {
-      console.log('Processing dimension-based items')
-      const latestApproved = Array.isArray(data?.latest_approved_dimensions)
+    else if (data?.latest_approved_dimensions || data?.dimensions) {const latestApproved = Array.isArray(data?.latest_approved_dimensions)
         ? data.latest_approved_dimensions
         : null
       const dimensions =
@@ -267,9 +246,7 @@ const fetchRequisition = async () => {
     }
     
     if (finalItems.length > 0) {
-      requisition.value.items = finalItems
-      console.log('Final items set:', finalItems)
-    } else {
+      requisition.value.items = finalItems} else {
       console.warn('No items found in requisition data')
     }
 
@@ -347,8 +324,6 @@ const buildPdf = async () => {
     y += 20
 
     // Items Table
-    console.log('Building PDF with detail rows:', detailRows.value)
-    
     const tableRows = detailRows.value.map((row, idx) => [
       String(idx + 1),
       row.name,
@@ -360,13 +335,11 @@ const buildPdf = async () => {
     
     // Fill with empty rows
     const minRows = 12
-    while(tableRows.length < minRows) {
-        tableRows.push(['', '', '', '', '', ''])
+    while (tableRows.length < minRows) {
+      tableRows.push(['', '', '', '', '', ''])
     }
 
     const totalAmount = formatMoney(grandTotal.value, totalCurrencySymbol.value)
-    
-    console.log('Table has', tableRows.length, 'rows, Grand Total:', totalAmount)
 
     autoTable(pdf, {
       startY: y,

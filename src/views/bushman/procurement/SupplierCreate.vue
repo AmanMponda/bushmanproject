@@ -47,10 +47,12 @@
             >
               <Multiselect
                 v-model="supplierCategory.additional_category_id"
-                :options="classificationCategoryOptions"
+                :options="flatClassificationCategories"
                 :multiple="false"
                 :close-on-select="true"
-                :custom-label="classificationCategoryLabel"
+                label="display_name"
+                track-by="id"
+                :reduce="(cat) => cat.id"
                 placeholder="Select classification category"
               />
             </FormField>
@@ -538,7 +540,9 @@ const fetchSupplierMetadata = async () => {
     classificationCategories.value = Array.isArray(data.classification_categories)
       ? data.classification_categories
       : []
-    contactTypes.value = Array.isArray(data.contact_types) ? data.contact_types : []
+    contactTypes.value = Array.isArray(data.contact_types) 
+      ? data.contact_types.filter((ct: any) => ct.name !== 'phone_number') 
+      : []
     entityTypes.value = Array.isArray(data.entity_types)
       ? data.entity_types
       : [
@@ -652,11 +656,11 @@ onMounted(() => {
 }
 
 :deep(.multiselect__tags) {
-  min-height: 40px !important;
+  /* min-height: 40px !important; */
   display: flex !important;
   align-items: center !important;
-  padding-top: 6px !important;
-  padding-bottom: 6px !important;
+  /* padding-top: 6px !important; */
+  /* padding-bottom: 6px !important; */
 }
 
 :deep(.multiselect__single) {
