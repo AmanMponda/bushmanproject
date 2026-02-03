@@ -112,29 +112,7 @@ import StandardDataTable from '@/components/plugins/StandardDataTable.vue'
 const loading = ref(false)
 const autoRefresh = ref(false)
 
-const vehicleRows = ref([
-  {
-    vehicle_no: 'T123ABC',
-    location: 'Arusha',
-    coordinates: '-3.3869, 36.6830',
-    last_updated: '21 Jan 2026, 09:15',
-    status: 'Running'
-  },
-  {
-    vehicle_no: 'T456DEF',
-    location: 'Dar es Salaam',
-    coordinates: '-6.7924, 39.2083',
-    last_updated: '21 Jan 2026, 08:40',
-    status: 'Stopped'
-  },
-  {
-    vehicle_no: 'T789GHI',
-    location: '',
-    coordinates: '--',
-    last_updated: '20 Jan 2026, 16:05',
-    status: 'Offline'
-  }
-])
+const vehicleRows = ref([])
 
 const tableColumns = ref([
   { key: 'vehicle_no', label: 'Vehicle No', sortable: true, visible: true },
@@ -168,3 +146,9 @@ const onFiltersUpdate = (filters) => {
   tableFilters.value = { ...tableFilters.value, ...filters }
 }
 </script>
+
+<style scoped>
+:deep(.soft-divider) {
+  display: none;
+}
+</style>

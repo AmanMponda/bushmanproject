@@ -23,8 +23,6 @@ interface AccountingState {
   companies: any[]
   branches: any[]
   entities: any[]
-  items: any[]
-  bankCashAccounts: any[]
 
   // Linked Documents & Requisitions
   requisitionsForLinking: any[]
@@ -66,8 +64,6 @@ export const useAccountingStore = defineStore('accounting', {
     companies: [] as any[],
     branches: [] as any[],
     entities: [] as any[],
-    items: [] as any[],
-    bankCashAccounts: [] as any[],
 
     // Linked Documents & Requisitions
     requisitionsForLinking: [] as any[],
@@ -108,8 +104,6 @@ export const useAccountingStore = defineStore('accounting', {
     getCompanies: (state: AccountingState) => state.companies,
     getBranches: (state: AccountingState) => state.branches,
     getEntities: (state: AccountingState) => state.entities,
-    getItems: (state: AccountingState) => state.items,
-    getBankCashAccountsList: (state: AccountingState) => state.bankCashAccounts,
 
     // Linked Documents & Requisitions
     getRequisitionsForLinking: (state: AccountingState) => state.requisitionsForLinking,
@@ -147,7 +141,6 @@ export const useAccountingStore = defineStore('accounting', {
 
         const response: any = await axios.request(config)
         const responseData = response.data.data || response.data || []
-
         this.journalVouchers = Array.isArray(responseData) ? responseData : []
         return response
       } catch (err: any) {
@@ -166,7 +159,7 @@ export const useAccountingStore = defineStore('accounting', {
           method: 'get',
           url: `${API_BASE}/journal-vouchers/${id}`,
           params: {
-            include: 'documentType,currency,accounts,accounts.account,branch,from_account,payee,payee_account,requisitions,requisitions.cost_center,payment_requisitions'
+            include: 'documentType,currency,accounts,accounts.account'
           },
           headers: { 'Content-Type': 'application/json' }
         }
@@ -811,12 +804,18 @@ export const useAccountingStore = defineStore('accounting', {
       }
     },
 
-    async fetchBranches(params: any = {}): Promise<any> {
+    async fetchBranches(companyId?: number, params: any = {}): Promise<any> {
       this.error = null
       try {
+        // If companyId is provided, use company-specific endpoint
+        // Otherwise, fetch all branches
+        const url = companyId 
+          ? `${API_BASE}/companies/${companyId}/branches`
+          : `${API_BASE}/branches`
+        
         const config = {
           method: 'get',
-          url: `${API_BASE}/branches`,
+          url,
           params,
           headers: { 'Content-Type': 'application/json' }
         }
@@ -1095,12 +1094,15 @@ export const useAccountingStore = defineStore('accounting', {
 
     // ==================== PAYMENT VOUCHERS ====================
 
-    async getBankCashAccounts(): Promise<any> {
+    async getBankCashAccounts(companyId?: number): Promise<any> {
       this.error = null
       try {
         const config = {
           method: 'get',
           url: `${API_BASE}/accounts/bank-cash-accounts`,
+          params: {
+            company_id: companyId || 1
+          },
           headers: { 'Content-Type': 'application/json' }
         }
 
@@ -1113,20 +1115,20 @@ export const useAccountingStore = defineStore('accounting', {
       }
     },
 
-    async getApprovedRequisitionsForPayee(payeeId: number, fromAccountId: number, fundDirection?: string): Promise<any> {
+    async getApprovedRequisitionsForPayee(payeeId: number, fromAccountId: number, companyId?: number): Promise<any> {
       this.error = null
       try {
-        if (!fromAccountId) {
-          throw new Error('From Account ID is required')
+        if (!payeeId || !fromAccountId) {
+          throw new Error('Payee ID and From Account ID are required')
         }
 
         const config = {
           method: 'get',
           url: `${API_BASE}/requisitions/approved-for-payee`,
           params: {
-            ...(payeeId && { payee_id: payeeId }),
+            payee_id: payeeId,
             from_account_id: fromAccountId,
-            ...(fundDirection && { fund_direction: fundDirection }),
+            company_id: companyId || 1,
             status: 'APPROVED',
             with_balance: true
           },
@@ -1198,8 +1200,8 @@ export const useAccountingStore = defineStore('accounting', {
       this.error = null
       try {
         // Validate required fields
-        if (!payload.from_account_id || !payload.currency_id) {
-          throw new Error('Missing required fields: from_account_id, currency_id')
+        if (!payload.from_account_id || !payload.payee_id || !payload.currency_id) {
+          throw new Error('Missing required fields: from_account_id, payee_id, currency_id')
         }
 
         if (!payload.requisitions || payload.requisitions.length === 0) {
@@ -1241,8 +1243,8 @@ export const useAccountingStore = defineStore('accounting', {
       this.error = null
       try {
         // Validate required fields
-        if (!payload.from_account_id || !payload.currency_id) {
-          throw new Error('Missing required fields: from_account_id, currency_id')
+        if (!payload.from_account_id || !payload.payee_id || !payload.currency_id) {
+          throw new Error('Missing required fields: from_account_id, payee_id, currency_id')
         }
 
         if (!payload.requisitions || payload.requisitions.length === 0) {
@@ -1298,26 +1300,6 @@ export const useAccountingStore = defineStore('accounting', {
       }
     },
 
-    async getPaymentVoucher(id: number): Promise<any> {
-      this.error = null
-      try {
-        const config = {
-          method: 'get',
-          url: `${API_BASE}/payment-vouchers/${id}`,
-          params: {
-            include: 'from_account,payee,payee_account,currency,requisitions,requisitions.cost_center'
-          },
-          headers: { 'Content-Type': 'application/json' }
-        }
-
-        const response: any = await axios.request(config)
-        return response
-      } catch (err: any) {
-        this.error = err?.response?.data?.message || 'Error fetching payment voucher'
-        throw err
-      }
-    },
-
     // ==================== FILTER MANAGEMENT ====================
 
     setSearchFilter(search: string) {
@@ -1355,14 +1337,14 @@ export const useAccountingStore = defineStore('accounting', {
       }
     },
 
-    async fetchPayees(params: any = {}): Promise<any> {
+    async fetchPayees(companyId?: number, params: any = {}): Promise<any> {
       this.error = null
       try {
         const config = {
           method: 'get',
           url: `${API_BASE}/payees`,
           params: {
-            company_id: 1,
+            company_id: companyId || 1,
             status: 'ACTIVE',
             ...params
           },
@@ -1378,14 +1360,15 @@ export const useAccountingStore = defineStore('accounting', {
       }
     },
 
-    async fetchPayeeAccount(payeeId: number): Promise<any> {
+    async fetchPayeeAccount(payeeId: number, companyId?: number): Promise<any> {
       this.error = null
       try {
         const config = {
           method: 'get',
           url: `${API_BASE}/payment-vouchers/payee-accounts`,
           params: {
-            payee_id: payeeId
+            payee_id: payeeId,
+            company_id: companyId || 1
           },
           headers: { 'Content-Type': 'application/json' }
         }

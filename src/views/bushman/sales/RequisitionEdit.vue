@@ -64,8 +64,6 @@ const currencies = ref<any[]>([])
 const itemsOptions = ref<any[]>([])
 const unitsOptions = ref<any[]>([])
 const accounts = ref<any[]>([])
-const sourceAccounts = ref<any[]>([])
-const replenishAccounts = ref<any[]>([])
 const users = ref<any[]>([])
 const locations = ref<any[]>([])
 const entities = ref<any[]>([])
@@ -798,8 +796,6 @@ const resetForm = () => {} // Logic needed if passed to form? form.value reset?
       :units-options="unitsOptions"
       :cost-centers-options="costCentersOptions"
       :accounts="accounts"
-      :source-accounts="sourceAccounts"
-      :replenish-accounts="replenishAccounts"
       :users="users"
       :locations="locations"
       :entities="entities"

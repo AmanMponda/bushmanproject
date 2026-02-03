@@ -1,16 +1,6 @@
 <template>
   <div class="fleet-master-page">
-    <!-- Breadcrumb -->
-    <div class="d-sm-flex align-items-center mb-3">
-      <div>
-        <ol class="breadcrumb">
-          <li class="breadcrumb-item"><router-link to="/bushman/dashboard">Home</router-link></li>
-          <li class="breadcrumb-item"><a href="#">Assets</a></li>
-          <li class="breadcrumb-item active">Fleet Master</li>
-        </ol>
-        <h1 class="page-header mb-0">Vehicle Fleet Management</h1>
-      </div>
-    </div>
+
 
     <!-- VEHICLE LIST VIEW -->
     <template v-if="showVehicleList">
@@ -19,28 +9,22 @@
           <div class="col-xl-12 col-lg-12 col-sm-12 layout-spacing">
           <div class="panel br-6 p-0">
             <div class="px-3 pt-3">
-              <ul class="nav nav-tabs overflow-auto flex-nowrap compact-tabs compact-tabs-left">
-                <li class="nav-item">
-                  <a href="#" class="nav-link" :class="{ active: activeListTab === 'vehicles' }" @click.prevent="activeListTab = 'vehicles'">
-                    <i class="fa fa-car me-1"></i>Vehicles
-                  </a>
-                </li>
-                <li class="nav-item">
-                  <a href="#" class="nav-link" :class="{ active: activeListTab === 'models' }" @click.prevent="activeListTab = 'models'">
-                    <i class="fa fa-cogs me-1"></i>Models
-                  </a>
-                </li>
-              </ul>
+              <!-- Models tab removed: managed in Settings/Master Data -->
             </div>
             <div class="custom-table p-3">
               <StandardDataTable
-                v-if="activeListTab === 'vehicles'"
                 :columns="vehicleColumns"
                 :data="vehicles"
                 :loading="loadingVehicles"
                 :disable-search="false"
                 :disable-pagination="false"
                 :action-buttons="pageActions"
+                :custom-filters="[
+                  { key: 'model', label: 'Model', type: 'text' },
+                  { key: 'make', label: 'Make', type: 'text' }
+                ]"
+                :filters="vehicleFilters"
+                @update:filters="handleVehicleFiltersUpdate"
               >
                 <template #registration="slotProps">
                   <span class="badge bg-warning text-dark">
@@ -76,38 +60,6 @@
                   </div>
                 </template>
               </StandardDataTable>
-
-              <div v-else class="models-table">
-                <StandardDataTable
-                  :columns="modelColumns"
-                  :data="vehicleModelsList"
-                  :loading="loadingVehicleModels"
-                  :disable-search="false"
-                  :disable-pagination="false"
-                  :action-buttons="pageActions"
-                >
-                  <template #make="slotProps">
-                    <span class="fw-semibold">{{ (slotProps.row as any)?.make || '-' }}</span>
-                  </template>
-                  <template #model="slotProps">
-                    <span>{{ (slotProps.row as any)?.model || '-' }}</span>
-                    <span v-if="(slotProps.row as any)?.variant" class="text-muted"> • {{ (slotProps.row as any)?.variant }}</span>
-                  </template>
-                  <template #type="slotProps">
-                    <span class="badge bg-light text-dark border">{{ (slotProps.row as any)?.type || '-' }}</span>
-                  </template>
-                  <template #actions="slotProps">
-                    <div class="d-flex gap-1">
-                      <button class="btn btn-outline-primary btn-sm" title="Edit Model" @click="openEditModelForm(slotProps.row)">
-                        <i class="fa fa-edit"></i>
-                      </button>
-                      <button class="btn btn-danger btn-sm" title="Delete Model" @click="confirmDeleteModel(slotProps.row)">
-                        <i class="fa fa-trash"></i>
-                      </button>
-                    </div>
-                  </template>
-                </StandardDataTable>
-              </div>
             </div>
           </div>
         </div>
@@ -152,51 +104,7 @@
       @hidden="handleVehicleFormHidden"
     />
 
-    <StandardModal
-      id="vehicleModelModal"
-      ref="vehicleModelModalRef"
-      :title="editingModelId ? 'Edit Vehicle Model' : 'Add Vehicle Model'"
-      size="lg"
-      :scrollable="true"
-      :show-footer="false"
-      @close="handleModelFormClose"
-      @hidden="handleModelFormHidden"
-    >
-      <div v-if="modelFormError" class="alert alert-danger">{{ modelFormError }}</div>
-      <div class="row g-3">
-        <div class="col-md-4">
-          <label class="form-label">Make <span class="text-danger">*</span></label>
-          <input v-model="modelForm.make" type="text" class="form-control" placeholder="Toyota" />
-        </div>
-        <div class="col-md-4">
-          <label class="form-label">Model <span class="text-danger">*</span></label>
-          <input v-model="modelForm.model" type="text" class="form-control" placeholder="Hiace" />
-        </div>
-        <div class="col-md-4">
-          <label class="form-label">Variant</label>
-          <input v-model="modelForm.variant" type="text" class="form-control" placeholder="2.5L" />
-        </div>
-        <div class="col-md-4">
-          <label class="form-label">Type <span class="text-danger">*</span></label>
-          <select v-model="modelForm.type" class="form-select">
-            <option value="">-- Select Type --</option>
-            <option v-for="t in vehicleModelTypes" :key="t" :value="t">{{ t }}</option>
-          </select>
-        </div>
-        <div class="col-md-8">
-          <label class="form-label">Description</label>
-          <input v-model="modelForm.description" type="text" class="form-control" placeholder="Optional description" />
-        </div>
-      </div>
 
-      <div class="d-flex justify-content-end gap-2 mt-4">
-        <button type="button" class="btn btn-outline-secondary btn-sm" @click="closeModelForm">Cancel</button>
-        <button type="button" class="btn btn-primary btn-sm" @click="saveVehicleModel" :disabled="savingModel">
-          <span v-if="savingModel" class="spinner-border spinner-border-sm me-1"></span>
-          {{ editingModelId ? 'Update' : 'Create' }}
-        </button>
-      </div>
-    </StandardModal>
 
     <!-- Document Viewer Modal -->
     <div v-if="showDocumentViewer" class="document-viewer-overlay" @click.self="closeDocumentViewer">
@@ -244,46 +152,55 @@
       </div>
     </div>
 
-    <!-- Vehicle Details Modal removed: now handled by full-page details view -->
+    <!-- Vehicle Details Modal -->
+    <VehicleDetailsModal
+      v-if="showVehicleDetailsModal"
+      :vehicle-uuid="selectedVehicleUuid"
+      :vehicle-details="vehicleDetails"
+      :vehicle-documents="vehicleDocuments"
+      :uploading="uploading"
+      :loading="loadingVehicles"
+      :preview-map="previewMap"
+      :visible="showVehicleDetailsModal"
+      @close="closeVehicleDetailsModal"
+      @refresh="refreshVehicleDetails"
+      @refresh-documents="() => selectedVehicleUuid && refreshVehicleDocuments(selectedVehicleUuid)"
+      @file-change="onVehicleFileChange"
+      @upload-document="uploadVehicleDocument"
+      @view-document="viewVehicleDocument"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useToast } from '@/composables/useToast'
 import { useSwal } from '@/composables/useSwal'
 import vehicleAssetService, { type VehicleAsset } from '@/services/vehicleAssetService'
-import vehicleModelService, { type VehicleModel } from '@/services/vehicleModelService'
 import StandardDataTable from '@/components/bootstrap/StandardDataTable.vue'
 import VehicleProfile from '@/views/bushman/assets/VehicleProfile.vue'
 import VehicleFormModal from '@/views/bushman/assets/VehicleFormModal.vue'
-import StandardModal from '@/components/plugins/StandardModal.vue'
+import VehicleDetailsModal from '@/components/VehicleDetailsModal.vue'
 import { useDocumentsStore } from '@/stores/bushman/documents-store'
-import { useAuthStore } from '@/stores/auth'
 const toast = useToast()
 const swal = useSwal()
 
 // State
 const showVehicleList = ref(true)
 const showVehicleDetailsPage = ref(false)
+const showVehicleDetailsModal = ref(false)
+const selectedVehicleUuid = ref(null)
 const loadingVehicles = ref(false)
 const vehicles = ref<VehicleAsset[]>([])
 const vehicleModels = ref<any[]>([])
 const fuelItems = ref<any[]>([])
 const summary = ref<any>({})
-const activeListTab = ref<'vehicles' | 'models'>('vehicles')
 
 const vehicleFilters = ref({
   search: '',
   status: '',
   ownership: '',
   vehicle_model_id: ''
-})
-
-watch(activeListTab, (next) => {
-  if (next === 'models' && vehicleModelsList.value.length === 0 && !loadingVehicleModels.value) {
-    fetchVehicleModels()
-  }
 })
 
 // Vehicle form state
@@ -293,21 +210,7 @@ const vehicleFormError = ref('')
 const savingVehicle = ref(false)
 const vehicleFormModalRef = ref<{ show: () => void; hide: () => void } | null>(null)
 
-// Vehicle models state
-const vehicleModelsList = ref<VehicleModel[]>([])
-const loadingVehicleModels = ref(false)
-const vehicleModelTypes = ref<string[]>([])
-const editingModelId = ref<number | null>(null)
-const modelFormError = ref('')
-const savingModel = ref(false)
-const vehicleModelModalRef = ref<{ show: () => void; hide: () => void } | null>(null)
-const modelForm = ref<any>({
-  make: '',
-  model: '',
-  variant: '',
-  type: '',
-  description: ''
-})
+
 const vehicleForm = ref<any>({
   code: '',
   status: 'ACTIVE',
@@ -333,7 +236,6 @@ const vehicleForm = ref<any>({
 })
 
 // Vehicle Details modal + documents
-const showVehicleDetailsModal = ref(false)
 const vehicleDetails = ref<VehicleAsset | null>(null)
 const vehicleDocuments = ref<any[]>([])
 const uploading = ref(false)
@@ -368,43 +270,26 @@ const vehiclesCount = computed(() => vehicles.value.length)
 const pageActions = computed(() => {
   const actions = []
   if (showVehicleList.value) {
-    if (activeListTab.value === 'vehicles') {
-      actions.push(
-        {
-          label: 'Refresh',
-          icon: 'fa fa-sync',
-          class: 'btn btn-outline-secondary',
-          method: () => refreshVehicles(),
-        },
-        {
-          label: 'Print PDF',
-          icon: 'fa fa-file-pdf',
-          class: 'btn btn-outline-secondary',
-          method: () => openFleetMasterPdf(),
-        },
-        {
-          label: 'Add Vehicle',
-          icon: 'fa fa-plus',
-          class: 'btn btn-primary',
-          method: () => openAddVehicleForm(),
-        }
-      )
-    } else {
-      actions.push(
-        {
-          label: 'Refresh',
-          icon: 'fa fa-sync',
-          class: 'btn btn-outline-secondary',
-          method: () => fetchVehicleModels(),
-        },
-        {
-          label: 'Add Model',
-          icon: 'fa fa-plus',
-          class: 'btn btn-primary',
-          method: () => openAddModelForm(),
-        }
-      )
-    }
+    actions.push(
+      {
+        label: 'Refresh',
+        icon: 'fa fa-sync',
+        class: 'btn btn-outline-secondary',
+        method: () => refreshVehicles(),
+      },
+      {
+        label: 'Print PDF',
+        icon: 'fa fa-file-pdf',
+        class: 'btn btn-outline-secondary',
+        method: () => openFleetMasterPdf(),
+      },
+      {
+        label: 'Add Vehicle',
+        icon: 'fa fa-plus',
+        class: 'btn btn-primary',
+        method: () => openAddVehicleForm(),
+      }
+    )
   }
   return actions
 })
@@ -412,23 +297,14 @@ const pageActions = computed(() => {
 // Tables
 const vehicleColumns = [
   { key: 'registration', label: 'Registration', sortable: true, visible: true },
-  { key: 'make', label: 'Make', sortable: true, visible: true },
-  { key: 'model', label: 'Model', sortable: true, visible: true },
+  { key: 'model', label: 'Model', sortable: true, visible: true, filter: { type: 'text', placeholder: 'Filter by model' } },
+  { key: 'make', label: 'Make', sortable: true, visible: true, filter: { type: 'text', placeholder: 'Filter by make' } },
   { key: 'manufacture_year', label: 'Year', sortable: true, visible: true },
   { key: 'registration_date', label: 'Registration Date', sortable: true, visible: true },
   { key: 'chassis', label: 'Chassis', sortable: false, visible: true },
   // Actions column to show View/Edit/Delete buttons
   { key: 'actions', label: 'Actions', sortable: false, visible: true }
 ]
-
-const modelColumns = [
-  { key: 'make', label: 'Make', sortable: true, visible: true },
-  { key: 'model', label: 'Model', sortable: true, visible: true },
-  { key: 'type', label: 'Car', sortable: true, visible: true },
-  { key: 'actions', label: 'Actions', sortable: false, visible: true }
-]
-
-
 
 // Methods
 let vehicleTimeout: ReturnType<typeof setTimeout> | null = null
@@ -486,137 +362,18 @@ async function fetchMetadata() {
     let allFuelItems = data.fuel_items || []
     
     // Filter to only include actual fuel types - exclude non-fuel items
+    // Only include items that are actual fuel types
+    const allowedFuels = ['petrol', 'diesel', 'gas', 'electric', 'hybrid', 'lpg', 'cng', 'biodiesel', 'ethanol']
     fuelItems.value = allFuelItems.filter((item: any) => {
       const name = (item.name || '').toLowerCase()
-      // Exclude non-fuel items
-      const excludePatterns = ['charter', 'companion', 'hunter', 'cost', 'pricelist', 'filter', 'test', 'package', 'oil', 'service']
-      return !excludePatterns.some(pattern => name.includes(pattern))
+      return allowedFuels.some(fuel => name.includes(fuel))
     })
   } catch (err) {
     toast.error('Failed to load metadata')
   }
 } 
 
-async function fetchVehicleModelMetadata() {
-  try {
-    const res = await vehicleModelService.getMetadata()
-    const data = res.data
-    vehicleModelTypes.value = data.vehicle_types || []
-  } catch (err) {
-    toast.error('Failed to load vehicle model metadata')
-  }
-}
 
-async function fetchVehicleModels() {
-  loadingVehicleModels.value = true
-  try {
-    const res = await vehicleModelService.listVehicleModels()
-    vehicleModelsList.value = res.data.data || res.data || []
-    vehicleModelsList.value = vehicleModelsList.value.map((m: any) => {
-      if (!m.full_name) {
-        m.full_name = [m.make, m.model, m.variant].filter(Boolean).join(' ')
-      }
-      return m
-    })
-  } catch (err) {
-    toast.error('Failed to load vehicle models')
-  } finally {
-    loadingVehicleModels.value = false
-  }
-}
-
-function resetModelForm() {
-  modelForm.value = {
-    make: '',
-    model: '',
-    variant: '',
-    type: vehicleModelTypes.value[0] || '',
-    description: ''
-  }
-  modelFormError.value = ''
-}
-
-function openAddModelForm() {
-  editingModelId.value = null
-  resetModelForm()
-  vehicleModelModalRef.value?.show()
-}
-
-function openEditModelForm(model: VehicleModel) {
-  editingModelId.value = model.id ?? null
-  modelForm.value = {
-    make: model.make || '',
-    model: model.model || '',
-    variant: model.variant || '',
-    type: model.type || '',
-    description: model.description || ''
-  }
-  modelFormError.value = ''
-  vehicleModelModalRef.value?.show()
-}
-
-function closeModelForm() {
-  vehicleModelModalRef.value?.hide()
-  resetModelForm()
-  editingModelId.value = null
-}
-
-function handleModelFormClose() {
-  resetModelForm()
-  editingModelId.value = null
-}
-
-function handleModelFormHidden() {
-  resetModelForm()
-  editingModelId.value = null
-}
-
-async function saveVehicleModel() {
-  modelFormError.value = ''
-  if (!modelForm.value.make || !modelForm.value.model || !modelForm.value.type) {
-    modelFormError.value = 'Make, Model and Type are required'
-    return
-  }
-  savingModel.value = true
-  try {
-    if (editingModelId.value) {
-      await vehicleModelService.updateVehicleModel(editingModelId.value, modelForm.value)
-      toast.success('Vehicle model updated successfully')
-    } else {
-      await vehicleModelService.createVehicleModel(modelForm.value)
-      toast.success('Vehicle model created successfully')
-    }
-    closeModelForm()
-    await fetchVehicleModels()
-    await fetchMetadata()
-  } catch (err: any) {
-    const message = err.response?.data?.message || err.message || 'Failed to save vehicle model'
-    toast.error(message)
-  } finally {
-    savingModel.value = false
-  }
-}
-
-async function confirmDeleteModel(model: VehicleModel) {
-  const confirmed = await swal.confirm({
-    title: 'Delete Vehicle Model',
-    text: `Are you sure you want to delete "${model.full_name || model.model}"? This action cannot be undone.`,
-    confirmButtonText: 'Delete',
-    cancelButtonText: 'Cancel'
-  })
-
-  if (!confirmed || !model.id) return
-
-  try {
-    await vehicleModelService.deleteVehicleModel(model.id)
-    toast.success('Vehicle model deleted successfully')
-    await fetchVehicleModels()
-    await fetchMetadata()
-  } catch (err: any) {
-    const msg = err.response?.data?.message || 'Failed to delete vehicle model'
-    toast.error(msg)
-  }
-}
 
 function openAddVehicleForm() {
   editingVehicleId.value = null
@@ -782,17 +539,24 @@ async function openVehicleDetails(vehicle: VehicleAsset) {
     return
   }
   try {
-    showVehicleList.value = false
-    showVehicleDetailsPage.value = true
-    // fetch the full asset details
+    // Fetch the full asset details
     const res = await vehicleAssetService.getVehicleAsset(id)
     vehicleDetails.value = res.data?.data || res.data || vehicle
+    selectedVehicleUuid.value = id
     await refreshVehicleDocuments(id)
+    showVehicleList.value = false
+    showVehicleDetailsModal.value = true
   } catch (err) {
     toast.error('Failed to load vehicle details')
-    showVehicleList.value = true
-    showVehicleDetailsPage.value = false
   }
+}
+
+function closeVehicleDetailsModal() {
+  showVehicleDetailsModal.value = false
+  showVehicleList.value = true
+  selectedVehicleUuid.value = null
+  vehicleDetails.value = null
+  vehicleDocuments.value = []
 }
 
 async function refreshVehicleDetails() {
@@ -1148,9 +912,7 @@ onMounted(async () => {
   await Promise.all([
     fetchVehicles(),
     fetchSummary(),
-    fetchMetadata(),
-    fetchVehicleModelMetadata(),
-    fetchVehicleModels()
+    fetchMetadata()
   ])
 
   // Expose refresh function for dev/debug and ensure HMR doesn't break references
@@ -1190,25 +952,6 @@ defineExpose({ refreshVehicleDocuments })
 
 .compact-tabs-left .nav-item {
   flex: 0 0 auto;
-}
-
-.models-table :deep(table.table thead th),
-.models-table :deep(table.table tbody td) {
-  padding-left: 1rem;
-  padding-right: 1rem;
-  text-align: left;
-  vertical-align: middle;
-}
-
-.models-table :deep(table.table thead th) {
-  background: #eef2f6;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: #4b5563;
-  padding-top: 0.6rem;
-  padding-bottom: 0.6rem;
 }
 
 

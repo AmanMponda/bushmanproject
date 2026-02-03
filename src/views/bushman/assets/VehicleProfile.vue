@@ -298,10 +298,10 @@ const vehicleDetailSpecs = computed(() => {
 }
 
 .vehicle-profile-page .card-header {
-  background: #f8f9fa !important;
-  border-bottom: 1px solid #e9ecef;
+  background: var(--bs-gray-100);
+  border-bottom: 1px solid var(--bs-border-color);
   font-weight: 600;
-  color: #2c3e50;
+  color: var(--bs-body-color);
 }
 
 .vehicle-icon {
@@ -310,9 +310,9 @@ const vehicleDetailSpecs = computed(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #f8f9fa;
+  background: var(--bs-gray-100);
   border-radius: 8px;
-  border: 2px solid #e9ecef;
+  border: 2px solid var(--bs-border-color);
 }
 
 .compact-tabs .nav-link {
@@ -321,5 +321,6 @@ const vehicleDetailSpecs = computed(() => {
   font-weight: 500;
   border-top-left-radius: 6px;
   border-top-right-radius: 6px;
+  color: var(--bs-body-color);
 }
 </style>
