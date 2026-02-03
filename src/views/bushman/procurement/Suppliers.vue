@@ -19,21 +19,15 @@
               :server-side="true" :pagination="pagination" :page-size-options="[10, 15, 25, 50]"
               :default-page-size="tableFilters.limit" @update:filters="handleFiltersUpdate"
               @page-change="handlePageChange">
-              <template #code="{ row }">
-                <span class="badge bg-warning bg-opacity-20 fs-14px fw-bold text-danger cursor-pointer">
-                  <i class="fa fa-hashtag me-1"></i>
-                  {{ row.code || '-' }}
-                </span>
-              </template>
               <template #full_name="{ row }">
                 <span class="badge bg-secondary bg-opacity-20 fs-14px fw-bold text-info cursor-pointer">
                   <i class="fa fa-building me-1"></i>
                   {{ row.full_name || row.trading_name || '-' }}
                 </span>
               </template>
-              <template #business_type="{ row }">
+              <template #category="{ row }">
                 <span class="badge bg-secondary bg-opacity-20 fs-14px fw-bold text-muted">
-                  {{ row.business_type || row.company_profile?.business_type || '-' }}
+                  {{ row.category || '-' }}
                 </span>
               </template>
               <template #status="{ row }">
@@ -41,16 +35,20 @@
                   {{ row.status || 'DRAFT' }}
                 </span>
               </template>
-              <template #contact="{ row }">
-                <span class="badge bg-secondary bg-opacity-20 fs-14px fw-bold text-primary">
-                  <i class="fa fa-envelope me-1"></i>
-                  {{ primaryContact(row) }}
+
+              <template #phone="{ row }">
+                <span class="text-truncate supplier-phone d-inline-block" style="max-width: 160px;">
+                  {{ row.phone || '-' }}
                 </span>
               </template>
+
               <template #actions="{ row }">
                 <div class="btn-group btn-group-sm">
-                  <button class="btn btn-outline-primary btn-sm" @click="openSupplierModal(row)" title="View Details">
+                  <button class="btn btn-outline-info btn-sm" @click="viewSupplierPage(row)" title="View Details">
                     <i class="fa fa-eye"></i>
+                  </button>
+                  <button class="btn btn-outline-primary btn-sm" @click="editSupplierPage(row)" title="Edit Supplier">
+                    <i class="fa fa-edit"></i>
                   </button>
                 </div>
               </template>
@@ -59,126 +57,6 @@
         </div>
       </div>
     </div>
-
-    <!-- Add/Edit Supplier Modal -->
-    <StandardModal ref="supplierModalRef" id="supplier-modal"
-      :title="editingSupplier ? 'Edit Supplier' : 'New Supplier'" size="lg" :scrollable="true" :backdrop="'static'"
-      :keyboard="false" @hidden="handleSupplierModalHidden">
-      <template #header>
-        <i class="fa fa-building me-2"></i> {{ editingSupplier ? 'Edit Supplier' : 'New Supplier' }}
-      </template>
-
-      <form id="supplier-form" @submit.prevent="saveSupplier">
-        <!-- Basic Information -->
-        <div class="border-bottom pb-3 mb-4">
-          <h6 class="text-primary mb-3"><i class="fa fa-info-circle me-2"></i>Basic Information</h6>
-          <div class="row g-3">
-            <div class="col-md-4">
-              <label class="form-label">Supplier Code</label>
-              <input v-model="supplierForm.code" type="text" class="form-control" />
-            </div>
-            <div class="col-md-4">
-              <label class="form-label">Full Name <span class="text-danger">*</span></label>
-              <input v-model="supplierForm.full_name" type="text" class="form-control"
-                placeholder="Enter full legal name" required />
-            </div>
-            <div class="col-md-4">
-              <label class="form-label">Trading Name</label>
-              <input v-model="supplierForm.trading_name" type="text" class="form-control"
-                placeholder="Enter trading name" />
-            </div>
-
-            <div class="col-md-12">
-              <label class="form-label">Classification Categories <span class="text-danger">*</span></label>
-              <Multiselect v-model="supplierCategory.additional_category_ids" :options="classificationCategoryOptions"
-                :multiple="true" :close-on-select="false" :custom-label="classificationCategoryLabel"
-                placeholder="Select classification categories" />
-              <small class="text-muted">Choose at least one classification category for the supplier.</small>
-            </div>
-          </div>
-        </div>
-
-        <!-- Location & Currency -->
-        <div class="border-bottom pb-3 mb-4">
-          <h6 class="text-primary mb-3"><i class="fa fa-globe me-2"></i>Location & Currency</h6>
-          <div class="row g-3">
-            <div class="col-md-4">
-              <label class="form-label">Country</label>
-              <Multiselect v-model="supplierForm.country_id" :options="countries" label="name" track-by="id"
-                placeholder="Select country" />
-            </div>
-            <div class="col-md-4">
-              <label class="form-label">Nationality</label>
-              <Multiselect v-model="supplierForm.nationality_id" :options="nationalities" label="name" track-by="id"
-                placeholder="Select nationality" />
-            </div>
-            <div class="col-md-4">
-              <label class="form-label">Base Currency</label>
-              <Multiselect v-model="supplierForm.base_currency_id" :options="currencies" label="name" track-by="id"
-                :custom-label="currencyLabel" placeholder="Select currency" />
-            </div>
-            <div class="col-md-12">
-              <label class="form-label">Notes</label>
-              <textarea v-model="supplierForm.notes" rows="2" class="form-control"
-                placeholder="Additional notes or comments"></textarea>
-            </div>
-          </div>
-        </div>
-
-        <!-- Company Profile -->
-        <div class="border-bottom pb-3 mb-4" v-if="supplierForm.type === 'COMPANY'">
-          <h6 class="text-primary mb-3"><i class="fa fa-building me-2"></i>Company Profile</h6>
-          <div class="row g-3">
-            <div class="col-md-6">
-              <label class="form-label">Legal Name</label>
-              <input v-model="supplierForm.company_profile.legal_name" type="text" class="form-control" />
-            </div>
-            <div class="col-md-6">
-              <label class="form-label">Trading Name</label>
-              <input v-model="supplierForm.company_profile.trading_name" type="text" class="form-control" />
-            </div>
-            <div class="col-md-6">
-              <label class="form-label">Registration Number</label>
-              <input v-model="supplierForm.company_profile.registration_no" type="text" class="form-control" />
-            </div>
-            <div class="col-md-6">
-              <label class="form-label">Registration Country</label>
-              <Multiselect v-model="supplierForm.company_profile.registration_country_id" :options="countries"
-                label="name" track-by="id" placeholder="Select country" />
-            </div>
-            <div class="col-md-6">
-              <label class="form-label">Incorporation Date</label>
-              <input v-model="supplierForm.company_profile.incorporation_date" type="date" class="form-control" />
-            </div>
-            <div class="col-md-6">
-              <label class="form-label">Business Type</label>
-              <input v-model="supplierForm.company_profile.business_type" type="text" class="form-control"
-                placeholder="e.g., Limited, Sole Proprietor" />
-            </div>
-            <div class="col-md-6">
-              <label class="form-label">Industry Code</label>
-              <input v-model="supplierForm.company_profile.industry_code" type="text" class="form-control"
-                placeholder="ISIC/NAICS code" />
-            </div>
-            <div class="col-md-6">
-              <label class="form-label">Tax Residency Country</label>
-              <Multiselect v-model="supplierForm.company_profile.tax_residency_country_id" :options="countries"
-                label="name" track-by="id" placeholder="Select country" />
-            </div>
-          </div>
-        </div>
-      </form>
-
-      <template #footer>
-        <div class="d-flex justify-content-end gap-2">
-          <button type="button" class="btn btn-outline-secondary" @click="closeSupplierModal">Cancel</button>
-          <button type="submit" class="btn btn-primary" :disabled="saving" form="supplier-form">
-            <span v-if="saving" class="spinner-border spinner-border-sm me-2"></span>
-            {{ editingSupplier ? 'Update Supplier' : 'Create Supplier' }}
-          </button>
-        </div>
-      </template>
-    </StandardModal>
 
     <!-- Supplier Details Modal -->
     <div class="modal fade" :class="{ show: showViewModal }" :style="{ display: showViewModal ? 'block' : 'none' }"
@@ -417,7 +295,7 @@
       </div>
     </div>
 
-    <div v-if="(showSupplierModal || showViewModal || showAssignCategoryModal) && !showSupplierModal"
+    <div v-if="(showViewModal || showAssignCategoryModal)"
       class="modal-backdrop fade show"></div>
   </div>
 </template>
@@ -429,8 +307,9 @@ import { useRouter } from 'vue-router'
 import Swal from 'sweetalert2'
 import handleErrors from '@/stores/bushman/errorHandler'
 import StandardDataTable from '@/components/bootstrap/StandardDataTable.vue'
-import StandardModal from '@/components/plugins/StandardModal.vue'
 import Multiselect from 'vue-multiselect'
+import { jsPDF } from 'jspdf'
+import autoTable from 'jspdf-autotable'
 import 'vue-multiselect/dist/vue-multiselect.min.css'
 
 const apiBaseUrl = import.meta.env.VITE_APP_BASE_URL
@@ -465,18 +344,17 @@ const tableFilters = ref<any>({
   search: '',
   status: '',
   country_id: '',
-  business_type: '',
+  category: '',
   active_only: false,
   limit: 15,
   page: 1
 })
 
 const columns = [
-  { key: 'code', label: 'CODE', sortable: true, visible: true },
   { key: 'full_name', label: 'SUPPLIER NAME', sortable: true, visible: true },
-  { key: 'business_type', label: 'BUSINESS TYPE', sortable: false, visible: true },
+  { key: 'phone', label: 'PHONE', sortable: false, visible: true },
+  { key: 'category', label: 'CATEGORY', sortable: false, visible: true },
   { key: 'status', label: 'STATUS', sortable: false, visible: true },
-  { key: 'contact', label: 'CONTACT', sortable: false, visible: true },
   { key: 'actions', label: 'ACTIONS', sortable: false, visible: true }
 ]
 
@@ -620,10 +498,10 @@ const customFilters = computed(() => [
     options: countries.value.map((c: any) => ({ label: c.name, value: c.id }))
   },
   {
-    key: 'business_type',
-    label: 'Business Type',
+    key: 'category',
+    label: 'Category',
     type: 'select',
-    options: businessTypes.value.map((b: string) => ({ label: b, value: b }))
+    options: supplierCategoryFilterOptions.value
   },
   {
     key: 'active_only',
@@ -640,6 +518,91 @@ const openCreateSupplierPage = () => {
   router.push({ name: 'procurement-suppliers-create' })
 }
 
+const viewSupplierPage = (supplier: any) => {
+  router.push({ name: 'procurement-suppliers-view', params: { id: supplier.id } })
+}
+
+const editSupplierPage = (supplier: any) => {
+  router.push({ name: 'procurement-suppliers-edit', params: { id: supplier.id } })
+}
+
+const generateSuppliersPdf = async () => {
+  try {
+    const params: any = { ...tableFilters.value }
+    // request table-view endpoint which returns supplier list (server-side paging)
+    const response = await axios.get(`${apiBaseUrl}suppliers/table-view`, {
+      params,
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }
+    })
+    const data = response.data?.data || response.data || {}
+    const items = Array.isArray(data.data) ? data.data : Array.isArray(data) ? data : []
+
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' })
+    doc.setFont('Times', 'Normal')
+    doc.setFontSize(12)
+    doc.text('BUSHMAN SAFARI TRACKERS LIMITED', doc.internal.pageSize.getWidth() / 2, 48, { align: 'center' })
+    doc.setFontSize(11)
+    doc.text('SUPPLIERS LIST', doc.internal.pageSize.getWidth() / 2, 70, { align: 'center' })
+
+    const body = items.length
+      ? items.map((supplier: any, index: number) => ([
+          `${index + 1}`,
+          supplier.supplier_name || supplier.name || supplier.full_name || '-',
+          supplier.notes || supplier.remarks || '-'
+        ]))
+      : [['-', 'No suppliers found', '-']]
+
+    const pageWidth = doc.internal.pageSize.getWidth()
+    const marginLeft = 40
+    const marginRight = 40
+    const tableWidth = pageWidth - marginLeft - marginRight
+    const snWidth = 50
+    const remaining = tableWidth - snWidth
+    const supplierColWidth = Math.floor(remaining * 0.45)
+    const notesColWidth = remaining - supplierColWidth
+
+    autoTable(doc, {
+      head: [['S.No', 'Supplier', 'Notes']],
+      body,
+      startY: 90,
+      theme: 'grid',
+      showHead: 'everyPage',
+      margin: { top: 90, left: marginLeft, right: marginRight, bottom: 40 },
+      tableWidth,
+      tableLineWidth: 0.75,
+      tableLineColor: 0,
+      styles: {
+        font: 'Times',
+        fontSize: 10,
+        cellPadding: 6,
+        valign: 'top',
+        textColor: 0,
+        lineWidth: 0.75,
+        lineColor: 0
+      },
+      headStyles: {
+        fillColor: [255, 255, 255],
+        textColor: 0,
+        fontStyle: 'bold',
+        halign: 'center',
+        lineWidth: 0.75,
+        lineColor: 0
+      },
+      columnStyles: {
+        0: { cellWidth: snWidth, halign: 'center' },
+        1: { cellWidth: supplierColWidth },
+        2: { cellWidth: notesColWidth }
+      }
+    })
+
+    const blobUrl = doc.output('bloburl')
+    window.open(blobUrl, '_blank')
+  } catch (error: any) {
+    console.error('Failed to generate PDF', error)
+    Swal.fire({ icon: 'error', title: 'Error', text: 'Failed to generate PDF' })
+  }
+}
+
 // Table action buttons (appear next to Filters in StandardDataTable)
 const supplierActionButtons = [
   {
@@ -653,47 +616,20 @@ const supplierActionButtons = [
     icon: 'fa fa-plus',
     class: 'btn-primary',
     method: () => openCreateSupplierPage()
+  },
+  {
+    label: 'Export PDF',
+    icon: 'fa fa-file-pdf',
+    class: 'btn-outline-danger',
+    method: () => generateSuppliersPdf()
   }
 ]
 
-const showSupplierModal = ref(false)
 const showViewModal = ref(false)
 const showAssignCategoryModal = ref(false)
-const supplierModalRef = ref<any>(null)
 
-const editingSupplier = ref<any>(null)
 const viewSupplier = ref<any>(null)
 const activeTab = ref('basic')
-
-const supplierForm = reactive<any>({
-  full_name: '',
-  trading_name: '',
-  code: '',
-  type: 'COMPANY',
-  status: 'ACTIVE',
-  country_id: null,
-  nationality_id: null,
-  base_currency_id: null,
-  notes: '',
-  company_profile: {
-    legal_name: '',
-    trading_name: '',
-    registration_no: '',
-    registration_country_id: '',
-    incorporation_date: '',
-    business_type: '',
-    industry_code: '',
-    tax_residency_country_id: null
-  },
-  contacts: [] as Array<{ type: string; contact: string }>
-})
-
-const supplierCategory = reactive<any>({
-  default_payable_account_id: '',
-  default_receivable_account_id: '',
-  code: '',
-  additional_category_ids: [] as number[]
-})
 
 const viewContacts = ref<any[]>([])
 const viewIdentities = ref<any[]>([])
@@ -718,13 +654,14 @@ const assignCategoryForm = reactive<any>({
   is_active: true
 })
 
-const businessTypes = computed(() => {
-  const set = new Set<string>()
+const supplierCategoryFilterOptions = computed(() => {
+  const map = new Map<number, string>()
   suppliers.value.forEach((supplier: any) => {
-    const type = supplier.company_profile?.business_type
-    if (type) set.add(type)
+    if (supplier.category_id && supplier.category) {
+      map.set(supplier.category_id, supplier.category)
+    }
   })
-  return Array.from(set).sort()
+  return Array.from(map.entries()).map(([value, label]) => ({ label, value }))
 })
 
 const supplierCategoryId = computed(() => {
@@ -772,13 +709,13 @@ const assignableCategoryOptions = computed(() =>
 const categoryLabelFromList = (value: any, list: any[]) => {
   const category = list.find((item: any) => item.id === value)
   if (!category) return ''
-  const name = category.display_name || category.name || ''
+  const name = category.name || category.display_name || ''
   const parentId = category.parent_id || category.parent?.id
   if (!parentId) return name
   const parent =
     list.find((item: any) => item.id === parentId) ||
     categories.value.find((item: any) => item.id === parentId)
-  const parentName = parent?.display_name || parent?.name
+  const parentName = parent?.name || parent?.display_name
   return parentName ? `${parentName} > ${name}` : name
 }
 
@@ -856,15 +793,24 @@ const getAuthHeaders = () => {
 const normalizeSuppliersResponse = (payload: any) => {
   const paged = payload?.data || payload
   const items = Array.isArray(paged?.data) ? paged.data : Array.isArray(paged) ? paged : []
-  const mapped = items.map((item: any) => ({
-    id: item.id,
-    code: item.code || item.supplier_code || item.supplierCode || '',
-    full_name: item.full_name || item.supplier_name || item.name || '',
-    trading_name: item.trading_name || '',
-    business_type: item.business_type || '',
-    status: item.status || 'DRAFT',
-    contact: item.contact || '-'
-  }))
+  const mapped = items.map((item: any) => {
+    const contacts = Array.isArray(item.contacts) ? item.contacts : []
+    const phoneObj = contacts.find((c: any) => c.type === 'phone' || c.type === 'mobile') || null
+
+    return {
+      id: item.id,
+      code: item.code || item.supplier_code || item.supplierCode || '',
+      full_name: item.full_name || item.supplier_name || item.name || '',
+      trading_name: item.trading_name || '',
+      category: (Array.isArray(item.categories) && item.categories[0]) ? (item.categories[0].name || item.categories[0].display_name) : '-',
+      category_id: (Array.isArray(item.categories) && item.categories[0]) ? item.categories[0].id : undefined,
+      status: item.status || 'DRAFT',
+      phone: (() => {
+        const raw = item.contact || phoneObj?.contact || item.phone || '-'
+        return typeof raw === 'string' ? raw.replace(/\s*\([^)]*\)\s*$/, '') : raw
+      })()
+    }
+  })
 
   suppliers.value = mapped
   pagination.value = {
@@ -983,171 +929,27 @@ const fetchAccounts = async () => {
 }
 
 const handleFiltersUpdate = (filters: any) => {
-  tableFilters.value = { ...tableFilters.value, ...filters }
+  // Merge provided filters but also clear any custom filter not present in the emitted filters
+  const merged = { ...tableFilters.value, ...filters }
+
+  // Ensure all custom filters are explicitly set (clear when absent)
+  const customKeys = customFilters.value.map((f: any) => f.key)
+  customKeys.forEach((k: string) => {
+    if (!(k in filters)) {
+      merged[k] = ''
+    }
+  })
+
+  // Also ensure search is cleared when absent
+  if (!('search' in filters)) merged.search = ''
+
+  tableFilters.value = merged
   fetchSuppliers()
 }
 
 const handlePageChange = (page: number) => {
   tableFilters.value.page = page
   fetchSuppliers()
-}
-
-const resetSupplierForm = () => {
-  supplierForm.full_name = ''
-  supplierForm.trading_name = ''
-  supplierForm.code = ''
-  supplierForm.type = 'COMPANY'
-  supplierForm.status = 'ACTIVE'
-  supplierForm.country_id = null
-  supplierForm.nationality_id = null
-  supplierForm.base_currency_id = null
-  supplierForm.notes = ''
-  supplierForm.company_profile = {
-    legal_name: '',
-    trading_name: '',
-    registration_no: '',
-    registration_country_id: '',
-    incorporation_date: '',
-    business_type: '',
-    industry_code: '',
-    tax_residency_country_id: null
-  }
-  supplierForm.contacts = []
-
-  supplierCategory.default_payable_account_id = ''
-  supplierCategory.default_receivable_account_id = ''
-  supplierCategory.code = ''
-  supplierCategory.additional_category_ids = []
-}
-
-const openSupplierModal = (supplier?: any) => {
-  if (!supplier) {
-    openCreateSupplierPage()
-    return
-  }
-  resetSupplierForm()
-  editingSupplier.value = supplier || null
-
-  if (supplier) {
-    supplierForm.full_name = supplier.full_name || ''
-    supplierForm.trading_name = supplier.trading_name || ''
-    supplierForm.code = supplier.code || ''
-    // Always keep status as ACTIVE for supplier form
-    supplierForm.type = supplier.type || 'COMPANY'
-    supplierForm.status = 'ACTIVE'
-    supplier.company_profile?.tax_residency_country_id ?? supplier.company_profile?.tax_residency_country?.id
-
-    supplierForm.country_id = findById(countries.value, countryId) || null
-    supplierForm.nationality_id = findById(nationalities.value, nationalityId) || null
-    supplierForm.base_currency_id = findById(currencies.value, currencyId) || null
-    supplierForm.notes = supplier.notes || ''
-    supplierForm.company_profile = {
-      legal_name: supplier.company_profile?.legal_name || '',
-      trading_name: supplier.company_profile?.trading_name || '',
-      registration_no: supplier.company_profile?.registration_no || '',
-      registration_country_id: supplier.company_profile?.registration_country_id || '',
-      incorporation_date: supplier.company_profile?.incorporation_date || '',
-      business_type: supplier.company_profile?.business_type || '',
-      industry_code: supplier.company_profile?.industry_code || '',
-      tax_residency_country_id: findById(countries.value, taxResidencyId) || null
-    }
-    supplierForm.contacts = (supplier.contacts || []).map((c: any) => ({ type: c.type, contact: c.contact }))
-
-    const supplierCat = (supplier.categories || []).find((c: any) => c.id === supplierCategoryId.value)
-    supplierCategory.default_payable_account_id = supplierCat?.pivot?.default_payable_account_id || ''
-    supplierCategory.default_receivable_account_id = supplierCat?.pivot?.default_receivable_account_id || ''
-    supplierCategory.code = supplierCat?.pivot?.code || ''
-    supplierCategory.additional_category_ids = (supplier.categories || [])
-      .filter((c: any) => c.id !== supplierCategoryId.value)
-      .map((c: any) => c.id)
-  }
-
-  showSupplierModal.value = true
-  nextTick(() => {
-    supplierModalRef.value?.show()
-  })
-}
-
-const closeSupplierModal = () => {
-  supplierModalRef.value?.hide()
-}
-
-const handleSupplierModalHidden = () => {
-  showSupplierModal.value = false
-  editingSupplier.value = null
-}
-
-const buildCategoryPayload = () => {
-  const basePayload: any[] = []
-
-  supplierCategory.additional_category_ids.forEach((id: any) => {
-    // Extract ID if it's an object, otherwise use the value directly
-    const categoryId = typeof id === 'object' && id !== null ? id.id : id
-    if (categoryId) {
-      basePayload.push({ 
-        category_id: categoryId, 
-        is_active: true,
-        effective_from: new Date().toISOString().replace('T', ' ').substring(0, 19)
-      })
-    }
-  })
-
-  return basePayload
-}
-
-const saveSupplier = async () => {
-  if (classificationCategories.value.length && !supplierCategory.additional_category_ids.length) {
-    Swal.fire({
-      icon: 'warning',
-      title: 'Classification Required',
-      text: 'Please select at least one classification category.'
-    })
-    return
-  }
-
-  saving.value = true
-  try {
-    const payload: any = {
-      full_name: supplierForm.full_name,
-      trading_name: supplierForm.trading_name || undefined,
-      code: supplierForm.code || undefined,
-      type: supplierForm.type || 'COMPANY',
-      status: 'ACTIVE',
-      country_id: resolveId(supplierForm.country_id),
-      nationality_id: resolveId(supplierForm.nationality_id),
-      base_currency_id: resolveId(supplierForm.base_currency_id),
-      notes: supplierForm.notes || undefined,
-      categories: buildCategoryPayload(),
-      contacts: supplierForm.contacts.filter((c: any) => c.contact)
-    }
-
-    if (supplierForm.type === 'COMPANY') {
-      payload.company_profile = {
-        ...supplierForm.company_profile,
-        tax_residency_country_id: resolveId(supplierForm.company_profile.tax_residency_country_id)
-      }
-    }
-
-    if (editingSupplier.value?.id) {
-      await axios.put(`${apiBaseUrl}company-entities/${editingSupplier.value.id}`, payload, {
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }
-      })
-      Swal.fire({ icon: 'success', title: 'Updated', text: 'Supplier updated successfully' })
-    } else {
-      await axios.post(`${apiBaseUrl}company-entities`, payload, {
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }
-      })
-      Swal.fire({ icon: 'success', title: 'Created', text: 'Supplier created successfully' })
-    }
-
-    closeSupplierModal()
-    fetchSuppliers()
-  } catch (error: any) {
-    const errors = handleErrors(error?.response?.data || error)
-    Swal.fire({ icon: 'error', title: 'Error', text: errors?.[0] || 'Failed to save supplier' })
-  } finally {
-    saving.value = false
-  }
 }
 
 const openViewModal = async (supplier: any) => {
@@ -1158,7 +960,10 @@ const openViewModal = async (supplier: any) => {
       headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }
     })
     viewSupplier.value = response.data?.data || response.data || supplier
-    viewContacts.value = (viewSupplier.value.contacts || []).map((c: any) => ({ ...c }))
+    viewContacts.value = (viewSupplier.value.contacts || []).map((c: any) => ({
+      ...c,
+      contact: typeof c.contact === 'string' ? c.contact.replace(/\s*\([^)]*\)\s*$/, '') : c.contact
+    }))
     viewIdentities.value = (viewSupplier.value.identities || []).map((i: any) => ({
       ...i,
       dates: i.dates || {}
@@ -1167,7 +972,10 @@ const openViewModal = async (supplier: any) => {
   } catch (error: any) {
     console.error('Failed to load supplier details', error)
     viewSupplier.value = supplier
-    viewContacts.value = supplier.contacts || []
+    viewContacts.value = (supplier.contacts || []).map((c: any) => ({
+      ...c,
+      contact: typeof c.contact === 'string' ? c.contact.replace(/\s*\([^)]*\)\s*$/, '') : c.contact
+    }))
     viewIdentities.value = supplier.identities || []
     viewCategories.value = supplier.categories || []
   }
@@ -1179,15 +987,6 @@ const closeViewModal = () => {
   viewContacts.value = []
   viewIdentities.value = []
   viewCategories.value = []
-}
-
-const addContact = () => {
-  const fallbackType = contactTypeOptions.value[0]?.value || 'email'
-  supplierForm.contacts.push({ type: fallbackType, contact: '' })
-}
-
-const removeContact = (index: number) => {
-  supplierForm.contacts.splice(index, 1)
 }
 
 const addContactToView = () => {
@@ -1345,27 +1144,7 @@ watch(
   }
 )
 
-// Watch additional_category_ids to ensure only IDs are stored, not objects
-watch(
-  () => supplierCategory.additional_category_ids,
-  (newVal) => {
-    if (!newVal || !Array.isArray(newVal)) return
-    
-    // Normalize to ensure only IDs are stored
-    const normalized = newVal.map((item: any) => {
-      if (typeof item === 'object' && item !== null) {
-        return item.id
-      }
-      return item
-    }).filter((id: any) => id !== null && id !== undefined)
-    
-    // Only update if there's a change to avoid infinite loop
-    if (JSON.stringify(normalized) !== JSON.stringify(newVal)) {
-      supplierCategory.additional_category_ids = normalized
-    }
-  },
-  { deep: true }
-)
+
 
 onMounted(() => {
   fetchSupplierMetadata()
@@ -1414,5 +1193,12 @@ onMounted(() => {
 :deep(.btn-outline-primary:hover) {
   transform: scale(1.05);
   transition: transform 0.2s ease;
+}
+
+/* Supplier phone styling */
+.supplier-phone {
+  color: var(--bs-primary, #0d6efd);
+  font-weight: 600;
+  font-size: 0.95rem;
 }
 </style>

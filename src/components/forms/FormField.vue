@@ -86,7 +86,17 @@ const errorMessage = computed(() => props.error)
 }
 
 .label-text {
-  flex: 1;
+  display: inline-block;
+  max-width: calc(100% - 48px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.required-mark,
+.optional-mark {
+  margin-left: 0.25rem;
+  flex: 0 0 auto;
 }
 
 .required-mark {
