@@ -431,18 +431,21 @@ const getAuthHeaders = () => {
 }
 
 const buildCategoryPayload = () => {
-  const basePayload: any[] = [
-    {
-      category_id: supplierCategoryId.value,
-      default_payable_account_id: supplierCategory.default_payable_account_id || undefined,
-      default_receivable_account_id: supplierCategory.default_receivable_account_id || undefined,
-      effective_from: effectiveFromNow(),
-      is_active: true
-    }
-  ]
+  const basePayload: any[] = []
 
+  // Extract ID if it's an object, otherwise use the value directly
   if (supplierCategory.additional_category_id) {
-    basePayload.push({ category_id: supplierCategory.additional_category_id, effective_from: effectiveFromNow(), is_active: true })
+    const categoryId = typeof supplierCategory.additional_category_id === 'object' && supplierCategory.additional_category_id !== null
+      ? supplierCategory.additional_category_id.id
+      : supplierCategory.additional_category_id
+    
+    if (categoryId) {
+      basePayload.push({ 
+        category_id: categoryId, 
+        effective_from: effectiveFromNow(), 
+        is_active: true 
+      })
+    }
   }
 
   return basePayload
@@ -485,9 +488,20 @@ const saveSupplier = async () => {
 
   saving.value = true
   try {
+    // Generate unique code if not provided
+    let supplierCode = supplierForm.code?.trim() || ''
+    if (!supplierCode) {
+      // Generate code from trading_name or full_name + timestamp
+      const baseName = (supplierForm.trading_name || supplierForm.full_name || 'SUPP').toUpperCase()
+      const prefix = baseName.substring(0, 4).replace(/[^A-Z0-9]/g, '')
+      const timestamp = Date.now().toString().slice(-6)
+      supplierCode = `${prefix}-${timestamp}`
+    }
+
     const payload: any = {
       full_name: supplierForm.full_name,
       trading_name: supplierForm.trading_name || undefined,
+      code: supplierCode,
       type: supplierForm.type || 'COMPANY',
       status: 'ACTIVE',
       country_id: resolveId(supplierForm.country_id),

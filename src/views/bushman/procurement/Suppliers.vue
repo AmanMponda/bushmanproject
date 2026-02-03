@@ -1078,18 +1078,18 @@ const handleSupplierModalHidden = () => {
 }
 
 const buildCategoryPayload = () => {
-  const basePayload: any[] = [
-    {
-      category_id: supplierCategoryId.value,
-      default_payable_account_id: supplierCategory.default_payable_account_id || undefined,
-      default_receivable_account_id: supplierCategory.default_receivable_account_id || undefined,
-      is_active: true,
-      code: supplierCategory.code || undefined
-    }
-  ]
+  const basePayload: any[] = []
 
-  supplierCategory.additional_category_ids.forEach((id: number) => {
-    basePayload.push({ category_id: id, is_active: true })
+  supplierCategory.additional_category_ids.forEach((id: any) => {
+    // Extract ID if it's an object, otherwise use the value directly
+    const categoryId = typeof id === 'object' && id !== null ? id.id : id
+    if (categoryId) {
+      basePayload.push({ 
+        category_id: categoryId, 
+        is_active: true,
+        effective_from: new Date().toISOString().replace('T', ' ').substring(0, 19)
+      })
+    }
   })
 
   return basePayload
@@ -1343,6 +1343,28 @@ watch(
   () => {
     tableFilters.value.page = 1
   }
+)
+
+// Watch additional_category_ids to ensure only IDs are stored, not objects
+watch(
+  () => supplierCategory.additional_category_ids,
+  (newVal) => {
+    if (!newVal || !Array.isArray(newVal)) return
+    
+    // Normalize to ensure only IDs are stored
+    const normalized = newVal.map((item: any) => {
+      if (typeof item === 'object' && item !== null) {
+        return item.id
+      }
+      return item
+    }).filter((id: any) => id !== null && id !== undefined)
+    
+    // Only update if there's a change to avoid infinite loop
+    if (JSON.stringify(normalized) !== JSON.stringify(newVal)) {
+      supplierCategory.additional_category_ids = normalized
+    }
+  },
+  { deep: true }
 )
 
 onMounted(() => {
