@@ -485,10 +485,9 @@ const custodianRef = ref<any>(null)
 
 // --- Payment mode options ---
 const paymentModeOptions = [
-  { label: 'Bank Transfer', value: 'BANK_TRANSFER' },
   { label: 'Cash', value: 'CASH' },
-  { label: 'Cheque', value: 'CHEQUE' },
-  { label: 'Mobile Money', value: 'MOBILE_MONEY' }
+  { label: 'Telegraph Transfer', value: 'TT' },
+  { label: 'Credit', value: 'CREDIT' }
 ]
 
 // Computed wrapper for modeOfPayment (EXPENSE direct payment)
