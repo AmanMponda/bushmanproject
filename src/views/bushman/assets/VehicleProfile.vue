@@ -1032,9 +1032,6 @@
 import { ref, computed, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useAuthStore } from "@/stores/auth";
-import { ref, computed, watch } from "vue";
-import { useRoute, useRouter } from "vue-router";
-import { useAuthStore } from "@/stores/auth";
 import type { VehicleAsset } from '@/services/vehicleAssetService'
 import { useDocumentsStore } from '@/stores/bushman/documents-store'
 import { useToast } from '@/composables/useToast'
@@ -1045,27 +1042,20 @@ const route = useRoute();
 const router = useRouter();
 
 // Props - receive data from parent
-const props = defineProps < {
-  vehicleDetails: VehicleAsset | null
-  vehicleDocuments: any[]
-  uploading: boolean
-  loading: boolean
-  previewMap: Record < number | string, string>
-  seatMapData ?: any[]
-seatMapTypes ?: any[]
-vehicleGroups ?: any[]
-sizeGroups ?: any[]
-models ?: any[]
-formDataLoading ?: boolean
-}> ()
-  previewMap: Record < number | string, string>
-  seatMapData ?: any[]
-seatMapTypes ?: any[]
-vehicleGroups ?: any[]
-sizeGroups ?: any[]
-models ?: any[]
-formDataLoading ?: boolean
-}> ()
+const props = defineProps<{
+  vehicleDetails: VehicleAsset | null;
+  vehicleDocuments?: any[];
+  uploading?: boolean;
+  loading?: boolean;
+  previewMap?: Record<number | string, string>;
+  seatMapData?: any[];
+  seatMapTypes?: any[];
+  vehicleGroups?: any[];
+  sizeGroups?: any[];
+  models?: any[];
+  formDataLoading?: boolean;
+}>()
+
 
 // Emits - send events to parent
 // Emits - send events to parent
@@ -1684,7 +1674,6 @@ async function submitDocument() {
 }
 
 .card {
-.card {
   border: none;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
   border-radius: 8px;
@@ -1699,7 +1688,6 @@ async function submitDocument() {
   border-bottom-right-radius: 0 !important;
 }
 
-.card-header {
 /* Remove border radius from tabs card */
 .tabs-card {
   border-radius: 0 !important;
@@ -1727,29 +1715,6 @@ async function submitDocument() {
   border: 2px solid #e9ecef;
 }
 
-.vehicle-icon i {
-  color: #007bff;
-}
-
-
-
-.tab-panel {
-  min-height: 400px;
-}
-
-.list-group-item {
-  border: 1px solid #e9ecef;
-  border-radius: 0.375rem;
-  margin-bottom: 0.5rem;
-}
-
-.badge {
-  font-size: 0.75rem;
-  padding: 0.375rem 0.75rem;
-}
-
-/* Specification Cards Styling */
-.spec-label {
 .vehicle-icon i {
   color: #007bff;
 }
