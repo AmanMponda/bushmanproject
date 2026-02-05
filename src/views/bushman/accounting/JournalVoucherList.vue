@@ -149,7 +149,7 @@ const customFilters = computed(() => [
 
 // Page Actions
 const pageActions = computed(() => [
-  { label: 'Create Voucher', icon: 'fa fa-plus', class: 'btn btn-primary', method: () => createVoucher() }
+  { label: 'Payment Voucher', icon: 'fa fa-plus', class: 'btn btn-primary', method: () => createVoucher() }
 ])
 
 // Methods

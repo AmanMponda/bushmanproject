@@ -1,15 +1,14 @@
 <template>
   <div class="client-management-page">
-    <div class="d-flex align-items-center mb-3">
+    <div class="d-flex align-items-center breadcrumb-row">
       <div>
-        <ul class="breadcrumb">
-          <li class="breadcrumb-item"><a href="#">Sales</a></li>
-          <li class="breadcrumb-item active">Clients</li>
+        <ul class="breadcrumb breadcrumbs-uppercase">
+          <li class="breadcrumb-item active">CLIENTS</li>
         </ul>
       </div>
     </div>
 
-    <div class="row layout-top-spacing bg-white rounded">
+    <div class="row bg-white rounded">
       <div class="col-xl-12 col-lg-12 col-sm-12 layout-spacing">
         <div class="panel br-6 p-0">
           <div class="custom-table p-3">
@@ -19,38 +18,30 @@
               :server-side="true" :pagination="pagination" :page-size-options="[10, 15, 25, 50]"
               :default-page-size="tableFilters.limit" @update:filters="handleFiltersUpdate"
               @page-change="handlePageChange">
-              <template #code="{ row }">
-                <span class="badge bg-warning bg-opacity-20 fs-14px fw-bold text-danger cursor-pointer">
-                  <i class="fa fa-hashtag me-1"></i>
-                  {{ row.code || '-' }}
-                </span>
-              </template>
               <template #full_name="{ row }">
-                <span class="badge bg-secondary bg-opacity-20 fs-14px fw-bold text-info cursor-pointer">
-                  <i class="fa fa-user me-1"></i>
-                  {{ row.full_name || row.trading_name || '-' }}
-                </span>
+                <div>
+                  <span class="fw-semibold">{{ row.full_name || row.trading_name || '-' }}</span>
+                  <div v-if="row.nick_name" class="small text-muted">{{ row.nick_name }}</div>
+                </div>
               </template>
-              <template #business_type="{ row }">
-                <span class="badge bg-secondary bg-opacity-20 fs-14px fw-bold text-muted">
-                  {{ row.business_type || row.company_profile?.business_type || '-' }}
-                </span>
-              </template>
-              <template #status="{ row }">
-                <span class="badge bg-secondary bg-opacity-20 fs-14px fw-bold" :class="getStatusTextColor(row.status)">
-                  {{ row.status || 'DRAFT' }}
-                </span>
+              <template #country="{ row }">
+                <span>{{ row.country?.name || '-' }}</span>
               </template>
               <template #contact="{ row }">
-                <span class="badge bg-secondary bg-opacity-20 fs-14px fw-bold text-primary">
-                  <i class="fa fa-envelope me-1"></i>
+                <span class="text-truncate d-inline-block" style="max-width: 160px;">
                   {{ primaryContact(row) }}
                 </span>
               </template>
               <template #actions="{ row }">
                 <div class="btn-group btn-group-sm">
-                  <button class="btn btn-outline-primary btn-sm" @click="openClientModal(row)" title="View Details">
+                  <button class="btn btn-outline-info btn-sm" @click="openViewModal(row)" title="View Details">
                     <i class="fa fa-eye"></i>
+                  </button>
+                  <button class="btn btn-outline-primary btn-sm" @click="openEditModal(row)" title="Edit Client">
+                    <i class="fa fa-edit"></i>
+                  </button>
+                  <button class="btn btn-outline-danger btn-sm" @click="confirmDelete(row)" title="Delete Client">
+                    <i class="fa fa-trash"></i>
                   </button>
                 </div>
               </template>
@@ -59,126 +50,6 @@
         </div>
       </div>
     </div>
-
-    <!-- Add/Edit Client Modal -->
-    <StandardModal ref="clientModalRef" id="client-modal"
-      :title="editingClient ? 'Edit Client' : 'New Client'" size="lg" :scrollable="true" :backdrop="'static'"
-      :keyboard="false" @hidden="handleClientModalHidden">
-      <template #header>
-        <i class="fa fa-user me-2"></i> {{ editingClient ? 'Edit Client' : 'New Client' }}
-      </template>
-
-      <form id="client-form" @submit.prevent="saveClient">
-        <!-- Basic Information -->
-        <div class="border-bottom pb-3 mb-4">
-          <h6 class="text-primary mb-3"><i class="fa fa-info-circle me-2"></i>Basic Information</h6>
-          <div class="row g-3">
-            <div class="col-md-4">
-              <label class="form-label">Client Code</label>
-              <input v-model="clientForm.code" type="text" class="form-control" />
-            </div>
-            <div class="col-md-4">
-              <label class="form-label">Full Name <span class="text-danger">*</span></label>
-              <input v-model="clientForm.full_name" type="text" class="form-control"
-                placeholder="Enter full legal name" required />
-            </div>
-            <div class="col-md-4">
-              <label class="form-label">Trading Name</label>
-              <input v-model="clientForm.trading_name" type="text" class="form-control"
-                placeholder="Enter trading name" />
-            </div>
-
-            <div class="col-md-12">
-              <label class="form-label">Classification Categories <span class="text-danger">*</span></label>
-              <Multiselect v-model="clientCategory.additional_category_ids" :options="classificationCategoryOptions"
-                :multiple="true" :close-on-select="false" :custom-label="classificationCategoryLabel"
-                placeholder="Select classification categories" />
-              <small class="text-muted">Choose at least one classification category for the client.</small>
-            </div>
-          </div>
-        </div>
-
-        <!-- Location & Currency -->
-        <div class="border-bottom pb-3 mb-4">
-          <h6 class="text-primary mb-3"><i class="fa fa-globe me-2"></i>Location & Currency</h6>
-          <div class="row g-3">
-            <div class="col-md-4">
-              <label class="form-label">Country</label>
-              <Multiselect v-model="clientForm.country_id" :options="countries" label="name" track-by="id"
-                placeholder="Select country" />
-            </div>
-            <div class="col-md-4">
-              <label class="form-label">Nationality</label>
-              <Multiselect v-model="clientForm.nationality_id" :options="nationalities" label="name" track-by="id"
-                placeholder="Select nationality" />
-            </div>
-            <div class="col-md-4">
-              <label class="form-label">Base Currency</label>
-              <Multiselect v-model="clientForm.base_currency_id" :options="currencies" label="name" track-by="id"
-                :custom-label="currencyLabel" placeholder="Select currency" />
-            </div>
-            <div class="col-md-12">
-              <label class="form-label">Notes</label>
-              <textarea v-model="clientForm.notes" rows="2" class="form-control"
-                placeholder="Additional notes or comments"></textarea>
-            </div>
-          </div>
-        </div>
-
-        <!-- Company Profile -->
-        <div class="border-bottom pb-3 mb-4" v-if="clientForm.type === 'COMPANY'">
-          <h6 class="text-primary mb-3"><i class="fa fa-building me-2"></i>Company Profile</h6>
-          <div class="row g-3">
-            <div class="col-md-6">
-              <label class="form-label">Legal Name</label>
-              <input v-model="clientForm.company_profile.legal_name" type="text" class="form-control" />
-            </div>
-            <div class="col-md-6">
-              <label class="form-label">Trading Name</label>
-              <input v-model="clientForm.company_profile.trading_name" type="text" class="form-control" />
-            </div>
-            <div class="col-md-6">
-              <label class="form-label">Registration Number</label>
-              <input v-model="clientForm.company_profile.registration_no" type="text" class="form-control" />
-            </div>
-            <div class="col-md-6">
-              <label class="form-label">Registration Country</label>
-              <Multiselect v-model="clientForm.company_profile.registration_country_id" :options="countries"
-                label="name" track-by="id" placeholder="Select country" />
-            </div>
-            <div class="col-md-6">
-              <label class="form-label">Incorporation Date</label>
-              <input v-model="clientForm.company_profile.incorporation_date" type="date" class="form-control" />
-            </div>
-            <div class="col-md-6">
-              <label class="form-label">Business Type</label>
-              <input v-model="clientForm.company_profile.business_type" type="text" class="form-control"
-                placeholder="e.g., Limited, Sole Proprietor" />
-            </div>
-            <div class="col-md-6">
-              <label class="form-label">Industry Code</label>
-              <input v-model="clientForm.company_profile.industry_code" type="text" class="form-control"
-                placeholder="ISIC/NAICS code" />
-            </div>
-            <div class="col-md-6">
-              <label class="form-label">Tax Residency Country</label>
-              <Multiselect v-model="clientForm.company_profile.tax_residency_country_id" :options="countries"
-                label="name" track-by="id" placeholder="Select country" />
-            </div>
-          </div>
-        </div>
-      </form>
-
-      <template #footer>
-        <div class="d-flex justify-content-end gap-2">
-          <button type="button" class="btn btn-outline-secondary" @click="closeClientModal">Cancel</button>
-          <button type="submit" class="btn btn-primary" :disabled="saving" form="client-form">
-            <span v-if="saving" class="spinner-border spinner-border-sm me-2"></span>
-            {{ editingClient ? 'Update Client' : 'Create Client' }}
-          </button>
-        </div>
-      </template>
-    </StandardModal>
 
     <!-- Client Details Modal -->
     <div class="modal fade" :class="{ show: showViewModal }" :style="{ display: showViewModal ? 'block' : 'none' }"
@@ -206,10 +77,6 @@
                 <button class="nav-link" :class="{ active: activeTab === 'identities' }"
                   @click="activeTab = 'identities'">Identities</button>
               </li>
-              <li class="nav-item" role="presentation">
-                <button class="nav-link" :class="{ active: activeTab === 'categories' }"
-                  @click="activeTab = 'categories'">Categories</button>
-              </li>
             </ul>
 
             <div v-if="activeTab === 'basic'">
@@ -226,25 +93,29 @@
                     </span>
                   </div>
                 </div>
-                <div class="col-md-4">
-                  <label class="form-label text-muted">Type</label>
-                  <div class="fw-semibold">{{ viewClient?.type || '-' }}</div>
-                </div>
                 <div class="col-md-6">
                   <label class="form-label text-muted">Full Name</label>
                   <div class="fw-semibold">{{ viewClient?.full_name || '-' }}</div>
                 </div>
                 <div class="col-md-6">
-                  <label class="form-label text-muted">Trading Name</label>
-                  <div class="fw-semibold">{{ viewClient?.trading_name || '-' }}</div>
-                </div>
-                <div class="col-md-6" v-if="viewClient?.company_profile">
-                  <label class="form-label text-muted">Business Type</label>
-                  <div class="fw-semibold">{{ viewClient?.company_profile?.business_type || '-' }}</div>
+                  <label class="form-label text-muted">Nick Name</label>
+                  <div class="fw-semibold">{{ viewClient?.nick_name || '-' }}</div>
                 </div>
                 <div class="col-md-6">
                   <label class="form-label text-muted">Country</label>
                   <div class="fw-semibold">{{ viewClient?.country?.name || '-' }}</div>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label text-muted">Nationality</label>
+                  <div class="fw-semibold">{{ viewClient?.nationality?.name || '-' }}</div>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label text-muted">Currency</label>
+                  <div class="fw-semibold">{{ viewClient?.base_currency?.name || '-' }}</div>
+                </div>
+                <div v-if="viewClient?.notes" class="col-md-12">
+                  <label class="form-label text-muted">Notes</label>
+                  <div class="fw-semibold">{{ viewClient?.notes }}</div>
                 </div>
               </div>
             </div>
@@ -259,12 +130,21 @@
               <div v-for="(contact, index) in viewContacts" :key="index" class="row g-2 align-items-end mb-2">
                 <div class="col-md-3">
                   <label class="form-label">Type</label>
-                  <Multiselect v-model="contact.type" :options="contactTypeValues" :custom-label="contactTypeLabel"
-                    placeholder="Select type" />
+                  <select v-model="contact.type" class="form-select">
+                    <option v-for="type in contactTypeOptions" :key="type.value" :value="type.value">
+                      {{ type.label }}
+                    </option>
+                  </select>
                 </div>
-                <div class="col-md-8">
+                <div class="col-md-7">
                   <label class="form-label">Contact</label>
                   <input v-model="contact.contact" type="text" class="form-control" />
+                </div>
+                <div class="col-md-1">
+                  <div class="form-check">
+                    <input v-model="contact.contactable" type="checkbox" class="form-check-input" :id="`contactable-${index}`" />
+                    <label class="form-check-label" :for="`contactable-${index}`">Active</label>
+                  </div>
                 </div>
                 <div class="col-md-1 d-flex">
                   <button class="btn btn-outline-danger btn-sm" @click="removeViewContact(index)">
@@ -290,8 +170,11 @@
               <div v-for="(identity, index) in viewIdentities" :key="index" class="row g-2 align-items-end mb-2">
                 <div class="col-md-3">
                   <label class="form-label">Type</label>
-                  <Multiselect v-if="identityTypeOptions.length" v-model="identity.identity_type_id"
-                    :options="identityTypeValues" :custom-label="identityTypeLabel" placeholder="Select type" />
+                  <select v-if="identityTypeOptions.length" v-model="identity.identity_type_id" class="form-select">
+                    <option v-for="type in identityTypeOptions" :key="type.value" :value="type.value">
+                      {{ type.label }}
+                    </option>
+                  </select>
                   <input v-else v-model="identity.identity_type_id" type="number" class="form-control" />
                 </div>
                 <div class="col-md-3">
@@ -300,11 +183,11 @@
                 </div>
                 <div class="col-md-3">
                   <label class="form-label">Issued Date</label>
-                  <input v-model="identity.issued_date" type="date" class="form-control" />
+                  <Datepicker v-model="identity.issued_date" placeholder="Select date" />
                 </div>
                 <div class="col-md-2">
                   <label class="form-label">Expiry</label>
-                  <input v-model="identity.dates.expire_date" type="date" class="form-control" />
+                  <Datepicker v-model="identity.expire_date" placeholder="Select date" />
                 </div>
                 <div class="col-md-1 d-flex">
                   <button class="btn btn-outline-danger btn-sm" @click="removeIdentityRow(index, identity)">
@@ -319,96 +202,118 @@
                 </button>
               </div>
             </div>
-
-            <div v-else-if="activeTab === 'categories'">
-              <div class="d-flex justify-content-between align-items-center mb-2">
-                <h6 class="mb-0">Categories</h6>
-                <button class="btn btn-outline-primary btn-sm" @click="openCategoryAssignModal">
-                  <i class="fa fa-plus me-1"></i>Add Category
-                </button>
-              </div>
-              <StandardDataTable :columns="categoryColumns" :data="viewCategories" :loading="false"
-                :disable-search="true" :show-date-filters="false">
-                <template #display_name="{ row }">
-                  <span class="badge bg-secondary bg-opacity-20 text-dark">
-                    <i class="fa fa-tag me-1"></i>{{ row.display_name || row.name }}
-                  </span>
-                </template>
-                <template #parent_category="{ row }">
-                  <span v-if="row.parent_id" class="badge bg-info bg-opacity-20 text-info">
-                    <i class="fa fa-level-up-alt me-1"></i>
-                    {{categories.find((c: any) => c.id === row.parent_id)?.display_name || '--'}}
-                  </span>
-                  <span v-else class="text-muted">-- Root --</span>
-                </template>
-                <template #actions="{ row }">
-                  <button v-if="row.name !== 'CLIENT' && row.name !== 'CUSTOMER'" class="btn btn-outline-danger btn-sm" title="Remove"
-                    @click="removeCategory(row)">
-                    <i class="fa fa-trash"></i>
-                  </button>
-                </template>
-              </StandardDataTable>
-            </div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Assign Category Modal -->
-    <div class="modal fade" :class="{ show: showAssignCategoryModal }"
-      :style="{ display: showAssignCategoryModal ? 'block' : 'none' }" tabindex="-1">
-      <div class="modal-dialog modal-lg">
+    <!-- Add/Edit Client Modal -->
+    <div class="modal fade" :class="{ show: showEditModal }" :style="{ display: showEditModal ? 'block' : 'none' }"
+      tabindex="-1">
+      <div class="modal-dialog modal-xl">
         <div class="modal-content">
           <div class="modal-header">
-            <h5 class="modal-title">Assign Category</h5>
-            <button type="button" class="btn-close" @click="closeCategoryAssignModal"></button>
+            <h5 class="modal-title">{{ editingClient ? 'Edit Client' : 'Add Client' }}</h5>
+            <button type="button" class="btn-close" @click="closeEditModal"></button>
           </div>
           <div class="modal-body">
-            <form @submit.prevent="assignCategory">
+            <form @submit.prevent="saveClient">
               <div class="row g-3">
                 <div class="col-md-6">
-                  <label class="form-label">Category</label>
-                  <Multiselect v-model="assignCategoryForm.category_id" :options="assignableCategoryOptions"
-                    :custom-label="assignableCategoryLabel" placeholder="Select category" />
-                  <small class="text-muted">Select a client category (e.g., VIP Clients, Corporate)</small>
+                  <label class="form-label">Full Name <span class="text-danger">*</span></label>
+                  <input v-model="clientForm.full_name" type="text" class="form-control" required />
                 </div>
                 <div class="col-md-6">
-                  <label class="form-label">Category Code</label>
-                  <input v-model="assignCategoryForm.code" type="text" class="form-control" placeholder="CLI-001" />
+                  <label class="form-label">Nick Name</label>
+                  <input v-model="clientForm.nick_name" type="text" class="form-control" />
                 </div>
                 <div class="col-md-6">
-                  <label class="form-label">Default Payable Account</label>
-                  <Multiselect v-model="assignCategoryForm.default_payable_account_id" :options="accountOptions"
-                    :custom-label="accountLabel" placeholder="Select account" />
+                  <label class="form-label">Client Code</label>
+                  <input v-model="clientForm.code" type="text" class="form-control" />
+                </div>
+                <!-- Type hidden - always INDIVIDUAL for clients -->
+                <div class="col-md-6">
+                  <label class="form-label">Status</label>
+                  <select v-model="clientForm.status" class="form-select">
+                    <option v-for="opt in entityStatusOptions" :key="opt.value" :value="opt.value">
+                      {{ opt.label }}
+                    </option>
+                  </select>
                 </div>
                 <div class="col-md-6">
-                  <label class="form-label">Default Receivable Account</label>
-                  <Multiselect v-model="assignCategoryForm.default_receivable_account_id" :options="accountOptions"
-                    :custom-label="accountLabel" placeholder="Select account" />
+                  <label class="form-label">Country <span class="text-danger">*</span></label>
+                  <select v-model="clientForm.country_id" class="form-select" required>
+                    <option :value="null" disabled>Select Country</option>
+                    <option v-for="country in countries" :key="country.id" :value="country.id">
+                      {{ country.name }}
+                    </option>
+                  </select>
                 </div>
                 <div class="col-md-6">
-                  <label class="form-label">Effective From</label>
-                  <input v-model="assignCategoryForm.effective_from" type="date" class="form-control" />
+                  <label class="form-label">Nationality <span class="text-danger">*</span></label>
+                  <select v-model="clientForm.nationality_id" class="form-select" required>
+                    <option :value="null" disabled>Select Nationality</option>
+                    <option v-for="nat in nationalities" :key="nat.id" :value="nat.id">
+                      {{ nat.name }}
+                    </option>
+                  </select>
                 </div>
                 <div class="col-md-6">
-                  <label class="form-label">Effective To</label>
-                  <input v-model="assignCategoryForm.effective_to" type="date" class="form-control" />
+                  <label class="form-label">Base Currency</label>
+                  <select v-model="clientForm.base_currency_id" class="form-select">
+                    <option :value="null">Select Currency</option>
+                    <option v-for="curr in currencies" :key="curr.id" :value="curr.id">
+                      {{ curr.name }} ({{ curr.symbol }})
+                    </option>
+                  </select>
                 </div>
-                <div class="col-md-6 d-flex align-items-center">
-                  <div class="form-check mt-4">
-                    <input v-model="assignCategoryForm.is_active" type="checkbox" class="form-check-input"
-                      id="assignCategoryActive" />
-                    <label class="form-check-label" for="assignCategoryActive">Is Active</label>
+                <div class="col-md-12">
+                  <label class="form-label">Notes</label>
+                  <textarea v-model="clientForm.notes" class="form-control" rows="3"></textarea>
+                </div>
+
+                <!-- Contacts Section -->
+                <div class="col-md-12">
+                  <hr>
+                  <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h6 class="mb-0">Contacts</h6>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" @click="addContactToForm">
+                      <i class="fa fa-plus me-1"></i>Add Contact
+                    </button>
+                  </div>
+                  <div v-for="(contact, index) in clientForm.contacts" :key="index" class="row g-2 align-items-end mb-2">
+                    <div class="col-md-3">
+                      <label class="form-label">Type</label>
+                      <select v-model="contact.type" class="form-select">
+                        <option v-for="type in contactTypeOptions" :key="type.value" :value="type.value">
+                          {{ type.label }}
+                        </option>
+                      </select>
+                    </div>
+                    <div class="col-md-7">
+                      <label class="form-label">Contact</label>
+                      <input v-model="contact.contact" type="text" class="form-control" />
+                    </div>
+                    <div class="col-md-1">
+                      <div class="form-check">
+                        <input v-model="contact.contactable" type="checkbox" class="form-check-input" :id="`form-contactable-${index}`" />
+                        <label class="form-check-label" :for="`form-contactable-${index}`">Active</label>
+                      </div>
+                    </div>
+                    <div class="col-md-1 d-flex">
+                      <button type="button" class="btn btn-outline-danger btn-sm" @click="removeFormContact(index)">
+                        <i class="fa fa-trash"></i>
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
 
               <div class="d-flex justify-content-end mt-4">
-                <button type="button" class="btn btn-outline-secondary me-2"
-                  @click="closeCategoryAssignModal">Cancel</button>
-                <button type="submit" class="btn btn-primary" :disabled="assigning">
-                  <span v-if="assigning" class="spinner-border spinner-border-sm me-2"></span>
-                  Assign Category
+                <button type="button" class="btn btn-outline-secondary me-2" @click="closeEditModal">Cancel</button>
+                <button type="submit" class="btn btn-primary" :disabled="saving">
+                  <span v-if="saving" class="spinner-border spinner-border-sm me-2"></span>
+                  {{ editingClient ? 'Update Client' : 'Create Client' }}
                 </button>
               </div>
             </form>
@@ -417,34 +322,22 @@
       </div>
     </div>
 
-    <div v-if="(showClientModal || showViewModal || showAssignCategoryModal) && !showClientModal"
-      class="modal-backdrop fade show"></div>
+    <div v-if="(showViewModal || showEditModal)" class="modal-backdrop fade show"></div>
   </div>
 </template>
 
 <script setup lang="ts">
 import axios from 'axios'
-import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, onMounted, ref } from 'vue'
 import Swal from 'sweetalert2'
 import handleErrors from '@/stores/bushman/errorHandler'
 import StandardDataTable from '@/components/bootstrap/StandardDataTable.vue'
-import StandardModal from '@/components/plugins/StandardModal.vue'
-import Multiselect from 'vue-multiselect'
-import 'vue-multiselect/dist/vue-multiselect.min.css'
+import Datepicker from '@/components/plugins/Datepicker.vue'
 
 const apiBaseUrl = import.meta.env.VITE_APP_BASE_URL
-const accountsBaseUrl = import.meta.env.VITE_APP_ACCOUNTS_BASE_URL || apiBaseUrl
-const accountsEndpoint = import.meta.env.VITE_APP_ACCOUNTS_COMPANY_VSET_URL
-const countriesEndpoint = import.meta.env.VITE_APP_COUNTRIES_URL
-const currenciesEndpoint = import.meta.env.VITE_APP_CURRENCIES_URL
-const clientMetadataEndpoint = 'client-metadata'
-
-const router = useRouter()
 
 const loading = ref(false)
 const saving = ref(false)
-const assigning = ref(false)
 const metadataLoaded = ref(false)
 
 const clients = ref<any[]>([])
@@ -453,29 +346,24 @@ const pagination = ref<any>({ current_page: 1, per_page: 15, total: 0, last_page
 const countries = ref<any[]>([])
 const nationalities = ref<any[]>([])
 const currencies = ref<any[]>([])
-const categories = ref<any[]>([])
-const classificationCategories = ref<any[]>([])
-const accounts = ref<any[]>([])
 const contactTypes = ref<any[]>([])
 const identityTypes = ref<any[]>([])
 const entityTypes = ref<any[]>([])
 const entityStatuses = ref<any[]>([])
+const clientCategoryId = ref<number | null>(null)
 
 const tableFilters = ref<any>({
   search: '',
   status: '',
   country_id: '',
-  business_type: '',
-  active_only: false,
+  type: '',
   limit: 15,
   page: 1
 })
 
 const columns = [
-  { key: 'code', label: 'CODE', sortable: true, visible: true },
   { key: 'full_name', label: 'CLIENT NAME', sortable: true, visible: true },
-  { key: 'business_type', label: 'BUSINESS TYPE', sortable: false, visible: true },
-  { key: 'status', label: 'STATUS', sortable: false, visible: true },
+  { key: 'country', label: 'COUNTRY', sortable: false, visible: true },
   { key: 'contact', label: 'CONTACT', sortable: false, visible: true },
   { key: 'actions', label: 'ACTIONS', sortable: false, visible: true }
 ]
@@ -488,23 +376,6 @@ const formatLabel = (value: string) => {
     .join(' ')
 }
 
-const resolveId = (value: any) => {
-  if (!value) return undefined
-  return typeof value === 'object' ? value.id : value
-}
-
-const findById = (list: any[], value: any) => {
-  if (!value) return null
-  if (typeof value === 'object') return value
-  return list.find((item) => item?.id === value) || null
-}
-
-const currencyLabel = (option: any) => {
-  if (!option) return ''
-  const name = option.name || option.code || ''
-  return option.symbol ? `${name} (${option.symbol})` : name
-}
-
 const contactTypeOptions = computed(() => {
   if (contactTypes.value.length) {
     return contactTypes.value.map((type: any) => ({
@@ -513,29 +384,18 @@ const contactTypeOptions = computed(() => {
     }))
   }
   return [
-    { value: 'email', label: 'Email' },
-    { value: 'phone', label: 'Phone' },
-    { value: 'mobile', label: 'Mobile' },
-    { value: 'fax', label: 'Fax' },
-    { value: 'website', label: 'Website' },
-    { value: 'address', label: 'Address' }
+    { value: 'Email', label: 'Email' },
+    { value: 'Phone', label: 'Phone' },
+    { value: 'Mobile', label: 'Mobile' },
+    { value: 'Fax', label: 'Fax' },
+    { value: 'Website', label: 'Website' }
   ]
 })
 
 const entityTypeOptions = computed(() => {
-  if (entityTypes.value.length) {
-    return entityTypes.value.map((type: any) => {
-      const value = type?.value ?? type?.name ?? type?.code ?? type
-      const label = type?.label ?? type?.display_name ?? formatLabel(String(value || ''))
-      return { value, label }
-    })
-  }
+  // Restrict to INDIVIDUAL only for clients
   return [
-    { value: 'INDIVIDUAL', label: 'Individual' },
-    { value: 'COMPANY', label: 'Company' },
-    { value: 'ESTATE', label: 'Estate' },
-    { value: 'GOVERNMENT', label: 'Government' },
-    { value: 'NGO', label: 'NGO' }
+    { value: 'INDIVIDUAL', label: 'Individual' }
   ]
 })
 
@@ -559,50 +419,17 @@ const identityTypeOptions = computed(() => {
   }))
 })
 
-const entityTypeValues = computed(() => entityTypeOptions.value.map((type: any) => type.value))
-const contactTypeValues = computed(() => contactTypeOptions.value.map((type: any) => type.value))
-const identityTypeValues = computed(() => identityTypeOptions.value.map((type: any) => type.value))
-
-const entityTypeLabelMap = computed(() =>
-  Object.fromEntries(entityTypeOptions.value.map((type: any) => [type.value, type.label]))
-)
-const contactTypeLabelMap = computed(() =>
-  Object.fromEntries(contactTypeOptions.value.map((type: any) => [type.value, type.label]))
-)
-const identityTypeLabelMap = computed(() =>
-  Object.fromEntries(identityTypeOptions.value.map((type: any) => [type.value, type.label]))
-)
-
-const entityTypeLabel = (value: any) =>
-  entityTypeLabelMap.value[value] || formatLabel(String(value || ''))
-const contactTypeLabel = (value: any) =>
-  contactTypeLabelMap.value[value] || formatLabel(String(value || ''))
-const identityTypeLabel = (value: any) =>
-  identityTypeLabelMap.value[value] || formatLabel(String(value || ''))
-
-const accountOptions = computed(() => accounts.value.map((account: any) => account.id))
-const accountLabelMap = computed(() =>
-  Object.fromEntries(
-    accounts.value.map((account: any) => [
-      account.id,
-      `${account.name} (${account.code || account.account_number || '-'})`
-    ])
-  )
-)
-const accountLabel = (value: any) => accountLabelMap.value[value] || ''
-
 const statusFilterOptions = computed(() => {
-  if (entityStatuses.value.length) {
-    return [{ label: 'All Statuses', value: '' }, ...entityStatuses.value]
-  }
   return [
     { label: 'All Statuses', value: '' },
-    { label: 'DRAFT', value: 'DRAFT' },
-    { label: 'PENDING_KYC', value: 'PENDING_KYC' },
-    { label: 'ACTIVE', value: 'ACTIVE' },
-    { label: 'SUSPENDED', value: 'SUSPENDED' },
-    { label: 'BLACKLISTED', value: 'BLACKLISTED' },
-    { label: 'CLOSED', value: 'CLOSED' }
+    ...entityStatusOptions.value
+  ]
+})
+
+const typeFilterOptions = computed(() => {
+  return [
+    { label: 'All Types', value: '' },
+    ...entityTypeOptions.value
   ]
 })
 
@@ -617,36 +444,13 @@ const customFilters = computed(() => [
     key: 'country_id',
     label: 'Country',
     type: 'select',
-    options: countries.value.map((c: any) => ({ label: c.name, value: c.id }))
-  },
-  {
-    key: 'business_type',
-    label: 'Business Type',
-    type: 'select',
-    options: businessTypes.value.map((b: string) => ({ label: b, value: b }))
-  },
-  {
-    key: 'active_only',
-    label: 'Active Only',
-    type: 'select',
     options: [
-      { label: 'All', value: '' },
-      { label: 'Yes', value: true }
+      { label: 'All Countries', value: '' },
+      ...countries.value.map((c: any) => ({ label: c.name, value: c.id }))
     ]
   }
 ])
 
-const openCreateClientPage = () => {
-  // Open the client modal for creating a new client
-  resetClientForm()
-  editingClient.value = null
-  showClientModal.value = true
-  nextTick(() => {
-    clientModalRef.value?.show()
-  })
-}
-
-// Table action buttons (appear next to Filters in StandardDataTable)
 const clientActionButtons = [
   {
     label: 'Refresh',
@@ -658,158 +462,31 @@ const clientActionButtons = [
     label: 'Add Client',
     icon: 'fa fa-plus',
     class: 'btn-primary',
-    method: () => openCreateClientPage()
+    method: () => openCreateModal()
   }
 ]
 
-const showClientModal = ref(false)
 const showViewModal = ref(false)
-const showAssignCategoryModal = ref(false)
-const clientModalRef = ref<any>(null)
-
-const editingClient = ref<any>(null)
+const showEditModal = ref(false)
 const viewClient = ref<any>(null)
+const editingClient = ref<any>(null)
 const activeTab = ref('basic')
 
-const clientForm = reactive<any>({
+const viewContacts = ref<any[]>([])
+const viewIdentities = ref<any[]>([])
+
+const clientForm = ref<any>({
   full_name: '',
-  trading_name: '',
+  nick_name: '',
   code: '',
-  type: 'COMPANY',
-  status: 'ACTIVE',
+  type: 'INDIVIDUAL',
+  status: 'DRAFT',
   country_id: null,
   nationality_id: null,
   base_currency_id: null,
   notes: '',
-  company_profile: {
-    legal_name: '',
-    trading_name: '',
-    registration_no: '',
-    registration_country_id: '',
-    incorporation_date: '',
-    business_type: '',
-    industry_code: '',
-    tax_residency_country_id: null
-  },
-  contacts: [] as Array<{ type: string; contact: string }>
+  contacts: []
 })
-
-const clientCategory = reactive<any>({
-  default_payable_account_id: '',
-  default_receivable_account_id: '',
-  code: '',
-  additional_category_ids: [] as number[]
-})
-
-const viewContacts = ref<any[]>([])
-const viewIdentities = ref<any[]>([])
-const viewCategories = ref<any[]>([])
-
-const categoryColumns = [
-  { key: 'display_name', label: 'CATEGORY', sortable: true, visible: true },
-  { key: 'parent_category', label: 'PARENT CATEGORY', sortable: true, visible: true },
-  { key: 'pivot.code', label: 'CODE', sortable: false, visible: true },
-  { key: 'pivot.effective_from', label: 'EFFECTIVE FROM', sortable: false, visible: true },
-  { key: 'pivot.effective_to', label: 'EFFECTIVE TO', sortable: false, visible: true },
-  { key: 'actions', label: 'ACTIONS', sortable: false, visible: true }
-]
-
-const assignCategoryForm = reactive<any>({
-  category_id: '',
-  default_payable_account_id: '',
-  default_receivable_account_id: '',
-  effective_from: '',
-  effective_to: '',
-  code: '',
-  is_active: true
-})
-
-const businessTypes = computed(() => {
-  const set = new Set<string>()
-  clients.value.forEach((client: any) => {
-    const type = client.company_profile?.business_type
-    if (type) set.add(type)
-  })
-  return Array.from(set).sort()
-})
-
-const clientCategoryId = computed(() => {
-  const preferred = categories.value.find(
-    (c: any) =>
-      c.name === 'Clients' ||
-      c.display_name === 'Clients' ||
-      c.name === 'CLIENTS' ||
-      c.display_name === 'CLIENTS' ||
-      c.name === 'Customers' ||
-      c.display_name === 'Customers' ||
-      c.name === 'CUSTOMERS' ||
-      c.display_name === 'CUSTOMERS' ||
-      c.name === 'CLIENT' ||
-      c.name === 'CUSTOMER'
-  )
-  if (preferred?.id) return preferred.id
-
-  const fallback = categories.value.find(
-    (c: any) => c.code === 'CLI' || c.category_code === 'CLI' || c.code === 'CUST' || c.category_code === 'CUST'
-  )
-  return fallback?.id || 2
-})
-
-const additionalCategories = computed(() =>
-  categories.value.filter((c: any) => c.id !== clientCategoryId.value)
-)
-
-const flatClassificationCategories = computed(() => {
-  if (!classificationCategories.value.length) return additionalCategories.value
-  const flattened: any[] = []
-  const walk = (items: any[]) => {
-    items.forEach((item: any) => {
-      flattened.push(item)
-      if (Array.isArray(item.children) && item.children.length) {
-        walk(item.children)
-      }
-    })
-  }
-  walk(classificationCategories.value)
-  return flattened
-})
-
-const classificationCategoryOptions = computed(() =>
-  flatClassificationCategories.value.map((category: any) => category.id)
-)
-const assignableCategoryOptions = computed(() =>
-  additionalCategories.value.map((category: any) => category.id)
-)
-
-const categoryLabelFromList = (value: any, list: any[]) => {
-  const category = list.find((item: any) => item.id === value)
-  if (!category) return ''
-  const name = category.display_name || category.name || ''
-  const parentId = category.parent_id || category.parent?.id
-  if (!parentId) return name
-  const parent =
-    list.find((item: any) => item.id === parentId) ||
-    categories.value.find((item: any) => item.id === parentId)
-  const parentName = parent?.display_name || parent?.name
-  return parentName ? `${parentName} > ${name}` : name
-}
-
-const classificationCategoryLabel = (value: any) => {
-  const category = flatClassificationCategories.value.find((item: any) => item.id === value)
-  return category?.display_name || category?.name || ''
-}
-const assignableCategoryLabel = (value: any) =>
-  categoryLabelFromList(value, additionalCategories.value)
-
-function getStatusTextColor(status: string): string {
-  const map: Record<string, string> = {
-    ACTIVE: 'text-success',
-    SUSPENDED: 'text-warning',
-    BLACKLISTED: 'text-danger',
-    CLOSED: 'text-secondary'
-  }
-  return map[status] || 'text-info'
-}
 
 const statusBadge = (status: string) => {
   switch (status) {
@@ -828,9 +505,13 @@ const statusBadge = (status: string) => {
 
 const primaryContact = (client: any) => {
   const contacts = client.contacts || []
-  const email = contacts.find((c: any) => c.type === 'email')
-  const phone = contacts.find((c: any) => c.type === 'phone' || c.type === 'mobile')
-  return email?.contact || phone?.contact || '-'
+  const getType = (c: any) => (c.contact_type?.name || c.type || '').toLowerCase()
+
+  // Prefer phone numbers (accepts 'phone', 'phone_number', 'mobile')
+  const phone = contacts.find((c: any) => /phone|mobile/i.test(getType(c)) || (typeof c.contact === 'string' && c.contact.replace(/\D/g, '').length >= 7))
+  const email = contacts.find((c: any) => /email/i.test(getType(c)))
+
+  return phone?.contact || email?.contact || contacts[0]?.contact || '-'
 }
 
 const getAuthHeaders = () => {
@@ -840,50 +521,26 @@ const getAuthHeaders = () => {
   }
 }
 
-const normalizeClientsResponse = (payload: any) => {
-  const paged = payload?.data || payload
-  const items = Array.isArray(paged?.data) ? paged.data : Array.isArray(paged) ? paged : []
-  const mapped = items.map((item: any) => ({
-    id: item.id,
-    code: item.code || item.client_code || item.clientCode || '',
-    full_name: item.full_name || item.client_name || item.name || '',
-    trading_name: item.trading_name || '',
-    business_type: item.business_type || '',
-    status: item.status || 'DRAFT',
-    contact: item.contact || '-'
-  }))
-
-  clients.value = mapped
-  pagination.value = {
-    current_page: paged?.current_page || 1,
-    per_page: paged?.per_page || mapped.length || tableFilters.value.limit,
-    total: paged?.total || mapped.length,
-    last_page: paged?.last_page || 1
-  }
-}
-
 const fetchClients = async () => {
   loading.value = true
   try {
-    // Try dedicated clients endpoint first, fallback to company-entities with category filter
-    let url = `${import.meta.env.VITE_APP_BASE_URL}clients/table-view`
-    let response
-    try {
-      response = await axios.get(url, {
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }
-      })
-    } catch (e) {
-      // Fallback to company-entities with CUSTOMER/CLIENT category filter
-      url = `${import.meta.env.VITE_APP_BASE_URL}company-entities?category=CLIENT,CUSTOMER`
-      response = await axios.get(url, {
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }
-      })
-    }
+    const params: any = { ...tableFilters.value }
+    const response = await axios.get(`${apiBaseUrl}entities/individuals`, {
+      params,
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }
+    })
 
     const data = response.data?.data || response.data
-    // Filter out any entities that have SUPPLIER category (client-side safety)
-    const filtered = filterOutSuppliers(data)
-    normalizeClientsResponse(filtered)
+    const paged = Array.isArray(data) ? { data } : data
+    const items = Array.isArray(paged?.data) ? paged.data : Array.isArray(paged) ? paged : []
+
+    clients.value = items
+    pagination.value = {
+      current_page: paged?.current_page || 1,
+      per_page: paged?.per_page || items.length || tableFilters.value.limit,
+      total: paged?.total || items.length,
+      last_page: paged?.last_page || 1
+    }
   } catch (error: any) {
     handleErrors(error?.response?.data || error)
     Swal.fire({ icon: 'error', title: 'Error', text: 'Failed to load clients' })
@@ -892,59 +549,10 @@ const fetchClients = async () => {
   }
 }
 
-// Helper to filter out entities with SUPPLIER category
-const filterOutSuppliers = (payload: any) => {
-  const paged = payload?.data || payload
-  let items = Array.isArray(paged?.data) ? paged.data : Array.isArray(paged) ? paged : []
-
-  console.debug('[Clients] Before filter:', items.length, 'items')
-  console.debug('[Clients] Sample item:', items[0])
-
-  // Filter out entities that have SUPPLIER in their categories or type
-  items = items.filter((item: any) => {
-    // Check categories array
-    const cats = item.categories || []
-    const hasSupplierCategory = cats.some((c: any) => {
-      const name = (c.name || '').toUpperCase()
-      const displayName = (c.display_name || '').toUpperCase()
-      const code = (c.code || c.category_code || '').toUpperCase()
-      return name.includes('SUPPLIER') || displayName.includes('SUPPLIER') || code === 'SUP'
-    })
-
-    // Check if entity_type or type field indicates supplier
-    const entityType = (item.entity_type || item.type || '').toUpperCase()
-    const isSupplierType = entityType.includes('SUPPLIER')
-
-    // Check code prefix (some systems use SUP- prefix for suppliers)
-    const code = (item.code || '').toUpperCase()
-    const hasSupplierCode = code.startsWith('SUP-') || code.startsWith('SUP/')
-
-    // Check if is_supplier flag exists
-    const isSupplierFlag = item.is_supplier === true || item.isSupplier === true
-
-    const isSupplier = hasSupplierCategory || isSupplierType || hasSupplierCode || isSupplierFlag
-
-    if (isSupplier) {
-      console.debug('[Clients] Filtering out supplier:', item.full_name || item.name, { hasSupplierCategory, isSupplierType, hasSupplierCode, isSupplierFlag })
-    }
-
-    return !isSupplier
-  })
-
-  console.debug('[Clients] After filter:', items.length, 'items')
-
-  // Preserve pagination structure if it exists
-  if (paged?.data) {
-    return { ...paged, data: items }
-  }
-  return items
-}
-
-const fetchClientMetadata = async () => {
+const fetchMetadata = async () => {
   if (metadataLoaded.value) return
   try {
-    // Use supplier-metadata endpoint (same structure as client-metadata)
-    const response = await axios.get(`${apiBaseUrl}supplier-metadata`, {
+    const response = await axios.get(`${apiBaseUrl}entities/creation-metadata`, {
       headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }
     })
     const data = response.data?.data || response.data || {}
@@ -952,86 +560,32 @@ const fetchClientMetadata = async () => {
     countries.value = Array.isArray(data.countries) ? data.countries : []
     nationalities.value = Array.isArray(data.nationalities) ? data.nationalities : []
     currencies.value = Array.isArray(data.currencies) ? data.currencies : []
-    categories.value = Array.isArray(data.categories) ? data.categories : []
-    classificationCategories.value = Array.isArray(data.classification_categories)
-      ? data.classification_categories
-      : []
-    accounts.value = Array.isArray(data.accounts) ? data.accounts : []
     contactTypes.value = Array.isArray(data.contact_types) ? data.contact_types : []
     identityTypes.value = Array.isArray(data.identity_types) ? data.identity_types : []
     entityTypes.value = Array.isArray(data.entity_types) ? data.entity_types : []
     entityStatuses.value = Array.isArray(data.entity_statuses) ? data.entity_statuses : []
-  } catch (error: any) {
-    console.error('Failed to load client metadata', error)
-  } finally {
+
+    // Find CLIENT category
+    const categories = Array.isArray(data.categories) ? data.categories : []
+    const clientCategory = categories.find((c: any) => c.category_code === 'CLIENT' || c.code === 'CLIENT')
+    clientCategoryId.value = clientCategory?.id || null
+
     metadataLoaded.value = true
-  }
-
-  if (!countries.value.length && countriesEndpoint) {
-    await fetchCountries()
-  }
-  if (!currencies.value.length && currenciesEndpoint) {
-    await fetchCurrencies()
-  }
-  if (!categories.value.length) {
-    await fetchCategories()
-  }
-  if (!accounts.value.length) {
-    await fetchAccounts()
-  }
-}
-
-const fetchCountries = async () => {
-  try {
-    const response = await axios.get(`${apiBaseUrl}${countriesEndpoint}`, {
-      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }
-    })
-    const data = response.data?.data || response.data || []
-    countries.value = Array.isArray(data) ? data : []
   } catch (error: any) {
-    console.error('Failed to load countries', error)
-  }
-}
-
-const fetchCurrencies = async () => {
-  try {
-    const response = await axios.get(`${apiBaseUrl}${currenciesEndpoint}`, {
-      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }
-    })
-    const data = response.data?.data || response.data || []
-    currencies.value = Array.isArray(data) ? data : []
-  } catch (error: any) {
-    console.error('Failed to load currencies', error)
-  }
-}
-
-const fetchCategories = async () => {
-  try {
-    const response = await axios.get(`${apiBaseUrl}categories`, {
-      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }
-    })
-    const data = response.data?.data || response.data || []
-    categories.value = Array.isArray(data) ? data : []
-  } catch (error: any) {
-    console.error('Failed to load categories', error)
-  }
-}
-
-const fetchAccounts = async () => {
-  if (!accountsEndpoint) return
-  try {
-    const response = await axios.get(`${accountsBaseUrl}${accountsEndpoint}`, {
-      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }
-    })
-    const data = response.data?.data || response.data || []
-    accounts.value = Array.isArray(data) ? data : []
-  } catch (error: any) {
-    console.error('Failed to load accounts', error)
+    console.error('Failed to load metadata', error)
   }
 }
 
 const handleFiltersUpdate = (filters: any) => {
-  tableFilters.value = { ...tableFilters.value, ...filters }
+  const merged = { ...tableFilters.value, ...filters }
+  const customKeys = customFilters.value.map((f: any) => f.key)
+  customKeys.forEach((k: string) => {
+    if (!(k in filters)) {
+      merged[k] = ''
+    }
+  })
+  if (!('search' in filters)) merged.search = ''
+  tableFilters.value = merged
   fetchClients()
 }
 
@@ -1040,154 +594,104 @@ const handlePageChange = (page: number) => {
   fetchClients()
 }
 
-const resetClientForm = () => {
-  clientForm.full_name = ''
-  clientForm.trading_name = ''
-  clientForm.code = ''
-  clientForm.type = 'COMPANY'
-  clientForm.status = 'ACTIVE'
-  clientForm.country_id = null
-  clientForm.nationality_id = null
-  clientForm.base_currency_id = null
-  clientForm.notes = ''
-  clientForm.company_profile = {
-    legal_name: '',
-    trading_name: '',
-    registration_no: '',
-    registration_country_id: '',
-    incorporation_date: '',
-    business_type: '',
-    industry_code: '',
-    tax_residency_country_id: null
+const openViewModal = async (client: any) => {
+  showViewModal.value = true
+  activeTab.value = 'basic'
+  try {
+    const response = await axios.get(`${apiBaseUrl}entities/${client.id}`, {
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }
+    })
+    viewClient.value = response.data?.data || response.data || client
+    viewContacts.value = viewClient.value.contacts || []
+    viewIdentities.value = viewClient.value.identities || []
+  } catch (error: any) {
+    console.error('Failed to load client details', error)
+    viewClient.value = client
+    viewContacts.value = client.contacts || []
+    viewIdentities.value = client.identities || []
   }
-  clientForm.contacts = []
-
-  clientCategory.default_payable_account_id = ''
-  clientCategory.default_receivable_account_id = ''
-  clientCategory.code = ''
-  clientCategory.additional_category_ids = []
 }
 
-const openClientModal = (client?: any) => {
-  resetClientForm()
-  editingClient.value = client || null
+const closeViewModal = () => {
+  showViewModal.value = false
+  viewClient.value = null
+  viewContacts.value = []
+  viewIdentities.value = []
+}
 
-  if (client) {
-    clientForm.full_name = client.full_name || ''
-    clientForm.trading_name = client.trading_name || ''
-    clientForm.code = client.code || ''
-    clientForm.type = client.type || 'COMPANY'
-    clientForm.status = 'ACTIVE'
+const openCreateModal = () => {
+  editingClient.value = null
+  clientForm.value = {
+    full_name: '',
+    nick_name: '',
+    code: '',
+    type: 'INDIVIDUAL',
+    status: 'DRAFT',
+    country_id: null,
+    nationality_id: null,
+    base_currency_id: null,
+    notes: '',
+    contacts: []
+  }
+  showEditModal.value = true
+}
 
-    const countryId = client.country_id ?? client.country?.id
-    const nationalityId = client.nationality_id ?? client.nationality?.id
-    const currencyId = client.base_currency_id ?? client.base_currency?.id
-    const taxResidencyId = client.company_profile?.tax_residency_country_id ?? client.company_profile?.tax_residency_country?.id
-
-    clientForm.country_id = findById(countries.value, countryId) || null
-    clientForm.nationality_id = findById(nationalities.value, nationalityId) || null
-    clientForm.base_currency_id = findById(currencies.value, currencyId) || null
-    clientForm.notes = client.notes || ''
-    clientForm.company_profile = {
-      legal_name: client.company_profile?.legal_name || '',
-      trading_name: client.company_profile?.trading_name || '',
-      registration_no: client.company_profile?.registration_no || '',
-      registration_country_id: client.company_profile?.registration_country_id || '',
-      incorporation_date: client.company_profile?.incorporation_date || '',
-      business_type: client.company_profile?.business_type || '',
-      industry_code: client.company_profile?.industry_code || '',
-      tax_residency_country_id: findById(countries.value, taxResidencyId) || null
+const openEditModal = async (client: any) => {
+  editingClient.value = client
+  try {
+    const response = await axios.get(`${apiBaseUrl}entities/${client.id}`, {
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }
+    })
+    const data = response.data?.data || response.data || client
+    clientForm.value = {
+      full_name: data.full_name || '',
+      nick_name: data.nick_name || '',
+      code: data.code || '',
+      type: 'INDIVIDUAL',
+      status: data.status || 'DRAFT',
+      country_id: data.country_id || data.country?.id || null,
+      nationality_id: data.nationality_id || data.nationality?.id || null,
+      base_currency_id: data.base_currency_id || data.base_currency?.id || null,
+      notes: data.notes || '',
+      contacts: (data.contacts || []).map((c: any) => ({
+        type: c.type || c.contact_type?.name || 'Email',
+        contact: c.contact || '',
+        contactable: c.contactable ?? true
+      }))
     }
-    clientForm.contacts = (client.contacts || []).map((c: any) => ({ type: c.type, contact: c.contact }))
-
-    const clientCat = (client.categories || []).find((c: any) => c.id === clientCategoryId.value)
-    clientCategory.default_payable_account_id = clientCat?.pivot?.default_payable_account_id || ''
-    clientCategory.default_receivable_account_id = clientCat?.pivot?.default_receivable_account_id || ''
-    clientCategory.code = clientCat?.pivot?.code || ''
-    clientCategory.additional_category_ids = (client.categories || [])
-      .filter((c: any) => c.id !== clientCategoryId.value)
-      .map((c: any) => c.id)
+    showEditModal.value = true
+  } catch (error: any) {
+    console.error('Failed to load client for editing', error)
+    Swal.fire({ icon: 'error', title: 'Error', text: 'Failed to load client details' })
   }
-
-  showClientModal.value = true
-  nextTick(() => {
-    clientModalRef.value?.show()
-  })
 }
 
-const closeClientModal = () => {
-  clientModalRef.value?.hide()
-}
-
-const handleClientModalHidden = () => {
-  showClientModal.value = false
+const closeEditModal = () => {
+  showEditModal.value = false
   editingClient.value = null
 }
 
-const buildCategoryPayload = () => {
-  const basePayload: any[] = [
-    {
-      category_id: clientCategoryId.value,
-      default_payable_account_id: clientCategory.default_payable_account_id || undefined,
-      default_receivable_account_id: clientCategory.default_receivable_account_id || undefined,
-      is_active: true,
-      code: clientCategory.code || undefined
-    }
-  ]
-
-  clientCategory.additional_category_ids.forEach((id: number) => {
-    basePayload.push({ category_id: id, is_active: true })
-  })
-
-  return basePayload
-}
-
 const saveClient = async () => {
-  if (classificationCategories.value.length && !clientCategory.additional_category_ids.length) {
-    Swal.fire({
-      icon: 'warning',
-      title: 'Classification Required',
-      text: 'Please select at least one classification category.'
-    })
-    return
-  }
-
   saving.value = true
   try {
-    const payload: any = {
-      full_name: clientForm.full_name,
-      trading_name: clientForm.trading_name || undefined,
-      code: clientForm.code || undefined,
-      type: clientForm.type || 'COMPANY',
-      status: 'ACTIVE',
-      country_id: resolveId(clientForm.country_id),
-      nationality_id: resolveId(clientForm.nationality_id),
-      base_currency_id: resolveId(clientForm.base_currency_id),
-      notes: clientForm.notes || undefined,
-      categories: buildCategoryPayload(),
-      contacts: clientForm.contacts.filter((c: any) => c.contact)
+    const payload = {
+      ...clientForm.value,
+      category_id: clientCategoryId.value
     }
 
-    if (clientForm.type === 'COMPANY') {
-      payload.company_profile = {
-        ...clientForm.company_profile,
-        tax_residency_country_id: resolveId(clientForm.company_profile.tax_residency_country_id)
-      }
-    }
-
-    if (editingClient.value?.id) {
-      await axios.put(`${apiBaseUrl}company-entities/${editingClient.value.id}`, payload, {
+    if (editingClient.value) {
+      await axios.put(`${apiBaseUrl}entities/${editingClient.value.id}`, payload, {
         headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }
       })
       Swal.fire({ icon: 'success', title: 'Updated', text: 'Client updated successfully' })
     } else {
-      await axios.post(`${apiBaseUrl}company-entities`, payload, {
+      await axios.post(`${apiBaseUrl}entities`, payload, {
         headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }
       })
       Swal.fire({ icon: 'success', title: 'Created', text: 'Client created successfully' })
     }
 
-    closeClientModal()
+    closeEditModal()
     fetchClients()
   } catch (error: any) {
     const errors = handleErrors(error?.response?.data || error)
@@ -1197,49 +701,34 @@ const saveClient = async () => {
   }
 }
 
-const openViewModal = async (client: any) => {
-  showViewModal.value = true
-  activeTab.value = 'basic'
+const confirmDelete = async (client: any) => {
+  const result = await Swal.fire({
+    title: 'Delete Client?',
+    text: `Are you sure you want to delete ${client.full_name}?`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'Yes, delete it',
+    cancelButtonText: 'Cancel',
+    confirmButtonColor: '#dc3545'
+  })
+
+  if (!result.isConfirmed) return
+
   try {
-    const response = await axios.get(`${apiBaseUrl}company-entities/${client.id}`, {
+    await axios.delete(`${apiBaseUrl}entities/${client.id}`, {
       headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }
     })
-    viewClient.value = response.data?.data || response.data || client
-    viewContacts.value = (viewClient.value.contacts || []).map((c: any) => ({ ...c }))
-    viewIdentities.value = (viewClient.value.identities || []).map((i: any) => ({
-      ...i,
-      dates: i.dates || {}
-    }))
-    viewCategories.value = viewClient.value.categories || []
+    Swal.fire({ icon: 'success', title: 'Deleted', text: 'Client deleted successfully' })
+    fetchClients()
   } catch (error: any) {
-    console.error('Failed to load client details', error)
-    viewClient.value = client
-    viewContacts.value = client.contacts || []
-    viewIdentities.value = client.identities || []
-    viewCategories.value = client.categories || []
+    const errors = handleErrors(error?.response?.data || error)
+    Swal.fire({ icon: 'error', title: 'Error', text: errors?.[0] || 'Failed to delete client' })
   }
 }
 
-const closeViewModal = () => {
-  showViewModal.value = false
-  viewClient.value = null
-  viewContacts.value = []
-  viewIdentities.value = []
-  viewCategories.value = []
-}
-
-const addContact = () => {
-  const fallbackType = contactTypeOptions.value[0]?.value || 'email'
-  clientForm.contacts.push({ type: fallbackType, contact: '' })
-}
-
-const removeContact = (index: number) => {
-  clientForm.contacts.splice(index, 1)
-}
-
 const addContactToView = () => {
-  const fallbackType = contactTypeOptions.value[0]?.value || 'email'
-  viewContacts.value.push({ type: fallbackType, contact: '' })
+  const fallbackType = contactTypeOptions.value[0]?.value || 'Email'
+  viewContacts.value.push({ type: fallbackType, contact: '', contactable: true })
 }
 
 const removeViewContact = (index: number) => {
@@ -1253,7 +742,7 @@ const saveContacts = async () => {
     const payload = {
       contacts: viewContacts.value.filter((c: any) => c.contact)
     }
-    await axios.put(`${apiBaseUrl}company-entities/${viewClient.value.id}`, payload, {
+    await axios.put(`${apiBaseUrl}entities/${viewClient.value.id}`, payload, {
       headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }
     })
     Swal.fire({ icon: 'success', title: 'Updated', text: 'Contacts updated' })
@@ -1271,14 +760,14 @@ const addIdentityRow = () => {
     identity_type_id: '',
     identity_number: '',
     issued_date: '',
-    dates: { expire_date: '', issuing_country_id: '', issuing_authority: '' }
+    expire_date: ''
   })
 }
 
 const removeIdentityRow = async (index: number, identity: any) => {
   if (identity?.id && viewClient.value?.id) {
     try {
-      await axios.delete(`${apiBaseUrl}company-entities/${viewClient.value.id}/identities/${identity.id}`, {
+      await axios.delete(`${apiBaseUrl}entities/${viewClient.value.id}/identities/${identity.id}`, {
         headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }
       })
       Swal.fire({ icon: 'success', title: 'Removed', text: 'Identity removed' })
@@ -1298,7 +787,7 @@ const saveIdentities = async () => {
     const createPromises = viewIdentities.value
       .filter((i: any) => !i.id && i.identity_number)
       .map((identity: any) =>
-        axios.post(`${apiBaseUrl}company-entities/${viewClient.value.id}/identities`, identity, {
+        axios.post(`${apiBaseUrl}entities/${viewClient.value.id}/identities`, identity, {
           headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }
         })
       )
@@ -1313,87 +802,17 @@ const saveIdentities = async () => {
   }
 }
 
-const openCategoryAssignModal = () => {
-  assignCategoryForm.category_id = ''
-  assignCategoryForm.default_payable_account_id = ''
-  assignCategoryForm.default_receivable_account_id = ''
-  assignCategoryForm.effective_from = ''
-  assignCategoryForm.effective_to = ''
-  assignCategoryForm.code = ''
-  assignCategoryForm.is_active = true
-  showAssignCategoryModal.value = true
+const addContactToForm = () => {
+  const fallbackType = contactTypeOptions.value[0]?.value || 'Email'
+  clientForm.value.contacts.push({ type: fallbackType, contact: '', contactable: true })
 }
 
-const closeCategoryAssignModal = () => {
-  showAssignCategoryModal.value = false
+const removeFormContact = (index: number) => {
+  clientForm.value.contacts.splice(index, 1)
 }
-
-const assignCategory = async () => {
-  if (!viewClient.value?.id || !assignCategoryForm.category_id) return
-  assigning.value = true
-  try {
-    await axios.post(`${apiBaseUrl}company-entities/${viewClient.value.id}/categories`, assignCategoryForm, {
-      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }
-    })
-    Swal.fire({ icon: 'success', title: 'Assigned', text: 'Category assigned' })
-    closeCategoryAssignModal()
-    openViewModal(viewClient.value)
-  } catch (error: any) {
-    const errors = handleErrors(error?.response?.data || error)
-    Swal.fire({ icon: 'error', title: 'Error', text: errors?.[0] || 'Failed to assign category' })
-  } finally {
-    assigning.value = false
-  }
-}
-
-const removeCategory = async (category: any) => {
-  if (!viewClient.value?.id) return
-  try {
-    await axios.delete(`${apiBaseUrl}company-entities/${viewClient.value.id}/categories/${category.id}`, {
-      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }
-    })
-    Swal.fire({ icon: 'success', title: 'Removed', text: 'Category removed' })
-    openViewModal(viewClient.value)
-  } catch (error: any) {
-    const errors = handleErrors(error?.response?.data || error)
-    Swal.fire({ icon: 'error', title: 'Error', text: errors?.[0] || 'Failed to remove category' })
-  }
-}
-
-const toggleStatus = async (client: any) => {
-  const nextStatus = client.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE'
-  const result = await Swal.fire({
-    title: 'Update Status?',
-    text: `Change status to ${nextStatus}?`,
-    icon: 'warning',
-    showCancelButton: true,
-    confirmButtonText: 'Yes',
-    cancelButtonText: 'Cancel'
-  })
-
-  if (!result.isConfirmed) return
-
-  try {
-    await axios.patch(`${apiBaseUrl}company-entities/${client.id}/status`, { status: nextStatus }, {
-      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }
-    })
-    Swal.fire({ icon: 'success', title: 'Updated', text: 'Status updated' })
-    fetchClients()
-  } catch (error: any) {
-    const errors = handleErrors(error?.response?.data || error)
-    Swal.fire({ icon: 'error', title: 'Error', text: errors?.[0] || 'Failed to update status' })
-  }
-}
-
-watch(
-  () => tableFilters.value.limit,
-  () => {
-    tableFilters.value.page = 1
-  }
-)
 
 onMounted(() => {
-  fetchClientMetadata()
+  fetchMetadata()
   fetchClients()
 })
 </script>
@@ -1415,29 +834,23 @@ onMounted(() => {
   cursor: pointer;
 }
 
-/* Table badge hover effects */
-.badge.cursor-pointer {
-  transition: all 0.2s ease;
-}
-
-.badge.cursor-pointer:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  opacity: 0.9;
-}
-
-/* Table row hover */
-:deep(tbody tr) {
-  transition: background-color 0.2s ease;
-}
-
-:deep(tbody tr:hover) {
-  background-color: rgba(0, 0, 0, 0.02);
-}
-
-/* Action button hover */
 :deep(.btn-outline-primary:hover) {
   transform: scale(1.05);
   transition: transform 0.2s ease;
+}
+
+/* Breadcrumb uppercase and spacing */
+.breadcrumbs-uppercase,
+.breadcrumbs-uppercase .breadcrumb-item,
+.breadcrumbs-uppercase a {
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  font-weight: 600;
+}
+
+.breadcrumb-row {
+  margin-top: 0.25rem;
+  margin-bottom: 0.4rem;
+  padding-top: 0;
 }
 </style>

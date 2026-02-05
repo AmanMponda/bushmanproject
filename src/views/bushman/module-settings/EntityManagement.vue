@@ -2,14 +2,13 @@
   <div class="entity-management-page">
     <div class="d-flex align-items-center mb-3">
       <div>
-        <ul class="breadcrumb">
-          <li class="breadcrumb-item"><a href="#">System Configuration</a></li>
-          <li class="breadcrumb-item active">Entity Management</li>
+        <ul class="breadcrumb breadcrumbs-uppercase">
+          <li class="breadcrumb-item active">PARTIES</li>
         </ul>
       </div>
     </div>
 
-    <div class="row layout-top-spacing bg-white rounded">
+    <div class="row bg-white rounded">
       <div class="col-xl-12 col-lg-12 col-sm-12 layout-spacing">
         <div class="panel br-6 p-0">
           <!-- Tabs Navigation -->
@@ -17,12 +16,12 @@
             <ul class="nav nav-tabs overflow-auto flex-nowrap compact-tabs compact-tabs-left">
               <li class="nav-item">
                 <a href="#" class="nav-link" :class="{ active: activeListTab === 'entities' }" @click.prevent="activeListTab = 'entities'">
-                  <i class="fa fa-users me-1"></i>Entities
+                  <i class="fa fa-users me-1"></i>Parties
                 </a>
               </li>
               <li class="nav-item">
                 <a href="#" class="nav-link" :class="{ active: activeListTab === 'categories' }" @click.prevent="activeListTab = 'categories'">
-                  <i class="fa fa-tags me-1"></i>Entity Categories
+                  <i class="fa fa-tags me-1"></i>Party Categories
                 </a>
               </li>
             </ul>
@@ -31,27 +30,6 @@
           <!-- Entities Tab Content -->
           <div v-if="activeListTab === 'entities'" class="custom-table p-3">
             <div class="d-flex justify-content-between align-items-center mb-3">
-              <div>
-                <h2 class="mb-0">Entities</h2>
-                <p class="text-muted mb-0 small">
-                  Manage all entities: Companies, Individuals, Estates, Government entities, and NGOs.
-                </p>
-              </div>
-              <!-- Status summary badges -->
-              <div class="d-flex gap-2">
-                <span class="badge bg-success bg-opacity-20 text-success px-3 py-2">
-                  <i class="fa fa-check-circle me-1"></i>
-                  {{ statusCounts.ACTIVE || 0 }} Active
-                </span>
-                <span class="badge bg-warning bg-opacity-20 text-warning px-3 py-2">
-                  <i class="fa fa-clock me-1"></i>
-                  {{ statusCounts.PENDING_KYC || 0 }} Pending
-                </span>
-                <span class="badge bg-secondary bg-opacity-20 text-secondary px-3 py-2">
-                  <i class="fa fa-file me-1"></i>
-                  {{ statusCounts.DRAFT || 0 }} Draft
-                </span>
-              </div>
             </div>
 
             <StandardDataTable
@@ -70,62 +48,32 @@
               @update:filters="handleFiltersUpdate"
               @page-change="handlePageChange"
             >
-              <template #code="{ row }">
-                <span class="badge bg-primary bg-opacity-20 fs-14px fw-bold text-primary cursor-pointer">
-                  <i class="fa fa-hashtag me-1"></i>
-                  {{ row.code || '-' }}
-                </span>
-              </template>
               <template #full_name="{ row }">
-                <div class="d-flex align-items-center">
-                  <span class="me-2 text-muted">
-                    <i :class="['fa', getTypeIcon(row.type)]"></i>
-                  </span>
-                  <div>
-                    <span class="fw-semibold">{{ row.full_name || '-' }}</span>
-                    <div v-if="row.trading_name" class="small text-muted">
-                      {{ row.trading_name }}
-                    </div>
+                <div>
+                  <span class="fw-semibold">{{ row.full_name || '-' }}</span>
+                  <div v-if="row.trading_name" class="small">
+                    {{ row.trading_name }}
                   </div>
                 </div>
               </template>
               <template #type="{ row }">
-                <span class="badge bg-info bg-opacity-20 text-info">
-                  <i :class="['fa me-1', getTypeIcon(row.type)]"></i>
-                  {{ row.type || '-' }}
-                </span>
+                <span>{{ row.type || '-' }}</span>
               </template>
               <template #status="{ row }">
-                <span 
-                  class="badge cursor-pointer" 
-                  :class="`bg-${getStatusColor(row.status)} bg-opacity-20 text-${getStatusColor(row.status)}`"
-                  @click="openStatusModal(row)"
-                  title="Click to change status"
-                >
+                <span @click="openStatusModal(row)" title="Click to change status" style="cursor: pointer;">
                   {{ row.status || 'DRAFT' }}
                 </span>
               </template>
               <template #country="{ row }">
-                <span class="text-muted">
-                  {{ row.country?.name || row.country_name || '-' }}
-                </span>
+                <span>{{ row.country?.name || row.country_name || '-' }}</span>
               </template>
               <template #categories="{ row }">
-                <div class="d-flex flex-wrap gap-1">
-                  <span 
-                    v-for="cat in (row.categories || []).slice(0, 2)" 
-                    :key="cat.id" 
-                    class="badge bg-secondary bg-opacity-20 text-dark"
-                  >
-                    {{ cat.name }}
+                <div>
+                  <span v-if="(row.categories || []).length">
+                    {{ (row.categories || []).slice(0,2).map((c: any) => c.name).join(', ') }}
+                    <span v-if="(row.categories || []).length > 2"> +{{ row.categories.length - 2 }}</span>
                   </span>
-                  <span 
-                    v-if="(row.categories || []).length > 2" 
-                    class="badge bg-secondary bg-opacity-20 text-muted"
-                  >
-                    +{{ row.categories.length - 2 }}
-                  </span>
-                  <span v-if="!(row.categories || []).length" class="text-muted">--</span>
+                  <span v-else>--</span>
                 </div>
               </template>
               <template #actions="{ row }">
@@ -133,7 +81,7 @@
                   <button class="btn btn-outline-primary btn-sm" @click="openViewModal(row)" title="View Details">
                     <i class="fa fa-eye"></i>
                   </button>
-                  <button class="btn btn-outline-secondary btn-sm" @click="openEntityModal(row)" title="Edit">
+                  <button class="btn btn-outline-secondary btn-sm" @click="router.push({ name: 'entity-edit', params: { id: row.id } })" title="Edit">
                     <i class="fa fa-edit"></i>
                   </button>
                   <button class="btn btn-outline-danger btn-sm" @click="confirmDelete(row)" title="Delete">
@@ -146,12 +94,12 @@
 
           <!-- Categories Tab Content -->
           <div v-else class="custom-table p-3">
-            <div class="mb-3">
+            <!-- <div class="mb-3">
               <h2 class="mb-0">Entity Categories</h2>
               <p class="text-muted mb-0 small">
                 Create, update, and manage categories used to classify entities.
               </p>
-            </div>
+            </div> -->
 
             <StandardDataTable
               ref="categoryTableRef"
@@ -177,15 +125,9 @@
                   </button>
                   <span v-else style="width: 20px; display: inline-block;" class="me-2"></span>
                   
-                  <span v-if="row.level === 0" class="badge bg-warning bg-opacity-20 text-warning me-2">
-                    <i class="fa fa-layer-group"></i>
-                  </span>
-                  <span v-else-if="row.level === 1" class="me-2 text-primary">
-                    <i class="fa fa-arrow-turn-down-right"></i>
-                  </span>
-                  <span v-else class="me-2 text-muted" style="opacity: 0.6;">
-                    <i class="fa fa-arrow-turn-down-right"></i>
-                  </span>
+                  <span v-if="row.level === 0" class="me-2">Root</span>
+                  <span v-else-if="row.level === 1" class="me-2">Level 1</span>
+                  <span v-else class="me-2" style="opacity: 0.6;">Level {{ row.level }}</span>
                   <span class="fw-semibold">{{ row.name }}</span>
                 </div>
               </template>
@@ -198,10 +140,8 @@
                 </div>
               </template>
               <template #children_count="{ row }">
-                <span v-if="row.children_count > 0" class="badge bg-primary bg-opacity-20 text-primary">
-                  {{ row.children_count }} subcategories
-                </span>
-                <span v-else class="text-muted">--</span>
+                <span v-if="row.children_count > 0">{{ row.children_count }} subcategories</span>
+                <span v-else>--</span>
               </template>
               <template #actions="{ row }">
                 <div class="d-flex gap-1">
@@ -974,7 +914,7 @@
 
       <template #footer>
         <button type="button" class="btn btn-outline-secondary" @click="closeViewModal">Close</button>
-        <button type="button" class="btn btn-primary" @click="openEntityModal(viewEntity)">
+        <button v-if="viewEntity" type="button" class="btn btn-primary" @click="router.push({ name: 'entity-edit', params: { id: viewEntity.id } })">
           <i class="fa fa-edit me-1"></i>Edit Entity
         </button>
       </template>
@@ -1085,6 +1025,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import Swal from 'sweetalert2'
 import axios from 'axios'
 import handleErrors from '@/stores/bushman/errorHandler'
@@ -1109,6 +1050,9 @@ import {
   getStatusColor,
   getTypeIcon
 } from '@/types/entity'
+
+// Router
+const router = useRouter()
 
 // State
 const loading = ref(false)
@@ -1182,7 +1126,6 @@ const statusCounts = computed(() => {
 
 // Columns
 const columns = [
-  { key: 'code', label: 'CODE', sortable: true, visible: true },
   { key: 'full_name', label: 'NAME', sortable: true, visible: true },
   { key: 'type', label: 'TYPE', sortable: true, visible: true },
   { key: 'status', label: 'STATUS', sortable: true, visible: true },
@@ -1343,7 +1286,7 @@ const pageActions = computed(() => [
     label: 'Add Entity',
     icon: 'fa fa-plus',
     class: 'btn btn-primary',
-    method: () => openEntityModal()
+    method: () => router.push({ name: 'entity-create' })
   },
   {
     label: 'Filters',
@@ -2147,7 +2090,20 @@ onMounted(async () => {
 
 .entity-management-page .custom-table {
   border-radius: 12px;
+  /* reduce internal top padding so table sits closer to breadcrumb */
+  padding-top: 0.5rem !important;
 }
+
+/* Reduce top spacing between breadcrumb and data table */
+.entity-management-page > .d-flex.align-items-center.mb-3 {
+  margin-bottom: 0.15rem !important;
+}
+
+/* Override global layout spacing for this page */
+.entity-management-page .row.layout-top-spacing {
+  margin-top: 0.4rem !important;
+}
+
 
 .modal-backdrop {
   z-index: 1040;

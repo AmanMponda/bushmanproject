@@ -355,7 +355,7 @@ export const useAppSidebarMenuStore = defineStore("appSidebarMenu", () => {
       text: 'Sales',
       permission: 'CAN_VIEW_SALES',
       children: [
-      
+        { url: '/sales/clients', icon: 'fa fa-users', text: 'Clients', permission: 'CAN_VIEW_SALES' },
         { url: '/sales/quotas', icon: 'fa fa-star-half', text: 'Sales Quotas', permission: 'CAN_VIEW_SALES_QUOTAS' },
         { url: '/sales/sales-calendar', icon: 'fa fa-calendar', text: 'Sales Calendar', permission: 'CAN_VIEW_CALENDAR' },
         { url: '/sales/sales-pipeline', icon: 'fa fa-project-diagram', text: 'Sales Pipeline', permission: 'CAN_VIEW_SALES_PIPELINE' },
@@ -415,6 +415,14 @@ export const useAppSidebarMenuStore = defineStore("appSidebarMenu", () => {
         { url: '/accounting/chart-of-accounts', icon: 'fa fa-book', text: 'Chart of Accounts', permission: 'CAN_VIEW_ACCOUNTS' },
       ]
     },
+
+    {
+      url: '/module-settings/entities',
+      icon: 'fa fa-user-tag',
+      text: 'Parties',
+      permission: 'CAN_VIEW_MODULE_SETTINGS'
+    },
+
     {
       url: '/hr',
       icon: 'fa fa-users',
@@ -491,7 +499,7 @@ export const useAppSidebarMenuStore = defineStore("appSidebarMenu", () => {
         { url: '/module-settings/species-settings/species', text: 'Species', permission: 'CAN_VIEW_SPECIES_SETTINGS' },
         { url: '/module-settings/area-settings', text: 'Hunting Areas', permission: 'CAN_VIEW_AREA_SETTINGS' },
         { url: '/module-settings/hunting-types', text: 'Hunting Types', permission: 'CAN_VIEW_HUNTING_TYPES' },
-        { url: '/module-settings/entities', text: 'Entity Management', permission: 'CAN_VIEW_MODULE_SETTINGS' },
+        { url: '/module-settings/seasons', text: 'Seasons', permission: 'CAN_VIEW_SETTINGS' },
         // { url: '/module-settings/installment-setups', text: 'Installment Setups', permission: 'CAN_VIEW_MODULE_SETTINGS' },
         { url: '/module-settings/sales-package', text: 'Sales Package', permission: 'CAN_VIEW_SALES_PACKAGE' },
       ],
