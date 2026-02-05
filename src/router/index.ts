@@ -124,6 +124,13 @@ const router = createRouter({
       component: BushmanFleetMasterPdf,
       meta: { requiresAuth: true }
     },
+    // Dynamic details route - supports deep-linking to either registration or numeric id
+    {
+      path: "/bushman/assets/fleet-master/:id",
+      name: "bushman-fleet-master-details",
+      component: BushmanFleetMaster,
+      meta: { requiresAuth: true }
+    },
     {
       path: "/bushman/assets/location-history",
       name: "bushman-location-history",
@@ -143,6 +150,12 @@ const router = createRouter({
       component: SalesQuotas,
       meta: { requiresAuth: true }
     },
+    // {
+    //   path: "/sales/clients",
+    //   name: "sales-clients",
+    //   component: SalesClients,
+    //   meta: { requiresAuth: true }
+    // },
     {
       path: "/sales/sales-pipeline",
       name: "Sales-pipeline",

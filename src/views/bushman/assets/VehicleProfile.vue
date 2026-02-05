@@ -1,19 +1,6 @@
 <template>
   <div class="vehicle-profile-page">
-    <!-- Breadcrumb (shows vehicle details at the top in UPPERCASE) -->
-    <div class="d-flex justify-content-between align-items-center mb-3">
-      <ol class="breadcrumb mb-0">
-        <li class="breadcrumb-item">OPERATIONS</li>
-        <li class="breadcrumb-item">
-          <router-link to="/abs/fleet/vehicle-services">FLEET MASTER</router-link>
-        </li>
-        <li class="breadcrumb-item active">{{ vehicle.name ? vehicle.name.toUpperCase() : 'SELECT A VEHICLE' }}</li>
-      </ol>
-      <!-- Back button kept in header too for convenience -->
-      <button @click="emit('back')" class="btn btn-outline-secondary text-nowrap btn-sm px-3 rounded-pill">
-        <i class="fa fa-arrow-left me-1"></i> BACK
-      </button>
-    </div>
+    <!-- Breadcrumb removed: parent view (`FleetMaster`) provides breadcrumbs to avoid duplication -->
 
     <div class="row">
       <div class="col-lg-12">
@@ -22,11 +9,11 @@
           <div class="card-header d-flex align-items-center bg-light fw-400">
             <div class="d-flex align-items-center">
               <div class="vehicle-icon me-2">
-                <i class="fa fa-bus fa-3x text-primary"></i>
+                <i :class="[vehicleIconClass, 'fa-3x text-primary']"></i>
               </div>
               <div>
                 <h4 class="mb-0">
-                  {{ vehicleUuid ? vehicle.name || "Loading..." : "Select a Vehicle" }}
+                  {{ vehicleUuid ? (vehicle.registration_number || (vehicle.name ? vehicle.name.toUpperCase() : "Loading...")) : "Select a Vehicle" }}
                 </h4>
                 <small class="text-muted">
                 </small>
@@ -34,21 +21,23 @@
             </div>
 
             <div class="ms-auto d-flex align-items-center gap-2">
-              <button @click="emit('back')" class="btn btn-outline-secondary btn-sm" :disabled="!vehicleUuid">
-                <i class="fa fa-arrow-left me-1"></i> Back
-              </button>
+
+              
               <button @click="refreshData" class="btn btn-outline-secondary" :disabled="loading || !vehicleUuid">
                 <i class="fa fa-sync-alt me-1" :class="{ 'fa-spin': loading }"></i>
                 Refresh
               </button>
 
-              <button v-if="permissions.includes('CAN_EDIT_FLEET_VEHICLE')" class="btn btn-outline-primary"
-                :disabled="!vehicleUuid" @click="editVehicleDetails">
-                <span v-if="formDataLoading">
-                  <div class="spinner-border spinner-border-sm text-dark"></div>
-                </span>
-                <span v-else>Edit</span>
+              <button @click="openDocumentsModal" class="btn btn-outline-primary" :disabled="!vehicleUuid">
+                <i class="fa fa-folder-plus me-1"></i>
+                Documents
               </button>
+
+              <!-- v-if="permissions.includes('CAN_EDIT_FLEET_VEHICLE')" commented out to show Edit button for testing -->
+              <button @click="editVehicleDetails" class="btn btn-outline-primary btn-sm" :disabled="!vehicleUuid">
+                <i class="fa fa-edit me-1"></i> Edit
+              </button>
+
 
               <button v-if="permissions.includes('CAN_ADD_FLEET_VEHICLE')" class="btn btn-success btn-sm"
                 :disabled="!vehicleUuid">
@@ -132,7 +121,7 @@
                 <div class="col-md-6">
                   <div class="card">
                     <div class="card-header d-flex justify-content-between">
-                      <span> <i class="fa fa-bus me-2"></i>Bus Seat Layout </span>
+                      <span> <i :class="[vehicleIconClass, 'me-2']"></i>Seat Layout </span>
                       <!-- <button v-if="!editMode" class="btn btn-outline-dark" @click="editMode = true">
                                      <i class="fas fa-setting"></i>Edit Mode</button> -->
 
@@ -349,16 +338,16 @@
                                 class="seat mx-1 d-flex align-items-center justify-content-center " :class="{
                                   'seat-conflict': item.isConflict,
                                   'seat-available': !item.isConflict && !['SPACE', 'TOILET', 'TOI', 'OR', 'DO', 'LET', 'STAFF', ' '].includes(item.label),
-                                  'seat-toilet': ['TOILET', 'TOI'].includes(item.label),
-                                  'seat-door': ['DO', 'DOOR'].includes(item.label),
+                                  'seat-toilet': isBus && ['TOILET', 'TOI'].includes(item.label),
+                                  'seat-door': isBus && ['DO', 'DOOR'].includes(item.label),
                                   'seat-aisle': ([3].includes(item.X) && item.label === ' ') || ['OR', 'LET', ''].includes(item.label)
                                 }">
 
                                 <span v-if="!['SPACE', 'TOILET', 'TOI', 'OR', 'DO', 'LET', 'STAFF', ' '].includes(item.label)"
                                   class="seat-label small">{{ item.label }}</span>
-                                <i v-else-if="['TOILET', 'TOI'].includes(item.label)"
+                                <i v-else-if="isBus && ['TOILET', 'TOI'].includes(item.label)"
                                   class="fas fa-toilet text-info small"></i>
-                                <i v-else-if="['DO', 'DOOR'].includes(item.label)"
+                                <i v-else-if="isBus && ['DO', 'DOOR'].includes(item.label)"
                                   class="fas fa-door-open text-warning small"></i>
                                   
                               </div>
@@ -472,8 +461,8 @@
                             <small>Available</small>
                           </div>
                           <div v-if="!active_inactive" class="d-flex flex-wrap gap-1 small">
-                            <span class="badge bg-info py-1 px-2"><i class="fas fa-toilet me-1"></i>Toilet</span>
-                            <span class="badge bg-warning py-1 px-2"><i class="fas fa-door-open me-1"></i>Door</span>
+                            <span v-if="isBus" class="badge bg-info py-1 px-2"><i class="fas fa-toilet me-1"></i>Toilet</span>
+                            <span v-if="isBus" class="badge bg-warning py-1 px-2"><i class="fas fa-door-open me-1"></i>Door</span>
                           </div>
                           <div v-if="active_inactive" class="d-flex flex-wrap gap-1 small">
                             <span class="badge bg-success py-1 px-2">Currect Active
@@ -537,6 +526,69 @@
                             </div>
                         </div> -->
               </div>
+
+              <!-- Second Row: Documents Section (same structure as Seat Layout) -->
+              <div class="row mt-4">
+                <div class="col-md-6">
+                  <div class="card">
+                    <div class="card-header d-flex justify-content-between">
+                      <span><i class="fa fa-folder-open text-primary me-2"></i>Vehicle Documents</span>
+                      <button class="btn btn-sm btn-outline-primary" @click="openDocumentsModal" :disabled="!vehicleUuid">
+                        <i class="fa fa-plus me-1"></i> Upload
+                      </button>
+                    </div>
+                    <div class="card-body">
+                      <div v-if="!props.vehicleDocuments || props.vehicleDocuments.length === 0" 
+                        class="d-flex justify-content-center align-items-center text-muted" style="height: 150px">
+                        <div class="text-center">
+                          <i class="fa fa-file-alt fa-3x mb-2 text-secondary"></i>
+                          <p class="mb-0 small">No documents uploaded</p>
+                        </div>
+                      </div>
+                      <div v-else class="document-list-container" style="max-height: 300px; overflow-y: auto;">
+                        <div class="row g-2">
+                          <div v-for="doc in props.vehicleDocuments" :key="doc.id" class="col-6">
+                            <div class="card document-card border p-2">
+                              <div class="d-flex align-items-center">
+                                <!-- Document Icon -->
+                                <div class="document-icon me-2">
+                                  <img v-if="props.previewMap && props.previewMap[doc.id] && isImageFile(doc)"
+                                    :src="props.previewMap[doc.id]"
+                                    class="rounded"
+                                    style="width: 40px; height: 40px; object-fit: cover;"
+                                    alt="Preview" />
+                                  <i v-else-if="isPdfFile(doc)" class="fa fa-file-pdf fa-2x text-danger"></i>
+                                  <i v-else class="fa fa-file fa-2x text-secondary"></i>
+                                </div>
+                                <!-- Document Info -->
+                                <div class="flex-grow-1 overflow-hidden">
+                                  <div class="document-name small fw-semibold text-truncate" :title="doc.name">
+                                    {{ doc.name || 'Untitled' }}
+                                  </div>
+                                  <span v-if="doc.expiring_mode === 'DATE_RANGE'" class="badge small" :class="getExpiryBadgeClass(doc)">
+                                    {{ getExpiryLabel(doc) }}
+                                  </span>
+                                  <span v-else class="badge bg-secondary bg-opacity-25 text-secondary small">No Expiry</span>
+                                </div>
+                                <!-- Actions -->
+                                <div class="d-flex gap-1 ms-2">
+                                  <button class="btn btn-sm btn-outline-primary py-0 px-1" @click.stop="viewDocument(doc)" title="View">
+                                    <i class="fa fa-eye"></i>
+                                  </button>
+                                  <button class="btn btn-sm btn-outline-success py-0 px-1" @click.stop="downloadDocument(doc)" title="Download">
+                                    <i class="fa fa-download"></i>
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <slot></slot>
             </div>
 
@@ -570,7 +622,7 @@
               </div>
 
             </div>
-            <div class="tab-pane fade" id="fuels">
+            <div class="tab-pane fade" id="fuel">
               <div class="d-flex flex-column justify-content-center align-items-center text-center"
                 style="height: 300px;">
                 <!-- Image / Icon -->
@@ -613,21 +665,6 @@
                 <!-- Subtext -->
                 <p class="text-muted">This section is still under progress.</p>
               </div>
-            </div>
-            <div class="tab-pane fade" id="more">
-              <div class="d-flex flex-column justify-content-center align-items-center text-center"
-                style="height: 300px;">
-                <!-- Image / Icon -->
-                <img src="https://cdn-icons-png.flaticon.com/512/2910/2910762.png" alt="Coming Soon"
-                  style="width: 100px; height: 100px; object-fit: contain;" class="mb-3">
-
-                <!-- Main Text -->
-                <h2 class="fw-bold">Coming Soon</h2>
-
-                <!-- Subtext -->
-                <p class="text-muted">This section is still under progress.</p>
-              </div>
-
             </div>
           </div>
         </div>
@@ -818,7 +855,7 @@
                     </h6>
                   </div>
                   <div class="card-body p-3 text-center">
-                    <i class="fas fa-bus fa-2x text-muted mb-2"></i>
+                    <i :class="[vehicleIconClass, 'fa-2x text-muted mb-2']"></i>
                     <p class="text-muted small mb-0">
                       No seat map assigned to this vehicle
                     </p>
@@ -860,8 +897,8 @@
                             class="seat mx-1 d-flex align-items-center justify-content-center" :class="{
                               'seat-available': item.type === 'SEAT',
                               'seat-selected': selectedSeat?.id === item.id,
-                              'seat-toilet': item.type === 'TOILET',
-                              'seat-door': item.type === 'DOOR',
+                              'seat-toilet': isBus && item.type === 'TOILET',
+                              'seat-door': isBus && item.type === 'DOOR',
                               'seat-fridge': item.type === 'FRIDGE',
                               'seat-cabinet': item.type === 'CABINET',
                               'seat-aisle':
@@ -871,8 +908,8 @@
                             <span v-if="
                               item.type === 'SEAT' || item.type === 'STAFF'
                             " class="seat-label small">{{ item.label }}</span>
-                            <i v-else-if="item.type === 'TOILET'" class="fas fa-toilet text-info small"></i>
-                            <i v-else-if="item.type === 'DOOR'" class="fas fa-door-open text-warning small"></i>
+                            <i v-else-if="isBus && item.type === 'TOILET'" class="fas fa-toilet text-info small"></i>
+                            <i v-else-if="isBus && item.type === 'DOOR'" class="fas fa-door-open text-warning small"></i>
                             <i v-else-if="item.type === 'FRIDGE'" class="fas fa-snowflake text-info small"></i>
                             <i v-else-if="item.type === 'CABINET'" class="fas fa-archive text-info small"></i>
                           </div>
@@ -907,7 +944,7 @@
                     </h6>
                   </div>
                   <div class="card-body p-3 text-center">
-                    <i class="fas fa-bus fa-2x text-muted mb-2"></i>
+                    <i :class="[vehicleIconClass, 'fa-2x text-muted mb-2']"></i>
                     <p class="text-muted small mb-0">
                       Current seat map: {{ currentSeatMapName }}
                     </p>
@@ -933,6 +970,62 @@
       </div>
     </div>
   </div>
+
+  <!-- Documents Upload Modal (Bootstrap pattern) -->
+  <div v-if="showDocsModal" class="modal-backdrop show"></div>
+  <div v-if="showDocsModal" class="modal show d-block" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Upload Document</h5>
+          <button type="button" class="btn-close" @click="closeDocumentsModal"></button>
+        </div>
+        <form @submit.prevent="submitDocument">
+          <div class="modal-body">
+            <div v-if="docError" class="alert alert-danger">{{ docError }}</div>
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label">Document Name</label>
+                <input v-model="docName" type="text" class="form-control" placeholder="Enter document name" required />
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label">Expiring Mode</label>
+                <select v-model="expiringMode" class="form-select">
+                  <option value="NEVER">NEVER</option>
+                  <option value="DATE_RANGE">DATE RANGE</option>
+                </select>
+              </div>
+
+              <div v-if="expiringMode === 'DATE_RANGE'" class="col-md-6">
+                <label class="form-label">Start Date</label>
+                <input v-model="expStart" type="date" class="form-control" />
+              </div>
+
+              <div v-if="expiringMode === 'DATE_RANGE'" class="col-md-6">
+                <label class="form-label">End Date</label>
+                <input v-model="expEnd" type="date" class="form-control" />
+              </div>
+
+              <div class="col-12">
+                <label class="form-label">File (PDF or Image)</label>
+                <input type="file" @change="onDocFileChange" accept=".pdf,image/*" class="form-control" required />
+                <small class="text-muted">Max size 2 MB</small>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" @click="closeDocumentsModal">Cancel</button>
+            <button type="submit" class="btn btn-primary" :disabled="uploadingDoc">
+              <i class="fa fa-upload me-1" v-if="!uploadingDoc"></i>
+              <i class="fa fa-spinner fa-spin me-1" v-else></i>
+              {{ uploadingDoc ? 'Uploading...' : 'Upload' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -940,6 +1033,8 @@ import { ref, computed, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useAuthStore } from "@/stores/auth";
 import type { VehicleAsset } from '@/services/vehicleAssetService'
+import { useDocumentsStore } from '@/stores/bushman/documents-store'
+import { useToast } from '@/composables/useToast'
 
 const authStore = useAuthStore();
 const permissions = authStore.permissions;
@@ -947,20 +1042,22 @@ const route = useRoute();
 const router = useRouter();
 
 // Props - receive data from parent
-const props = defineProps < {
-  vehicleDetails: VehicleAsset | null
-  vehicleDocuments: any[]
-  uploading: boolean
-  loading: boolean
-  previewMap: Record < number | string, string>
-  seatMapData ?: any[]
-seatMapTypes ?: any[]
-vehicleGroups ?: any[]
-sizeGroups ?: any[]
-models ?: any[]
-formDataLoading ?: boolean
-}> ()
+const props = defineProps<{
+  vehicleDetails: VehicleAsset | null;
+  vehicleDocuments?: any[];
+  uploading?: boolean;
+  loading?: boolean;
+  previewMap?: Record<number | string, string>;
+  seatMapData?: any[];
+  seatMapTypes?: any[];
+  vehicleGroups?: any[];
+  sizeGroups?: any[];
+  models?: any[];
+  formDataLoading?: boolean;
+}>()
 
+
+// Emits - send events to parent
 // Emits - send events to parent
 const emit = defineEmits<{
   (e: 'back'): void
@@ -972,7 +1069,10 @@ const emit = defineEmits<{
   (e: 'upload-document'): void
   (e: 'view-document', doc: any): void
   (e: 'open-image-preview', doc: any): void
-  (e: 'fetch-seat-map', seatMapId: string | number): void
+  (e: 'open-documents'): void
+  (e: 'openSeatMap'): void
+  (e: 'downloadDocument', id: number): void
+  (e: 'fetch-seat-map', seatMapId?: string | number): void
   (e: 'update-vehicle', data: any): void
   (e: 'fetch-form-data'): void
   (e: 'update-seat-map', params: any): void
@@ -1052,11 +1152,28 @@ const vehicleSpecs = computed(() => [
   { label: "Make", key: "make", icon: "fa fa-industry" },
   { label: "Model", key: "model", icon: "fa fa-car" },
   { label: "Year", key: "year", icon: "fa fa-calendar" },
-  { label: "Body Type", key: "bodyType", icon: "fa fa-bus" },
+  { label: "Body Type", key: "bodyType", icon: "fa fa-car" },
   { label: "Fuel Type", key: "fuelType", icon: "fa fa-gas-pump" },
   { label: "Chassis Number", key: "chassisNumber", icon: "fa fa-hashtag" },
   { label: "Cost Center", key: "costCenter", icon: "fa fa-building" },
 ])
+
+// Dynamically choose an icon based on the vehicle body/type (supports bus, truck, motorcycle, van, car)
+const vehicleIconClass = computed(() => {
+  const t = (String(vehicle.value.type || vehicle.value.bodyType || '')).toLowerCase()
+  if (!t) return 'fa fa-car'
+  if (t.includes('bus')) return 'fa fa-bus'
+  if (t.includes('truck') || t.includes('lorry')) return 'fa fa-truck'
+  if (t.includes('motor') || t.includes('motorcycle') || t.includes('motorbike') || t.includes('bike')) return 'fa fa-motorcycle'
+  if (t.includes('van')) return 'fa fa-truck' // fallback to truck icon for van
+  return 'fa fa-car'
+})
+
+// Helpful predicate: true when the underlying vehicle is a bus (used to hide bus-only UI for cars)
+const isBus = computed(() => {
+  const t = (String(vehicle.value.type || vehicle.value.bodyType || '')).toLowerCase()
+  return t.includes('bus')
+})
 
 const formDataLoading = computed(() => props.formDataLoading || false)
 const seatMapType = computed(() => props.seatMapTypes || [])
@@ -1108,12 +1225,6 @@ const tabs = ref([
     key: "workorders",
     label: "Work Orders",
     icon: "fa fa-tasks",
-    permission: "CAN_VIEW_FLEET",
-  },
-  {
-    key: "more",
-    label: "More",
-    icon: "fa fa-ellipsis-h",
     permission: "CAN_VIEW_FLEET",
   },
 ]);
@@ -1394,6 +1505,167 @@ function deleteRow(rowIndex: number) {
 }
 
 // Removed old API code - now using props/emits pattern from parent component
+
+// Documents modal state and helpers (local upload UI)
+const documentsStore = useDocumentsStore()
+const toast = useToast()
+
+const showDocsModal = ref(false)
+const docName = ref('')
+const expiringMode = ref<'NEVER' | 'DATE_RANGE'>('NEVER')
+const expStart = ref('')
+const expEnd = ref('')
+const docFile = ref<File | null>(null)
+const uploadingDoc = ref(false)
+const docError = ref('')
+
+function openDocumentsModal() {
+  resetDocForm()
+  showDocsModal.value = true
+}
+function closeDocumentsModal() {
+  showDocsModal.value = false
+  resetDocForm()
+}
+function resetDocForm() {
+  docName.value = ''
+  expiringMode.value = 'NEVER'
+  expStart.value = ''
+  expEnd.value = ''
+  docFile.value = null
+  uploadingDoc.value = false
+}
+
+function onDocFileChange(e: Event) {
+  const input = e.target as HTMLInputElement
+  docFile.value = input?.files?.[0] ?? null
+}
+
+// Document helper functions
+function isImageFile(doc: any): boolean {
+  const mimeType = doc.mime_type || doc.type || ''
+  const fileName = doc.file_name || doc.name || ''
+  return mimeType.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp)$/i.test(fileName)
+}
+
+function isPdfFile(doc: any): boolean {
+  const mimeType = doc.mime_type || doc.type || ''
+  const fileName = doc.file_name || doc.name || ''
+  return mimeType === 'application/pdf' || /\.pdf$/i.test(fileName)
+}
+
+function getExpiryBadgeClass(doc: any): string {
+  if (!doc.expiring_end) return 'bg-secondary bg-opacity-25 text-secondary'
+  const endDate = new Date(doc.expiring_end)
+  const today = new Date()
+  const daysUntilExpiry = Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+  
+  if (daysUntilExpiry < 0) return 'bg-danger text-white'
+  if (daysUntilExpiry <= 30) return 'bg-warning text-dark'
+  return 'bg-success bg-opacity-25 text-success'
+}
+
+function getExpiryLabel(doc: any): string {
+  if (!doc.expiring_end) return 'No Expiry'
+  const endDate = new Date(doc.expiring_end)
+  const today = new Date()
+  const daysUntilExpiry = Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+  
+  if (daysUntilExpiry < 0) return `Expired ${Math.abs(daysUntilExpiry)} days ago`
+  if (daysUntilExpiry === 0) return 'Expires today'
+  if (daysUntilExpiry <= 30) return `Expires in ${daysUntilExpiry} days`
+  return `Valid until ${endDate.toLocaleDateString()}`
+}
+
+function viewDocument(doc: any) {
+  if (isImageFile(doc)) {
+    emit('open-image-preview', doc)
+  } else {
+    emit('view-document', doc)
+  }
+}
+
+function downloadDocument(doc: any) {
+  emit('downloadDocument', doc.id)
+}
+
+async function submitDocument() {
+  // Start fresh and log what we're about to do
+  docError.value = ''
+  console.debug('[VehicleProfile] submitDocument called', { name: docName.value, fileName: docFile?.value?.name })
+
+  if (!props.vehicleDetails || !props.vehicleDetails.id) {
+    docError.value = 'Select a vehicle first'
+    return
+  }
+  if (!docName.value) {
+    docError.value = 'Document name is required'
+    return
+  }
+  if (!docFile.value) {
+    docError.value = 'Please select a file to upload'
+    return
+  }
+
+  const allowed = ['application/pdf', 'image/jpeg', 'image/png']
+  if (!allowed.includes(docFile.value.type)) {
+    docError.value = 'Allowed file types: PDF, JPG, PNG'
+    return
+  }
+  const maxBytes = 2 * 1024 * 1024
+  if (docFile.value.size > maxBytes) {
+    docError.value = 'File too large. Maximum 2 MB'
+    return
+  }
+
+  uploadingDoc.value = true
+  try {
+    const payload: any = {
+      name: docName.value,
+      code: `vehicle-${props.vehicleDetails.id}`,
+      file: docFile.value,
+      expiring_mode: expiringMode.value
+    }
+    if (expiringMode.value === 'DATE_RANGE') {
+      if (expStart.value) payload.expiring_start = expStart.value
+      if (expEnd.value) payload.expiring_end = expEnd.value
+    }
+
+    console.debug('[VehicleProfile] uploading document payload:', { name: payload.name, code: payload.code, fileName: payload.file?.name, size: payload.file?.size, type: payload.file?.type })
+    const res = await documentsStore.createDocument(payload)
+    console.debug('[VehicleProfile] createDocument response:', res)
+
+    // Accept success when server returns 200 or 201
+    if (res && (res.status === 200 || res.status === 201 || (res.data && res.data.success !== false))) {
+      toast.success('Document uploaded')
+      // Refresh list so preview maps are updated
+      emit('refresh-documents', props.vehicleDetails.id)
+
+      // Try to open newly uploaded doc if server returned it
+      const created = res?.data?.data || res?.data || null
+      if (created && (created.id || (Array.isArray(created) && created[0] && created[0].id))) {
+        const docObj = Array.isArray(created) ? created[0] : created
+        emit('view-document', docObj)
+      }
+
+      // Close only after success
+      closeDocumentsModal()
+    } else {
+      console.warn('[VehicleProfile] unexpected upload response', res)
+      const fallbackMsg = res?.data?.message || 'Upload completed but server response was unexpected'
+      docError.value = typeof fallbackMsg === 'string' ? fallbackMsg : JSON.stringify(fallbackMsg)
+    }
+  } catch (err: any) {
+    console.error('Document upload failed', err)
+    // Try to extract a helpful message
+    const serverMsg = err?.response?.data?.message || err?.response?.data || err?.message || 'Upload failed'
+    docError.value = typeof serverMsg === 'string' ? serverMsg : JSON.stringify(serverMsg)
+    toast.error(docError.value)
+  } finally {
+    uploadingDoc.value = false
+  }
+}
+
 </script>
 
 <style scoped>
@@ -1405,6 +1677,15 @@ function deleteRow(rowIndex: number) {
   border: none;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
   border-radius: 8px;
+}
+
+/* Remove border radius from tabs card */
+.tabs-card {
+  border-radius: 0 !important;
+  border-top-left-radius: 0 !important;
+  border-top-right-radius: 0 !important;
+  border-bottom-left-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
 }
 
 /* Remove border radius from tabs card */
@@ -1595,7 +1876,75 @@ function deleteRow(rowIndex: number) {
   .nav-tabs .nav-link {
     font-size: 0.8rem;
     padding: 0.5rem 0.75rem;
+    transition: background-color .15s, color .15s, border-bottom .15s;
   }
+
+  /* Stronger specificity including .show.active to ensure Bootstrap doesn't override */
+  .nav-tabs .nav-link.active,
+  .nav-tabs .nav-link.show.active {
+    background-color: #e6f5ea !important;
+    color: #155724 !important;
+    border-bottom: 3px solid #28a745 !important;
+    box-shadow: none;
+  }
+}
+
+
+.nav-tabs .nav-link.active,
+.nav-tabs .nav-link.show.active {
+  background-color: #eaf6ef !important; /* slightly lighter green background */
+  color: #155724 !important;
+  /* remove border-bottom in favor of an always-visible pseudo-line */
+  border-bottom: none !important;
+  box-shadow: none;
+  position: relative;
+  z-index: 1;
+}
+
+/* Subtle centered green underline for active tab */
+.nav-tabs {
+  padding-bottom: 4px; /* bring tabs closer to border so underline can touch */
+  overflow: visible;
+}
+
+.nav-tabs .nav-link.active,
+.nav-tabs .nav-link.show.active {
+  position: relative;
+  z-index: 2;
+}
+
+.nav-tabs .nav-link.active::after,
+.nav-tabs .nav-link.show.active::after {
+  content: '';
+  position: absolute;
+  /* span full tab width but keep the original thin height */
+  left: 0;
+  right: 0;
+  height: 4px; /* restore thin underline */
+  background: #084f36; /* darker forest green */
+  /* move down slightly to overlap and touch the border without growing size */
+  bottom: -4px; /* overlaps the card border beneath */
+  border-radius: 2px; /* subtle rounding */
+  box-shadow: none;
+  transition: all .12s ease;
+  z-index: 3; /* sit above the card border */
+}
+
+/* Remove border/background from non-active tabs so they don't appear focused/hovered */
+.nav-tabs .nav-link:not(.active) {
+  background: transparent !important;
+  border: none !important;
+  color: inherit !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+/* Ensure focus does not show outline or shadow on tabs */
+.nav-tabs .nav-link:focus,
+.nav-tabs .nav-link:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+  border-color: transparent !important;
 }
 
 /* //seat map styles */
@@ -1654,4 +2003,30 @@ function deleteRow(rowIndex: number) {
   overflow-y: auto !important;
   max-height: calc(100vh - 200px) !important;
 }
+
+/* Document card styles */
+.document-card {
+  transition: all 0.2s ease;
+}
+
+.document-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-color: #007bff !important;
+}
+
+.document-preview {
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.document-name {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 </style>
