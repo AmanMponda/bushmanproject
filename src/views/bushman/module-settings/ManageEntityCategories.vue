@@ -13,12 +13,12 @@
       <div class="col-xl-12 col-lg-12 col-sm-12 layout-spacing">
         <div class="panel br-6 p-0">
           <div class="custom-table p-3">
-            <div class="mb-3">
+            <!-- <div class="mb-3">
               <h2 class="mb-0">Company Entity Categories</h2>
               <p class="text-muted mb-0 small">
                 Create, update, and manage categories used to classify company entities.
               </p>
-            </div>
+            </div> -->
 
             <StandardDataTable
               ref="tableRef"

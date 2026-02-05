@@ -1,17 +1,7 @@
 <template>
   <div class="fleet-master-page">
     <!-- Breadcrumb -->
-    <div class="d-sm-flex align-items-center mb-3">
-      <div>
-        <ol class="breadcrumb">
-          <li class="breadcrumb-item"><router-link to="/bushman/dashboard">Home</router-link></li>
-          <li class="breadcrumb-item"><a href="#">Assets</a></li>
-          <li class="breadcrumb-item active">Fleet Master</li>
-        </ol>
-        <h1 class="page-header mb-0">Vehicle Fleet Management</h1>
-      </div>
-    </div>
-
+     
     <!-- VEHICLE LIST VIEW -->
     <template v-if="showVehicleList">
       <div class="fleet-master-list">

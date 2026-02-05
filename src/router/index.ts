@@ -43,6 +43,7 @@ const ManageRequisitionTypes = () => import('@/views/bushman/module-settings/Man
 const ManageCostCenters = () => import('@/views/bushman/module-settings/ManageCostCenters.vue');
 const ManageAreaSettings = () => import('@/views/bushman/module-settings/ManageArea.vue');
 const ManageHuntingTypes = () => import('@/views/bushman/module-settings/ManageHuntingTypes.vue');
+const ManageSeasons = () => import('@/views/bushman/module-settings/ManageSeasons.vue');
 const ManageSpeciesSettings = () => import('@/views/bushman/module-settings/ManageSpecies.vue');
 const ManageAccounts = () => import('@/views/bushman/module-settings/ManageAccounts.vue');
 const ManageUsers = () => import('@/views/bushman/module-settings/ManageUsers.vue');
@@ -50,6 +51,7 @@ const ManageDocuments = () => import('@/views/bushman/module-settings/ManageDocu
 const ManageInstallmentSetups = () => import('@/views/bushman/module-settings/ManageInstallmentSetups.vue');
 const ManageEntityCategories = () => import('@/views/bushman/module-settings/ManageEntityCategories.vue');
 const EntityManagement = () => import('@/views/bushman/module-settings/EntityManagement.vue');
+const EntityCreate = () => import('@/views/bushman/module-settings/EntityCreate.vue');
 const GovernmentFees = () => import('@/views/GovernmentFees.vue');
 const ModuleComingSoon = () => import('@/views/bushman/module-settings/ModuleComingSoon.vue');
 const AssetGroups = () => import('@/views/bushman/module-settings/AssetGroups.vue');
@@ -68,6 +70,7 @@ const ContractDetails = () => import('@/views/contracts/ContractDetails.vue');
 const Suppliers = () => import('@/views/bushman/procurement/Suppliers.vue');
 const SupplierCreate = () => import('@/views/bushman/procurement/SupplierCreate.vue');
 const SupplierView = () => import('@/views/bushman/procurement/SupplierView.vue');
+const Clients = () => import('@/views/bushman/sales/Clients.vue');
 
 // Location Master routes
 const LocationMasterIndex = () => import('@/views/bushman/locationMaster/index.vue');
@@ -272,6 +275,12 @@ const router = createRouter({
       component: Managesalesinquiry,
       meta: { requiresAuth: true }
     },
+    {
+      path: "/sales/clients",
+      name: "sales-clients",
+      component: Clients,
+      meta: { requiresAuth: true }
+    },
 
     {
       path: "/sales/enquiries/:id",
@@ -465,6 +474,12 @@ const router = createRouter({
       meta: { requiresAuth: true }
     },
     {
+      path: "/module-settings/seasons",
+      name: "seasons",
+      component: ManageSeasons,
+      meta: { requiresAuth: true }
+    },
+    {
       path: "/module-settings/species-settings/species",
       name: "species-settings",
       component: ManageSpeciesSettings,
@@ -496,8 +511,20 @@ const router = createRouter({
     },
     {
       path: "/module-settings/entities",
-      name: "entity-management",
+      name: "module-settings-entities",
       component: EntityManagement,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/module-settings/entities/create",
+      name: "entity-create",
+      component: EntityCreate,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/module-settings/entities/:id/edit",
+      name: "entity-edit",
+      component: EntityCreate,
       meta: { requiresAuth: true }
     },
 

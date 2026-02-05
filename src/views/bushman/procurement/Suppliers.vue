@@ -1,15 +1,15 @@
 <template>
   <div class="supplier-management-page">
-    <div class="d-flex align-items-center mb-3">
+    <div class="d-flex align-items-center breadcrumb-row">
       <div>
-        <ul class="breadcrumb">
-          <li class="breadcrumb-item"><a href="#">Procurement</a></li>
-          <li class="breadcrumb-item active">Suppliers</li>
+        <ul class="breadcrumb breadcrumbs-uppercase">
+          <li class="breadcrumb-item"><span ref="breadcrumbProcurementRef" class="breadcrumb-static" aria-disabled="true">Procurement</span></li>
+          <li class="breadcrumb-item active" ref="breadcrumbSuppliersRef">Suppliers</li>
         </ul>
       </div>
     </div>
 
-    <div class="row layout-top-spacing bg-white rounded">
+    <div class="row bg-white rounded">
       <div class="col-xl-12 col-lg-12 col-sm-12 layout-spacing">
         <div class="panel br-6 p-0">
           <div class="custom-table p-3">
@@ -20,20 +20,15 @@
               :default-page-size="tableFilters.limit" @update:filters="handleFiltersUpdate"
               @page-change="handlePageChange">
               <template #full_name="{ row }">
-                <span class="badge bg-secondary bg-opacity-20 fs-14px fw-bold text-info cursor-pointer">
-                  <i class="fa fa-building me-1"></i>
+                <span class="fw-semibold">
                   {{ row.full_name || row.trading_name || '-' }}
                 </span>
               </template>
               <template #category="{ row }">
-                <span class="badge bg-secondary bg-opacity-20 fs-14px fw-bold text-muted">
-                  {{ row.category || '-' }}
-                </span>
+                <span>{{ row.category || '-' }}</span>
               </template>
               <template #status="{ row }">
-                <span class="badge bg-secondary bg-opacity-20 fs-14px fw-bold" :class="getStatusTextColor(row.status)">
-                  {{ row.status || 'DRAFT' }}
-                </span>
+                <span>{{ row.status || 'DRAFT' }}</span>
               </template>
 
               <template #phone="{ row }">
@@ -208,16 +203,13 @@
               <StandardDataTable :columns="categoryColumns" :data="viewCategories" :loading="false"
                 :disable-search="true" :show-date-filters="false">
                 <template #display_name="{ row }">
-                  <span class="badge bg-secondary bg-opacity-20 text-dark">
-                    <i class="fa fa-tag me-1"></i>{{ row.display_name || row.name }}
-                  </span>
+                  <span>{{ row.display_name || row.name }}</span>
                 </template>
                 <template #parent_category="{ row }">
-                  <span v-if="row.parent_id" class="badge bg-info bg-opacity-20 text-info">
-                    <i class="fa fa-level-up-alt me-1"></i>
+                  <span v-if="row.parent_id">
                     {{categories.find((c: any) => c.id === row.parent_id)?.display_name || '--'}}
                   </span>
-                  <span v-else class="text-muted">-- Root --</span>
+                  <span v-else>-- Root --</span>
                 </template>
                 <template #actions="{ row }">
                   <button v-if="row.name !== 'SUPPLIER'" class="btn btn-outline-danger btn-sm" title="Remove"
@@ -545,11 +537,17 @@ const generateSuppliersPdf = async () => {
     doc.text('SUPPLIERS LIST', doc.internal.pageSize.getWidth() / 2, 70, { align: 'center' })
 
     const body = items.length
-      ? items.map((supplier: any, index: number) => ([
-          `${index + 1}`,
-          supplier.supplier_name || supplier.name || supplier.full_name || '-',
-          supplier.notes || supplier.remarks || '-'
-        ]))
+      ? items.map((supplier: any, index: number) => {
+          const category = (Array.isArray(supplier.categories) && supplier.categories[0])
+            ? (supplier.categories[0].name || supplier.categories[0].display_name)
+            : (supplier.category || supplier.notes || '-')
+
+          return [
+            `${index + 1}`,
+            supplier.supplier_name || supplier.name || supplier.full_name || '-',
+            category
+          ]
+        })
       : [['-', 'No suppliers found', '-']]
 
     const pageWidth = doc.internal.pageSize.getWidth()
@@ -562,7 +560,7 @@ const generateSuppliersPdf = async () => {
     const notesColWidth = remaining - supplierColWidth
 
     autoTable(doc, {
-      head: [['S.No', 'Supplier', 'Notes']],
+      head: [['S.No', 'Supplier', 'Category']],
       body,
       startY: 90,
       theme: 'grid',
@@ -627,6 +625,8 @@ const supplierActionButtons = [
 
 const showViewModal = ref(false)
 const showAssignCategoryModal = ref(false)
+const breadcrumbProcurementRef = ref(null)
+const breadcrumbSuppliersRef = ref(null)
 
 const viewSupplier = ref<any>(null)
 const activeTab = ref('basic')
@@ -1169,25 +1169,8 @@ onMounted(() => {
   cursor: pointer;
 }
 
-/* Table badge hover effects */
-.badge.cursor-pointer {
-  transition: all 0.2s ease;
-}
-
-.badge.cursor-pointer:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  opacity: 0.9;
-}
-
-/* Table row hover */
-:deep(tbody tr) {
-  transition: background-color 0.2s ease;
-}
-
-:deep(tbody tr:hover) {
-  background-color: rgba(0, 0, 0, 0.02);
-}
+/* Table badge hover effects removed to keep rows neutral */
+/* Table row hover removed to keep rows neutral */
 
 /* Action button hover */
 :deep(.btn-outline-primary:hover) {
@@ -1200,5 +1183,20 @@ onMounted(() => {
   color: var(--bs-primary, #0d6efd);
   font-weight: 600;
   font-size: 0.95rem;
+}
+
+/* Breadcrumb uppercase and spacing (local to this view) */
+.breadcrumbs-uppercase,
+.breadcrumbs-uppercase .breadcrumb-item,
+.breadcrumbs-uppercase a {
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  font-weight: 600;
+}
+
+.breadcrumb-row {
+  margin-top: 0.25rem;
+  margin-bottom: 0.4rem;
+  padding-top: 0;
 }
 </style>
