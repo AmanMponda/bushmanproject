@@ -355,6 +355,7 @@ export const useAppSidebarMenuStore = defineStore("appSidebarMenu", () => {
       text: 'Sales',
       permission: 'CAN_VIEW_SALES',
       children: [
+      
         { url: '/sales/quotas', icon: 'fa fa-star-half', text: 'Sales Quotas', permission: 'CAN_VIEW_SALES_QUOTAS' },
         { url: '/sales/sales-calendar', icon: 'fa fa-calendar', text: 'Sales Calendar', permission: 'CAN_VIEW_CALENDAR' },
         { url: '/sales/sales-pipeline', icon: 'fa fa-project-diagram', text: 'Sales Pipeline', permission: 'CAN_VIEW_SALES_PIPELINE' },
@@ -411,7 +412,7 @@ export const useAppSidebarMenuStore = defineStore("appSidebarMenu", () => {
         { url: '/sales/requisitions', icon: 'fa fa-file-alt', text: 'Requisitions', permission: 'CAN_VIEW_SALES' },
         { url: '/accounting/journal-vouchers', icon: 'fa fa-receipt', text: 'Payment Vouchers', permission: 'CAN_VIEW_ACCOUNTS' },
         { url: '/accounting/invoices', icon: 'fa fa-file-invoice', text: 'Invoices', permission: 'CAN_VIEW_ACCOUNTS' },
-        { url: '/accounting/chart-of-accounts', text: 'Chart of Accounts', permission: 'CAN_VIEW_ACCOUNTS' },
+        { url: '/accounting/chart-of-accounts', icon: 'fa fa-book', text: 'Chart of Accounts', permission: 'CAN_VIEW_ACCOUNTS' },
       ]
     },
     {

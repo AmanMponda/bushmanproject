@@ -1,5 +1,5 @@
 <template>
-  <div class="supplier-pdf-loading">
+  <div class="client-pdf-loading">
     Generating PDF...
   </div>
 </template>
@@ -11,14 +11,31 @@ import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 
 const apiBaseUrl = (import.meta.env.VITE_APP_BASE_URL || '').replace(/\/+$/, '')
-const suppliers = ref<any[]>([])
+const clients = ref<any[]>([])
 
-const fetchSuppliers = async () => {
+const getAuthHeaders = () => {
+  const token = localStorage.getItem('token')
+  return {
+    Authorization: token ? `Bearer ${token}` : ''
+  }
+}
+
+const fetchClients = async () => {
   try {
-    const response = await axios.get(`${apiBaseUrl}/suppliers`)
-    suppliers.value = response.data?.data || response.data || []
+    // Try dedicated clients endpoint first, fallback to company-entities with category filter
+    let response
+    try {
+      response = await axios.get(`${apiBaseUrl}/clients`, {
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }
+      })
+    } catch (e) {
+      response = await axios.get(`${apiBaseUrl}/company-entities?category=CLIENT,CUSTOMER`, {
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }
+      })
+    }
+    clients.value = response.data?.data || response.data || []
   } catch (error) {
-    suppliers.value = []
+    clients.value = []
   }
 }
 
@@ -29,15 +46,15 @@ const buildPdf = () => {
   doc.setFontSize(12)
   doc.text('BUSHMAN SAFARI TRACKERS LIMITED', doc.internal.pageSize.getWidth() / 2, 48, { align: 'center' })
   doc.setFontSize(11)
-  doc.text('SUPPLIERS LIST', doc.internal.pageSize.getWidth() / 2, 70, { align: 'center' })
+  doc.text('CLIENTS LIST', doc.internal.pageSize.getWidth() / 2, 70, { align: 'center' })
 
-  const body = suppliers.value.length
-    ? suppliers.value.map((supplier: any, index: number) => ([
+  const body = clients.value.length
+    ? clients.value.map((client: any, index: number) => ([
         `${index + 1}`,
-        supplier.name || '-',
-        supplier.notes || '-'
+        client.full_name || client.name || '-',
+        client.notes || '-'
       ]))
-    : [['-', 'No suppliers found', '-']]
+    : [['-', 'No clients found', '-']]
 
   const pageWidth = doc.internal.pageSize.getWidth()
   const marginLeft = 40
@@ -48,7 +65,7 @@ const buildPdf = () => {
   const colWidth = Math.floor(remaining / 2)
 
   autoTable(doc, {
-    head: [['S.No', 'Name of Supplier', 'Remarks/Purpose']],
+    head: [['S.No', 'Name of Client', 'Remarks/Purpose']],
     body,
     startY: 90,
     theme: 'grid',
@@ -86,13 +103,13 @@ const buildPdf = () => {
 }
 
 onMounted(async () => {
-  await fetchSuppliers()
+  await fetchClients()
   buildPdf()
 })
 </script>
 
 <style scoped>
-.supplier-pdf-loading {
+.client-pdf-loading {
   padding: 24px;
   font-family: Arial, sans-serif;
   color: #444;

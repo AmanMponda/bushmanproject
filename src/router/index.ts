@@ -67,7 +67,7 @@ const ContractForm = () => import('@/views/contracts/ContractForm.vue');
 const ContractDetails = () => import('@/views/contracts/ContractDetails.vue');
 const Suppliers = () => import('@/views/bushman/procurement/Suppliers.vue');
 const SupplierCreate = () => import('@/views/bushman/procurement/SupplierCreate.vue');
-const SupplierPdf = () => import('@/views/bushman/procurement/SupplierPdf.vue');
+const SupplierView = () => import('@/views/bushman/procurement/SupplierView.vue');
 
 // Location Master routes
 const LocationMasterIndex = () => import('@/views/bushman/locationMaster/index.vue');
@@ -153,6 +153,13 @@ const router = createRouter({
       component: BushmanFleetMasterPdf,
       meta: { requiresAuth: true }
     },
+    // Dynamic details route - supports deep-linking to either registration or numeric id
+    {
+      path: "/bushman/assets/fleet-master/:id",
+      name: "bushman-fleet-master-details",
+      component: BushmanFleetMaster,
+      meta: { requiresAuth: true }
+    },
     {
       path: "/bushman/assets/location-history",
       name: "bushman-location-history",
@@ -172,6 +179,12 @@ const router = createRouter({
       component: SalesQuotas,
       meta: { requiresAuth: true }
     },
+    // {
+    //   path: "/sales/clients",
+    //   name: "sales-clients",
+    //   component: SalesClients,
+    //   meta: { requiresAuth: true }
+    // },
     {
       path: "/sales/sales-pipeline",
       name: "Sales-pipeline",
@@ -347,11 +360,25 @@ const router = createRouter({
       meta: { requiresAuth: true }
     },
     {
-      path: "/procurement/suppliers/print",
-      name: "procurement-suppliers-print",
-      component: SupplierPdf,
-      meta: { requiresAuth: true }
+      path: "/procurement/suppliers/view/:id",
+      name: "procurement-suppliers-view",
+      component: SupplierView,
+      meta: { requiresAuth: true },
+      props: (route) => ({ id: Number(route.params.id) })
     },
+    {
+      path: "/procurement/suppliers/edit/:id",
+      name: "procurement-suppliers-edit",
+      component: SupplierCreate,
+      meta: { requiresAuth: true },
+      props: (route) => ({ id: Number(route.params.id) })
+    },
+    // {
+    //   path: "/procurement/suppliers/print",
+    //   name: "procurement-suppliers-print",
+    //   component: SupplierPdf,
+    //   meta: { requiresAuth: true }
+    // },
 
     {
       path: "/module-settings/regulatory-package",

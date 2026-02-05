@@ -1100,9 +1100,6 @@ export const useAccountingStore = defineStore('accounting', {
         const config = {
           method: 'get',
           url: `${API_BASE}/accounts/bank-cash-accounts`,
-          params: {
-            company_id: companyId || 1
-          },
           headers: { 'Content-Type': 'application/json' }
         }
 
@@ -1337,14 +1334,13 @@ export const useAccountingStore = defineStore('accounting', {
       }
     },
 
-    async fetchPayees(companyId?: number, params: any = {}): Promise<any> {
+    async fetchPayees(params: any = {}): Promise<any> {
       this.error = null
       try {
         const config = {
           method: 'get',
           url: `${API_BASE}/payees`,
           params: {
-            company_id: companyId || 1,
             status: 'ACTIVE',
             ...params
           },

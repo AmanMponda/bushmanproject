@@ -1,10 +1,10 @@
 <template>
-  <div class="supplier-management-page">
+  <div class="client-management-page">
     <div class="d-flex align-items-center mb-3">
       <div>
         <ul class="breadcrumb">
-          <li class="breadcrumb-item"><a href="#">Procurement</a></li>
-          <li class="breadcrumb-item active">Suppliers</li>
+          <li class="breadcrumb-item"><a href="#">Sales</a></li>
+          <li class="breadcrumb-item active">Clients</li>
         </ul>
       </div>
     </div>
@@ -14,20 +14,26 @@
         <div class="panel br-6 p-0">
           <div class="custom-table p-3">
 
-            <StandardDataTable :columns="columns" :data="suppliers" :loading="loading" :filters="tableFilters"
-              :custom-filters="customFilters" :actionButtons="supplierActionButtons" :show-date-filters="false"
+            <StandardDataTable :columns="columns" :data="clients" :loading="loading" :filters="tableFilters"
+              :custom-filters="customFilters" :actionButtons="clientActionButtons" :show-date-filters="false"
               :server-side="true" :pagination="pagination" :page-size-options="[10, 15, 25, 50]"
               :default-page-size="tableFilters.limit" @update:filters="handleFiltersUpdate"
               @page-change="handlePageChange">
+              <template #code="{ row }">
+                <span class="badge bg-warning bg-opacity-20 fs-14px fw-bold text-danger cursor-pointer">
+                  <i class="fa fa-hashtag me-1"></i>
+                  {{ row.code || '-' }}
+                </span>
+              </template>
               <template #full_name="{ row }">
                 <span class="badge bg-secondary bg-opacity-20 fs-14px fw-bold text-info cursor-pointer">
-                  <i class="fa fa-building me-1"></i>
+                  <i class="fa fa-user me-1"></i>
                   {{ row.full_name || row.trading_name || '-' }}
                 </span>
               </template>
-              <template #category="{ row }">
+              <template #business_type="{ row }">
                 <span class="badge bg-secondary bg-opacity-20 fs-14px fw-bold text-muted">
-                  {{ row.category || '-' }}
+                  {{ row.business_type || row.company_profile?.business_type || '-' }}
                 </span>
               </template>
               <template #status="{ row }">
@@ -35,20 +41,16 @@
                   {{ row.status || 'DRAFT' }}
                 </span>
               </template>
-
-              <template #phone="{ row }">
-                <span class="text-truncate supplier-phone d-inline-block" style="max-width: 160px;">
-                  {{ row.phone || '-' }}
+              <template #contact="{ row }">
+                <span class="badge bg-secondary bg-opacity-20 fs-14px fw-bold text-primary">
+                  <i class="fa fa-envelope me-1"></i>
+                  {{ primaryContact(row) }}
                 </span>
               </template>
-
               <template #actions="{ row }">
                 <div class="btn-group btn-group-sm">
-                  <button class="btn btn-outline-info btn-sm" @click="viewSupplierPage(row)" title="View Details">
+                  <button class="btn btn-outline-primary btn-sm" @click="openClientModal(row)" title="View Details">
                     <i class="fa fa-eye"></i>
-                  </button>
-                  <button class="btn btn-outline-primary btn-sm" @click="editSupplierPage(row)" title="Edit Supplier">
-                    <i class="fa fa-edit"></i>
                   </button>
                 </div>
               </template>
@@ -58,15 +60,135 @@
       </div>
     </div>
 
-    <!-- Supplier Details Modal -->
+    <!-- Add/Edit Client Modal -->
+    <StandardModal ref="clientModalRef" id="client-modal"
+      :title="editingClient ? 'Edit Client' : 'New Client'" size="lg" :scrollable="true" :backdrop="'static'"
+      :keyboard="false" @hidden="handleClientModalHidden">
+      <template #header>
+        <i class="fa fa-user me-2"></i> {{ editingClient ? 'Edit Client' : 'New Client' }}
+      </template>
+
+      <form id="client-form" @submit.prevent="saveClient">
+        <!-- Basic Information -->
+        <div class="border-bottom pb-3 mb-4">
+          <h6 class="text-primary mb-3"><i class="fa fa-info-circle me-2"></i>Basic Information</h6>
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label">Client Code</label>
+              <input v-model="clientForm.code" type="text" class="form-control" />
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Full Name <span class="text-danger">*</span></label>
+              <input v-model="clientForm.full_name" type="text" class="form-control"
+                placeholder="Enter full legal name" required />
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Trading Name</label>
+              <input v-model="clientForm.trading_name" type="text" class="form-control"
+                placeholder="Enter trading name" />
+            </div>
+
+            <div class="col-md-12">
+              <label class="form-label">Classification Categories <span class="text-danger">*</span></label>
+              <Multiselect v-model="clientCategory.additional_category_ids" :options="classificationCategoryOptions"
+                :multiple="true" :close-on-select="false" :custom-label="classificationCategoryLabel"
+                placeholder="Select classification categories" />
+              <small class="text-muted">Choose at least one classification category for the client.</small>
+            </div>
+          </div>
+        </div>
+
+        <!-- Location & Currency -->
+        <div class="border-bottom pb-3 mb-4">
+          <h6 class="text-primary mb-3"><i class="fa fa-globe me-2"></i>Location & Currency</h6>
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label">Country</label>
+              <Multiselect v-model="clientForm.country_id" :options="countries" label="name" track-by="id"
+                placeholder="Select country" />
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Nationality</label>
+              <Multiselect v-model="clientForm.nationality_id" :options="nationalities" label="name" track-by="id"
+                placeholder="Select nationality" />
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Base Currency</label>
+              <Multiselect v-model="clientForm.base_currency_id" :options="currencies" label="name" track-by="id"
+                :custom-label="currencyLabel" placeholder="Select currency" />
+            </div>
+            <div class="col-md-12">
+              <label class="form-label">Notes</label>
+              <textarea v-model="clientForm.notes" rows="2" class="form-control"
+                placeholder="Additional notes or comments"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- Company Profile -->
+        <div class="border-bottom pb-3 mb-4" v-if="clientForm.type === 'COMPANY'">
+          <h6 class="text-primary mb-3"><i class="fa fa-building me-2"></i>Company Profile</h6>
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Legal Name</label>
+              <input v-model="clientForm.company_profile.legal_name" type="text" class="form-control" />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Trading Name</label>
+              <input v-model="clientForm.company_profile.trading_name" type="text" class="form-control" />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Registration Number</label>
+              <input v-model="clientForm.company_profile.registration_no" type="text" class="form-control" />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Registration Country</label>
+              <Multiselect v-model="clientForm.company_profile.registration_country_id" :options="countries"
+                label="name" track-by="id" placeholder="Select country" />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Incorporation Date</label>
+              <input v-model="clientForm.company_profile.incorporation_date" type="date" class="form-control" />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Business Type</label>
+              <input v-model="clientForm.company_profile.business_type" type="text" class="form-control"
+                placeholder="e.g., Limited, Sole Proprietor" />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Industry Code</label>
+              <input v-model="clientForm.company_profile.industry_code" type="text" class="form-control"
+                placeholder="ISIC/NAICS code" />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Tax Residency Country</label>
+              <Multiselect v-model="clientForm.company_profile.tax_residency_country_id" :options="countries"
+                label="name" track-by="id" placeholder="Select country" />
+            </div>
+          </div>
+        </div>
+      </form>
+
+      <template #footer>
+        <div class="d-flex justify-content-end gap-2">
+          <button type="button" class="btn btn-outline-secondary" @click="closeClientModal">Cancel</button>
+          <button type="submit" class="btn btn-primary" :disabled="saving" form="client-form">
+            <span v-if="saving" class="spinner-border spinner-border-sm me-2"></span>
+            {{ editingClient ? 'Update Client' : 'Create Client' }}
+          </button>
+        </div>
+      </template>
+    </StandardModal>
+
+    <!-- Client Details Modal -->
     <div class="modal fade" :class="{ show: showViewModal }" :style="{ display: showViewModal ? 'block' : 'none' }"
       tabindex="-1">
       <div class="modal-dialog modal-xl">
         <div class="modal-content">
           <div class="modal-header">
             <div>
-              <h5 class="modal-title">Supplier Details</h5>
-              <div class="text-muted small">{{ viewSupplier?.full_name || '-' }}</div>
+              <h5 class="modal-title">Client Details</h5>
+              <div class="text-muted small">{{ viewClient?.full_name || '-' }}</div>
             </div>
             <button type="button" class="btn-close" @click="closeViewModal"></button>
           </div>
@@ -94,35 +216,35 @@
               <div class="row g-3">
                 <div class="col-md-4">
                   <label class="form-label text-muted">Code</label>
-                  <div class="fw-semibold">{{ viewSupplier?.code || '-' }}</div>
+                  <div class="fw-semibold">{{ viewClient?.code || '-' }}</div>
                 </div>
                 <div class="col-md-4">
                   <label class="form-label text-muted">Status</label>
                   <div>
-                    <span class="badge" :class="statusBadge(viewSupplier?.status)">
-                      {{ viewSupplier?.status || 'DRAFT' }}
+                    <span class="badge" :class="statusBadge(viewClient?.status)">
+                      {{ viewClient?.status || 'DRAFT' }}
                     </span>
                   </div>
                 </div>
                 <div class="col-md-4">
                   <label class="form-label text-muted">Type</label>
-                  <div class="fw-semibold">{{ viewSupplier?.type || '-' }}</div>
+                  <div class="fw-semibold">{{ viewClient?.type || '-' }}</div>
                 </div>
                 <div class="col-md-6">
                   <label class="form-label text-muted">Full Name</label>
-                  <div class="fw-semibold">{{ viewSupplier?.full_name || '-' }}</div>
+                  <div class="fw-semibold">{{ viewClient?.full_name || '-' }}</div>
                 </div>
                 <div class="col-md-6">
                   <label class="form-label text-muted">Trading Name</label>
-                  <div class="fw-semibold">{{ viewSupplier?.trading_name || '-' }}</div>
+                  <div class="fw-semibold">{{ viewClient?.trading_name || '-' }}</div>
                 </div>
-                <div class="col-md-6" v-if="viewSupplier?.company_profile">
+                <div class="col-md-6" v-if="viewClient?.company_profile">
                   <label class="form-label text-muted">Business Type</label>
-                  <div class="fw-semibold">{{ viewSupplier?.company_profile?.business_type || '-' }}</div>
+                  <div class="fw-semibold">{{ viewClient?.company_profile?.business_type || '-' }}</div>
                 </div>
                 <div class="col-md-6">
                   <label class="form-label text-muted">Country</label>
-                  <div class="fw-semibold">{{ viewSupplier?.country?.name || '-' }}</div>
+                  <div class="fw-semibold">{{ viewClient?.country?.name || '-' }}</div>
                 </div>
               </div>
             </div>
@@ -220,7 +342,7 @@
                   <span v-else class="text-muted">-- Root --</span>
                 </template>
                 <template #actions="{ row }">
-                  <button v-if="row.name !== 'SUPPLIER'" class="btn btn-outline-danger btn-sm" title="Remove"
+                  <button v-if="row.name !== 'CLIENT' && row.name !== 'CUSTOMER'" class="btn btn-outline-danger btn-sm" title="Remove"
                     @click="removeCategory(row)">
                     <i class="fa fa-trash"></i>
                   </button>
@@ -248,11 +370,11 @@
                   <label class="form-label">Category</label>
                   <Multiselect v-model="assignCategoryForm.category_id" :options="assignableCategoryOptions"
                     :custom-label="assignableCategoryLabel" placeholder="Select category" />
-                  <small class="text-muted">Select a supplier category (e.g., Food Suppliers, Spare Parts)</small>
+                  <small class="text-muted">Select a client category (e.g., VIP Clients, Corporate)</small>
                 </div>
                 <div class="col-md-6">
                   <label class="form-label">Category Code</label>
-                  <input v-model="assignCategoryForm.code" type="text" class="form-control" placeholder="SUPP-001" />
+                  <input v-model="assignCategoryForm.code" type="text" class="form-control" placeholder="CLI-001" />
                 </div>
                 <div class="col-md-6">
                   <label class="form-label">Default Payable Account</label>
@@ -295,7 +417,7 @@
       </div>
     </div>
 
-    <div v-if="(showViewModal || showAssignCategoryModal)"
+    <div v-if="(showClientModal || showViewModal || showAssignCategoryModal) && !showClientModal"
       class="modal-backdrop fade show"></div>
   </div>
 </template>
@@ -307,9 +429,8 @@ import { useRouter } from 'vue-router'
 import Swal from 'sweetalert2'
 import handleErrors from '@/stores/bushman/errorHandler'
 import StandardDataTable from '@/components/bootstrap/StandardDataTable.vue'
+import StandardModal from '@/components/plugins/StandardModal.vue'
 import Multiselect from 'vue-multiselect'
-import { jsPDF } from 'jspdf'
-import autoTable from 'jspdf-autotable'
 import 'vue-multiselect/dist/vue-multiselect.min.css'
 
 const apiBaseUrl = import.meta.env.VITE_APP_BASE_URL
@@ -317,7 +438,7 @@ const accountsBaseUrl = import.meta.env.VITE_APP_ACCOUNTS_BASE_URL || apiBaseUrl
 const accountsEndpoint = import.meta.env.VITE_APP_ACCOUNTS_COMPANY_VSET_URL
 const countriesEndpoint = import.meta.env.VITE_APP_COUNTRIES_URL
 const currenciesEndpoint = import.meta.env.VITE_APP_CURRENCIES_URL
-const supplierMetadataEndpoint = 'supplier-metadata'
+const clientMetadataEndpoint = 'client-metadata'
 
 const router = useRouter()
 
@@ -326,7 +447,7 @@ const saving = ref(false)
 const assigning = ref(false)
 const metadataLoaded = ref(false)
 
-const suppliers = ref<any[]>([])
+const clients = ref<any[]>([])
 const pagination = ref<any>({ current_page: 1, per_page: 15, total: 0, last_page: 1 })
 
 const countries = ref<any[]>([])
@@ -344,17 +465,18 @@ const tableFilters = ref<any>({
   search: '',
   status: '',
   country_id: '',
-  category: '',
+  business_type: '',
   active_only: false,
   limit: 15,
   page: 1
 })
 
 const columns = [
-  { key: 'full_name', label: 'SUPPLIER NAME', sortable: true, visible: true },
-  { key: 'phone', label: 'PHONE', sortable: false, visible: true },
-  { key: 'category', label: 'CATEGORY', sortable: false, visible: true },
+  { key: 'code', label: 'CODE', sortable: true, visible: true },
+  { key: 'full_name', label: 'CLIENT NAME', sortable: true, visible: true },
+  { key: 'business_type', label: 'BUSINESS TYPE', sortable: false, visible: true },
   { key: 'status', label: 'STATUS', sortable: false, visible: true },
+  { key: 'contact', label: 'CONTACT', sortable: false, visible: true },
   { key: 'actions', label: 'ACTIONS', sortable: false, visible: true }
 ]
 
@@ -498,10 +620,10 @@ const customFilters = computed(() => [
     options: countries.value.map((c: any) => ({ label: c.name, value: c.id }))
   },
   {
-    key: 'category',
-    label: 'Category',
+    key: 'business_type',
+    label: 'Business Type',
     type: 'select',
-    options: supplierCategoryFilterOptions.value
+    options: businessTypes.value.map((b: string) => ({ label: b, value: b }))
   },
   {
     key: 'active_only',
@@ -514,122 +636,70 @@ const customFilters = computed(() => [
   }
 ])
 
-const openCreateSupplierPage = () => {
-  router.push({ name: 'procurement-suppliers-create' })
-}
-
-const viewSupplierPage = (supplier: any) => {
-  router.push({ name: 'procurement-suppliers-view', params: { id: supplier.id } })
-}
-
-const editSupplierPage = (supplier: any) => {
-  router.push({ name: 'procurement-suppliers-edit', params: { id: supplier.id } })
-}
-
-const generateSuppliersPdf = async () => {
-  try {
-    const params: any = { ...tableFilters.value }
-    // request table-view endpoint which returns supplier list (server-side paging)
-    const response = await axios.get(`${apiBaseUrl}suppliers/table-view`, {
-      params,
-      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }
-    })
-    const data = response.data?.data || response.data || {}
-    const items = Array.isArray(data.data) ? data.data : Array.isArray(data) ? data : []
-
-    const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' })
-    doc.setFont('Times', 'Normal')
-    doc.setFontSize(12)
-    doc.text('BUSHMAN SAFARI TRACKERS LIMITED', doc.internal.pageSize.getWidth() / 2, 48, { align: 'center' })
-    doc.setFontSize(11)
-    doc.text('SUPPLIERS LIST', doc.internal.pageSize.getWidth() / 2, 70, { align: 'center' })
-
-    const body = items.length
-      ? items.map((supplier: any, index: number) => ([
-          `${index + 1}`,
-          supplier.supplier_name || supplier.name || supplier.full_name || '-',
-          supplier.notes || supplier.remarks || '-'
-        ]))
-      : [['-', 'No suppliers found', '-']]
-
-    const pageWidth = doc.internal.pageSize.getWidth()
-    const marginLeft = 40
-    const marginRight = 40
-    const tableWidth = pageWidth - marginLeft - marginRight
-    const snWidth = 50
-    const remaining = tableWidth - snWidth
-    const supplierColWidth = Math.floor(remaining * 0.45)
-    const notesColWidth = remaining - supplierColWidth
-
-    autoTable(doc, {
-      head: [['S.No', 'Supplier', 'Notes']],
-      body,
-      startY: 90,
-      theme: 'grid',
-      showHead: 'everyPage',
-      margin: { top: 90, left: marginLeft, right: marginRight, bottom: 40 },
-      tableWidth,
-      tableLineWidth: 0.75,
-      tableLineColor: 0,
-      styles: {
-        font: 'Times',
-        fontSize: 10,
-        cellPadding: 6,
-        valign: 'top',
-        textColor: 0,
-        lineWidth: 0.75,
-        lineColor: 0
-      },
-      headStyles: {
-        fillColor: [255, 255, 255],
-        textColor: 0,
-        fontStyle: 'bold',
-        halign: 'center',
-        lineWidth: 0.75,
-        lineColor: 0
-      },
-      columnStyles: {
-        0: { cellWidth: snWidth, halign: 'center' },
-        1: { cellWidth: supplierColWidth },
-        2: { cellWidth: notesColWidth }
-      }
-    })
-
-    const blobUrl = doc.output('bloburl')
-    window.open(blobUrl, '_blank')
-  } catch (error: any) {
-    console.error('Failed to generate PDF', error)
-    Swal.fire({ icon: 'error', title: 'Error', text: 'Failed to generate PDF' })
-  }
+const openCreateClientPage = () => {
+  // Open the client modal for creating a new client
+  resetClientForm()
+  editingClient.value = null
+  showClientModal.value = true
+  nextTick(() => {
+    clientModalRef.value?.show()
+  })
 }
 
 // Table action buttons (appear next to Filters in StandardDataTable)
-const supplierActionButtons = [
+const clientActionButtons = [
   {
     label: 'Refresh',
     icon: 'fa fa-sync-alt',
     class: 'btn-outline-secondary',
-    method: () => fetchSuppliers()
+    method: () => fetchClients()
   },
   {
-    label: 'Add Supplier',
+    label: 'Add Client',
     icon: 'fa fa-plus',
     class: 'btn-primary',
-    method: () => openCreateSupplierPage()
-  },
-  {
-    label: 'Export PDF',
-    icon: 'fa fa-file-pdf',
-    class: 'btn-outline-danger',
-    method: () => generateSuppliersPdf()
+    method: () => openCreateClientPage()
   }
 ]
 
+const showClientModal = ref(false)
 const showViewModal = ref(false)
 const showAssignCategoryModal = ref(false)
+const clientModalRef = ref<any>(null)
 
-const viewSupplier = ref<any>(null)
+const editingClient = ref<any>(null)
+const viewClient = ref<any>(null)
 const activeTab = ref('basic')
+
+const clientForm = reactive<any>({
+  full_name: '',
+  trading_name: '',
+  code: '',
+  type: 'COMPANY',
+  status: 'ACTIVE',
+  country_id: null,
+  nationality_id: null,
+  base_currency_id: null,
+  notes: '',
+  company_profile: {
+    legal_name: '',
+    trading_name: '',
+    registration_no: '',
+    registration_country_id: '',
+    incorporation_date: '',
+    business_type: '',
+    industry_code: '',
+    tax_residency_country_id: null
+  },
+  contacts: [] as Array<{ type: string; contact: string }>
+})
+
+const clientCategory = reactive<any>({
+  default_payable_account_id: '',
+  default_receivable_account_id: '',
+  code: '',
+  additional_category_ids: [] as number[]
+})
 
 const viewContacts = ref<any[]>([])
 const viewIdentities = ref<any[]>([])
@@ -654,34 +724,39 @@ const assignCategoryForm = reactive<any>({
   is_active: true
 })
 
-const supplierCategoryFilterOptions = computed(() => {
-  const map = new Map<number, string>()
-  suppliers.value.forEach((supplier: any) => {
-    if (supplier.category_id && supplier.category) {
-      map.set(supplier.category_id, supplier.category)
-    }
+const businessTypes = computed(() => {
+  const set = new Set<string>()
+  clients.value.forEach((client: any) => {
+    const type = client.company_profile?.business_type
+    if (type) set.add(type)
   })
-  return Array.from(map.entries()).map(([value, label]) => ({ label, value }))
+  return Array.from(set).sort()
 })
 
-const supplierCategoryId = computed(() => {
+const clientCategoryId = computed(() => {
   const preferred = categories.value.find(
     (c: any) =>
-      c.name === 'Suppliers' ||
-      c.display_name === 'Suppliers' ||
-      c.name === 'SUPPLIERS' ||
-      c.display_name === 'SUPPLIERS'
+      c.name === 'Clients' ||
+      c.display_name === 'Clients' ||
+      c.name === 'CLIENTS' ||
+      c.display_name === 'CLIENTS' ||
+      c.name === 'Customers' ||
+      c.display_name === 'Customers' ||
+      c.name === 'CUSTOMERS' ||
+      c.display_name === 'CUSTOMERS' ||
+      c.name === 'CLIENT' ||
+      c.name === 'CUSTOMER'
   )
   if (preferred?.id) return preferred.id
 
   const fallback = categories.value.find(
-    (c: any) => c.code === 'SUPP' || c.category_code === 'SUPP' || c.name === 'SUPPLIER'
+    (c: any) => c.code === 'CLI' || c.category_code === 'CLI' || c.code === 'CUST' || c.category_code === 'CUST'
   )
-  return fallback?.id || 1
+  return fallback?.id || 2
 })
 
 const additionalCategories = computed(() =>
-  categories.value.filter((c: any) => c.id !== supplierCategoryId.value)
+  categories.value.filter((c: any) => c.id !== clientCategoryId.value)
 )
 
 const flatClassificationCategories = computed(() => {
@@ -709,13 +784,13 @@ const assignableCategoryOptions = computed(() =>
 const categoryLabelFromList = (value: any, list: any[]) => {
   const category = list.find((item: any) => item.id === value)
   if (!category) return ''
-  const name = category.name || category.display_name || ''
+  const name = category.display_name || category.name || ''
   const parentId = category.parent_id || category.parent?.id
   if (!parentId) return name
   const parent =
     list.find((item: any) => item.id === parentId) ||
     categories.value.find((item: any) => item.id === parentId)
-  const parentName = parent?.name || parent?.display_name
+  const parentName = parent?.display_name || parent?.name
   return parentName ? `${parentName} > ${name}` : name
 }
 
@@ -725,31 +800,6 @@ const classificationCategoryLabel = (value: any) => {
 }
 const assignableCategoryLabel = (value: any) =>
   categoryLabelFromList(value, additionalCategories.value)
-
-// Build hierarchical category structure for display
-const hierarchicalCategories = computed(() => {
-  const cats = additionalCategories.value
-  const buildTree = (parentId: number | null = null): any[] => {
-    return cats
-      .filter((cat: any) => cat.parent_id === parentId)
-      .map((cat: any) => ({
-        ...cat,
-        children: buildTree(cat.id)
-      }))
-  }
-  return buildTree(null)
-})
-
-// Get root supplier categories (e.g., Food Suppliers, Spare Parts, Fuel)
-const rootSupplierCategories = computed(() => {
-  return additionalCategories.value.filter((c: any) => !c.parent_id ||
-    !additionalCategories.value.some((p: any) => p.id === c.parent_id))
-})
-
-// Get child categories for a given parent
-const getChildCategories = (parentId: number) => {
-  return additionalCategories.value.filter((c: any) => c.parent_id === parentId)
-}
 
 function getStatusTextColor(status: string): string {
   const map: Record<string, string> = {
@@ -776,8 +826,8 @@ const statusBadge = (status: string) => {
   }
 }
 
-const primaryContact = (supplier: any) => {
-  const contacts = supplier.contacts || []
+const primaryContact = (client: any) => {
+  const contacts = client.contacts || []
   const email = contacts.find((c: any) => c.type === 'email')
   const phone = contacts.find((c: any) => c.type === 'phone' || c.type === 'mobile')
   return email?.contact || phone?.contact || '-'
@@ -790,29 +840,20 @@ const getAuthHeaders = () => {
   }
 }
 
-const normalizeSuppliersResponse = (payload: any) => {
+const normalizeClientsResponse = (payload: any) => {
   const paged = payload?.data || payload
   const items = Array.isArray(paged?.data) ? paged.data : Array.isArray(paged) ? paged : []
-  const mapped = items.map((item: any) => {
-    const contacts = Array.isArray(item.contacts) ? item.contacts : []
-    const phoneObj = contacts.find((c: any) => c.type === 'phone' || c.type === 'mobile') || null
+  const mapped = items.map((item: any) => ({
+    id: item.id,
+    code: item.code || item.client_code || item.clientCode || '',
+    full_name: item.full_name || item.client_name || item.name || '',
+    trading_name: item.trading_name || '',
+    business_type: item.business_type || '',
+    status: item.status || 'DRAFT',
+    contact: item.contact || '-'
+  }))
 
-    return {
-      id: item.id,
-      code: item.code || item.supplier_code || item.supplierCode || '',
-      full_name: item.full_name || item.supplier_name || item.name || '',
-      trading_name: item.trading_name || '',
-      category: (Array.isArray(item.categories) && item.categories[0]) ? (item.categories[0].name || item.categories[0].display_name) : '-',
-      category_id: (Array.isArray(item.categories) && item.categories[0]) ? item.categories[0].id : undefined,
-      status: item.status || 'DRAFT',
-      phone: (() => {
-        const raw = item.contact || phoneObj?.contact || item.phone || '-'
-        return typeof raw === 'string' ? raw.replace(/\s*\([^)]*\)\s*$/, '') : raw
-      })()
-    }
-  })
-
-  suppliers.value = mapped
+  clients.value = mapped
   pagination.value = {
     current_page: paged?.current_page || 1,
     per_page: paged?.per_page || mapped.length || tableFilters.value.limit,
@@ -821,28 +862,89 @@ const normalizeSuppliersResponse = (payload: any) => {
   }
 }
 
-const fetchSuppliers = async () => {
+const fetchClients = async () => {
   loading.value = true
   try {
-    const url = `${import.meta.env.VITE_APP_BASE_URL}suppliers/table-view`
-    const response = await axios.get(url, {
-      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }
-    })
+    // Try dedicated clients endpoint first, fallback to company-entities with category filter
+    let url = `${import.meta.env.VITE_APP_BASE_URL}clients/table-view`
+    let response
+    try {
+      response = await axios.get(url, {
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }
+      })
+    } catch (e) {
+      // Fallback to company-entities with CUSTOMER/CLIENT category filter
+      url = `${import.meta.env.VITE_APP_BASE_URL}company-entities?category=CLIENT,CUSTOMER`
+      response = await axios.get(url, {
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }
+      })
+    }
 
     const data = response.data?.data || response.data
-    normalizeSuppliersResponse(data)
+    // Filter out any entities that have SUPPLIER category (client-side safety)
+    const filtered = filterOutSuppliers(data)
+    normalizeClientsResponse(filtered)
   } catch (error: any) {
     handleErrors(error?.response?.data || error)
-    Swal.fire({ icon: 'error', title: 'Error', text: 'Failed to load suppliers' })
+    Swal.fire({ icon: 'error', title: 'Error', text: 'Failed to load clients' })
   } finally {
     loading.value = false
   }
 }
 
-const fetchSupplierMetadata = async () => {
+// Helper to filter out entities with SUPPLIER category
+const filterOutSuppliers = (payload: any) => {
+  const paged = payload?.data || payload
+  let items = Array.isArray(paged?.data) ? paged.data : Array.isArray(paged) ? paged : []
+
+  console.debug('[Clients] Before filter:', items.length, 'items')
+  console.debug('[Clients] Sample item:', items[0])
+
+  // Filter out entities that have SUPPLIER in their categories or type
+  items = items.filter((item: any) => {
+    // Check categories array
+    const cats = item.categories || []
+    const hasSupplierCategory = cats.some((c: any) => {
+      const name = (c.name || '').toUpperCase()
+      const displayName = (c.display_name || '').toUpperCase()
+      const code = (c.code || c.category_code || '').toUpperCase()
+      return name.includes('SUPPLIER') || displayName.includes('SUPPLIER') || code === 'SUP'
+    })
+
+    // Check if entity_type or type field indicates supplier
+    const entityType = (item.entity_type || item.type || '').toUpperCase()
+    const isSupplierType = entityType.includes('SUPPLIER')
+
+    // Check code prefix (some systems use SUP- prefix for suppliers)
+    const code = (item.code || '').toUpperCase()
+    const hasSupplierCode = code.startsWith('SUP-') || code.startsWith('SUP/')
+
+    // Check if is_supplier flag exists
+    const isSupplierFlag = item.is_supplier === true || item.isSupplier === true
+
+    const isSupplier = hasSupplierCategory || isSupplierType || hasSupplierCode || isSupplierFlag
+
+    if (isSupplier) {
+      console.debug('[Clients] Filtering out supplier:', item.full_name || item.name, { hasSupplierCategory, isSupplierType, hasSupplierCode, isSupplierFlag })
+    }
+
+    return !isSupplier
+  })
+
+  console.debug('[Clients] After filter:', items.length, 'items')
+
+  // Preserve pagination structure if it exists
+  if (paged?.data) {
+    return { ...paged, data: items }
+  }
+  return items
+}
+
+const fetchClientMetadata = async () => {
   if (metadataLoaded.value) return
   try {
-    const response = await axios.get(`${apiBaseUrl}${supplierMetadataEndpoint}`, {
+    // Use supplier-metadata endpoint (same structure as client-metadata)
+    const response = await axios.get(`${apiBaseUrl}supplier-metadata`, {
       headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }
     })
     const data = response.data?.data || response.data || {}
@@ -860,7 +962,7 @@ const fetchSupplierMetadata = async () => {
     entityTypes.value = Array.isArray(data.entity_types) ? data.entity_types : []
     entityStatuses.value = Array.isArray(data.entity_statuses) ? data.entity_statuses : []
   } catch (error: any) {
-    console.error('Failed to load supplier metadata', error)
+    console.error('Failed to load client metadata', error)
   } finally {
     metadataLoaded.value = true
   }
@@ -929,64 +1031,210 @@ const fetchAccounts = async () => {
 }
 
 const handleFiltersUpdate = (filters: any) => {
-  // Merge provided filters but also clear any custom filter not present in the emitted filters
-  const merged = { ...tableFilters.value, ...filters }
-
-  // Ensure all custom filters are explicitly set (clear when absent)
-  const customKeys = customFilters.value.map((f: any) => f.key)
-  customKeys.forEach((k: string) => {
-    if (!(k in filters)) {
-      merged[k] = ''
-    }
-  })
-
-  // Also ensure search is cleared when absent
-  if (!('search' in filters)) merged.search = ''
-
-  tableFilters.value = merged
-  fetchSuppliers()
+  tableFilters.value = { ...tableFilters.value, ...filters }
+  fetchClients()
 }
 
 const handlePageChange = (page: number) => {
   tableFilters.value.page = page
-  fetchSuppliers()
+  fetchClients()
 }
 
-const openViewModal = async (supplier: any) => {
+const resetClientForm = () => {
+  clientForm.full_name = ''
+  clientForm.trading_name = ''
+  clientForm.code = ''
+  clientForm.type = 'COMPANY'
+  clientForm.status = 'ACTIVE'
+  clientForm.country_id = null
+  clientForm.nationality_id = null
+  clientForm.base_currency_id = null
+  clientForm.notes = ''
+  clientForm.company_profile = {
+    legal_name: '',
+    trading_name: '',
+    registration_no: '',
+    registration_country_id: '',
+    incorporation_date: '',
+    business_type: '',
+    industry_code: '',
+    tax_residency_country_id: null
+  }
+  clientForm.contacts = []
+
+  clientCategory.default_payable_account_id = ''
+  clientCategory.default_receivable_account_id = ''
+  clientCategory.code = ''
+  clientCategory.additional_category_ids = []
+}
+
+const openClientModal = (client?: any) => {
+  resetClientForm()
+  editingClient.value = client || null
+
+  if (client) {
+    clientForm.full_name = client.full_name || ''
+    clientForm.trading_name = client.trading_name || ''
+    clientForm.code = client.code || ''
+    clientForm.type = client.type || 'COMPANY'
+    clientForm.status = 'ACTIVE'
+
+    const countryId = client.country_id ?? client.country?.id
+    const nationalityId = client.nationality_id ?? client.nationality?.id
+    const currencyId = client.base_currency_id ?? client.base_currency?.id
+    const taxResidencyId = client.company_profile?.tax_residency_country_id ?? client.company_profile?.tax_residency_country?.id
+
+    clientForm.country_id = findById(countries.value, countryId) || null
+    clientForm.nationality_id = findById(nationalities.value, nationalityId) || null
+    clientForm.base_currency_id = findById(currencies.value, currencyId) || null
+    clientForm.notes = client.notes || ''
+    clientForm.company_profile = {
+      legal_name: client.company_profile?.legal_name || '',
+      trading_name: client.company_profile?.trading_name || '',
+      registration_no: client.company_profile?.registration_no || '',
+      registration_country_id: client.company_profile?.registration_country_id || '',
+      incorporation_date: client.company_profile?.incorporation_date || '',
+      business_type: client.company_profile?.business_type || '',
+      industry_code: client.company_profile?.industry_code || '',
+      tax_residency_country_id: findById(countries.value, taxResidencyId) || null
+    }
+    clientForm.contacts = (client.contacts || []).map((c: any) => ({ type: c.type, contact: c.contact }))
+
+    const clientCat = (client.categories || []).find((c: any) => c.id === clientCategoryId.value)
+    clientCategory.default_payable_account_id = clientCat?.pivot?.default_payable_account_id || ''
+    clientCategory.default_receivable_account_id = clientCat?.pivot?.default_receivable_account_id || ''
+    clientCategory.code = clientCat?.pivot?.code || ''
+    clientCategory.additional_category_ids = (client.categories || [])
+      .filter((c: any) => c.id !== clientCategoryId.value)
+      .map((c: any) => c.id)
+  }
+
+  showClientModal.value = true
+  nextTick(() => {
+    clientModalRef.value?.show()
+  })
+}
+
+const closeClientModal = () => {
+  clientModalRef.value?.hide()
+}
+
+const handleClientModalHidden = () => {
+  showClientModal.value = false
+  editingClient.value = null
+}
+
+const buildCategoryPayload = () => {
+  const basePayload: any[] = [
+    {
+      category_id: clientCategoryId.value,
+      default_payable_account_id: clientCategory.default_payable_account_id || undefined,
+      default_receivable_account_id: clientCategory.default_receivable_account_id || undefined,
+      is_active: true,
+      code: clientCategory.code || undefined
+    }
+  ]
+
+  clientCategory.additional_category_ids.forEach((id: number) => {
+    basePayload.push({ category_id: id, is_active: true })
+  })
+
+  return basePayload
+}
+
+const saveClient = async () => {
+  if (classificationCategories.value.length && !clientCategory.additional_category_ids.length) {
+    Swal.fire({
+      icon: 'warning',
+      title: 'Classification Required',
+      text: 'Please select at least one classification category.'
+    })
+    return
+  }
+
+  saving.value = true
+  try {
+    const payload: any = {
+      full_name: clientForm.full_name,
+      trading_name: clientForm.trading_name || undefined,
+      code: clientForm.code || undefined,
+      type: clientForm.type || 'COMPANY',
+      status: 'ACTIVE',
+      country_id: resolveId(clientForm.country_id),
+      nationality_id: resolveId(clientForm.nationality_id),
+      base_currency_id: resolveId(clientForm.base_currency_id),
+      notes: clientForm.notes || undefined,
+      categories: buildCategoryPayload(),
+      contacts: clientForm.contacts.filter((c: any) => c.contact)
+    }
+
+    if (clientForm.type === 'COMPANY') {
+      payload.company_profile = {
+        ...clientForm.company_profile,
+        tax_residency_country_id: resolveId(clientForm.company_profile.tax_residency_country_id)
+      }
+    }
+
+    if (editingClient.value?.id) {
+      await axios.put(`${apiBaseUrl}company-entities/${editingClient.value.id}`, payload, {
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }
+      })
+      Swal.fire({ icon: 'success', title: 'Updated', text: 'Client updated successfully' })
+    } else {
+      await axios.post(`${apiBaseUrl}company-entities`, payload, {
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }
+      })
+      Swal.fire({ icon: 'success', title: 'Created', text: 'Client created successfully' })
+    }
+
+    closeClientModal()
+    fetchClients()
+  } catch (error: any) {
+    const errors = handleErrors(error?.response?.data || error)
+    Swal.fire({ icon: 'error', title: 'Error', text: errors?.[0] || 'Failed to save client' })
+  } finally {
+    saving.value = false
+  }
+}
+
+const openViewModal = async (client: any) => {
   showViewModal.value = true
   activeTab.value = 'basic'
   try {
-    const response = await axios.get(`${apiBaseUrl}company-entities/${supplier.id}`, {
+    const response = await axios.get(`${apiBaseUrl}company-entities/${client.id}`, {
       headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }
     })
-    viewSupplier.value = response.data?.data || response.data || supplier
-    viewContacts.value = (viewSupplier.value.contacts || []).map((c: any) => ({
-      ...c,
-      contact: typeof c.contact === 'string' ? c.contact.replace(/\s*\([^)]*\)\s*$/, '') : c.contact
-    }))
-    viewIdentities.value = (viewSupplier.value.identities || []).map((i: any) => ({
+    viewClient.value = response.data?.data || response.data || client
+    viewContacts.value = (viewClient.value.contacts || []).map((c: any) => ({ ...c }))
+    viewIdentities.value = (viewClient.value.identities || []).map((i: any) => ({
       ...i,
       dates: i.dates || {}
     }))
-    viewCategories.value = viewSupplier.value.categories || []
+    viewCategories.value = viewClient.value.categories || []
   } catch (error: any) {
-    console.error('Failed to load supplier details', error)
-    viewSupplier.value = supplier
-    viewContacts.value = (supplier.contacts || []).map((c: any) => ({
-      ...c,
-      contact: typeof c.contact === 'string' ? c.contact.replace(/\s*\([^)]*\)\s*$/, '') : c.contact
-    }))
-    viewIdentities.value = supplier.identities || []
-    viewCategories.value = supplier.categories || []
+    console.error('Failed to load client details', error)
+    viewClient.value = client
+    viewContacts.value = client.contacts || []
+    viewIdentities.value = client.identities || []
+    viewCategories.value = client.categories || []
   }
 }
 
 const closeViewModal = () => {
   showViewModal.value = false
-  viewSupplier.value = null
+  viewClient.value = null
   viewContacts.value = []
   viewIdentities.value = []
   viewCategories.value = []
+}
+
+const addContact = () => {
+  const fallbackType = contactTypeOptions.value[0]?.value || 'email'
+  clientForm.contacts.push({ type: fallbackType, contact: '' })
+}
+
+const removeContact = (index: number) => {
+  clientForm.contacts.splice(index, 1)
 }
 
 const addContactToView = () => {
@@ -999,17 +1247,17 @@ const removeViewContact = (index: number) => {
 }
 
 const saveContacts = async () => {
-  if (!viewSupplier.value?.id) return
+  if (!viewClient.value?.id) return
   saving.value = true
   try {
     const payload = {
       contacts: viewContacts.value.filter((c: any) => c.contact)
     }
-    await axios.put(`${apiBaseUrl}company-entities/${viewSupplier.value.id}`, payload, {
+    await axios.put(`${apiBaseUrl}company-entities/${viewClient.value.id}`, payload, {
       headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }
     })
     Swal.fire({ icon: 'success', title: 'Updated', text: 'Contacts updated' })
-    fetchSuppliers()
+    fetchClients()
   } catch (error: any) {
     const errors = handleErrors(error?.response?.data || error)
     Swal.fire({ icon: 'error', title: 'Error', text: errors?.[0] || 'Failed to update contacts' })
@@ -1028,9 +1276,9 @@ const addIdentityRow = () => {
 }
 
 const removeIdentityRow = async (index: number, identity: any) => {
-  if (identity?.id && viewSupplier.value?.id) {
+  if (identity?.id && viewClient.value?.id) {
     try {
-      await axios.delete(`${apiBaseUrl}company-entities/${viewSupplier.value.id}/identities/${identity.id}`, {
+      await axios.delete(`${apiBaseUrl}company-entities/${viewClient.value.id}/identities/${identity.id}`, {
         headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }
       })
       Swal.fire({ icon: 'success', title: 'Removed', text: 'Identity removed' })
@@ -1044,19 +1292,19 @@ const removeIdentityRow = async (index: number, identity: any) => {
 }
 
 const saveIdentities = async () => {
-  if (!viewSupplier.value?.id) return
+  if (!viewClient.value?.id) return
   saving.value = true
   try {
     const createPromises = viewIdentities.value
       .filter((i: any) => !i.id && i.identity_number)
       .map((identity: any) =>
-        axios.post(`${apiBaseUrl}company-entities/${viewSupplier.value.id}/identities`, identity, {
+        axios.post(`${apiBaseUrl}company-entities/${viewClient.value.id}/identities`, identity, {
           headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }
         })
       )
     await Promise.all(createPromises)
     Swal.fire({ icon: 'success', title: 'Updated', text: 'Identities updated' })
-    openViewModal(viewSupplier.value)
+    openViewModal(viewClient.value)
   } catch (error: any) {
     const errors = handleErrors(error?.response?.data || error)
     Swal.fire({ icon: 'error', title: 'Error', text: errors?.[0] || 'Failed to update identities' })
@@ -1081,15 +1329,15 @@ const closeCategoryAssignModal = () => {
 }
 
 const assignCategory = async () => {
-  if (!viewSupplier.value?.id || !assignCategoryForm.category_id) return
+  if (!viewClient.value?.id || !assignCategoryForm.category_id) return
   assigning.value = true
   try {
-    await axios.post(`${apiBaseUrl}company-entities/${viewSupplier.value.id}/categories`, assignCategoryForm, {
+    await axios.post(`${apiBaseUrl}company-entities/${viewClient.value.id}/categories`, assignCategoryForm, {
       headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }
     })
     Swal.fire({ icon: 'success', title: 'Assigned', text: 'Category assigned' })
     closeCategoryAssignModal()
-    openViewModal(viewSupplier.value)
+    openViewModal(viewClient.value)
   } catch (error: any) {
     const errors = handleErrors(error?.response?.data || error)
     Swal.fire({ icon: 'error', title: 'Error', text: errors?.[0] || 'Failed to assign category' })
@@ -1099,21 +1347,21 @@ const assignCategory = async () => {
 }
 
 const removeCategory = async (category: any) => {
-  if (!viewSupplier.value?.id) return
+  if (!viewClient.value?.id) return
   try {
-    await axios.delete(`${apiBaseUrl}company-entities/${viewSupplier.value.id}/categories/${category.id}`, {
+    await axios.delete(`${apiBaseUrl}company-entities/${viewClient.value.id}/categories/${category.id}`, {
       headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }
     })
     Swal.fire({ icon: 'success', title: 'Removed', text: 'Category removed' })
-    openViewModal(viewSupplier.value)
+    openViewModal(viewClient.value)
   } catch (error: any) {
     const errors = handleErrors(error?.response?.data || error)
     Swal.fire({ icon: 'error', title: 'Error', text: errors?.[0] || 'Failed to remove category' })
   }
 }
 
-const toggleStatus = async (supplier: any) => {
-  const nextStatus = supplier.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE'
+const toggleStatus = async (client: any) => {
+  const nextStatus = client.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE'
   const result = await Swal.fire({
     title: 'Update Status?',
     text: `Change status to ${nextStatus}?`,
@@ -1126,11 +1374,11 @@ const toggleStatus = async (supplier: any) => {
   if (!result.isConfirmed) return
 
   try {
-    await axios.patch(`${apiBaseUrl}company-entities/${supplier.id}/status`, { status: nextStatus }, {
+    await axios.patch(`${apiBaseUrl}company-entities/${client.id}/status`, { status: nextStatus }, {
       headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }
     })
     Swal.fire({ icon: 'success', title: 'Updated', text: 'Status updated' })
-    fetchSuppliers()
+    fetchClients()
   } catch (error: any) {
     const errors = handleErrors(error?.response?.data || error)
     Swal.fire({ icon: 'error', title: 'Error', text: errors?.[0] || 'Failed to update status' })
@@ -1144,16 +1392,14 @@ watch(
   }
 )
 
-
-
 onMounted(() => {
-  fetchSupplierMetadata()
-  fetchSuppliers()
+  fetchClientMetadata()
+  fetchClients()
 })
 </script>
 
 <style scoped>
-.supplier-management-page .panel {
+.client-management-page .panel {
   border-radius: 12px;
 }
 
@@ -1193,12 +1439,5 @@ onMounted(() => {
 :deep(.btn-outline-primary:hover) {
   transform: scale(1.05);
   transition: transform 0.2s ease;
-}
-
-/* Supplier phone styling */
-.supplier-phone {
-  color: var(--bs-primary, #0d6efd);
-  font-weight: 600;
-  font-size: 0.95rem;
 }
 </style>

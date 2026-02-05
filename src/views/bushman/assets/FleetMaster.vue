@@ -5,6 +5,16 @@
     <!-- VEHICLE LIST VIEW -->
     <template v-if="showVehicleList">
       <div class="fleet-master-list">
+        <div class="page-header-container mb-3 px-3">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <ul class="breadcrumb">
+                <li class="breadcrumb-item"><router-link to="/bushman/assets">ASSETS</router-link></li>
+                <li class="breadcrumb-item active">FLEET MASTER</li>
+              </ul>
+            </div>
+          </div>
+        </div>
         <div class="row layout-top-spacing bg-white rounded">
           <div class="col-xl-12 col-lg-12 col-sm-12 layout-spacing">
           <div class="panel br-6 p-0">
@@ -25,11 +35,14 @@
                 ]"
                 :filters="vehicleFilters"
                 @update:filters="handleVehicleFiltersUpdate"
+                @toggle-select-all="toggleSelectAll"
+                :selected-ids="Array.from(selectedRows)"
               >
+                <template #select="slotProps">
+                  <input type="checkbox" :checked="selectedRows.has((slotProps.row as any)?.id)" @change="toggleRowSelection(slotProps.row)" />
+                </template>
                 <template #registration="slotProps">
-                  <span class="badge bg-warning text-dark">
-                    <i class="fa fa-car me-1"></i>{{ (slotProps.row as any)?.registration_number || '-' }}
-                  </span>
+                  {{ (slotProps.row as any)?.registration_number || '-' }}
                 </template>
                 <template #make="slotProps">
                   {{ (slotProps.row as any)?.make || (slotProps.row as any).motor_vehicle?.vehicle_model?.make || '-' }}
@@ -69,23 +82,44 @@
 
     <!-- VEHICLE DETAILS VIEW (READ-ONLY, FULL PAGE) -->
     <template v-else-if="showVehicleDetailsPage">
-      <VehicleProfile
-        :vehicle-details="vehicleDetails"
-        :vehicle-documents="vehicleDocuments"
-        :uploading="uploading"
-        :loading="loadingVehicles"
-        :preview-map="previewMap"
-        @back="backToVehicleList"
-        @refresh="refreshVehicleDetails"
-        @edit="vehicleDetails && openEditVehicleForm(vehicleDetails)"
-        @add="openAddVehicleForm"
-        @refresh-documents="refreshVehicleDocuments"
-        @file-change="onVehicleFileChange"
-        @upload-document="uploadVehicleDocument"
-        @view-document="viewVehicleDocument"
-        @download-document="downloadVehicleDocument"
-        @open-image-preview="openImagePreview"
-      />
+      <div class="vehicle-profile-shell">
+        <div class="page-header-container mb-3 px-3">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <ul class="breadcrumb small mb-0">
+                <li class="breadcrumb-item"><router-link to="/bushman/assets">ASSETS</router-link></li>
+                <li class="breadcrumb-item"><router-link to="/bushman/assets/fleet-master">FLEET MASTER</router-link></li>
+                <li class="breadcrumb-item active">{{ vehicleDetails?.registration_number || vehicleDetails?.name || selectedVehicleUuid }}</li>
+              </ul>
+            </div>
+            <div>
+              <button class="btn btn-light btn-sm" @click="backToVehicleList">
+                <i class="fa fa-arrow-left me-1"></i> Back
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <VehicleProfile
+          :vehicle-details="vehicleDetails"
+          :vehicle-documents="vehicleDocuments"
+          :uploading="uploading"
+          :loading="loadingVehicles"
+          :preview-map="previewMap"
+          @back="backToVehicleList"
+          @refresh="refreshVehicleDetails"
+          @edit="vehicleDetails && openEditVehicleForm(vehicleDetails)"
+          @add="openAddVehicleForm"
+          @refresh-documents="refreshVehicleDocuments"
+          @file-change="onVehicleFileChange"
+          @upload-document="uploadVehicleDocument"
+          @view-document="viewVehicleDocument"
+          @download-document="downloadVehicleDocument"
+          @open-image-preview="openImagePreview"
+          @open-seat-map="openSeatMap"
+          @open-documents="openDocuments"
+        />
+      </div>
     </template>
 
     <VehicleFormModal
@@ -104,7 +138,14 @@
       @hidden="handleVehicleFormHidden"
     />
 
-
+    <!-- Vehicle Documents Modal -->
+    <VehicleDocumentsModal
+      v-if="showDocumentsModal || showDocumentsModalFallback"
+      :visible="showDocumentsModal || showDocumentsModalFallback"
+      :vehicle-id="vehicleDetails?.id ?? null"
+      @close="closeDocuments"
+      @uploaded="handleDocumentUploaded"
+    />
 
     <!-- Document Viewer Modal -->
     <div v-if="showDocumentViewer" class="document-viewer-overlay" @click.self="closeDocumentViewer">
@@ -123,6 +164,7 @@
               <span class="visually-hidden">Loading...</span>
             </div>
           </div>
+
           <template v-else-if="documentViewerUrl">
             <!-- PDF Viewer -->
             <iframe 
@@ -181,9 +223,33 @@ import StandardDataTable from '@/components/bootstrap/StandardDataTable.vue'
 import VehicleProfile from '@/views/bushman/assets/VehicleProfile.vue'
 import VehicleFormModal from '@/views/bushman/assets/VehicleFormModal.vue'
 import VehicleDetailsModal from '@/components/VehicleDetailsModal.vue'
+import VehicleDocumentsModal from '@/components/VehicleDocumentsModal.vue'
+import { useRouter, useRoute } from 'vue-router'
 import { useDocumentsStore } from '@/stores/bushman/documents-store'
 const toast = useToast()
 const swal = useSwal()
+
+// Safe wrappers to protect against cases where toast or swal rely on DOM nodes
+// that may have been removed by dev-cleanup or not yet mounted (avoids uncaught TypeErrors)
+function safeToast(type: 'error' | 'success' | 'info' | 'warning', message: any, options?: any) {
+  try {
+    ;(toast as any)[type](message, options)
+  } catch (e) {
+    console.warn('[FleetMaster] toast.' + type + ' failed', e)
+  }
+}
+
+const safeSwal = {
+  async confirm(opts: any) {
+    try {
+      return await swal.confirm(opts)
+    } catch (e) {
+      console.warn('[FleetMaster] swal.confirm failed', e)
+      return false
+    }
+  }
+}
+
 
 // State
 const showVehicleList = ref(true)
@@ -191,10 +257,16 @@ const showVehicleDetailsPage = ref(false)
 const showVehicleDetailsModal = ref(false)
 const selectedVehicleUuid = ref(null)
 const loadingVehicles = ref(false)
+const loadingDetails = ref(false) // true while loading a single vehicle's details
+
+const router = useRouter()
+const route = useRoute()
 const vehicles = ref<VehicleAsset[]>([])
 const vehicleModels = ref<any[]>([])
 const fuelItems = ref<any[]>([])
 const summary = ref<any>({})
+
+// Router for navigation to seat map (router & route already defined above)
 
 const vehicleFilters = ref({
   search: '',
@@ -244,6 +316,17 @@ const documentsStore = useDocumentsStore()
 
 // Preview map for image thumbnails: { [docId]: objectUrl }
 const previewMap = ref<Record<number | string, string>>({})
+const showDocumentsModal = ref(false)
+// Fallback flag: in case a template-assigned expression accidentally mutates the ref to a primitive,
+// we keep a secondary ref to reliably control modal visibility.
+const showDocumentsModalFallback = ref(false)
+
+import { watch } from 'vue'
+
+watch([showDocumentsModal, showDocumentsModalFallback], (vals) => {
+  console.debug('[FleetMaster] documents modal state changed', { showDocumentsModal: showDocumentsModal, showDocumentsModalFallback: showDocumentsModalFallback, values: vals })
+})
+
 
 // Client-side file validation settings
 const allowedFileTypes = ['image/jpeg', 'image/png', 'application/pdf']
@@ -264,12 +347,71 @@ async function loadPreview(doc: any) {
     console.warn('Failed to load preview for doc', doc.id)
   }
 }
+
+
 // Computed
 const vehiclesCount = computed(() => vehicles.value.length)
+
+const selectedRows = ref<Set<number | string>>(new Set())
+
+function toggleRowSelection(row: any) {
+  const id = row?.id
+  if (!id) return
+  if (selectedRows.value.has(id)) selectedRows.value.delete(id)
+  else selectedRows.value.add(id)
+}
+
+function toggleSelectAll(checked: boolean) {
+  if (checked) {
+    // select all currently loaded vehicles
+    vehicles.value.forEach(v => { if (v.id) selectedRows.value.add(v.id) })
+  } else {
+    selectedRows.value.clear()
+  }
+}
+
+async function deleteSelected() {
+  if (!selectedRows.value.size) return
+  const confirmed = await safeSwal.confirm({ title: 'Delete Selected', text: `Delete ${selectedRows.value.size} vehicle(s)? This cannot be undone.`, confirmButtonText: 'Delete', cancelButtonText: 'Cancel' })
+  if (!confirmed) return
+  try {
+    const ids = Array.from(selectedRows.value)
+    await Promise.all(ids.map(id => vehicleAssetService.deleteVehicleAsset(id as any)))
+    toast.success('Selected vehicles deleted')
+    selectedRows.value.clear()
+    await fetchVehicles()
+  } catch (err: any) {
+    toast.error('Failed to delete selected vehicles')
+  }
+}
+
+function exportSelectedCsv() {
+  if (!selectedRows.value.size) return toast.info('No rows selected')
+  const ids = new Set(selectedRows.value)
+  const rows = vehicles.value.filter(v => v.id != null && ids.has(v.id as any))
+  const headers = ['id','name','registration_number','make','model','chassis_number']
+  const csv = [headers.join(',')].concat(rows.map(r => headers.map(h => `"${(r as any)[h] ?? ''}"`).join(','))).join('\n')
+  const blob = new Blob([csv], { type: 'text/csv' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'vehicles-selected.csv'
+  a.click()
+  URL.revokeObjectURL(url)
+}
 
 const pageActions = computed(() => {
   const actions = []
   if (showVehicleList.value) {
+    // Batch actions when rows selected
+    if (selectedRows.value.size) {
+      actions.push(
+        { label: `${selectedRows.value.size} selected`, icon: 'fa fa-check', class: 'btn btn-outline-secondary', method: () => {} },
+        { label: 'Delete Selected', icon: 'fa fa-trash', class: 'btn btn-danger', method: () => deleteSelected() },
+        { label: 'Export Selected', icon: 'fa fa-file-export', class: 'btn btn-outline-secondary', method: () => exportSelectedCsv() },
+      )
+    }
+
     actions.push(
       {
         label: 'Refresh',
@@ -296,6 +438,7 @@ const pageActions = computed(() => {
 
 // Tables
 const vehicleColumns = [
+  { key: 'select', label: '', sortable: false, visible: true },
   { key: 'registration', label: 'Registration', sortable: true, visible: true },
   { key: 'model', label: 'Model', sortable: true, visible: true, filter: { type: 'text', placeholder: 'Filter by model' } },
   { key: 'make', label: 'Make', sortable: true, visible: true, filter: { type: 'text', placeholder: 'Filter by make' } },
@@ -320,8 +463,56 @@ function handleVehicleFiltersUpdate(newFilters: any) {
 async function fetchVehicles() {
   loadingVehicles.value = true
   try {
-    const res = await vehicleAssetService.listVehicleAssetsDisplay(vehicleFilters.value)
-    vehicles.value = res.data.data || res.data || []
+    // Use a longer timeout to tolerate slower but valid responses
+    const res = await fetchWithTimeout(vehicleAssetService.listVehicleAssetsDisplay(vehicleFilters.value), 20000)
+    console.debug('[FleetMaster] listVehicleAssetsDisplay response:', (res as any)?.status, (res as any)?.data)
+
+    // Normalize various API response shapes into an array that the table expects
+    const raw = (res as any)?.data
+    let list: any[] = []
+
+    if (Array.isArray(raw)) {
+      list = raw
+    } else if (Array.isArray(raw?.data)) {
+      list = raw.data
+    } else if (Array.isArray(raw?.results)) {
+      list = raw.results
+    } else if (Array.isArray(raw?.payload)) {
+      list = raw.payload
+    } else if (Array.isArray(raw?.data?.data)) {
+      // Common paginated shape: { data: { data: [...] } }
+      list = raw.data.data
+    } else if (Array.isArray(raw?.data?.results)) {
+      list = raw.data.results
+    } else if (Array.isArray(raw?.data?.payload)) {
+      list = raw.data.payload
+    } else if (Array.isArray(raw?.data?.items)) {
+      list = raw.data.items
+    } else if (Array.isArray(raw?.items)) {
+      list = raw.items
+    } else {
+      // Fallback: attempt to find an array one or two levels deep
+      const found = Object.values(raw || {}).find(v => Array.isArray(v))
+      if (found) list = found as any[]
+      else {
+        const nested = Object.values(raw || {}).reduce((acc: any[], v: any) => {
+          if (v && typeof v === 'object') acc.push(...Object.values(v))
+          return acc
+        }, [])
+        const foundNested = nested.find(v => Array.isArray(v))
+        if (foundNested) list = foundNested as any[]
+      }
+    }
+
+    if (!Array.isArray(list)) {
+      console.warn('[FleetMaster] Unexpected vehicles payload shape — expected array. Raw:', raw)
+      list = []
+    } else {
+      // Helpful debug: log where we extracted the array from (dev-only)
+      console.debug('[FleetMaster] vehicles normalized; sample count =', list.length)
+    }
+
+    vehicles.value = list
 
     // Normalize vehicle entries to ensure an `id` field exists
     vehicles.value = vehicles.value.map((v: any) => {
@@ -336,8 +527,23 @@ async function fetchVehicles() {
       const yearB = b.manufacture_year || b.motor_vehicle?.manufacture_year || 9999
       return yearA - yearB
     })
-  } catch (err) {
-    toast.error('Failed to load vehicles')
+  } catch (err: any) {
+    // If this is a timeout, offer the user a friendly retry option
+    if (String(err?.message || '').toLowerCase().includes('timeout')) {
+      console.warn('[FleetMaster] Failed to load vehicles - timeout', err)
+      const retry = await safeSwal.confirm({ title: 'Request timed out', text: 'Loading vehicles timed out. Retry?', confirmButtonText: 'Retry', cancelButtonText: 'Cancel' })
+      if (retry) {
+        await fetchVehicles()
+        return
+      } else {
+        safeToast('error', 'Request timed out while loading vehicles')
+      }
+    } else {
+      // Log full error for debugging and show server message when available
+      console.error('[FleetMaster] Failed to load vehicles', err)
+      const serverMsg = err?.response?.data?.message || err?.message || 'Failed to load vehicles'
+      safeToast('error', typeof serverMsg === 'string' ? serverMsg : 'Failed to load vehicles')
+    }
   } finally {
     loadingVehicles.value = false
   }
@@ -501,7 +707,7 @@ async function saveVehicle() {
 }
 
 async function confirmDeleteVehicle(vehicle: VehicleAsset) {
-  const confirmed = await swal.confirm({
+  const confirmed = await safeSwal.confirm({
     title: 'Delete Vehicle',
     text: `Are you sure you want to delete "${vehicle.name}"? This action cannot be undone.`,
     confirmButtonText: 'Delete',
@@ -520,34 +726,199 @@ async function confirmDeleteVehicle(vehicle: VehicleAsset) {
   }
 }
 
+// Helper to avoid hanging requests: race the promise against a timeout
+function fetchWithTimeout<T>(promise: Promise<T>, ms = 20000) {
+  let timer: any
+  return Promise.race([
+    promise,
+    new Promise<T>((_res, reject) => { timer = setTimeout(() => reject(new Error('timeout')), ms) })
+  ]).finally(() => clearTimeout(timer))
+}
+
 async function openVehicleDetails(vehicle: VehicleAsset) {
+  console.debug('[FleetMaster] openVehicleDetails called', vehicle)
+  console.info('[FleetMaster] openVehicleDetails called (info level)', { vehicle: vehicle })
+  loadingDetails.value = true
+
+  // Show the profile shell immediately (with whatever data we have) so user sees progress
+  if (vehicle) {
+    vehicleDetails.value = vehicle
+    selectedVehicleUuid.value = (vehicle as any).id ?? (vehicle as any).asset_id ?? (vehicle as any).pk ?? null
+  }
+
+  // Ensure any leftover full-screen viewers/modals are closed to avoid blocking interaction
+  showDocumentViewer.value = false
+  showImagePreviewModal.value = false
+  showDocumentsModal.value = false
+  showDocumentsModalFallback.value = false
+  console.info('[FleetMaster] cleared modal/viewer flags before loading details')
+
+  showVehicleList.value = false
+  showVehicleDetailsPage.value = true
+  safeToast('info', 'Opening vehicle details...', { duration: 1000 })
+
   // Try common id locations
   let id: any = null
   if (vehicle) {
     id = (vehicle as any).id ?? (vehicle as any).asset_id ?? (vehicle as any).pk ?? (vehicle as any).motor_vehicle?.id ?? (vehicle as any).motor_vehicle?.asset_id ?? (vehicle as any).vehicle_id ?? null
   }
-  if (!id && vehicle?.registration_number) {
+  console.debug('[FleetMaster] initial resolved id:', id)
+
+  // If id is missing or looks like a non-numeric registration, try lookup by registration
+  let registrationToTry: string | null = null
+  if (!id) {
+    registrationToTry = (vehicle as any)?.registration_number ?? null
+  } else if (typeof id === 'string' && Number.isNaN(Number(id))) {
+    registrationToTry = id
+    id = null
+  }
+
+  if (registrationToTry) {
     try {
-      const res = await vehicleAssetService.findByRegistration(vehicle.registration_number)
-      const found = res.data?.data || res.data
-      id = (found as any)?.id ?? (found as any)?.asset_id ?? (found as any)?.pk ?? null} catch (err) {
-      console.warn('Failed to resolve vehicle by registration', vehicle.registration_number)
+      // Protect lookup with a longer timeout
+      const res = await fetchWithTimeout(vehicleAssetService.findByRegistration(registrationToTry), 20000)
+      console.info('[FleetMaster] findByRegistration (info):', { status: (res as any).status, data: (res as any).data })
+      // Fallback to raw text if axios didn't parse JSON
+      if ((res as any).request && (res as any).request.responseText) {
+        console.debug('[FleetMaster] findByRegistration raw response:', (res as any).request.responseText)
+        console.info('[FleetMaster] findByRegistration raw response (info):', (res as any).request.responseText)
+      }
+
+      // Some backends return { success: false, message: '...' } with 200 status; handle explicitly
+      if ((res as any).data && (res as any).data.success === false) {
+        const msg = (res as any).data.message || `No vehicle found for registration ${registrationToTry}`
+        console.warn('[FleetMaster] findByRegistration reported failure:', msg)
+        safeToast('error', msg)
+
+        // Revert view state so user isn't stuck on an empty details page
+        showVehicleList.value = true
+        showVehicleDetailsPage.value = false
+        loadingDetails.value = false
+        vehicleDetails.value = null
+        selectedVehicleUuid.value = null
+        return
+      }
+
+      const found = (res as any).data?.data || (res as any).data
+      if (!found) {
+        console.warn('[FleetMaster] findByRegistration returned no data for', registrationToTry)
+        safeToast('error', `No vehicle found for registration ${registrationToTry}`)
+
+        showVehicleList.value = true
+        showVehicleDetailsPage.value = false
+        loadingDetails.value = false
+        vehicleDetails.value = null
+        selectedVehicleUuid.value = null
+        return
+      }
+
+      id = (found as any)?.id ?? (found as any)?.asset_id ?? (found as any)?.pk ?? null
+      console.debug('[FleetMaster] resolved id by registration:', id)
+    } catch (err: any) {
+      if (String(err?.message || '').toLowerCase().includes('timeout')) {
+        console.warn('[FleetMaster] registration lookup timeout for', registrationToTry)
+        const retry = await safeSwal.confirm({ title: 'Request timed out', text: `Resolving vehicle ${registrationToTry} timed out. Retry?`, confirmButtonText: 'Retry', cancelButtonText: 'Cancel' })
+        if (retry) {
+          return await openVehicleDetails(vehicle)
+        } else {
+          safeToast('error', 'Timed out while resolving vehicle by registration')
+        }
+      } else {
+        console.warn('[FleetMaster] Failed to resolve vehicle by registration', registrationToTry, err)
+        safeToast('error', 'Failed to resolve vehicle by registration')
+      }
+
+      showVehicleList.value = true
+      showVehicleDetailsPage.value = false
+      loadingDetails.value = false
+      vehicleDetails.value = null
+      selectedVehicleUuid.value = null
+      return
     }
   }
+
   if (!id) {
-    toast.error('Vehicle id missing; cannot load details')
+    // If id couldn't be resolved, ensure we revert the UI to the list view and
+    // surface a clear error to the user so they aren't left on an empty details page.
+    safeToast('error', 'Vehicle id missing; cannot load details')
+    showVehicleList.value = true
+    showVehicleDetailsPage.value = false
+    loadingDetails.value = false
+    vehicleDetails.value = null
+    selectedVehicleUuid.value = null
     return
   }
+
   try {
-    // Fetch the full asset details
-    const res = await vehicleAssetService.getVehicleAsset(id)
-    vehicleDetails.value = res.data?.data || res.data || vehicle
+    // Fetch the full asset details (with timeout)
+    const res = await fetchWithTimeout(vehicleAssetService.getVehicleAsset(id), 20000)
+    console.debug('[FleetMaster] getVehicleAsset response status/headers/data:', (res as any).status, (res as any).headers, (res as any).data)
+    console.info('[FleetMaster] getVehicleAsset (info):', { status: (res as any).status, data: (res as any).data })
+    if ((res as any).request && (res as any).request.responseText) {
+      console.debug('[FleetMaster] getVehicleAsset raw response:', (res as any).request.responseText)
+      console.info('[FleetMaster] getVehicleAsset raw response (info):', (res as any).request.responseText)
+    }
+
+    const payload = (res as any).data?.data || (res as any).data || null
+    if (!payload && !vehicle) {
+      // Nothing sensible returned by API and we had no row fallback - show message and revert
+      toast.error('No vehicle details returned from server')
+      showVehicleList.value = true
+      showVehicleDetailsPage.value = false
+      loadingDetails.value = false
+      return
+    }
+
+    vehicleDetails.value = payload || vehicle
     selectedVehicleUuid.value = id
     await refreshVehicleDocuments(id)
+
+    // Show the full-page VehicleProfile (replace list), not the modal
     showVehicleList.value = false
-    showVehicleDetailsModal.value = true
-  } catch (err) {
-    toast.error('Failed to load vehicle details')
+    showVehicleDetailsPage.value = true
+    showVehicleDetailsModal.value = false
+
+    // Update URL to reflect details view for deep-linking (prefer registration if available)
+    try {
+      const currentId = route.params.id ?? route.query.id
+      const pushId = vehicleDetails.value?.registration_number ?? id
+      console.debug('[FleetMaster] current route id:', currentId, 'pushId:', pushId)
+      if (!currentId || String(currentId) !== String(pushId)) {
+        // Prefer a pretty, named route so we avoid hitting catch-all redirects and to
+        // keep URLs readable (e.g. /bushman/assets/fleet-master/REG123).
+        router.push({ name: 'bushman-fleet-master-details', params: { id: String(pushId) } }).catch((err: any) => {
+          // If push fails (redundant navigation or unexpected), fall back to a safe replace
+          // using a query param to avoid leaving the user on a non-existent route.
+          if (err && err.name !== 'NavigationDuplicated') {
+            console.warn('Route push failed, falling back to query replace', err)
+            router.replace({ path: '/bushman/assets/fleet-master', query: { id: String(pushId) } }).catch((e: any) => {
+              if (e && e.name !== 'NavigationDuplicated') console.warn('Failed to set details query param', e)
+            })
+          }
+        })
+      }
+    } catch (e) {
+      console.warn('Failed to update vehicle details route', e)
+    }
+  } catch (err: any) {
+    console.error('[FleetMaster] Failed to load vehicle details', err)
+
+    // On error, revert to list so user isn't stuck on an empty details page
+    showVehicleList.value = true
+    showVehicleDetailsPage.value = false
+    vehicleDetails.value = null
+
+    if (String(err?.message || '').toLowerCase().includes('timeout')) {
+      const retry = await safeSwal.confirm({ title: 'Request timed out', text: 'Loading vehicle details timed out. Retry?', confirmButtonText: 'Retry', cancelButtonText: 'Cancel' })
+      if (retry) {
+        return await openVehicleDetails(vehicle)
+      }
+      safeToast('error', 'Request timed out while loading vehicle details')
+    } else {
+      safeToast('error', 'Failed to load vehicle details')
+    }
+  } finally {
+    loadingDetails.value = false
   }
 }
 
@@ -573,15 +944,40 @@ function backToVehicleList() {
   sanitizedFileName.value = null
 }
 
+function openSeatMap(data: any) {
+  if (!data) {
+    toast.info('No seat map assigned')
+    return
+  }
+  // If seat map has an id, route to the seat-map page, otherwise show a toast with name
+  if (data.id) {
+    router.push(`/bushman/assets/seat-maps/${data.id}`)
+    return
+  }
+  if (data.name || data.title) {
+    toast.info(`Seat map: ${data.name || data.title}`)
+    return
+  }
+  toast.info('Seat map data not available')
+}
+
 async function refreshVehicleDocuments(vehicleId: number) {
   try {
     // We link documents to vehicle by using code = vehicle-{id}
     const res = await documentsStore.listDocuments({ code: `vehicle-${vehicleId}` })
-    const list = Array.isArray(res.data)
-      ? res.data
-      : Array.isArray(res.data?.data)
-        ? res.data.data
-        : res.data?.results || []
+    console.debug('[FleetMaster] listDocuments response status/headers/data:', (res as any).status, (res as any).headers, (res as any).data)
+    if ((res as any).request && (res as any).request.responseText) {
+      console.debug('[FleetMaster] listDocuments raw response:', (res as any).request.responseText)
+    }
+
+    const list = Array.isArray((res as any).data)
+      ? (res as any).data
+      : Array.isArray((res as any).data?.data)
+        ? (res as any).data.data
+        : (res as any).data?.results || []
+
+    console.debug('[FleetMaster] refreshVehicleDocuments fetched list length=', (list || []).length, list)
+    console.info('[FleetMaster] refreshVehicleDocuments (info):', { length: (list || []).length, sample: (list || [])[0] })
 
     // Filter client-side to ensure we only show docs for this vehicle (backend may ignore code param)
     const expectedCode = `vehicle-${vehicleId}`
@@ -604,9 +1000,13 @@ async function refreshVehicleDocuments(vehicleId: number) {
     }
 
     // Load previews for image docs asynchronously (fire-and-forget)
-    ;(vehicleDocuments.value || []).forEach((doc: any) => {
+    // Limit to the first 3 documents and stagger requests to avoid main-thread blocking
+    ;(vehicleDocuments.value || []).slice(0, 3).forEach((doc: any, idx: number) => {
       const mime = (doc.mime_type || '').toString().toLowerCase()
-      if (mime.startsWith('image')) loadPreview(doc)
+      if (mime.startsWith('image')) {
+        // Stagger by a small delay so we yield to the event loop between downloads
+        setTimeout(() => { loadPreview(doc).catch((e) => console.warn('loadPreview failed', e)) }, idx * 200)
+      }
     })
   } catch (err) {
     toast.error('Failed to load vehicle documents')
@@ -618,6 +1018,42 @@ async function refreshVehicleDocuments(vehicleId: number) {
 async function loadVehicleDocuments(vehicleId: number) {
   console.warn('Deprecated: loadVehicleDocuments called. Use refreshVehicleDocuments instead.')
   return refreshVehicleDocuments(vehicleId)
+}
+
+// Open/close helpers for documents modal — use functions to avoid inline assignment caching problems
+function openDocuments() {
+  console.debug('[FleetMaster] openDocuments called', { showDocumentsModal, showDocumentsModalFallback })
+  try {
+    // Prefer setting the ref.value if ref is intact
+    if (showDocumentsModal && typeof (showDocumentsModal as any) === 'object' && 'value' in (showDocumentsModal as any)) {
+      showDocumentsModal.value = true
+      console.debug('[FleetMaster] showDocumentsModal.value set true')
+    }
+  } catch (err) {
+    console.debug('[FleetMaster] openDocuments set failed on first ref', err)
+  }
+  // Always set the fallback so modal will open even if the ref got corrupted
+  showDocumentsModalFallback.value = true
+  console.debug('[FleetMaster] showDocumentsModalFallback set true')
+}
+function closeDocuments() {
+  console.debug('[FleetMaster] closeDocuments called', { showDocumentsModal, showDocumentsModalFallback })
+  try {
+    if (showDocumentsModal && typeof (showDocumentsModal as any) === 'object' && 'value' in (showDocumentsModal as any)) {
+      showDocumentsModal.value = false
+      console.debug('[FleetMaster] showDocumentsModal.value set false')
+    }
+  } catch (err) {
+    console.debug('[FleetMaster] closeDocuments failed to set primary ref', err)
+  }
+  showDocumentsModalFallback.value = false
+  console.debug('[FleetMaster] showDocumentsModalFallback set false')
+}
+
+function handleDocumentUploaded() {
+  toast.success('Document uploaded — refreshing list')
+  if (vehicleDetails.value && vehicleDetails.value.id) refreshVehicleDocuments(vehicleDetails.value.id)
+  closeDocuments()
 }
 
 function sanitizeFilename(name: string) {
@@ -917,7 +1353,96 @@ onMounted(async () => {
 
   // Expose refresh function for dev/debug and ensure HMR doesn't break references
   try { (window as any).refreshVehicleDocuments = refreshVehicleDocuments } catch (e) {}
+
+  // Dev-only: clean up stray overlays/backdrops that can block interaction (helps when a modal/overlay
+  // was left behind by HMR or a failed request). This runs only in development.
+  if (import.meta.env.DEV) {
+    setTimeout(() => {
+      try {
+        if (typeof document === 'undefined' || !document || !document.body) return
+
+        // Be conservative: avoid removing swal containers which can break Swal use later.
+        const selectors = ['.document-viewer-overlay', '.modal-backdrop', '.modal-backdrop.show']
+        selectors.forEach((sel) => {
+          try {
+            Array.from(document.querySelectorAll(sel)).forEach((el) => {
+              try {
+                console.warn('[FleetMaster][dev-cleanup] Removing stray overlay:', sel, el)
+                el.remove()
+              } catch (e) {
+                console.error('[FleetMaster][dev-cleanup] Failed to remove overlay', sel, e)
+              }
+            })
+          } catch (e) {
+            console.warn('[FleetMaster][dev-cleanup] query failed for selector', sel, e)
+          }
+        })
+
+        // Report other fixed elements with very high z-index that may block interactions
+        const problematic = Array.from(document.body.querySelectorAll('*')).filter((el: any) => {
+          const st = getComputedStyle(el)
+          const z = Number(st.zIndex) || 0
+          return (st.position === 'fixed' || st.position === 'absolute') && z >= 1000 && el.offsetWidth > 0 && el.offsetHeight > 0
+        })
+        if (problematic.length) console.warn('[FleetMaster][dev-cleanup] High z-index fixed elements found:', problematic)
+      } catch (e) {
+        console.warn('[FleetMaster][dev-cleanup] aborted cleanup due to error', e)
+      }
+    }, 250)
+  }
+
+  // If the URL contains an id (either as a route param or a query param), attempt to open that vehicle for deep-linking.
+  // Use local list first to avoid extra requests, then fall back to the existing lookup logic in openVehicleDetails.
+  try {
+    const initialId = (route.params.id ?? route.query.id) as string | undefined
+    if (initialId) {
+      const local = vehicles.value.find(v => String(v.id) === String(initialId) || String(v.registration_number) === String(initialId))
+      if (local) {
+        await openVehicleDetails(local)
+      } else {
+        // Trigger openVehicleDetails with a registration payload (it will try findByRegistration or direct fetch)
+        await openVehicleDetails({ registration_number: initialId } as any)
+      }
+    }
+  } catch (e) {
+    console.warn('[FleetMaster] failed to auto-open vehicle from route/query id', e)
+  }
 })
+
+// Dev-only helpers to inspect/remove pointer-blocking elements quickly from the console
+if (import.meta.env.DEV) {
+  try {
+    ;(window as any).__fleetMasterDebug = {
+      findBlockers: () => {
+        const blockers = Array.from(document.body.querySelectorAll('*')).filter((el: any) => {
+          const st = getComputedStyle(el)
+          const z = Number(st.zIndex) || 0
+          return (st.position === 'fixed' || st.position === 'absolute') && z >= 1000 && el.offsetWidth > 0 && el.offsetHeight > 0
+        })
+        console.info('[FleetMaster][debug] blockers:', blockers.map((el: any) => ({ tag: el.tagName, classes: el.className, z: getComputedStyle(el).zIndex, rect: el.getBoundingClientRect() })))
+        return blockers
+      },
+      elementAtCenter: () => {
+        const el = document.elementFromPoint(window.innerWidth / 2, window.innerHeight / 2)
+        console.info('[FleetMaster][debug] elementAtCenter:', el, { tag: el?.tagName, classes: el?.className })
+        return el
+      },
+      removeBlockers: (selector?: string) => {
+        let els: Element[] = []
+        if (selector) els = Array.from(document.querySelectorAll(selector))
+        else els = (window as any).__fleetMasterDebug.findBlockers()
+        els.forEach((el: any) => {
+          try { el.remove() } catch (e) { console.error('Failed to remove element', el, e) }
+        })
+        console.info('[FleetMaster][debug] removed elements count:', els.length)
+        return els
+      }
+    }
+  } catch (e) {
+    console.warn('[FleetMaster][debug] could not expose debug helpers', e)
+  }
+}
+
 
 defineExpose({ refreshVehicleDocuments })
 </script>
@@ -1076,6 +1601,34 @@ code {
   object-fit: contain;
   display: block;
   margin: auto;
+}
+
+
+/* Vehicle profile shell styles to ensure full-page, hero-like appearance */
+.vehicle-profile-shell {
+  padding: 18px 18px 36px 18px;
+}
+
+.vehicle-profile-shell :deep(.card-hero) {
+  margin: 0;
+  border-bottom: 1px solid rgba(0,0,0,0.03);
+}
+
+.vehicle-profile-shell :deep(.card) {
+  border-radius: 10px;
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.04);
+  overflow: visible;
+}
+
+.vehicle-profile-shell :deep(.card .card-header.p-0.border-bottom) {
+  background: transparent;
+  border-bottom: none;
+  margin-top: 0;
+}
+
+.vehicle-profile-shell :deep(.card-header) {
+  background: #f6f8fb;
+  border: none;
 }
 
 </style>

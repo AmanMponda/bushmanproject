@@ -1,10 +1,11 @@
 <template>
   <FormPageLayout
     icon="fa fa-building"
+    :title="isEditMode ? 'Edit Supplier' : 'Create Supplier'"
     :breadcrumbs="[
       { label: 'PROCUREMENT', to: '/procurement' },
       { label: 'SUPPLIERS', to: '/procurement/suppliers' },
-      'CREATE'
+      isEditMode ? 'EDIT' : 'CREATE'
     ]"
     layout="single"
   >
@@ -28,7 +29,7 @@
                 :searchable="false"
                 :allow-empty="false"
                 placeholder="Select type"
-                @update:model-value="(val) => (supplierForm.type = val.value)"
+                @update:model-value="(val: any) => (supplierForm.type = val.value)"
               />
             </FormField>
             <FormField label="Full Name" required>
@@ -52,11 +53,127 @@
                 :close-on-select="true"
                 label="display_name"
                 track-by="id"
-                :reduce="(cat) => cat.id"
+                :reduce="(cat: any) => cat.id"
                 placeholder="Select classification category"
               />
             </FormField>
           </FormSection>
+
+          <template v-if="supplierForm.type !== 'INDIVIDUAL'">
+            <FormSection :columns="1">
+              <div class="mb-3">
+                <div class="form-check">
+                  <input
+                    class="form-check-input"
+                    type="checkbox"
+                    v-model="supplierForm.create_contact_person"
+                    id="create_contact_person"
+                  />
+                  <label class="form-check-label" for="create_contact_person">
+                    <strong>Create Contact Person</strong> (Creates a person entity linked to this supplier)
+                  </label>
+                </div>
+              </div>
+            </FormSection>
+          </template>
+
+          <template v-if="supplierForm.create_contact_person && supplierForm.type !== 'INDIVIDUAL'">
+            <FormSection :columns="3">
+              <FormField label="Contact Person Name" required>
+                <input
+                  v-model="supplierForm.contact_person.person_full_name"
+                  type="text"
+                  placeholder="Enter contact person full name"
+                  required
+                />
+              </FormField>
+              <FormField label="Contact Person Country">
+                <Multiselect
+                  v-model="supplierForm.contact_person.person_country_id"
+                  :options="countries"
+                  label="name"
+                  track-by="id"
+                  placeholder="Select country"
+                />
+              </FormField>
+              <FormField label="Contact Person Nationality">
+                <Multiselect
+                  v-model="supplierForm.contact_person.person_nationality_id"
+                  :options="nationalities"
+                  label="name"
+                  track-by="id"
+                  placeholder="Select nationality"
+                />
+              </FormField>
+            </FormSection>
+            <FormSection :columns="1">
+              <FormField label="Contact Person Notes" optional>
+                <textarea
+                  v-model="supplierForm.contact_person.person_notes"
+                  rows="2"
+                  placeholder="Notes about the contact person (e.g., role, department)"
+                ></textarea>
+              </FormField>
+            </FormSection>
+          </template>
+
+          <template v-if="supplierForm.type === 'INDIVIDUAL'">
+            <FormSection :columns="3">
+              <FormField label="Date of Birth" required>
+                <div class="vueform-date-wrapper">
+                  <Vueform size="sm" :display-errors="false" :endpoint="false">
+                    <DateElement
+                      name="dob"
+                      v-model="supplierForm.individual_profile.date_of_birth"
+                      @change="supplierForm.individual_profile.date_of_birth = $event"
+                      :display-format="'MMM D, YYYY'"
+                      :value-format="'YYYY-MM-DD'"
+                      placeholder="Select date of birth..."
+                      :add-class="{ DateElement: { input: 'form-control' } }"
+                    />
+                  </Vueform>
+                </div>
+              </FormField>
+              <FormField label="Gender" optional>
+                <Multiselect
+                  v-model="supplierForm.individual_profile.gender"
+                  :options="['MALE', 'FEMALE', 'OTHER']"
+                  placeholder="Select gender"
+                />
+              </FormField>
+              <FormField label="Marital Status" optional>
+                <Multiselect
+                  v-model="supplierForm.individual_profile.marital_status"
+                  :options="['SINGLE', 'MARRIED', 'DIVORCED', 'WIDOWED']"
+                  placeholder="Select status"
+                />
+              </FormField>
+            </FormSection>
+
+            <FormSection :columns="3">
+              <FormField label="Email" optional>
+                <input
+                  v-model="supplierForm.individual_profile.email"
+                  type="email"
+                  placeholder="Enter email address"
+                />
+              </FormField>
+              <FormField label="Phone" optional>
+                <input
+                  v-model="supplierForm.individual_profile.phone"
+                  type="text"
+                  placeholder="Enter phone number"
+                />
+              </FormField>
+              <FormField label="Address" optional>
+                <input
+                  v-model="supplierForm.individual_profile.address"
+                  type="text"
+                  placeholder="Enter address"
+                />
+              </FormField>
+            </FormSection>
+          </template>
         </FormCard>
 
         <FormCard title="Location & Currency" icon="fa fa-globe" icon-variant="info" variant="bordered">
@@ -70,7 +187,7 @@
                 placeholder="Select country"
               />
             </FormField>
-            <FormField label="Nationality">
+            <FormField v-if="supplierForm.type !== 'COMPANY'" label="Nationality">
               <Multiselect
                 v-model="supplierForm.nationality_id"
                 :options="nationalities"
@@ -92,57 +209,8 @@
           </FormSection>
 
           <FormSection :columns="1">
-            <FormField label="Notes" optional>
-              <textarea v-model="supplierForm.notes" rows="2" placeholder="Additional notes or comments"></textarea>
-            </FormField>
-          </FormSection>
-        </FormCard>
-
-        <FormCard
-          v-if="supplierForm.type === 'INDIVIDUAL'"
-          title="Individual Profile"
-          icon="fa fa-user"
-          icon-variant="info"
-          variant="bordered"
-        >
-          <FormSection :columns="2">
-            <FormField label="Date of Birth" required>
-              <div class="vueform-date-wrapper">
-                <Vueform size="sm" :display-errors="false" :endpoint="false">
-                  <DateElement
-                    name="dob"
-                    v-model="supplierForm.individual_profile.date_of_birth"
-                    @change="supplierForm.individual_profile.date_of_birth = $event"
-                    :display-format="'MMM D, YYYY'"
-                    :value-format="'YYYY-MM-DD'"
-                    placeholder="Select date of birth..."
-                    :add-class="{ DateElement: { input: 'form-control' } }"
-                  />
-                </Vueform>
-              </div>
-            </FormField>
-            <FormField label="Gender" required>
-              <Multiselect
-                v-model="supplierForm.individual_profile.gender"
-                :options="['MALE', 'FEMALE', 'OTHER']"
-                placeholder="Select gender"
-              />
-            </FormField>
-            <FormField label="Nationality Country" required>
-              <Multiselect
-                v-model="supplierForm.individual_profile.nationality_country_id"
-                :options="countries"
-                label="name"
-                track-by="id"
-                placeholder="Select country"
-              />
-            </FormField>
-            <FormField label="Marital Status" optional>
-              <Multiselect
-                v-model="supplierForm.individual_profile.marital_status"
-                :options="['SINGLE', 'MARRIED', 'DIVORCED', 'WIDOWED']"
-                placeholder="Select status"
-              />
+            <FormField label="Notes" required>
+              <textarea v-model="supplierForm.notes" rows="2" placeholder="Additional notes or comments" required></textarea>
             </FormField>
           </FormSection>
         </FormCard>
@@ -157,9 +225,6 @@
           <FormSection :columns="2">
             <FormField label="Legal Name" optional>
               <input v-model="supplierForm.company_profile.legal_name" type="text" />
-            </FormField>
-            <FormField label="Trading Name" optional>
-              <input v-model="supplierForm.company_profile.trading_name" type="text" />
             </FormField>
             <FormField label="Registration Number" optional>
               <input v-model="supplierForm.company_profile.registration_no" type="text" />
@@ -203,68 +268,16 @@
                 placeholder="Select country"
               />
             </FormField>
-          </FormSection>
-        </FormCard>
-
-        <FormCard title="Contacts" icon="fa fa-address-book" icon-variant="info" variant="bordered">
-          <FormSection v-for="(contact, index) in supplierForm.contacts" :key="index" :columns="3">
-            <FormField label="Type" required>
-              <Multiselect
-                :model-value="contactTypes.find((t) => t.name === contact.type)"
-                :options="contactTypes"
-                label="name"
-                track-by="name"
-                :searchable="false"
-                :allow-empty="false"
-                placeholder="Select type"
-                :preselect-first="true"
-                @update:model-value="(val) => (contact.type = val.name)"
+            <FormField label="TIN" optional>
+              <input
+                v-model="supplierForm.company_profile.tin"
+                type="text"
+                :disabled="!supplierForm.company_profile.tax_residency_country_id"
+                placeholder="Tax Identification Number (TIN) - select Tax Residency Country first"
               />
+              <small v-if="!supplierForm.company_profile.tax_residency_country_id" class="text-muted">Select Tax Residency Country first to enter TIN</small>
             </FormField>
-            <FormField label="Contact Detail" required>
-              <div class="d-flex gap-2">
-                <input
-                  v-model="contact.contact"
-                  type="text"
-                  placeholder="Email, Phone, Address, etc."
-                  class="form-control"
-                  required
-                />
-              </div>
-            </FormField>
-            <div class="d-flex align-items-end mb-3">
-              <div class="form-check me-3">
-                <input
-                  class="form-check-input"
-                  type="checkbox"
-                  v-model="contact.contactable"
-                  :id="`contactable-${index}`"
-                />
-                <label class="form-check-label" :for="`contactable-${index}`"> Contactable </label>
-              </div>
-              <button
-                type="button"
-                class="btn btn-outline-danger btn-sm ms-auto"
-                @click="removeContact(index)"
-                v-if="supplierForm.contacts.length > 1"
-              >
-                <i class="fa fa-trash"></i>
-              </button>
-              <button
-                type="button"
-                class="btn btn-outline-primary btn-sm ms-2"
-                @click="addContact"
-                v-if="index === supplierForm.contacts.length - 1"
-              >
-                <i class="fa fa-plus"></i>
-              </button>
-            </div>
           </FormSection>
-          <div v-if="supplierForm.contacts.length === 0" class="text-center p-3">
-            <button type="button" class="btn btn-outline-primary btn-sm" @click="addContact">
-              <i class="fa fa-plus me-1"></i> Add Contact
-            </button>
-          </div>
         </FormCard>
 
         <div class="sticky-footer">
@@ -272,7 +285,7 @@
             :show-cancel="true"
             :show-submit="true"
             cancel-text="Cancel"
-            submit-text="Create Supplier"
+            :submit-text="isEditMode ? 'Update Supplier' : 'Create Supplier'"
             :loading="saving"
             :submit-loading="saving"
             :submit-disabled="saving"
@@ -288,15 +301,18 @@
 <script setup lang="ts">
 import axios from 'axios'
 import { computed, onMounted, reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import Swal from 'sweetalert2'
 import Multiselect from 'vue-multiselect'
 import 'vue-multiselect/dist/vue-multiselect.min.css'
+import Vueform from '@vueform/vueform'
+import { DateElement } from '@vueform/vueform'
 
 import handleErrors from '@/stores/bushman/errorHandler'
 import { FormActions, FormCard, FormField, FormPageLayout, FormSection } from '@/components/forms'
 
 const router = useRouter()
+const route = useRoute()
 
 const apiBaseUrl = import.meta.env.VITE_APP_BASE_URL
 const countriesEndpoint = import.meta.env.VITE_APP_COUNTRIES_URL
@@ -304,7 +320,10 @@ const currenciesEndpoint = import.meta.env.VITE_APP_CURRENCIES_URL
 const supplierMetadataEndpoint = 'supplier-metadata'
 
 const saving = ref(false)
+const loading = ref(false)
 const metadataLoaded = ref(false)
+const isEditMode = ref(false)
+const supplierId = ref<number | null>(null)
 
 const countries = ref<any[]>([])
 const nationalities = ref<any[]>([])
@@ -327,8 +346,8 @@ const supplierForm = reactive<any>({
   notes: '',
   company_profile: {
     legal_name: '',
-    trading_name: '',
     registration_no: '',
+    tin: '',
     registration_country_id: '',
     incorporation_date: '',
     business_type: '',
@@ -337,15 +356,20 @@ const supplierForm = reactive<any>({
   },
   individual_profile: {
     date_of_birth: '',
-    gender: 'MALE',
+    gender: null,
     nationality_country_id: null,
-    marital_status: null
+    marital_status: null,
+    email: '',
+    phone: '',
+    address: ''
   },
-  contacts: [{ type: '', contact: '', contactable: true }] as Array<{
-    type: string
-    contact: string
-    contactable: boolean
-  }>
+  create_contact_person: false,
+  contact_person: {
+    person_full_name: '',
+    person_country_id: null,
+    person_nationality_id: null,
+    person_notes: ''
+  }
 })
 
 const supplierCategory = reactive<any>({
@@ -431,18 +455,21 @@ const getAuthHeaders = () => {
 }
 
 const buildCategoryPayload = () => {
-  const basePayload: any[] = [
-    {
-      category_id: supplierCategoryId.value,
-      default_payable_account_id: supplierCategory.default_payable_account_id || undefined,
-      default_receivable_account_id: supplierCategory.default_receivable_account_id || undefined,
-      effective_from: effectiveFromNow(),
-      is_active: true
-    }
-  ]
+  const basePayload: any[] = []
 
+  // Extract ID if it's an object, otherwise use the value directly
   if (supplierCategory.additional_category_id) {
-    basePayload.push({ category_id: supplierCategory.additional_category_id, effective_from: effectiveFromNow(), is_active: true })
+    const categoryId = typeof supplierCategory.additional_category_id === 'object' && supplierCategory.additional_category_id !== null
+      ? supplierCategory.additional_category_id.id
+      : supplierCategory.additional_category_id
+    
+    if (categoryId) {
+      basePayload.push({ 
+        category_id: categoryId, 
+        effective_from: effectiveFromNow(), 
+        is_active: true 
+      })
+    }
   }
 
   return basePayload
@@ -458,36 +485,46 @@ const saveSupplier = async () => {
     return
   }
 
-  const contactErrors: string[] = []
-  supplierForm.contacts.forEach((contact: any, index: number) => {
-    if (!contact.type) {
-      contactErrors.push(`Contact ${index + 1}: Type is required`)
-    }
-    if (!contact.contact || contact.contact.trim() === '') {
-      contactErrors.push(`Contact ${index + 1}: Value is required`)
-    }
-    if (contact.type === 'email' && !isValidEmail(contact.contact)) {
-      contactErrors.push(`Contact ${index + 1}: Invalid email format`)
-    }
-    if ((contact.type === 'phone' || contact.type === 'mobile') && !isValidPhone(contact.contact)) {
-      contactErrors.push(`Contact ${index + 1}: Invalid phone format`)
-    }
-  })
-
-  if (contactErrors.length) {
+  if (!supplierForm.notes || supplierForm.notes.trim() === '') {
     Swal.fire({
       icon: 'warning',
-      title: 'Validation Error',
-      html: contactErrors.join('<br>')
+      title: 'Notes Required',
+      text: 'Please enter notes for the supplier.'
     })
     return
   }
 
   saving.value = true
   try {
+    // Generate unique code if not provided
+    let supplierCode = supplierForm.code?.trim() || ''
+    if (!supplierCode) {
+      // Generate code from trading_name or full_name + timestamp
+      const baseName = (supplierForm.trading_name || supplierForm.full_name || 'SUPP').toUpperCase()
+      const prefix = baseName.substring(0, 4).replace(/[^A-Z0-9]/g, '')
+      const timestamp = Date.now().toString().slice(-6)
+      supplierCode = `${prefix}-${timestamp}`
+    }
+
+    // Build contacts array - only include contact person if enabled
+    const contactsPayload: any[] = []
+    if (supplierForm.create_contact_person && supplierForm.contact_person.person_full_name) {
+      contactsPayload.push({
+        type: 'email',
+        contact: '',
+        contactable: true,
+        create_as_entity: true,
+        person_full_name: supplierForm.contact_person.person_full_name,
+        person_country_id: resolveId(supplierForm.contact_person.person_country_id),
+        person_nationality_id: resolveId(supplierForm.contact_person.person_nationality_id),
+        person_notes: supplierForm.contact_person.person_notes || undefined
+      })
+    }
+
     const payload: any = {
       full_name: supplierForm.full_name,
       trading_name: supplierForm.trading_name || undefined,
+      code: supplierCode,
       type: supplierForm.type || 'COMPANY',
       status: 'ACTIVE',
       country_id: resolveId(supplierForm.country_id),
@@ -495,12 +532,13 @@ const saveSupplier = async () => {
       base_currency_id: resolveId(supplierForm.base_currency_id),
       notes: supplierForm.notes || undefined,
       categories: buildCategoryPayload(),
-      contacts: supplierForm.contacts.filter((c: any) => c.contact)
+      contacts: contactsPayload.length > 0 ? contactsPayload : undefined
     }
 
     if (supplierForm.type === 'COMPANY') {
       payload.company_profile = {
         ...supplierForm.company_profile,
+        tin: supplierForm.company_profile.tin || undefined,
         tax_residency_country_id: resolveId(supplierForm.company_profile.tax_residency_country_id)
       }
     }
@@ -510,12 +548,46 @@ const saveSupplier = async () => {
         ...supplierForm.individual_profile,
         nationality_country_id: resolveId(supplierForm.individual_profile.nationality_country_id)
       }
+
+      // Build contacts array from individual profile contact fields
+      const individualContacts: any[] = []
+      if (supplierForm.individual_profile.email) {
+        individualContacts.push({
+          type: 'email',
+          contact: supplierForm.individual_profile.email,
+          contactable: true
+        })
+      }
+      if (supplierForm.individual_profile.phone) {
+        individualContacts.push({
+          type: 'phone',
+          contact: supplierForm.individual_profile.phone,
+          contactable: true
+        })
+      }
+      if (supplierForm.individual_profile.address) {
+        individualContacts.push({
+          type: 'address',
+          contact: supplierForm.individual_profile.address,
+          contactable: true
+        })
+      }
+      if (individualContacts.length > 0) {
+        payload.contacts = individualContacts
+      }
     }
 
-    await axios.post(`${apiBaseUrl}company-entities`, payload, {
-      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }
-    })
-    Swal.fire({ icon: 'success', title: 'Created', text: 'Supplier created successfully' })
+    if (isEditMode.value && supplierId.value) {
+      await axios.put(`${apiBaseUrl}company-entities/${supplierId.value}`, payload, {
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }
+      })
+      Swal.fire({ icon: 'success', title: 'Updated', text: 'Supplier updated successfully' })
+    } else {
+      await axios.post(`${apiBaseUrl}company-entities`, payload, {
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }
+      })
+      Swal.fire({ icon: 'success', title: 'Created', text: 'Supplier created successfully' })
+    }
     router.push({ name: 'procurement-suppliers' })
   } catch (error: any) {
     const errors = handleErrors(error?.response?.data || error)
@@ -605,33 +677,110 @@ const fetchCategories = async () => {
   }
 }
 
+const loadSupplier = async () => {
+  if (!supplierId.value) return
+  
+  loading.value = true
+  try {
+    const response = await axios.get(`${apiBaseUrl}suppliers/${supplierId.value}`, {
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }
+    })
+    const data = response.data?.data || response.data
+    
+    // Populate form with loaded data
+    supplierForm.full_name = data.full_name || ''
+    supplierForm.trading_name = data.trading_name || ''
+    supplierForm.code = data.code || ''
+    supplierForm.type = data.type || 'COMPANY'
+    supplierForm.status = data.status || 'ACTIVE'
+    supplierForm.country_id = data.country_id || null
+    supplierForm.nationality_id = data.nationality_id || null
+    supplierForm.base_currency_id = data.base_currency_id || null
+    supplierForm.notes = data.notes || ''
+    
+    // Load company profile if exists
+    if (data.company_profile) {
+      supplierForm.company_profile = {
+        legal_name: data.company_profile.legal_name || '',
+        registration_no: data.company_profile.registration_number || '',
+        tin: data.company_profile.tin || '',
+        registration_country_id: data.company_profile.registration_country_id || '',
+        incorporation_date: data.company_profile.incorporation_date || '',
+        business_type: data.company_profile.business_type || '',
+        industry_code: data.company_profile.industry_code || '',
+        tax_residency_country_id: data.company_profile.tax_residency_country_id || null
+      }
+    }
+    
+    // Load individual profile if exists
+    if (data.individual_profile) {
+      supplierForm.individual_profile = {
+        date_of_birth: data.individual_profile.date_of_birth || '',
+        gender: data.individual_profile.gender || null,
+        nationality_country_id: data.individual_profile.nationality_country_id || null,
+        marital_status: data.individual_profile.marital_status || null,
+        email: '',
+        phone: '',
+        address: ''
+      }
+    }
+    
+    // Load category if exists
+    if (data.entity_categories && data.entity_categories.length > 0) {
+      const primaryCategory = data.entity_categories[0]
+      supplierCategory.additional_category_id = primaryCategory.category_id
+      supplierCategory.code = primaryCategory.code || ''
+    }
+  } catch (error: any) {
+    console.error('Failed to load supplier:', error)
+    Swal.fire({
+      icon: 'error',
+      title: 'Error',
+      text: 'Failed to load supplier details'
+    })
+    router.push({ name: 'procurement-suppliers' })
+  } finally {
+    loading.value = false
+  }
+}
+
 const goBack = () => {
   router.push({ name: 'procurement-suppliers' })
 }
 
-const addContact = () => {
-  supplierForm.contacts.push({ type: '', contact: '', contactable: true })
-}
-
-const removeContact = (index: number) => {
-  supplierForm.contacts.splice(index, 1)
-}
-
-const isValidEmail = (email: string) => {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
-}
-
-const isValidPhone = (phone: string) => {
-  const cleaned = phone.replace(/[\s\-\(\)\+]/g, '')
-  return /^\d{7,15}$/.test(cleaned)
-}
-
-onMounted(() => {
-  fetchSupplierMetadata()
+onMounted(async () => {
+  // Check if we're in edit mode
+  const id = route.params.id
+  if (id) {
+    isEditMode.value = true
+    supplierId.value = typeof id === 'string' ? parseInt(id) : (Array.isArray(id) ? parseInt(id[0]) : id)
+  }
+  
+  // Load metadata first
+  await fetchSupplierMetadata()
+  
+  // Then load supplier data if editing
+  if (isEditMode.value) {
+    await loadSupplier()
+  }
 })
 </script>
 
 <style scoped>
+/* Fix required asterisk positioning */
+:deep(.form-label) {
+  display: inline-block;
+}
+
+:deep(.form-label .text-danger) {
+  margin-left: 0 !important;
+  padding-left: 0 !important;
+}
+
+:deep(.text-danger) {
+  margin-left: 0 !important;
+}
+
 .btn {
   display: inline-flex;
   align-items: center;
