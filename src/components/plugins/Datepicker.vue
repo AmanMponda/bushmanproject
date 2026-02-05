@@ -17,13 +17,6 @@ const props = defineProps({
 </script>
 
 <template>
-  <Datepicker
-    v-model="modelValue"
-    :model-type="props.modelType"
-    :format="props.modelType"
-    :placeholder="props.placeholder"
-    :enable-time-picker="false"
-    :auto-apply="true"
-    :close-on-auto-apply="true"
-  />
+  <Datepicker v-model="modelValue" :model-type="props.modelType" :format="props.modelType"
+    :placeholder="props.placeholder" :enable-time-picker="false" :auto-apply="true" :close-on-auto-apply="true" />
 </template>

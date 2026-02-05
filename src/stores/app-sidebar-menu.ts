@@ -69,273 +69,6 @@ export const useAppSidebarMenuStore = defineStore("appSidebarMenu", () => {
     },
   ]);
 
-  const maCargoMenuItems = computed<MenuItem[]>(() => [
-    ...commonMenuItems.value,
-    {
-      is_header: true,
-      text: 'MA Cargo Dashboard'
-    },
-    {
-      url: "/ma-cargo/sales-dashboard",
-      icon: "fa fa-chart-line",
-      text: "Sales",
-      permission: "CAN_VIEW_GENERAL_DASHBOARD"
-    },
-    {
-      url: "/ma-cargo/operation-dashboard",
-      icon: "fa fa-cog",
-      text: "Operation",
-      permission: "CAN_VIEW_OPERATION_DASHBOARD"
-    },
-    {
-      url: "/ma-cargo/procurement-dashboard",
-      icon: "fa fa-shopping-cart",
-      text: "Procurement",
-      permission: "CAN_VIEW_PROCUREMENT_DASHBOARD"
-    },
-    {
-      url: "/ma-cargo/workshop-dashboard",
-      icon: "fa fa-cogs",
-      text: "Workshop",
-      permission: "CAN_VIEW_WORKSHOP_DASHBOARD"
-    },
-    {
-      url: "/ma-cargo/fuel-dashboard",
-      icon: "fa fa-gas-pump",
-      text: "Fuel",
-      permission: "CAN_VIEW_FUEL_DASHBOARD"
-    },
-    {
-      url: "/ma-cargo/store-dashboard",
-      icon: "fa fa-store",
-      text: "Store",
-      permission: "CAN_VIEW_INVENTORY_DASHBOARD"
-    },
-    {
-      url: "/ma-cargo/account-dashboard",
-      icon: "fa fa-calculator",
-      text: "Accounts",
-      permission: "CAN_VIEW_ACCOUNT_DASHBOARD"
-    },
-    {
-      url: "/ma-cargo/healthy-safety-dashboard",
-      icon: "fa fa-shield-heart",
-      text: "Healthy & Safety",
-      permission: "CAN_VIEW_HEALTHY_SAFETY_DASHBOARD"
-    },
-    {
-      url: "/ma-cargo/insurance-dashboard",
-      icon: "fa fa-shield",
-      text: "Insurance",
-      permission: "CAN_VIEW_INSURANCE_DASHBOARD"
-    },
-    {
-      url: "/ma-cargo/hrm-dashboard",
-      icon: "fa fa-users",
-      text: "HRM",
-      permission: "CAN_VIEW_HRM_DASHBOARD"
-    },
-    {
-      url: "/ma-cargo/administration-dashboard",
-      icon: "fa fa-folder-open",
-      text: "Administration",
-      permission: "CAN_VIEW_ADMINISTRATION_DASHBOARD"
-    },
-    {
-      url: "/ma-cargo/reports",
-      icon: "fa fa-file-alt",
-      text: "Reports",
-      permission: "CAN_VIEW_REPORTS"
-    },
-  ]);
-
-
-  const absMenuItems = computed<MenuItem[]>(() => [
-    ...commonMenuItems.value,
-    {
-      is_header: true,
-      text: 'ABS Dashboard'
-    },
-    {
-      url: "/abs-sales",
-      icon: "fa fa-line-chart",
-      text: "Sales",
-      permission: "CAN_VIEW_SALES_DASHBOARD"
-    },
-    {
-      url: "/abs/operation-dashboard",
-      icon: "fa fa-cog",
-      text: "Operation",
-      permission: "CAN_VIEW_OPERATION_DASHBOARD"
-    },
-    {
-      url: "/abs/procurement-dashboard",
-      icon: "fa fa-shopping-cart",
-      text: "Procurement",
-      permission: "CAN_VIEW_PROCUREMENT_DASHBOARD"
-    },
-    {
-      url: "/abs/workshop-dashboard",
-      icon: "fa fa-cogs",
-      text: "Workshop",
-      permission: "CAN_VIEW_WORKSHOP_DASHBOARD"
-    },
-    {
-      url: "/abs/fuel-dashboard",
-      icon: "fa-solid fa-gas-pump",
-      text: "Fuel",
-      permission: "CAN_VIEW_FUEL_DASHBOARD"
-    },
-    {
-      url: "/abs/store-dashboard",
-      icon: "fa fa-industry",
-      text: "Store",
-      permission: "CAN_VIEW_STORE_DASHBOARD"
-    },
-    {
-      url: "/abs/account-dashboard",
-      icon: "fa fa-calculator",
-      text: "Accounts",
-      permission: "CAN_VIEW_ACCOUNT_DASHBOARD"
-    },
-    {
-      url: "/abs/healthy-safety-dashboard",
-      icon: "fa fa-heartbeat",
-      text: "Healthy & Safety",
-      permission: "CAN_VIEW_HEALTHY_SAFETY_DASHBOARD"
-    },
-    {
-      url: "/abs/insurance-dashboard",
-      icon: "fa fa-shield-alt",
-      text: "Insurance",
-      permission: "CAN_VIEW_INSURANCE_DASHBOARD"
-    },
-    {
-      url: "/abs/crm-dashboard",
-      icon: "fa fa-headset",
-      text: "CRM",
-      permission: "CAN_VIEW_CRM_DASHBOARD"
-    },
-    {
-      url: "/abs/hrm-dashboard",
-      icon: "fa fa-users",
-      text: "HRM",
-      permission: "CAN_VIEW_HRM_DASHBOARD"
-    },
-    {
-      url: "/abs/administration-dashboard",
-      icon: "fas fa-folder-open",
-      text: "Administration",
-      permission: "CAN_VIEW_ADMINISTRATION_DASHBOARD"
-    },
-    {
-      url: "/abs/reports",
-      icon: "fa fa-chart-bar",
-      text: "Reports",
-      permission: "CAN_VIEW_REPORTS"
-    },
-  ]);
-
-
-  const gHRMMenuItems = computed<MenuItem[]>(() => [
-    ...commonMenuItems.value,
-    {
-      is_header: true,
-      text: 'GHRM Dashboard'
-    },
-    {
-      url: "/ghrm/general-dashboard",
-      icon: "fa fa-tachometer-alt",
-      text: "General Dashboard",
-    },
-    {
-      url: "/ghrm/reports",
-      icon: "fa fa-chart-bar",
-      text: "Reports",
-      permission: "CAN_VIEW_REPORTS"
-    },
-    // {
-    //   url: "/abs/account-dashboard",
-    //   icon: "fa fa-calculator",
-    //   text: "Account Dashboard",
-    //   // permission: "CAN_VIEW_ACCOUNT_DASHBOARD"
-    // },
-    // {
-    //   url: "/abs/store-dashboard",
-    //   icon: "fa fa-industry",
-    //   text: "Store Dashboard",
-    //   // permission: "CAN_VIEW_INVENTORY_DASHBOARD"
-    // },
-    // {
-    //   url: "/abs/hrm-dashboard",
-    //   icon: "fa fa-users",
-    //   text: "HRM Dashboard",
-    //   // permission: "CAN_VIEW_HRM_DASHBOARD"
-    // },
-    // {
-    //   url: "/abs/fuel-dashboard",
-    //   icon: "fa-solid fa-gas-pump",
-    //   text: "Fuel Dashboard",
-    //   // permission: "CAN_VIEW_FUEL_DASHBOARD"
-    // },
-    {
-      url: "/ghrm-reports",
-      icon: "fa fa-chart-bar",
-      text: "Reports",
-    },
-  ]);
-
-
-  const petaMenuItems = computed<MenuItem[]>(() => [
-    ...commonMenuItems.value,
-    {
-      is_header: true,
-      text: 'Peta Holding Dashboard'
-    },
-    {
-      url: "/peta/operations-overview",
-      icon: "fa fa-tachometer-alt",
-      text: "Operations Overview",
-      permission: "CAN_VIEW_OPERATION_OVERVIEW"
-    },
-    {
-      url: "/peta/requisitions",
-      icon: "fa fa-file-alt",
-      text: "Requisitions",
-      // permission: "CAN_VIEW_OPERATION_OVERVIEW"
-    },
-    {
-      url: "/peta/reports",
-      icon: "fa fa-chart-bar",
-      text: "Reports",
-      permission: "CAN_VIEW_REPORTS"
-    },
-    // {
-    //   url: "/abs/account-dashboard",
-    //   icon: "fa fa-calculator",
-    //   text: "Account Dashboard",
-    //   // permission: "CAN_VIEW_ACCOUNT_DASHBOARD"
-    // },
-    // {
-    //   url: "/abs/store-dashboard",
-    //   icon: "fa fa-industry",
-    //   text: "Store Dashboard",
-    //   // permission: "CAN_VIEW_INVENTORY_DASHBOARD"
-    // },
-    // {
-    //   url: "/abs/hrm-dashboard",
-    //   icon: "fa fa-users",
-    //   text: "HRM Dashboard",
-    //   // permission: "CAN_VIEW_HRM_DASHBOARD"
-    // },
-    // {
-    //   url: "/abs/fuel-dashboard",
-    //   icon: "fa-solid fa-gas-pump",
-    //   text: "Fuel Dashboard",
-    //   // permission: "CAN_VIEW_FUEL_DASHBOARD"
-    // },
-  ]);
-
   const bushmanMenuItems = computed<MenuItem[]>(() => [
     ...commonMenuItems.value,
     {
@@ -411,6 +144,7 @@ export const useAppSidebarMenuStore = defineStore("appSidebarMenu", () => {
       children: [
         { url: '/sales/requisitions', icon: 'fa fa-file-alt', text: 'Requisitions', permission: 'CAN_VIEW_SALES' },
         { url: '/accounting/journal-vouchers', icon: 'fa fa-receipt', text: 'Payment Vouchers', permission: 'CAN_VIEW_ACCOUNTS' },
+        { url: '/accounting/payment-advice/create', icon: 'fa fa-receipt', text: 'Payment Advices', permission: 'CAN_CREATE_PAYMENT_ADVICE' },
         { url: '/accounting/invoices', icon: 'fa fa-file-invoice', text: 'Invoices', permission: 'CAN_VIEW_ACCOUNTS' },
         { url: '/accounting/chart-of-accounts', icon: 'fa fa-book', text: 'Chart of Accounts', permission: 'CAN_VIEW_ACCOUNTS' },
       ]
@@ -645,45 +379,55 @@ export const useAppSidebarMenuStore = defineStore("appSidebarMenu", () => {
   });
 
   // Action to set the active service
-  const setActiveService = (serviceId: number | null) => {
-    activeServiceId.value = serviceId;
-    if (serviceId !== null) {
-      // Save to localStorage when setting
-      const savedService = localStorage.getItem('selectedService');
-      if (savedService) {
-        try {
-          const service: Service = JSON.parse(savedService);
-          if (service.service_id !== serviceId) {
-            // Update if different
-            localStorage.setItem('selectedService', JSON.stringify({ service_id: serviceId }));
-          }
-        } catch (e) {
-          // If parsing fails, just set new value
-          localStorage.setItem('selectedService', JSON.stringify({ service_id: serviceId }));
-        }
-      } else {
-        localStorage.setItem('selectedService', JSON.stringify({ service_id: serviceId }));
-      }
-    } else {
-      localStorage.removeItem('selectedService');
-    }
-  };
+  // const setActiveService = (serviceId: number | null) => {
+  //   activeServiceId.value = serviceId;
+  //   if (serviceId !== null) {
+  //     // Save to localStorage when setting
+  //     const savedService = localStorage.getItem('selectedService');
+  //     if (savedService) {
+  //       try {
+  //         const service: Service = JSON.parse(savedService);
+  //         if (service.service_id !== serviceId) {
+  //           // Update if different
+  //           localStorage.setItem('selectedService', JSON.stringify({ service_id: serviceId }));
+  //         }
+  //       } catch (e) {
+  //         // If parsing fails, just set new value
+  //         localStorage.setItem('selectedService', JSON.stringify({ service_id: serviceId }));
+  //       }
+  //     } else {
+  //       localStorage.setItem('selectedService', JSON.stringify({ service_id: serviceId }));
+  //     }
+  //   } else {
+  //     localStorage.removeItem('selectedService');
+  //   }
+  // };
 
   // Get the current active service (lazy load from localStorage if not set)
+  // const getActiveService = () => {
+  //   if (activeServiceId.value === null) {
+  //     // Lazy load from localStorage only when needed
+  //     const savedService = localStorage.getItem('selectedService');
+  //     if (savedService) {
+  //       try {
+  //         const service: Service = JSON.parse(savedService);
+  //         activeServiceId.value = service.service_id;
+  //       } catch (e) {
+  //         // Silently handle error, remove corrupted data
+  //         localStorage.removeItem('selectedService');
+  //       }
+  //     }
+  //   }
+  //   return activeServiceId.value;
+  // };
+
+  // Action to set the active service
+  const setActiveService = (serviceId: number) => {
+    activeServiceId.value = serviceId;
+  };
+
+  // Get the current active service
   const getActiveService = () => {
-    if (activeServiceId.value === null) {
-      // Lazy load from localStorage only when needed
-      const savedService = localStorage.getItem('selectedService');
-      if (savedService) {
-        try {
-          const service: Service = JSON.parse(savedService);
-          activeServiceId.value = service.service_id;
-        } catch (e) {
-          // Silently handle error, remove corrupted data
-          localStorage.removeItem('selectedService');
-        }
-      }
-    }
     return activeServiceId.value;
   };
 
