@@ -17,8 +17,9 @@ export const useDocumentsStore = defineStore('documents-store', {
     },
 
     authHeaders(extra?: Record<string, string>) {
+      const token = localStorage.getItem('token') || import.meta.env.VITE_APP_TOKEN || ''
       return {
-        Authorization: 'Bearer ' + import.meta.env.VITE_APP_TOKEN,
+        Authorization: token ? `Bearer ${token}` : '',
         ...extra,
       }
     },
@@ -34,11 +35,14 @@ export const useDocumentsStore = defineStore('documents-store', {
       return axios.request(config)
     },
 
-    async createDocument(payload: { name: string; code: string; file?: File; description?: string }) {
+    async createDocument(payload: { name: string; code: string; file?: File; description?: string; expiring_mode?: string; expiring_start?: string; expiring_end?: string }) {
       const formData = new FormData()
       formData.append('name', payload.name)
       formData.append('code', payload.code)
       if (payload.description) formData.append('description', payload.description)
+      if (payload.expiring_mode) formData.append('expiring_mode', payload.expiring_mode)
+      if (payload.expiring_start) formData.append('expiring_start', payload.expiring_start)
+      if (payload.expiring_end) formData.append('expiring_end', payload.expiring_end)
       if (payload.file) formData.append('file', payload.file)
 
       const config = {
@@ -109,11 +113,20 @@ export const useDocumentsStore = defineStore('documents-store', {
     async downloadDocument(id: number | string) {
       const config = {
         method: 'get',
-        url: this.buildUrl(id, 'download'),
+        url: this.buildUrl(id, 'file'),
         headers: this.authHeaders(),
         responseType: 'blob',
       }
       return axios.request(config)
+    },
+
+    // Get a viewable URL for the document (returns blob URL for inline viewing)
+    async getViewableUrl(id: number | string): Promise<string> {
+      const response = await this.downloadDocument(id)
+      const blob = response.data
+      const mimeType = response.headers['content-type'] || 'application/octet-stream'
+      const viewableBlob = new Blob([blob], { type: mimeType })
+      return window.URL.createObjectURL(viewableBlob)
     },
   },
 })

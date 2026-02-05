@@ -1157,110 +1157,205 @@ const getSequenceLabel = (sequence: number) => {
   return labels[sequence] || `${sequence}th`
 }
 
-const getCountries = async () => {
-  const response = await axios.request({
-    method: 'get',
-    maxBodyLength: Infinity,
-    url: import.meta.env.VITE_APP_BASE_URL + import.meta.env.VITE_APP_COUNTRIES_URL,
-    headers: { 'Content-Type': 'application/json' },
-  })
-  if (response.status === 200) {
-    countries.value = response.data.map((country: any) => ({ value: country.id, text: country.name }))
-  }
-}
-
-
-const getNationalities = async () => {
-  const response = await axios.request({
-    method: 'get',
-    maxBodyLength: Infinity,
-    url: import.meta.env.VITE_APP_BASE_URL + import.meta.env.VITE_APP_NATIONALITIES_URL,
-    headers: { 'Content-Type': 'application/json' },
-  })
-  if (response.status === 200) {
-    nationality.value = response.data.map((nat: any) => ({ value: nat.id, text: nat.name }))
-  }
-}
-
-
-
 const apiBaseUrl = (() => {
   const base = import.meta.env.VITE_APP_BASE_URL || ''
   return base.replace(/\/+$/, '')
 })()
 
-const getSpecies = async () => {
+// Fetch all creation metadata from single endpoint
+const fetchCreationMetadata = async () => {
   try {
-    const response = await axios.get(`${apiBaseUrl}/settings/species/`, {
+    const response = await axios.get(`${apiBaseUrl}/sales-enquiries/creation-metadata`, {
       headers: { 'Content-Type': 'application/json' },
     })
-    const raw = response.data?.data ?? response.data ?? []
-    const dataArray = Array.isArray(raw) ? raw : []
-    // Map species directly from the species endpoint
-    speciesOptions.value = dataArray
-      .filter((species: any) => species.is_active !== false) // Only include active species
+    
+    const data = response.data?.data || response.data || {}
+    
+    // Map entities (customers)
+    if (Array.isArray(data.entities)) {
+      existingCustomersOptions.value = data.entities.map((entity: any) => {
+        let email = ''
+        let phone = ''
+        let address = ''
+        
+        if (Array.isArray(entity.contacts)) {
+          entity.contacts.forEach((contact: any) => {
+            const contactType = String(contact.type || '').toLowerCase()
+            if (contactType === 'email') {
+              email = contact.contact || ''
+            } else if (contactType === 'phone_number' || contactType === 'phone') {
+              phone = contact.contact || ''
+            } else if (contactType === 'address') {
+              address = contact.contact || ''
+            }
+          })
+        }
+        
+        return {
+          value: entity.id,
+          text: entity.full_name || 'Unknown',
+          selfItem: {
+            ...entity,
+            email,
+            phone,
+            address,
+          },
+        }
+      })
+    }
+    
+    // Map seasons
+    if (Array.isArray(data.seasons)) {
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      
+      seasonsOptions.value = data.seasons
+        .filter((item: any) => {
+          if (!item.end_at) return true
+          const endDate = new Date(item.end_at)
+          endDate.setHours(23, 59, 59, 999)
+          return endDate >= today
+        })
+        .map((item: any) => ({ value: item.id, text: item.name, selfItem: item }))
+    }
+    
+    // Map locations (countries and hunting areas)
+    if (Array.isArray(data.locations)) {
+      countries.value = data.locations
+        .filter((loc: any) => loc.type === 'COUNTRY')
+        .map((country: any) => ({ value: country.id, text: country.name }))
+      
+      areasOptions.value = data.locations.map((item: any) => ({
+        value: item.id,
+        text: item.name,
+        type: item.type,
+        selfItem: item
+      }))
+    }
+    
+    // Map hunting areas separately if needed
+    if (Array.isArray(data.hunting_areas)) {
+      const huntingAreas = data.hunting_areas.map((item: any) => ({
+        value: item.id,
+        text: item.name,
+        type: item.type,
+        selfItem: item
+      }))
+      // Merge with locations if not already there
+      areasOptions.value = [...areasOptions.value, ...huntingAreas]
+    }
+    
+    // Map species
+    if (Array.isArray(data.species)) {
+      speciesOptions.value = data.species.map((species: any) => ({
+        value: species.id,
+        text: species.name,
+        scientific_name: species.scientific_name || ''
+      }))
+    }
+    
+    // Map safari extras
+    if (Array.isArray(data.safari_extras)) {
+      safariExtrasOptions.value = data.safari_extras
+    }
+    
+    // Map price structure details
+    if (Array.isArray(data.price_structure_details)) {
+      packagesOptions.value = data.price_structure_details.map((item: any) => ({
+        value: item.id,
+        text: item.name || `Package #${item.id}`,
+        selfItem: item,
+      }))
+    }
+    
+    // Map currencies
+    if (Array.isArray(data.currencies)) {
+      // Store currencies if you have a ref for them
+      // currencies.value = data.currencies
+    }
+    
+    // Map users
+    if (Array.isArray(data.users)) {
+      // Store users if you have a ref for them
+      // users.value = data.users
+    }
+    
+    // Nationalities can be derived from countries or use a separate endpoint if needed
+    nationality.value = countries.value
+    
+  } catch (error) {
+    console.error('Error loading creation metadata:', error)
+    // Fallback to individual endpoints if metadata endpoint fails
+    await loadFallbackData()
+  }
+}
+
+// Fallback to individual endpoints if metadata endpoint fails
+const loadFallbackData = async () => {
+  try {
+    // Countries
+    const countriesResponse = await axios.get(import.meta.env.VITE_APP_BASE_URL + import.meta.env.VITE_APP_COUNTRIES_URL, {
+      headers: { 'Content-Type': 'application/json' },
+    })
+    if (countriesResponse.status === 200) {
+      countries.value = countriesResponse.data.map((country: any) => ({ value: country.id, text: country.name }))
+    }
+    
+    // Nationalities
+    const nationalitiesResponse = await axios.get(import.meta.env.VITE_APP_BASE_URL + import.meta.env.VITE_APP_NATIONALITIES_URL, {
+      headers: { 'Content-Type': 'application/json' },
+    })
+    if (nationalitiesResponse.status === 200) {
+      nationality.value = nationalitiesResponse.data.map((nat: any) => ({ value: nat.id, text: nat.name }))
+    }
+    
+    // Species
+    const speciesResponse = await axios.get(`${apiBaseUrl}/settings/species/`, {
+      headers: { 'Content-Type': 'application/json' },
+    })
+    const speciesData = speciesResponse.data?.data ?? speciesResponse.data ?? []
+    speciesOptions.value = Array.isArray(speciesData) ? speciesData
+      .filter((species: any) => species.is_active !== false)
       .map((species: any) => ({ 
         value: species.id, 
         text: species.name,
         scientific_name: species.scientific_name || ''
-      }))
-  } catch (error) {
-    console.error('Error loading species:', error)
-  }
-}
-
-const getSafariExtras = async () => {
-  try {
-    const response = await axios.get(`${apiBaseUrl}/settings/items?subtype=SAFARI_EXTRA`, {
+      })) : []
+    
+    // Safari Extras
+    const extrasResponse = await axios.get(`${apiBaseUrl}/settings/items?subtype=SAFARI_EXTRA`, {
       headers: { 'Content-Type': 'application/json' },
     })
-    const raw = response.data?.data ?? response.data ?? []
-    safariExtrasOptions.value = Array.isArray(raw) ? raw : []
-  } catch (error) {
-    console.error('Error loading safari extras:', error)
-  }
-}
-
-const getAreas = async () => {
-  try {
-    const response = await axios.get(`${apiBaseUrl}/locations`, {
+    const extrasData = extrasResponse.data?.data ?? extrasResponse.data ?? []
+    safariExtrasOptions.value = Array.isArray(extrasData) ? extrasData : []
+    
+    // Locations/Areas
+    const areasResponse = await axios.get(`${apiBaseUrl}/locations`, {
       headers: { 'Content-Type': 'application/json' },
     })
-    const raw = response.data?.data ?? response.data ?? []
-    const dataArray = Array.isArray(raw) ? raw : Array.isArray(raw?.data) ? raw.data : []
-    areasOptions.value = dataArray.map((item: any) => ({ value: item.id, text: item.name, type: item.type, selfItem: item }))
-  } catch (error) {
-    // Error handled silently
-  }
-}
-
-const getSeasonList = async () => {
-  try {
-    const response = await axios.get(`${apiBaseUrl}/settings/seasons`, {
+    const areasData = areasResponse.data?.data ?? areasResponse.data ?? []
+    const areasArray = Array.isArray(areasData) ? areasData : Array.isArray(areasData?.data) ? areasData.data : []
+    areasOptions.value = areasArray.map((item: any) => ({ value: item.id, text: item.name, type: item.type, selfItem: item }))
+    
+    // Seasons
+    const seasonsResponse = await axios.get(`${apiBaseUrl}/settings/seasons`, {
       headers: { 'Content-Type': 'application/json' },
     })
-
     const today = new Date()
     today.setHours(0, 0, 0, 0)
-
-    // Handle different response structures
-    const seasonsData = response.data?.data || response.data || []
-
-    if (!Array.isArray(seasonsData)) {
-      console.error('Seasons data is not an array:', seasonsData)
-      return
+    const seasonsData = seasonsResponse.data?.data || seasonsResponse.data || []
+    if (Array.isArray(seasonsData)) {
+      seasonsOptions.value = seasonsData
+        .filter((item: any) => {
+          if (!item.end_at) return true
+          const endDate = new Date(item.end_at)
+          endDate.setHours(23, 59, 59, 999)
+          return endDate >= today
+        })
+        .map((item: any) => ({ value: item.id, text: item.name, selfItem: item }))
     }
-
-    seasonsOptions.value = seasonsData
-      .filter((item: any) => {
-        if (!item.end_at) return true
-        const endDate = new Date(item.end_at)
-        endDate.setHours(23, 59, 59, 999)
-        return endDate >= today
-      })
-      .map((item: any) => ({ value: item.id, text: item.name, selfItem: item }))
   } catch (error) {
-    console.error('Error fetching seasons:', error)
+    console.error('Error in fallback data loading:', error)
   }
 }
 
@@ -1300,53 +1395,15 @@ const getPL = async () => {
   }
 }
 
-const getExistingCustomers = async () => {
+// getExistingCustomers function removed - now part of fetchCreationMetadata
+
+// Placeholder to maintain code structure
+const _unusedFunction = () => {
   loadingCustomers.value = true
   try {
-    const response = await salesEnquiryService.list()
-    if (response.success) {
-      const dataArray = Array.isArray(response.data) ? response.data : []
-      const customersMap = new Map()
-
-      dataArray.forEach((item: any) => {
-        const entity = item.entity
-        if (entity && entity.id && !customersMap.has(entity.id)) {
-          let email = ''
-          let phone = ''
-          let address = ''
-
-          if (entity.contacts && Array.isArray(entity.contacts)) {
-            entity.contacts.forEach((contact: any) => {
-              const contactType = String(contact.type || '').toLowerCase()
-              if (contactType === 'email' || contact.contact_type_id === 1) {
-                email = contact.contact || ''
-              } else if (contactType === 'phone_number' || contactType === 'phone' || contact.contact_type_id === 2) {
-                phone = contact.contact || ''
-              } else if (contactType === 'address' || contact.contact_type_id === 3) {
-                address = contact.contact || ''
-              }
-            })
-          }
-
-          customersMap.set(entity.id, {
-            value: entity.id,
-            text: entity.full_name || 'Unknown',
-            selfItem: {
-              ...entity,
-              email,
-              phone,
-              address,
-              country: entity.country || entity.country_name,
-              nationality: entity.nationality || entity.nationality_name,
-            },
-          })
-        }
-      })
-
-      existingCustomersOptions.value = Array.from(customersMap.values())
-    }
+    // This function has been replaced by fetchCreationMetadata
   } catch (error) {
-    console.error('Error loading existing customers:', error)
+    console.error('Error:', error)
   } finally {
     loadingCustomers.value = false
   }
@@ -2137,15 +2194,9 @@ onMounted(async () => {
   appOptionStore.appSidebarMinified = true
   
   await loadHuntLengths()
+  await fetchCreationMetadata()
   getPriceStructures()
-  getCountries()
-  getNationalities()
-  getSpecies()
-  getSafariExtras()
-  getAreas()
-  getSeasonList()
   getPL()
-  getExistingCustomers()
 })
 
 // Restore sidebar state when leaving the page

@@ -232,10 +232,10 @@ onMounted(async () => {
 const fetchServicePoints = async () => {
   isLoading.value = true;
   try {
-    const response = await axiosInstance.get('/locations/service-points');
-    const data = response.data.data || response.data;
-    servicePoints.value = (Array.isArray(data) ? data : []).map((d, index) => {
-      // console.log(d);
+    const response = await axiosInstance.get('/locations?type=SERVICE_CENTER');
+    const payload = response.data?.data || response.data;
+    const rows = Array.isArray(payload?.data) ? payload.data : (Array.isArray(payload) ? payload : []);
+    servicePoints.value = rows.map((d, index) => {
       return {
         sno: index + 1,
         id: d.id,
@@ -243,7 +243,7 @@ const fetchServicePoints = async () => {
         office_id: d.office_id || d.location_id,
         name: d.name,
         supervisor: d.supervisor,
-      }
+      };
     });
   } catch (error) {
     showAlert('error', 'Failed to fetch service points');
@@ -255,9 +255,10 @@ const fetchServicePoints = async () => {
 // Fetch offices for selection
 const fetchOffices = async () => {
   try {
-    const response = await axiosInstance.get('/locations/offices');
-    const data = response.data.data || response.data;
-    offices.value = Array.isArray(data) ? data : [];
+    const response = await axiosInstance.get('/locations?type=OFFICE');
+    const payload = response.data?.data || response.data;
+    const rows = Array.isArray(payload?.data) ? payload.data : (Array.isArray(payload) ? payload : []);
+    offices.value = rows;
   } catch (error) {
     showAlert('error', 'Failed to fetch offices');
   }
@@ -335,7 +336,8 @@ const saveServicePoint = async () => {
 
       const params = {
         id: currentServicePoint.value.id,
-        type: 'SERVICE_POINT',
+        type: 'SERVICE_CENTER',
+        operation_type: 'PHYSICAL_LOCATION',
         location_id: currentServicePoint.value.office_id.id,
         name: currentServicePoint.value.name,
         supervisorable_type: currentServicePoint.value.supervisorable_type,
@@ -348,7 +350,8 @@ const saveServicePoint = async () => {
       const params = servicePointForm.value.map((d) => {
         return {
           id: d.id,
-          type: 'SERVICE_POINT',
+          type: 'SERVICE_CENTER',
+          operation_type: 'PHYSICAL_LOCATION',
           location_id: d.office_id.id,
           name: d.name,
           supervisorable_id: d.supervisorable_id?.supervisor_id,

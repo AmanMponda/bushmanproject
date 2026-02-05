@@ -88,7 +88,7 @@
               <div class="date-row">
                 <label class="field">
                   <span class="lbl">Start Date <span class="req">*</span></span>
-                  <div class="input-wrapper">
+                  <div class="input-wrapper vueform-date-wrapper">
                     <Vueform size="sm" :display-errors="false" :endpoint="false">
                       <DateElement
                         name="start_date"
@@ -105,7 +105,7 @@
 
                 <label class="field">
                   <span class="lbl">End Date <span class="req">*</span></span>
-                  <div class="input-wrapper">
+                  <div class="input-wrapper vueform-date-wrapper">
                     <Vueform size="sm" :display-errors="false" :endpoint="false">
                       <DateElement
                         name="end_date"
@@ -636,14 +636,7 @@ const canSubmit = computed(() => {
   const hasCurrency = !!form.currencyId
   
   // Debug logging
-  if (!hasName || !hasArea || !hasDates || !hasCurrency) {
-    console.log('canSubmit debug:', {
-      hasName: { value: hasName, name: form.name },
-      hasArea: { value: hasArea, areaId: form.areaId },
-      hasDates: { value: hasDates, startDate: form.startDate, endDate: form.endDate, hasValidDates: hasValidDates.value },
-      hasCurrency: { value: hasCurrency, currencyId: form.currencyId }
-    })
-  }
+  if (!hasName || !hasArea || !hasDates || !hasCurrency) {}
   
   return hasName && hasArea && hasDates && hasCurrency
 })

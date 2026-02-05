@@ -190,9 +190,10 @@ onMounted(async () => {
 const fetchBranches = async () => {
   isLoading.value = true;
   try {
-    const response = await axiosInstance.get('/locations/branches');
-    const data = response.data.data || response.data;
-    branches.value = (Array.isArray(data) ? data : []).map((d, index) => {
+    const response = await axiosInstance.get('/locations?type=BRANCH');
+    const payload = response.data?.data || response.data;
+    const rows = Array.isArray(payload?.data) ? payload.data : (Array.isArray(payload) ? payload : []);
+    branches.value = rows.map((d, index) => {
       return {
         sno: index + 1,
         id: d.id,
@@ -211,8 +212,10 @@ const fetchBranches = async () => {
 // Fetch cities for selection
 const fetchCities = async () => {
   try {
-    const response = await axiosInstance.get('/locations/cities');
-    cities.value = response.data.data || response.data;
+    const response = await axiosInstance.get('/locations?type=CITY');
+    const payload = response.data?.data || response.data;
+    const rows = Array.isArray(payload?.data) ? payload.data : (Array.isArray(payload) ? payload : []);
+    cities.value = rows;
   } catch (error) {
     showAlert('error', 'Failed to fetch cities');
   }
@@ -246,8 +249,7 @@ const openModal = (branch = null, multiple = false) => {
       name: branch.name
     };
 
-    // console.log(currentBranch.value);
-  } else {
+    //} else {
     currentBranch.value = { id: null, name: '', city_id: '' };
   }
   formModal.value = new Modal(document.getElementById('branchModal'));
@@ -274,34 +276,28 @@ function checkDuplication(uniqueFields, dataArray) {
 
 // Save branch
 const saveBranch = async () => {
- 
-        try {
+  try {
     let response;
     if (!isMultiple.value) {
       const params = {
         'location_id': currentBranch.value.city_id.id,
         'type': 'BRANCH',
-        "name": currentBranch.value.name
-      }
+        'operation_type': 'PHYSICAL_LOCATION',
+        name: currentBranch.value.name
+      };
       response = await axiosInstance.put(`/locations/${currentBranch.value.id}`, params);
     } else {
-      //  console.log(branchForm.value);
-   
-
-     if(!checkDuplication(['name'],branchForm)){
-      
-   
+      if (!checkDuplication(['name'], branchForm)) {
         return;
-      }   
-     
+      }
 
-      const params = branchForm.value.map((d) => {
-        return {
-          location_id: d.city_id.id,
-          type: 'BRANCH',
-          name: d.name
-        }
-      })
+      const params = branchForm.value.map((d) => ({
+        location_id: d.city_id.id,
+        type: 'BRANCH',
+        operation_type: 'PHYSICAL_LOCATION',
+        name: d.name,
+      }));
+
       response = await axiosInstance.post('/locations', { locations: params });
     }
 
@@ -311,7 +307,7 @@ const saveBranch = async () => {
   } catch (error) {
     if (error.response?.status === 422) {
       const errors = error.response.data.errors;
-      Object.values(errors).forEach(msgs => msgs.forEach(msg => showAlert('error', msg)));
+      Object.values(errors).forEach((msgs) => msgs.forEach((msg) => showAlert('error', msg)));
     } else {
       showAlert('error', 'Something went wrong');
     }

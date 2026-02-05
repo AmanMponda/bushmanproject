@@ -21,9 +21,10 @@ const props = defineProps({
   totalItems: { type: Number, default: 0 }, // For server-side count
   showAdvancedFiltersButton: { type: Boolean, default: true }, // Enable Advanced Filters Button
   showColumnSelectorButton: { type: Boolean, default: true }, // Enable Advanced Filters Button
+  selectedIds: { type: Array, default: () => [] }, // list of selected row ids for highlighting
 });
 
-const emit = defineEmits(['update:filters', 'row-action', 'page-change']);
+const emit = defineEmits(['update:filters', 'row-action', 'page-change', 'toggle-select-all']);
 
 const showColumnSelector = ref(false);
 const showAdvancedFilters = ref(false);
@@ -451,6 +452,10 @@ const clearFilters = async () => {
                 @click="(col.sortable && !props.disablePagination && !props.serverSide) ? sortTable(col.key) : null"
                 :class="{ sortable: col.sortable && !props.disablePagination && !props.serverSide }">
                 <div class="d-flex align-items-center">
+                  <div v-if="col.key === 'select'" class="d-flex align-items-center">
+                  <input type="checkbox" @change="(e) => emit('toggle-select-all', e.target.checked)" />
+                </div>
+                <div v-else class="d-flex align-items-center">
                   <span>{{ col.label }}</span>
                   <i v-if="col.sortable && !props.disablePagination && !props.serverSide" class="fa ms-2" :class="{
                     'fa-sort': sortField !== col.key,
@@ -458,11 +463,12 @@ const clearFilters = async () => {
                     'fa-sort-down': sortField === col.key && sortDirection === 'desc',
                   }"></i>
                 </div>
+                </div>
               </th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="(row, index) in visibleData" :key="row.id || index">
+            <tr v-for="(row, index) in visibleData" :key="row.id || index" :class="{ 'table-active': (props.selectedIds || []).includes(row.id) }">
               <td v-for="col in visibleColumns" :key="col.key">
                 <slot :name="col.key" :row="row" :index="index">
                   {{ getNestedValue(row, col.key) }}

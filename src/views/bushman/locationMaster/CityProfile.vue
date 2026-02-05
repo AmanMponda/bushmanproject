@@ -427,9 +427,7 @@ const openModal = (branch = null) => {
 
 // Save branch
 const saveBranch = async () => {
-  // console.log(currentBranch.value);
-
-  try {
+  //try {
     let response;
     if (currentBranch.value.id) {
       const params = {

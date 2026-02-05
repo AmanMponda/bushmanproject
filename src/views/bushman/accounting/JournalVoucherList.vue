@@ -5,7 +5,7 @@
       <div>
         <ul class="breadcrumb">
           <li class="breadcrumb-item"><a href="#">Accounting</a></li>
-          <li class="breadcrumb-item active">Journal Vouchers</li>
+          <li class="breadcrumb-item active">Payment Vouchers</li>
         </ul>
       </div>
     </div>
@@ -38,10 +38,10 @@
                 {{ formatDate((row as any).posting_date) }}
               </template>
               <template #currency_code="{ row }">
-                {{ (row as any).currency?.code || 'USD' }}
+                {{ (row as any).currency?.code || (row as any).currency?.name || 'TZS' }}
               </template>
               <template #total_debit="{ row }">
-                {{ formatCurrency(calculateTotalDebit((row as any))) }}
+                {{ formatCurrency(calculateTotalDebit((row as any)), (row as any).currency?.code || 'TZS') }}
               </template>
               <template #narration="{ row }">
                 {{ truncateText((row as any).narration, 50) }}
@@ -99,6 +99,9 @@ interface JournalVoucher {
   status: string
   posting_date: string | null
   currency: any
+  currency_id?: number
+  total_amount?: number
+  amount?: number
   narration: string
   accounts: any[]
   [key: string]: any
@@ -146,7 +149,7 @@ const customFilters = computed(() => [
 
 // Page Actions
 const pageActions = computed(() => [
-  { label: 'Create Voucher', icon: 'fa fa-plus', class: 'btn btn-primary', method: () => createVoucher() }
+  { label: 'Payment Voucher', icon: 'fa fa-plus', class: 'btn btn-primary', method: () => createVoucher() }
 ])
 
 // Methods
@@ -172,17 +175,15 @@ function postVoucher(voucher: JournalVoucher) {
       accountingStore.postJournalVoucher(voucher.id as number)
         .then(() => {
           init({
-            title: 'Success',
             message: `Voucher #${voucher.document_number} has been posted`,
-            type: 'success'
+            color: 'success'
           })
           fetchVouchers()
         })
-        .catch(err => {
+        .catch((err: any) => {
           init({
-            title: 'Error',
             message: err.response?.data?.message || 'Error posting voucher',
-            type: 'danger'
+            color: 'danger'
           })
         })
     }
@@ -203,17 +204,15 @@ function reverseVoucher(voucher: JournalVoucher) {
       accountingStore.reverseJournalVoucher(voucher.id as number)
         .then(() => {
           init({
-            title: 'Success',
             message: `Voucher #${voucher.document_number} has been reversed`,
-            type: 'success'
+            color: 'success'
           })
           fetchVouchers()
         })
-        .catch(err => {
+        .catch((err: any) => {
           init({
-            title: 'Error',
             message: err.response?.data?.message || 'Error reversing voucher',
-            type: 'danger'
+            color: 'danger'
           })
         })
     }
@@ -234,17 +233,15 @@ function confirmDelete(voucher: JournalVoucher) {
       accountingStore.deleteJournalVoucher(voucher.id as number)
         .then(() => {
           init({
-            title: 'Success',
             message: `Voucher #${voucher.document_number} has been deleted`,
-            type: 'success'
+            color: 'success'
           })
           fetchVouchers()
         })
-        .catch(err => {
+        .catch((err: any) => {
           init({
-            title: 'Error',
             message: err.response?.data?.message || 'Error deleting voucher',
-            type: 'danger'
+            color: 'danger'
           })
         })
     }
@@ -270,16 +267,30 @@ function getStatusClass(status: string): string {
 }
 
 function calculateTotalDebit(voucher: JournalVoucher): number {
-  if (!voucher.accounts) return 0
-  return voucher.accounts
-    .filter((a: any) => a.transaction_type === 'DR')
-    .reduce((sum: number, a: any) => sum + (a.base_amount || 0), 0)
+  // Use the same logic as the view page: get amount from DR account in accounts array
+  if (voucher.accounts && voucher.accounts.length > 0) {
+    const drAccount = voucher.accounts.find((a: any) => a.transaction_type === 'DR' || a.transaction_type === 'DEBIT')
+    if (drAccount && drAccount.amount) {
+      return parseFloat(String(drAccount.amount))
+    }
+  }
+
+  // Fallback to total_amount if accounts not loaded
+  if (voucher.total_amount) {
+    return parseFloat(String(voucher.total_amount))
+  }
+
+  if ((voucher as any).amount) {
+    return parseFloat(String((voucher as any).amount))
+  }
+
+  return 0
 }
 
-function formatCurrency(amount: number): string {
+function formatCurrency(amount: number, currency: string = 'USD'): string {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency: 'USD'
+    currency: currency
   }).format(amount)
 }
 

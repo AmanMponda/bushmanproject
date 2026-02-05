@@ -25,9 +25,9 @@ export const accountService = {
   /**
    * Fetch account tree (nested hierarchy)
    */
-  async fetchTree(companyId: number = 1) {
+  async fetchTree() {
     const url = new URL(`${getApiBase()}/chart-of-accounts/tree`)
-    url.searchParams.set('company_id', String(companyId))
+    url.searchParams.set('company_id', '1')
 
     const response = await fetch(url.toString())
     if (!response.ok) {

@@ -306,6 +306,43 @@ export const accountingService = {
    */
   getRequisitionItems(requisitionId: number) {
     return axios.get(`${accountingUrl()}/requisitions/${requisitionId}/items`)
+  },
+
+  // ==================== CHART OF ACCOUNTS ====================
+
+  /**
+   * List all accounts
+   */
+  listAccounts(params = {}) {
+    return axios.get(`${accountingUrl()}/accounts`, { params })
+  },
+
+  /**
+   * Get a single account by ID
+   */
+  getAccount(id: number) {
+    return axios.get(`${accountingUrl()}/accounts/${id}`)
+  },
+
+  /**
+   * Create a new account
+   */
+  createAccount(payload: any) {
+    return axios.post(`${accountingUrl()}/accounts`, payload)
+  },
+
+  /**
+   * Update an account
+   */
+  updateAccount(id: number, payload: any) {
+    return axios.put(`${accountingUrl()}/accounts/${id}`, payload)
+  },
+
+  /**
+   * Delete an account
+   */
+  deleteAccount(id: number) {
+    return axios.delete(`${accountingUrl()}/accounts/${id}`)
   }
 }
 

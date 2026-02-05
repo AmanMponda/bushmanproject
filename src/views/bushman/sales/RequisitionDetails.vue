@@ -17,7 +17,7 @@ type RequisitionStatus =
   | 'CANCELLED'
   | 'CLOSED'
 
-type FundDirection = 'WITHDRAW' | 'EXPENSE'
+type FundDirection = 'WITHDRAW' | 'DIRECT_PAYMENT'
 type SourceType = 'CASH' | 'STORE' | 'VENDOR' | 'SERVICE_PROVIDER'
 type ModeOfPayment = 'CASH' | 'TT' | 'CREDIT'
 type TaxMethod = 'EXCLUSIVE' | 'INCLUSIVE' | 'EXEMPT'
@@ -277,28 +277,44 @@ type ItemApprovalHistoryChange = {
   details?: string
 }
 
+type ItemApprovalSnapshot = {
+  accounts: Array<{
+    account_id?: number
+    account_name?: string
+    amount: number
+  }>
+  materials: Array<{
+    item_id?: number
+    item_name?: string
+    quantity: number
+    rate?: number
+    total: number
+    unit?: string
+  }>
+}
+
 type ItemApprovalHistoryApproval = {
-  approval_id: number
-  level_id: number
-  level_name: string
+  approval_id?: number
+  level_id?: number
+  level_name?: string
   level_number: number
-  status: 'APPROVED' | 'REJECTED'
-  approved_by: {
-    id: number
-    name: string
-    username: string
-  }
-  date: string
-  remarks: string
+  status: 'APPROVED' | 'REJECTED' | 'PENDING'
+  approved_by?: {
+    id?: number
+    name?: string
+    username?: string
+  } | null
+  date?: string
+  remarks?: string
   item_included: boolean
-  item_data: any | null
+  item_data?: ItemApprovalSnapshot | null
   has_changes: boolean
   changes: ItemApprovalHistoryChange[]
 }
 
 type ItemApprovalHistoryItem = {
   item_id: number
-  original_data: any
+  original_data?: any
   approval_history: ItemApprovalHistoryApproval[]
 }
 
@@ -348,6 +364,7 @@ type Requisition = {
   approvals: ApprovalRecord[]
   payee?: string
   dimensions_grouped?: any[]
+  original_items?: RequisitionItem[]
 }
 
 const props = defineProps<{ id: number }>()
@@ -556,6 +573,10 @@ const hasModifications = (itemId: number) => {
   const item = requisition.value?.items.find(i => i.id === itemId)
   if (!state || !item) return false
 
+  const stateRemarks = (state.remarks || '').trim()
+  const itemRemarks = (item.remarks || '').trim()
+  if (stateRemarks !== itemRemarks) return true
+
   // Check if discount changed
   if (state.discount_amount !== Number(item.discount_amount || 0)) return true
   if (state.discount_method !== item.discount_method) return true
@@ -578,6 +599,35 @@ const hasModifications = (itemId: number) => {
   }
 
   return false
+}
+
+const getOriginalItem = (itemId: number) => {
+  return requisition.value?.original_items?.find((item) => item.id === itemId) || null
+}
+
+const linesSignature = (lines: any[]) => {
+  return lines
+    .map((line) => [
+      line.type,
+      line.name,
+      line.unit,
+      Number(line.quantity || 0),
+      Number(line.rate || 0),
+      Number(line.amount || 0)
+    ].join('|'))
+    .join('::')
+}
+
+const hasOriginalDiff = (itemId: number) => {
+  const original = getOriginalItem(itemId)
+  const current = requisition.value?.items.find((item) => item.id === itemId)
+  if (!original || !current) return false
+  return linesSignature(buildItemLines(original)) !== linesSignature(buildItemLines(current))
+}
+
+const getOriginalLines = (itemId: number) => {
+  const original = getOriginalItem(itemId)
+  return original ? buildItemLines(original) : []
 }
 
 //use permissions
@@ -665,7 +715,7 @@ const statusBadgeClass = (status: RequisitionStatus) => {
 }
 
 const formatAmount = (value: number) => {
-  return Number(value || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  return Number(value || 0).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })
 }
 
 
@@ -698,6 +748,17 @@ const formatDisplayDate = (value: string) => {
   const monthName = new Intl.DateTimeFormat(undefined, { month: 'long' }).format(date)
   const year = date.getFullYear()
   return `${monthName} ${day}${getOrdinal(day)} ${year}`
+}
+
+const formatApprovalDate = (value: string) => {
+  if (!value) return '--'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'long',
+    day: '2-digit',
+    year: 'numeric'
+  }).format(date)
 }
 
 const sourceEntityLabel = (source: any) => {
@@ -750,9 +811,6 @@ const totalAmount = computed(() => {
   if (!requisition.value) return 0
   let total = 0
   for (const item of requisition.value.items) {
-    // Only include items that are ready for approval
-    if (!isItemReadyForApproval(item.id)) continue
-
     const state = getItemState(item.id)
     const lines = buildItemLines(item, state)
     total += lines.reduce((sum, line) => sum + line.amount, 0)
@@ -838,6 +896,15 @@ const buildItemLines = (item: RequisitionItem, state?: ItemApprovalState) => {
   return lines
 }
 
+const getItemDisplayLabel = (itemId: number) => {
+  const item = requisition.value?.items.find(i => i.id === itemId)
+  if (!item) return `Item #${itemId}`
+  const lines = buildItemLines(item)
+  if (!lines.length) return `Item #${itemId}`
+  const first = lines[0]
+  return `${first.type}: ${first.name}`
+}
+
 // Expanded cost centers tracking
 const expandedCostCenters = ref<Record<string, boolean>>({})
 
@@ -878,9 +945,6 @@ const itemsByCostCenter = computed((): CostCenterGroup[] => {
 
   for (let itemIndex = 0; itemIndex < requisition.value.items.length; itemIndex++) {
     const item = requisition.value.items[itemIndex]
-
-    // Only include items that are ready for approval
-    if (!isItemReadyForApproval(item.id)) continue
 
     const lines = buildItemLines(item, getItemState(item.id))
     const itemTotal = lines.reduce((sum, line) => sum + line.amount, 0)
@@ -1101,6 +1165,7 @@ const categorizedItems = computed(() => {
 const readyItemsCount = computed(() => categorizedItems.value.ready.length)
 const skippedItemsCount = computed(() => categorizedItems.value.skipped.length)
 const rejectedItemsCount = computed(() => categorizedItems.value.rejected.length)
+const notReviewedItemsCount = computed(() => categorizedItems.value.notReviewed.length)
 
 // Get detailed item approval status for UI feedback
 type ItemApprovalStatus = {
@@ -1195,7 +1260,7 @@ const mapRequisition = (req: any): Requisition => {
     requisition_type_id: req.requisition_type_id,
     requisition_type: req.requisition_type,
     form_behavior_json: req.form_behavior_json,
-    fund_direction: req.fund_direction || 'EXPENSE',
+    fund_direction: req.fund_direction || 'DIRECT_PAYMENT',
     required_date: req.required_date || '',
     date: req.date || req.created_at?.slice(0, 10) || '',
     status: req.status || 'DRAFT',
@@ -1215,21 +1280,377 @@ const mapRequisition = (req: any): Requisition => {
   }
 }
 
+const formatChangeValue = (value: any) => {
+  if (value === null || value === undefined || value === '') return '--'
+  return String(value)
+}
+
+const buildApprovalItemSnapshots = (approval: any): Map<number, ItemApprovalSnapshot> => {
+  const itemMap = new Map<number, ItemApprovalSnapshot>()
+  const dimensions = approval?.dimensions || []
+
+  dimensions.forEach((dim: any) => {
+    const accountItems = dim.account_items || []
+    accountItems.forEach((accItem: any) => {
+      const itemId = accItem.requisition_item_id
+      if (!itemId) return
+
+      const entry = itemMap.get(itemId) || { accounts: [], materials: [] }
+      entry.accounts.push({
+        account_id: accItem.account_id,
+        account_name: accItem.account_name || accItem.account?.name || '',
+        amount: Number(accItem.total_amount ?? accItem.amount ?? 0)
+      })
+      itemMap.set(itemId, entry)
+    })
+
+    const materialItems = dim.material_items || []
+    materialItems.forEach((matItem: any) => {
+      const itemId = matItem.requisition_item_id
+      if (!itemId) return
+
+      const quantity = Number(matItem.total_quantity ?? matItem.quantity ?? 0)
+      const total = Number(matItem.total_line_total ?? matItem.total ?? 0)
+      const rawRate = Number(matItem.rate)
+      const rate = Number.isFinite(rawRate) ? rawRate : quantity ? total / quantity : 0
+      const entry = itemMap.get(itemId) || { accounts: [], materials: [] }
+      entry.materials.push({
+        item_id: matItem.item_id,
+        item_name: matItem.item_name || matItem.item?.name || '',
+        quantity,
+        rate,
+        total,
+        unit: matItem.unit_of_measurement?.code || matItem.unit_of_measurement?.name || ''
+      })
+      itemMap.set(itemId, entry)
+    })
+  })
+
+  return itemMap
+}
+
+const buildSnapshotChanges = (prev?: ItemApprovalSnapshot | null, curr?: ItemApprovalSnapshot | null) => {
+  const changes: ItemApprovalHistoryChange[] = []
+  const prevAccounts = new Map<string, ItemApprovalSnapshot['accounts'][number]>()
+  const currAccounts = new Map<string, ItemApprovalSnapshot['accounts'][number]>()
+  const prevMaterials = new Map<string, ItemApprovalSnapshot['materials'][number]>()
+  const currMaterials = new Map<string, ItemApprovalSnapshot['materials'][number]>()
+
+  ;(prev?.accounts || []).forEach((acc) => {
+    const key = acc.account_id ? `account:${acc.account_id}` : `account:${acc.account_name || ''}`
+    prevAccounts.set(key, acc)
+  })
+  ;(curr?.accounts || []).forEach((acc) => {
+    const key = acc.account_id ? `account:${acc.account_id}` : `account:${acc.account_name || ''}`
+    currAccounts.set(key, acc)
+  })
+
+  ;(prev?.materials || []).forEach((mat) => {
+    const key = mat.item_id ? `material:${mat.item_id}` : `material:${mat.item_name || ''}`
+    prevMaterials.set(key, mat)
+  })
+  ;(curr?.materials || []).forEach((mat) => {
+    const key = mat.item_id ? `material:${mat.item_id}` : `material:${mat.item_name || ''}`
+    currMaterials.set(key, mat)
+  })
+
+  const accountKeys = new Set([...prevAccounts.keys(), ...currAccounts.keys()])
+  accountKeys.forEach((key) => {
+    const prevAcc = prevAccounts.get(key)
+    const currAcc = currAccounts.get(key)
+    const label = prevAcc?.account_name || currAcc?.account_name || 'Account'
+    const prevAmount = prevAcc ? Number(prevAcc.amount || 0) : null
+    const currAmount = currAcc ? Number(currAcc.amount || 0) : null
+    if (prevAcc && currAcc && prevAmount === currAmount) return
+
+    changes.push({
+      field: `Account: ${label} (amount)`,
+      original: formatChangeValue(prevAmount),
+      modified: formatChangeValue(currAmount)
+    })
+  })
+
+  const materialKeys = new Set([...prevMaterials.keys(), ...currMaterials.keys()])
+  materialKeys.forEach((key) => {
+    const prevMat = prevMaterials.get(key)
+    const currMat = currMaterials.get(key)
+    const label = prevMat?.item_name || currMat?.item_name || 'Item'
+    const prevQty = prevMat ? Number(prevMat.quantity || 0) : null
+    const currQty = currMat ? Number(currMat.quantity || 0) : null
+    const prevTotal = prevMat ? Number(prevMat.total || 0) : null
+    const currTotal = currMat ? Number(currMat.total || 0) : null
+
+    if (!(prevMat && currMat && prevQty === currQty)) {
+      const unitLabel = currMat?.unit || prevMat?.unit || ''
+      const qtyField = unitLabel ? `qty (${unitLabel})` : 'qty'
+      changes.push({
+        field: `Item: ${label} (${qtyField})`,
+        original: formatChangeValue(prevQty),
+        modified: formatChangeValue(currQty)
+      })
+    }
+
+    if (!(prevMat && currMat && prevTotal === currTotal)) {
+      changes.push({
+        field: `Item: ${label} (total)`,
+        original: formatChangeValue(prevTotal),
+        modified: formatChangeValue(currTotal)
+      })
+    }
+  })
+
+  return changes
+}
+
+const buildItemApprovalHistoryFromStages = (approvalStages: any[]): ItemApprovalHistoryResponse => {
+  const itemsMap = new Map<number, ItemApprovalHistoryItem>()
+  const sortedStages = [...approvalStages].sort((a, b) => (a.level_id || 0) - (b.level_id || 0))
+
+  sortedStages.forEach((stage: any) => {
+    const levelId = stage.level_id || 0
+    const levelName = stage.role?.name || stage.position?.role_name || `Level ${levelId}`
+    const approvals = stage.approvals || []
+
+    approvals.forEach((approval: any) => {
+      const approvalStatus = approval.status || 'PENDING'
+      const approvedBy = approval.approved_by || approval.handled_by
+      const approvalId = approval.id || 0
+      const approvalDate = approval.date || ''
+      const approvalRemarks = approval.remarks || ''
+      const snapshotMap = buildApprovalItemSnapshots(approval)
+
+      snapshotMap.forEach((snapshot, itemId) => {
+        if (!itemsMap.has(itemId)) {
+          itemsMap.set(itemId, {
+            item_id: itemId,
+            approval_history: []
+          })
+        }
+
+        const itemHistory = itemsMap.get(itemId)!
+        const existingApproval = itemHistory.approval_history.find(a => a.level_number === levelId)
+
+        if (!existingApproval) {
+          itemHistory.approval_history.push({
+            approval_id: approvalId,
+            level_id: stage.id || levelId,
+            level_name: levelName,
+            level_number: levelId,
+            status: approvalStatus,
+            item_included: true,
+            approved_by: approvedBy
+              ? {
+                  id: approvedBy.id,
+                  name: approvedBy.full_name || approvedBy.username || '',
+                  username: approvedBy.username || ''
+                }
+              : null,
+            date: approvalDate,
+            remarks: approvalRemarks,
+            item_data: snapshot,
+            has_changes: false,
+            changes: []
+          })
+        }
+      })
+    })
+  })
+
+  itemsMap.forEach((itemHistory) => {
+    itemHistory.approval_history.sort((a, b) => a.level_number - b.level_number)
+    for (let i = 0; i < itemHistory.approval_history.length; i++) {
+      const current = itemHistory.approval_history[i]
+      const prev = i > 0 ? itemHistory.approval_history[i - 1] : null
+      if (!prev) {
+        current.changes = []
+        current.has_changes = false
+        continue
+      }
+      const changes = buildSnapshotChanges(prev.item_data, current.item_data)
+      current.changes = changes
+      current.has_changes = changes.length > 0
+    }
+  })
+
+  return {
+    items_history: Array.from(itemsMap.values())
+  }
+}
+
+const normalizeMasterPayload = (payload: any) => {
+  if (!payload?.requisition) return payload
+
+  const requisition = payload.requisition || {}
+  const sources = payload.sources || []
+  const dimensions = payload.dimensions || []
+  const approvalStages = payload.approval_stages || []
+  const defaultCurrency = sources?.[0]?.currency || null
+
+  const normalizeDimensionMeta = (dim: any) => {
+    const typeValue = dim?.dimension_type
+    const valueValue = dim?.dimension_value
+    return {
+      dimension_type_id: dim?.dimension_type_id,
+      dimension_value_id: dim?.dimension_value_id,
+      dimension_type: typeof typeValue === 'string' ? { name: typeValue, code: typeValue } : typeValue,
+      dimension_value: typeof valueValue === 'string' ? { name: valueValue, code: valueValue } : valueValue
+    }
+  }
+
+  const getLatestApprovedDimensions = (stages: any[]) => {
+    const approvedStages = stages.filter((stage) =>
+      (stage?.approvals || []).some((approval: any) => approval?.status === 'APPROVED')
+    )
+    if (!approvedStages.length) return null
+    const latestStage = approvedStages.reduce((max, stage) =>
+      (stage.level_id || 0) > (max.level_id || 0) ? stage : max
+    )
+    const approvals = (latestStage?.approvals || []).filter((approval: any) => approval?.status === 'APPROVED')
+    if (!approvals.length) return null
+    const latestApproval = approvals.reduce((latest: any, approval: any) => {
+      const latestTime = new Date(latest?.date || 0).getTime()
+      const approvalTime = new Date(approval?.date || 0).getTime()
+      return approvalTime >= latestTime ? approval : latest
+    })
+    return latestApproval?.dimensions || null
+  }
+
+  const buildItemsFromDimensions = (sourceDimensions: any[]) => {
+    let tempId = -1
+    const builtItems: any[] = []
+
+    sourceDimensions.forEach((dim: any) => {
+      const accounts = dim?.accounts || []
+      const accountLookup = new Map(accounts.map((acc: any) => [acc.account_id, acc]))
+      const dimensionMeta = normalizeDimensionMeta(dim)
+
+      ;(dim?.account_items || []).forEach((accItem: any) => {
+        const accountDetail = accountLookup.get(accItem.account_id)
+        const reqItemId = accItem.requisition_item_id || accountDetail?.requisition_item_id || null
+        const currency = accountDetail?.currency || defaultCurrency || null
+        const currencyId = accItem.currency_id || accountDetail?.currency_id || currency?.id || null
+
+        builtItems.push({
+          id: reqItemId || tempId--,
+          currency_id: currencyId,
+          currency,
+          value_added_tax_id: null,
+          discount_amount: null,
+          discount_method: null,
+          tax_method: null,
+          remarks: null,
+          materials: [],
+          accounts: [
+            {
+              id: accountDetail?.id,
+              requisition_item_id: reqItemId || undefined,
+              account_id: accItem.account_id,
+              currency_id: currencyId,
+              amount: String(accItem.total_amount ?? accItem.amount ?? 0),
+              description: null,
+              account: accountDetail?.account || accountDetail?.account_id ? accountDetail?.account : accountDetail?.account,
+              currency
+            }
+          ],
+          dimensions: [dimensionMeta]
+        })
+      })
+
+      ;(dim?.material_items || []).forEach((matItem: any) => {
+        const reqItemId = matItem.requisition_item_id || null
+        const quantity = Number(matItem.total_quantity ?? matItem.quantity ?? 0)
+        const totalLine = Number(matItem.total_line_total ?? 0)
+        const rawRate = Number(matItem.rate)
+        const rate = Number.isFinite(rawRate) ? rawRate : quantity ? totalLine / quantity : 0
+        const currency = defaultCurrency || null
+        const currencyId = currency?.id || null
+
+        builtItems.push({
+          id: reqItemId || tempId--,
+          currency_id: currencyId,
+          currency,
+          value_added_tax_id: null,
+          discount_amount: null,
+          discount_method: null,
+          tax_method: null,
+          remarks: null,
+          materials: [
+            {
+              id: matItem.id,
+              requisition_item_id: reqItemId || undefined,
+              item_id: matItem.item_id,
+              unit_of_measurement_id: matItem.unit_of_measurement?.id,
+              quantity: String(quantity),
+              rate: String(rate),
+              currency_id: currencyId,
+              description: null,
+              item: matItem.item_id ? { id: matItem.item_id, name: matItem.item_name } : null,
+              unit_of_measurement: matItem.unit_of_measurement || null,
+              currency
+            }
+          ],
+          accounts: [],
+          dimensions: [dimensionMeta]
+        })
+      })
+    })
+
+    return builtItems
+  }
+
+  const latestApproved = Array.isArray(payload.latest_approved_dimensions)
+    ? payload.latest_approved_dimensions
+    : null
+  const latestDimensions =
+    (latestApproved && latestApproved.length ? latestApproved : null) ||
+    getLatestApprovedDimensions(approvalStages) ||
+    null
+  const baseItems = buildItemsFromDimensions(dimensions)
+  const latestItems = latestDimensions ? buildItemsFromDimensions(latestDimensions) : null
+  const items = latestItems || baseItems
+  const original_items = latestDimensions ? baseItems : []
+
+  const approvals = approvalStages.flatMap((stage: any) => {
+    const stageApprovals = stage?.approvals || []
+    return stageApprovals.map((approval: any) => ({
+      ...approval,
+      approval_chain_level: {
+        id: stage.id,
+        level_id: stage.level_id,
+        can_change_source: stage.can_change_source,
+        role: stage.role || null
+      }
+    }))
+  })
+
+  return {
+    ...requisition,
+    sources,
+    items,
+    approvals,
+    dimensions_grouped: latestDimensions || dimensions,
+    original_items,
+    approval_stages: approvalStages
+  }
+}
+
 const fetchRequisition = async () => {
   loading.value = true
   // Clear cached history to ensure fresh data for approval logic
   itemApprovalHistory.value = null
 
   try {
-    const response = await requisitionService.get(props.id)
-    const data = response?.data || response
-    requisition.value = mapRequisition(data)
+    const response = await requisitionService.getMaster(props.id)
+    const data = response?.data?.data || response?.data || response
+    const normalized = normalizeMasterPayload(data)
+    requisition.value = mapRequisition(normalized)
 
-    await Promise.all([
-      fetchApprovalChain(),
-      // Fetch history if not in draft, to support strict approval logic
-      requisition.value.status !== 'DRAFT' ? fetchItemApprovalHistory() : Promise.resolve()
-    ])
+    // Build item approval history from approval_stages
+    if (requisition.value.status !== 'DRAFT' && data.approval_stages) {
+      itemApprovalHistory.value = buildItemApprovalHistoryFromStages(data.approval_stages)
+    }
+
+    await fetchApprovalChain()
 
     // Initialize states AFTER history is loaded so we can use previous level's data
     initializeItemApprovalStates()
@@ -1265,13 +1686,24 @@ const normalizeItemApprovalHistory = (payload: any): ItemApprovalHistoryResponse
 }
 
 const fetchItemApprovalHistory = async (force = false) => {
+  // Rebuild from current requisition data if available
+  if (requisition.value && (requisition.value as any).approval_stages) {
+    itemApprovalHistory.value = buildItemApprovalHistoryFromStages((requisition.value as any).approval_stages)
+    return
+  }
+
+  // Fallback to API call if needed
   if (!force && (itemApprovalHistory.value || itemApprovalHistoryLoading.value)) return
   itemApprovalHistoryLoading.value = true
   itemApprovalHistoryError.value = ''
   try {
-    const url = `${import.meta.env.VITE_APP_BASE_URL}requisitions/${props.id}/item-approval-history`
-    const response = await axios.get(url)
-    itemApprovalHistory.value = normalizeItemApprovalHistory(response?.data) || null
+    const response = await requisitionService.getMaster(props.id)
+    const data = response?.data?.data || response?.data || response
+    if (data.approval_stages) {
+      itemApprovalHistory.value = buildItemApprovalHistoryFromStages(data.approval_stages)
+    } else {
+      itemApprovalHistory.value = null
+    }
   } catch (error: any) {
     itemApprovalHistoryError.value =
       error?.response?.data?.message || 'Failed to load item approval history.'
@@ -1325,7 +1757,8 @@ const buildApprovalItemsPayload = (selectedOnly: boolean) => {
 
     const state = itemApprovalStates.value.get(item.id)
     if (selectedOnly && !state?.selected) continue
-    payloadItems.push(buildApprovalItemPayload(item, state))
+    const includeState = state && hasModifications(item.id)
+    payloadItems.push(buildApprovalItemPayload(item, includeState ? state : undefined))
   }
   return payloadItems
 }
@@ -1570,6 +2003,11 @@ const goBack = () => router.push('/sales/requisitions')
 const goEdit = () => {
   router.push(`/sales/requisitions/${props.id}/edit`)
 }
+const openPrintView = () => {
+  if (!requisition.value) return
+  const target = router.resolve({ name: 'sales-requisition-print', params: { id: requisition.value.id } })
+  window.open(target.href, '_blank')
+}
 
 onMounted(() => {
   originalSidebarState.value = appOptionStore.appSidebarMinified
@@ -1602,6 +2040,10 @@ onUnmounted(() => {
       <div class="d-flex gap-2">
         <button class="btn btn-white border" @click="goBack">
           <i class="fa fa-arrow-left me-1"></i> Back
+        </button>
+
+        <button v-if="requisition" class="btn btn-outline-primary" @click="openPrintView">
+          <i class="fa fa-print me-1"></i> Print PDF
         </button>
 
         <button v-if="requisition?.status === 'DRAFT'" class="btn btn-primary text-white" @click="goEdit">
@@ -1705,13 +2147,13 @@ onUnmounted(() => {
               </div>
               <div class="item-content">
                 <div class="item-label">Fund Direction</div>
-                <div class="item-value">{{ requisition.fund_direction === 'WITHDRAW' ? 'Direct Payment' : 'Expense' }}
+                <div class="item-value">{{ requisition.fund_direction === 'DIRECT_PAYMENT' ? 'Direct Payment' : 'Withdraw' }}
                 </div>
-                <div class="item-hint" v-if="requisition.fund_direction === 'WITHDRAW'">
+                <div class="item-hint" v-if="requisition.fund_direction === 'DIRECT_PAYMENT'">
                   The payment will be made directly to the vendor/payee.
                 </div>
                 <div class="item-hint" v-else>
-                  Expense claim to be reimbursed.
+                  Internal fund withdrawal request.
                 </div>
               </div>
             </div>
@@ -1815,12 +2257,6 @@ onUnmounted(() => {
               <div v-if="['SUBMITTED', 'APPROVAL_PENDING'].includes(requisition.status) && (nextApprovalLevel || 0) > 1"
                 class="mb-3">
                 <div class="row g-2">
-                  <div class="col-auto">
-                    <div class="status-pill bg-success-subtle text-success border border-success-subtle">
-                      <i class="fa fa-check-circle me-1"></i>
-                      <strong>{{ readyItemsCount }}</strong> Ready
-                    </div>
-                  </div>
                   <div v-if="skippedItemsCount > 0" class="col-auto">
                     <div class="status-pill bg-secondary-subtle text-secondary border border-secondary-subtle">
                       <i class="fa fa-forward me-1"></i>
@@ -1888,7 +2324,7 @@ onUnmounted(() => {
 
               <!-- No Items Ready Message -->
               <div
-                v-if="['SUBMITTED', 'APPROVAL_PENDING'].includes(requisition.status) && isCurrentUserNextApprover && readyItemsCount === 0 && (nextApprovalLevel || 0) > 1"
+                v-if="['SUBMITTED', 'APPROVAL_PENDING'].includes(requisition.status) && isCurrentUserNextApprover && readyItemsCount === 0 && (nextApprovalLevel || 0) > 1 && notReviewedItemsCount === 0 && (skippedItemsCount + rejectedItemsCount) === requisition.items.length"
                 class="alert alert-warning text-center">
                 <i class="fa fa-info-circle me-1"></i>
                 No items are ready for approval at this level. All items were either skipped or rejected by the previous
@@ -1913,8 +2349,7 @@ onUnmounted(() => {
                     <!-- All Items in this cost center (Filtered by Approval Readiness) -->
                     <div class="cost-center-items-wrapper">
                       <template v-for="({ item, itemIndex, lines }, idx) in group.items" :key="`item-${item.id}`">
-                        <div v-if="isItemReadyForApproval(item.id)" class="item-row"
-                          :class="{ 'border-bottom': idx < group.items.length - 1 }">
+                        <div class="item-row" :class="{ 'border-bottom': idx < group.items.length - 1 }">
                           <!-- Previous Approver Badge -->
                           <div v-if="getItemApprovalStatus(item.id).wasModified" class="previous-level-badge">
                             <i class="fa fa-pencil-alt me-1"></i>
@@ -1928,6 +2363,7 @@ onUnmounted(() => {
                               <input v-if="['SUBMITTED', 'APPROVAL_PENDING'].includes(requisition.status)"
                                 type="checkbox" class="form-check-input m-0"
                                 :checked="itemApprovalStates.get(item.id)?.selected"
+                                :disabled="!isItemReadyForApproval(item.id)"
                                 @change="toggleItemSelection(item.id)" style="width: 18px; height: 18px;" />
                               <div class="item-number-badge-small">{{ itemIndex + 1 }}</div>
                               <div class="flex-grow-1">
@@ -1939,7 +2375,7 @@ onUnmounted(() => {
                                 <i class="fa fa-edit me-1"></i>Modified
                               </div>
                             </div>
-                            <div v-if="['SUBMITTED', 'APPROVAL_PENDING'].includes(requisition.status)"
+                            <div v-if="['SUBMITTED', 'APPROVAL_PENDING'].includes(requisition.status) && isCurrentUserNextApprover"
                               class="d-flex gap-2">
                               <button v-if="itemApprovalStates.get(item.id)?.editing" class="btn btn-sm btn-success"
                                 style="font-size: 0.75rem; padding: 0.25rem 0.5rem;" @click="saveItemChanges(item.id)">
@@ -1988,6 +2424,40 @@ onUnmounted(() => {
                                     </tr>
                                   </tbody>
                                 </table>
+                              </div>
+                              <div v-if="hasOriginalDiff(item.id)" class="mt-2 original-lines">
+                                <div class="small text-muted fw-semibold mb-1">Original items</div>
+                                <div class="table-responsive">
+                                  <table class="table table-sm table-borderless mb-0">
+                                    <thead class="table-light">
+                                      <tr class="small text-muted text-uppercase">
+                                        <th>Type</th>
+                                        <th>Description</th>
+                                        <th>Unit</th>
+                                        <th class="text-end">Qty</th>
+                                        <th class="text-end">Rate</th>
+                                        <th class="text-end">Amount</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      <tr v-for="(line, idx) in getOriginalLines(item.id)" :key="`orig-${idx}`">
+                                        <td>
+                                          <i class="fa"
+                                            :class="line.type === 'Item' ? 'fa-box text-muted' : 'fa-file-invoice text-muted'"></i>
+                                        </td>
+                                        <td class="text-muted">{{ line.name }}</td>
+                                        <td class="text-muted">{{ line.unit || '--' }}</td>
+                                        <td class="text-end text-muted">{{ line.quantity || '--' }}</td>
+                                        <td class="text-end text-muted">
+                                          {{ line.rate ? formatMoney(line.rate, line.currencySymbol) : '--' }}
+                                        </td>
+                                        <td class="text-end text-muted">
+                                          {{ formatMoney(line.amount, line.currencySymbol) }}
+                                        </td>
+                                      </tr>
+                                    </tbody>
+                                  </table>
+                                </div>
                               </div>
                             </template>
                             <template v-else>
@@ -2061,8 +2531,7 @@ onUnmounted(() => {
                 <template v-else>
                   <div class="item-approval-card mb-3">
                     <template v-for="(item, itemIndex) in requisition.items" :key="`item-${item.id}`">
-                      <div v-if="isItemReadyForApproval(item.id)" class="item-row"
-                        :class="{ 'border-bottom': itemIndex < requisition.items.length - 1 }">
+                      <div class="item-row" :class="{ 'border-bottom': itemIndex < requisition.items.length - 1 }">
                         <!-- Previous Approver Badge -->
                         <div v-if="getItemApprovalStatus(item.id).wasModified" class="previous-level-badge">
                           <i class="fa fa-pencil-alt me-1"></i>
@@ -2075,6 +2544,7 @@ onUnmounted(() => {
                           <div class="d-flex align-items-center gap-2 flex-grow-1">
                             <input v-if="['SUBMITTED', 'APPROVAL_PENDING'].includes(requisition.status)" type="checkbox"
                               class="form-check-input m-0" :checked="itemApprovalStates.get(item.id)?.selected"
+                              :disabled="!isItemReadyForApproval(item.id)"
                               @change="toggleItemSelection(item.id)" style="width: 18px; height: 18px;" />
                             <div class="item-number-badge-small">{{ itemIndex + 1 }}</div>
                             <div class="flex-grow-1">
@@ -2086,7 +2556,7 @@ onUnmounted(() => {
                               <i class="fa fa-edit me-1"></i>Modified
                             </div>
                           </div>
-                          <div v-if="['SUBMITTED', 'APPROVAL_PENDING'].includes(requisition.status)"
+                          <div v-if="['SUBMITTED', 'APPROVAL_PENDING'].includes(requisition.status) && isCurrentUserNextApprover"
                             class="d-flex gap-2">
                             <button v-if="itemApprovalStates.get(item.id)?.editing" class="btn btn-sm btn-success"
                               style="font-size: 0.75rem; padding: 0.25rem 0.5rem;" @click="saveItemChanges(item.id)">
@@ -2134,6 +2604,40 @@ onUnmounted(() => {
                                   </tr>
                                 </tbody>
                               </table>
+                            </div>
+                            <div v-if="hasOriginalDiff(item.id)" class="mt-2 original-lines">
+                              <div class="small text-muted fw-semibold mb-1">Original items</div>
+                              <div class="table-responsive">
+                                <table class="table table-sm table-borderless mb-0">
+                                  <thead class="table-light">
+                                    <tr class="small text-muted text-uppercase">
+                                      <th>Type</th>
+                                      <th>Description</th>
+                                      <th>Unit</th>
+                                      <th class="text-end">Qty</th>
+                                      <th class="text-end">Rate</th>
+                                      <th class="text-end">Amount</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    <tr v-for="(line, idx) in getOriginalLines(item.id)" :key="`orig-${idx}`">
+                                      <td>
+                                        <i class="fa"
+                                          :class="line.type === 'Item' ? 'fa-box text-muted' : 'fa-file-invoice text-muted'"></i>
+                                      </td>
+                                      <td class="text-muted">{{ line.name }}</td>
+                                      <td class="text-muted">{{ line.unit || '--' }}</td>
+                                      <td class="text-end text-muted">{{ line.quantity || '--' }}</td>
+                                      <td class="text-end text-muted">
+                                        {{ line.rate ? formatMoney(line.rate, line.currencySymbol) : '--' }}
+                                      </td>
+                                      <td class="text-end text-muted">
+                                        {{ formatMoney(line.amount, line.currencySymbol) }}
+                                      </td>
+                                    </tr>
+                                  </tbody>
+                                </table>
+                              </div>
                             </div>
                           </template>
                           <template v-else>
@@ -2207,8 +2711,7 @@ onUnmounted(() => {
               <div class="totals-card-compact">
                 <div class="totals-row-compact">
                   <span class="text-muted small">Subtotal</span>
-                  <span class="fw-semibold small">{{ formatMoney(totalAmount, requisition.items[0]?.currency?.symbol)
-                  }}</span>
+                  <span class="fw-semibold small">{{ formatMoney(totalAmount, getCurrencySymbol()) }}</span>
                 </div>
                 <div class="totals-row-compact" v-if="selectedItemsCount > 0">
                   <span class="text-muted small">
@@ -2217,36 +2720,12 @@ onUnmounted(() => {
                     </span>
                     Selected Total
                   </span>
-                  <span class="fw-semibold small text-info">{{ formatMoney(selectedItemsTotal,
-                    requisition.items[0]?.currency?.symbol) }}</span>
+                  <span class="fw-semibold small text-info">{{ formatMoney(selectedItemsTotal, getCurrencySymbol())
+                  }}</span>
                 </div>
                 <div class="totals-row-compact border-top pt-2 mt-1">
                   <span class="fw-bold">Grand Total</span>
-                  <span class="fw-bold text-primary">{{ formatMoney(totalAmount, requisition.items[0]?.currency?.symbol)
-                  }}</span>
-                </div>
-              </div>
-
-              <!-- Approval History Preview -->
-              <div v-if="requisition.approvals.length > 0" class="mt-4">
-                <h6 class="text-muted text-uppercase small mb-3">
-                  <i class="fa fa-history me-1"></i>Recent Approvals
-                </h6>
-                <div class="approval-history-preview">
-                  <div v-for="(approval, idx) in requisition.approvals.slice(0, 3)" :key="approval.id"
-                    class="approval-history-item">
-                    <div class="d-flex align-items-center gap-2">
-                      <div class="approval-status-icon"
-                        :class="approval.status === 'APPROVED' ? 'bg-success' : 'bg-danger'">
-                        <i class="fa" :class="approval.status === 'APPROVED' ? 'fa-check' : 'fa-times'"></i>
-                      </div>
-                      <div class="flex-grow-1">
-                        <div class="fw-semibold small">{{ userLabel(approval.approved_by_user) }}</div>
-                        <div class="text-muted" style="font-size: 0.75rem;">{{ approval.remarks || 'No remarks' }}</div>
-                      </div>
-                      <div class="text-muted small">{{ formatDisplayDate(approval.date) }}</div>
-                    </div>
-                  </div>
+                  <span class="fw-bold text-primary">{{ formatMoney(totalAmount, getCurrencySymbol()) }}</span>
                 </div>
               </div>
 
@@ -2329,7 +2808,12 @@ onUnmounted(() => {
                             <span class="me-1">{{ step.status === 'APPROVED' ? 'Approved by' : 'Rejected by' }}</span>
                             <span class="fw-bold text-dark">{{ step.approverName }}</span>
                             <span class="mx-2">-</span>
-                            <span>{{ formatDisplayDate(step.date) }}</span>
+                            <span>{{ formatApprovalDate(step.date) }}</span>
+                          </div>
+                          <div v-if="step.remarks" class="text-muted small">
+                            <i class="fa fa-comment-dots me-1"></i>
+                            <span class="fw-semibold text-dark">Comment:</span>
+                            <span class="ms-1">{{ step.remarks }}</span>
                           </div>
                         </div>
 
@@ -2375,11 +2859,14 @@ onUnmounted(() => {
                       <div class="list-group list-group-flush">
                         <div v-for="item in itemApprovalHistory.items_history" :key="item.item_id"
                           class="list-group-item p-3">
-                          <div class="d-flex justify-content-between align-items-center mb-2">
-                            <span class="fw-bold text-dark">Item #{{ item.item_id }}</span>
-                            <div class="d-flex align-items-center">
-                              <div v-for="app in item.approval_history" :key="app.approval_id" class="ms-1"
-                                :title="`${app.level_name} by ${app.approved_by?.name}`">
+                          <div class="item-history-header">
+                            <div>
+                              <div class="fw-bold text-dark">Item #{{ item.item_id }}</div>
+                              <div class="text-muted small">{{ getItemDisplayLabel(item.item_id) }}</div>
+                            </div>
+                            <div class="d-flex align-items-center flex-wrap gap-1">
+                              <div v-for="app in item.approval_history" :key="app.approval_id || app.level_number"
+                                :title="`${app.level_name || `Level ${app.level_number}`} by ${app.approved_by?.name || 'Unknown'}`">
                                 <span class="badge rounded-pill"
                                   :class="app.status === 'APPROVED' ? 'bg-success' : 'bg-danger'"
                                   style="font-size: 0.7rem; padding: 0.35rem 0.6rem;">
@@ -2389,15 +2876,39 @@ onUnmounted(() => {
                             </div>
                           </div>
 
-                          <!-- Changes if any -->
-                          <div v-for="app in item.approval_history" :key="`changes-${app.approval_id}`">
-                            <div v-if="app.has_changes" class="mt-2 bg-light p-2 rounded border border-warning">
-                              <div class="small fw-bold text-warning-emphasis mb-1">
-                                <i class="fa fa-pencil-alt me-1"></i> Changes at L{{ app.level_number }}
+                          <div class="history-approvals">
+                            <div v-for="app in item.approval_history"
+                              :key="`${item.item_id}-${app.level_number}`" class="history-approval-card">
+                              <div class="d-flex justify-content-between align-items-center mb-1">
+                                <div class="fw-semibold small text-dark">
+                                  {{ app.level_name || `Level ${app.level_number}` }}
+                                </div>
+                                <span class="badge rounded-pill"
+                                  :class="app.status === 'APPROVED' ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-danger-subtle text-danger border border-danger-subtle'">
+                                  {{ app.status }}
+                                </span>
                               </div>
-                              <div v-for="(change, idx) in app.changes" :key="idx" class="small text-muted ms-3">
-                                - {{ change.field }}: <span class="text-decoration-line-through">{{ change.original
-                                }}</span> -> <span class="fw-bold text-success">{{ change.modified }}</span>
+
+                              <div class="text-muted small">
+                                <i class="fa fa-user-circle me-1"></i>
+                                <span>{{ app.approved_by?.name || 'Unknown' }}</span>
+                                <span v-if="app.date" class="ms-2">• {{ formatApprovalDate(app.date) }}</span>
+                              </div>
+
+                              <div v-if="app.remarks" class="text-muted small mt-1">
+                                <i class="fa fa-comment-dots me-1"></i>
+                                <span>{{ app.remarks }}</span>
+                              </div>
+
+                              <div v-if="app.has_changes && app.changes.length" class="history-changes mt-2">
+                                <div v-for="(change, idx) in app.changes" :key="idx" class="change-row">
+                                  <div class="change-field">{{ change.field }}</div>
+                                  <div class="change-values">
+                                    <span class="text-decoration-line-through text-muted">{{ change.original }}</span>
+                                    <i class="fa fa-long-arrow-right mx-1 text-muted"></i>
+                                    <span class="fw-semibold text-success">{{ change.modified }}</span>
+                                  </div>
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -2675,6 +3186,60 @@ onUnmounted(() => {
           border: 1px solid #e2e8f0;
           border-radius: 10px;
           overflow: hidden;
+        }
+
+        .item-history-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 1rem;
+          margin-bottom: 0.75rem;
+        }
+
+        .history-approvals {
+          display: flex;
+          flex-direction: column;
+          gap: 0.6rem;
+        }
+
+        .history-approval-card {
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
+          border-radius: 8px;
+          padding: 0.75rem 0.9rem;
+        }
+
+        .history-changes {
+          background: #fff7ed;
+          border: 1px solid #fed7aa;
+          border-radius: 6px;
+          padding: 0.5rem 0.75rem;
+        }
+
+        .change-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 0.75rem;
+          font-size: 0.75rem;
+          padding: 0.25rem 0;
+          border-bottom: 1px dashed #fde68a;
+        }
+
+        .change-row:last-child {
+          border-bottom: none;
+        }
+
+        .change-field {
+          font-weight: 600;
+          color: #92400e;
+        }
+
+        .change-values {
+          display: flex;
+          align-items: center;
+          gap: 0.25rem;
+          white-space: nowrap;
         }
 
         .approval-history-item {
@@ -3036,6 +3601,13 @@ onUnmounted(() => {
 
         .item-block .table .fw-medium {
           font-weight: 500;
+        }
+
+        .original-lines {
+          background: #f8fafc;
+          border: 1px dashed #cbd5e1;
+          border-radius: 6px;
+          padding: 0.5rem;
         }
 
         @media (max-width: 992px) {

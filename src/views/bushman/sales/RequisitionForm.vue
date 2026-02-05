@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { toRefs, computed, ref, nextTick, onMounted } from 'vue'
+import { toRefs, computed, ref, nextTick, onMounted, watch } from 'vue'
 import CurrencyInput from '@/components/CurrencyInput.vue'
 import Datepicker from '@/components/plugins/Datepicker.vue'
+import Multiselect from 'vue-multiselect'
+import 'vue-multiselect/dist/vue-multiselect.css'
 import vSelect from 'vue-select'
 import 'vue-select/dist/vue-select.css'
 import { useAuthStore } from '@/stores/auth'
@@ -17,6 +19,8 @@ type Props = {
   itemsOptions: any[]
   unitsOptions: any[]
   accounts: any[]
+  sourceAccounts: any[]
+  replenishAccounts: any[]
   users: any[] 
   locations: any[] 
   entities: any[] 
@@ -39,6 +43,8 @@ const {
   itemsOptions,
   unitsOptions,
   accounts,
+  sourceAccounts,
+  replenishAccounts,
   users,
   locations,
   entities,
@@ -54,21 +60,34 @@ const formatAmount = props.formatAmount
 const form = defineModel<any>('form', { required: true })
 const activeFormTab = defineModel<string>('activeFormTab', { required: true, default: 'sources' })
 
-const sourceSelection = computed<string | null>({
+// Refs for multiselect dropdowns to manually close them - defined early for use in computed
+const sourceAccountSelect = ref<any>(null)
+
+// Vue-multiselect needs the full option object, not just the value string
+const sourceSelection = computed<any>({
   get() {
     const source = form.value?.source
     if (!source?.sourceType) return null
+    
+    let valueString: string | null = null
     if (source.sourceType === 'CASH' && source.accountId) {
-      return `CASH:${source.accountId}`
+      valueString = `CASH:${source.accountId}`
+    } else if ((source.sourceType === 'STORE' || source.sourceType === 'PARTIES') && source.sourceId) {
+      valueString = `${source.sourceType}:${source.sourceId}`
     }
-    if ((source.sourceType === 'STORE' || source.sourceType === 'PARTIES') && source.sourceId) {
-      return `${source.sourceType}:${source.sourceId}`
-    }
-    return null
+    
+    if (!valueString) return null
+    
+    // Find and return the full option object from sourceOptions
+    return sourceOptions.value.find((opt: any) => opt.value === valueString) || null
   },
-  set(value) {
+  set(selected: any) {
     const source = form.value?.source
     if (!source) return
+    
+    // selected is now the full option object from vue-multiselect
+    const value = selected?.value || null
+    
     if (!value) {
       source.sourceType = null
       source.sourceId = null
@@ -84,7 +103,7 @@ const sourceSelection = computed<string | null>({
     if (type === 'CASH') {
       source.accountId = parsedId
       source.sourceId = null
-      const account = (accounts.value || []).find((a: any) => a.id === parsedId)
+      const account = (flatSourceAccounts.value || []).find((a: any) => a.id === parsedId)
       if (account && !source.payee) {
         source.payee = account.name
       }
@@ -126,6 +145,18 @@ const emit = defineEmits<{
 onMounted(() => {
   if (!form.value?.requiredDate) {
     form.value.requiredDate = new Date().toISOString().slice(0, 10)
+  }
+})
+
+// Clear direct payment fields when switching to Withdraw to avoid showing stale amounts
+watch(() => form.value?.fundDirection, (val) => {
+  if (val === 'WITHDRAW') {
+    if (!form.value) return
+    if (!form.value.source) form.value.source = {}
+    form.value.source.amount = 0
+    form.value.source.paymentMethod = null
+    form.value.source.modeOfPayment = null
+    // Keep payee/source fields as they are
   }
 })
 
@@ -236,16 +267,79 @@ const getItemTotal = (item: any) => {
   return total
 }
 
-// Grouped dimension options: show values grouped by type for single-select UX
-const groupedDimensionOptions = computed(() => {
-  const groups: { typeId: number; typeName: string; values: any[] }[] = []
-  for (const type of dimensionTypes.value || []) {
-    const values = (dimensionValues.value || []).filter((v: any) => v.dimension_type_id === type.id)
-    if (values.length > 0) {
-      groups.push({ typeId: type.id, typeName: type.name, values })
+// Helper function to flatten account hierarchy with parent grouping
+// Returns options with parent headers (non-selectable) and child accounts (selectable)
+const flattenAccountsWithGroups = (accountList: any[]): any[] => {
+  const options: any[] = []
+  
+  accountList.forEach((acc: any) => {
+    if (acc.children && acc.children.length > 0) {
+      // This is a parent account - add as header, then add children
+      options.push({
+        label: `${acc.code} - ${acc.name}`,
+        value: null,
+        $isDisabled: true,
+        isHeader: true,
+        isParentHeader: true
+      })
+      // Add children under this parent
+      acc.children.forEach((child: any) => {
+        const displayLabel = child.code ? `${child.code} - ${child.name}` : child.name
+        options.push({
+          label: displayLabel,
+          value: child.id,
+          code: child.code || null,
+          name: child.name,
+          parentName: acc.name,
+          isChild: true,
+          searchText: `${child.name} ${child.code || ''} ${acc.name}`
+        })
+      })
+    } else {
+      // This is a standalone leaf account (no children) - add directly
+      const displayLabel = acc.code ? `${acc.code} - ${acc.name}` : acc.name
+      options.push({
+        label: displayLabel,
+        value: acc.id,
+        code: acc.code || null,
+        name: acc.name,
+        isChild: false,
+        searchText: `${acc.name} ${acc.code || ''}`
+      })
+    }
+  })
+  
+  return options
+}
+
+// Grouped account options for dropdowns
+const groupedAccountOptions = computed(() => flattenAccountsWithGroups(accounts.value || []))
+const groupedSourceAccountOptions = computed(() => flattenAccountsWithGroups(sourceAccounts.value || []))
+const groupedReplenishAccountOptions = computed(() => flattenAccountsWithGroups(replenishAccounts.value || []))
+
+// Keep flat versions for lookups (finding account by ID)
+const flatAccounts = computed(() => {
+  const flattened: any[] = []
+  const flatten = (acc: any) => {
+    flattened.push(acc)
+    if (acc.children && acc.children.length > 0) {
+      acc.children.forEach((child: any) => flatten(child))
     }
   }
-  return groups
+  ;(accounts.value || []).forEach(flatten)
+  return flattened
+})
+
+const flatSourceAccounts = computed(() => {
+  const flattened: any[] = []
+  const flatten = (acc: any) => {
+    flattened.push(acc)
+    if (acc.children && acc.children.length > 0) {
+      acc.children.forEach((child: any) => flatten(child))
+    }
+  }
+  ;(sourceAccounts.value || []).forEach(flatten)
+  return flattened
 })
 
 const itemAccountOptions = computed(() => {
@@ -253,7 +347,7 @@ const itemAccountOptions = computed(() => {
 
   // Items group
   if (itemsOptions.value && itemsOptions.value.length > 0) {
-    options.push({ label: '📦 Items', value: null, $isDisabled: true, isHeader: true })
+    options.push({ label: 'ITEMS', value: null, $isDisabled: true, isHeader: true })
     itemsOptions.value.forEach((itm: any) => {
       options.push({
         label: itm.name,
@@ -265,17 +359,30 @@ const itemAccountOptions = computed(() => {
     })
   }
 
-  // Accounts group
-  if (accounts.value && accounts.value.length > 0) {
-    options.push({ label: '💰 Accounts', value: null, $isDisabled: true, isHeader: true })
-    accounts.value.forEach((acc: any) => {
-      options.push({
-        label: acc.name,
-        value: `ACCOUNT:${acc.id}`,
-        code: acc.code || null,
-        name: acc.name,
-        searchText: `${acc.name} ${acc.code || ''} account`
-      })
+  // Accounts group - with parent grouping (parents as headers, children selectable)
+  if (groupedAccountOptions.value && groupedAccountOptions.value.length > 0) {
+    options.push({ label: 'ACCOUNTS', value: null, $isDisabled: true, isHeader: true })
+    groupedAccountOptions.value.forEach((opt: any) => {
+      if (opt.isHeader) {
+        // Parent account header
+        options.push({
+          label: opt.label,
+          value: null,
+          $isDisabled: true,
+          isHeader: true,
+          isParentHeader: true
+        })
+      } else {
+        // Selectable child or standalone account
+        options.push({
+          label: opt.isChild ? `    ${opt.label}` : opt.label, // Indent children
+          value: `ACCOUNT:${opt.value}`,
+          code: opt.code || null,
+          name: opt.name,
+          isChild: opt.isChild,
+          searchText: `${opt.name} ${opt.code || ''} ${opt.parentName || ''} account`
+        })
+      }
     })
   }
 
@@ -311,23 +418,37 @@ const costCenterOptions = computed(() => {
 const sourceOptions = computed(() => {
   const options = []
 
-  // Cash accounts with group label
-  if (accounts.value && accounts.value.length > 0) {
-    options.push({ label: "💰 Accounts", value: null, $isDisabled: true, isHeader: true })
-    accounts.value.forEach((account: any) => {
-      options.push({
-        label: account.code ? `${account.name} (${account.code})` : account.name,
-        value: `CASH:${account.id}`,
-        accountName: account.name,
-        code: account.code || null,
-        searchText: account.code ? `${account.name} ${account.code} cash` : `${account.name} cash`
-      })
+  // Cash accounts with group label - with parent grouping
+  if (groupedSourceAccountOptions.value && groupedSourceAccountOptions.value.length > 0) {
+    options.push({ label: "ACCOUNTS", value: null, $isDisabled: true, isHeader: true })
+    groupedSourceAccountOptions.value.forEach((opt: any) => {
+      if (opt.isHeader) {
+        // Parent account header
+        options.push({
+          label: opt.label,
+          value: null,
+          $isDisabled: true,
+          isHeader: true,
+          isParentHeader: true
+        })
+      } else {
+        // Selectable child or standalone account
+        const displayLabel = opt.isChild ? `    ${opt.label}` : opt.label
+        options.push({
+          label: displayLabel,
+          value: `CASH:${opt.value}`,
+          accountName: opt.name,
+          code: opt.code || null,
+          isChild: opt.isChild,
+          searchText: opt.code ? `${opt.name} ${opt.code} ${opt.parentName || ''} cash` : `${opt.name} cash`
+        })
+      }
     })
   }
 
   // Store locations with group label
   if (locations.value && locations.value.length > 0) {
-    options.push({ label: '🏪 Stores', value: null, $isDisabled: true, isHeader: true })
+    options.push({ label: 'STORES', value: null, $isDisabled: true, isHeader: true })
     locations.value.forEach((location: any) => {
       options.push({
         label: location.name,
@@ -341,7 +462,7 @@ const sourceOptions = computed(() => {
 
   // Party entities with group label
   if (entities.value && entities.value.length > 0) {
-    options.push({ label: '👥 Parties', value: null, $isDisabled: true, isHeader: true })
+    options.push({ label: 'PARTIES', value: null, $isDisabled: true, isHeader: true })
     entities.value.forEach((entity: any) => {
       options.push({
         label: entity.name,
@@ -356,34 +477,102 @@ const sourceOptions = computed(() => {
   return options
 })
 
-// Custom filter for source options search
-const filterSourceOptions = (options: any[], search: string) => {
-  const searchLower = (search || '').toLowerCase().trim()
-  if (!searchLower) return options
+// Refs for multiselect dropdowns to manually close them
+const modeOfPaymentRef = ref<any>(null)
+const paymentMethodRef = ref<any>(null)
+const receivingAccountRef = ref<any>(null)
+const custodianRef = ref<any>(null)
 
-  return options.filter((option: any) => {
-    if (option.isHeader) {
-      // Show header if any child items match
-      const headerType = option.label.includes('Cash') ? 'cash'
-        : option.label.includes('Store') ? 'store'
-          : 'party'
-      return options.some((opt: any) => {
-        if (opt.isHeader) return false
-        const optType = opt.value?.split(':')[0]?.toLowerCase()
-        const matchesType = (headerType === 'cash' && optType === 'cash') ||
-          (headerType === 'store' && optType === 'store') ||
-          (headerType === 'party' && optType === 'parties')
-        if (!matchesType) return false
-        const searchText = (opt.searchText || opt.label || '').toLowerCase()
-        return searchText.includes(searchLower)
-      })
-    }
-    const searchText = (option.searchText || option.label || '').toLowerCase()
-    return searchText.includes(searchLower)
-  })
+// --- Payment mode options ---
+const paymentModeOptions = [
+  { label: 'Cash', value: 'CASH' },
+  { label: 'Telegraph Transfer', value: 'TT' },
+  { label: 'Credit', value: 'CREDIT' }
+]
+
+// Computed wrapper for modeOfPayment (EXPENSE direct payment)
+const modeOfPaymentSelection = computed({
+  get() {
+    const val = form.value?.source?.modeOfPayment
+    return paymentModeOptions.find(o => o.value === val) || null
+  },
+  set(opt: any) {
+    if (!form.value?.source) return
+    form.value.source.modeOfPayment = opt?.value || null
+  }
+})
+
+// Computed wrapper for paymentMethod (WITHDRAW section)
+const paymentMethodSelection = computed({
+  get() {
+    const val = form.value?.source?.paymentMethod
+    return paymentModeOptions.find(o => o.value === val) || null
+  },
+  set(opt: any) {
+    if (!form.value?.source) return
+    form.value.source.paymentMethod = opt?.value || null
+  }
+})
+
+// Computed wrapper for receivingAccountId
+const receivingAccountSelection = computed({
+  get() {
+    const id = form.value?.source?.receivingAccountId
+    if (!id) return null
+    return groupedReplenishAccountOptions.value.find((o: any) => o.value === id) || null
+  },
+  set(opt: any) {
+    if (!form.value?.source) return
+    form.value.source.receivingAccountId = opt?.value || null
+  }
+})
+
+// Computed wrapper to debug/ensure users options are valid
+const usersOptions = computed(() => {
+  const opts = users.value || []
+  // console.log('RequisitionForm: Users available for Custodian select:', opts.length, opts)
+  return opts
+})
+
+// Computed wrapper for custodianId
+const custodianSelection = computed({
+  get() {
+    const id = form.value?.source?.custodianId
+    if (!id) return null
+    return (usersOptions.value).find((u: any) => u.id === id) || null
+  },
+  set(opt: any) {
+    if (!form.value?.source) return
+    form.value.source.custodianId = opt?.id || null
+  }
+})
+
+// Helper to display user's full name (first + last) with fallbacks
+const getUserDisplayName = (u: any) => {
+  if (!u) return ''
+  const first = (u.first_name || u.firstName || '').toString().trim()
+  const last = (u.last_name || u.lastName || '').toString().trim()
+  const full = `${first} ${last}`.trim()
+  if (full) return full
+  if (u.name) return u.name
+  if (u.username) return u.username
+  return u.email || ''
 }
 
-const isSelectableOption = (option: any) => !option?.isHeader
+// Helper to get cost center selection object from ID
+const getCostCenterSelection = (cc: any) => {
+  if (!cc?.costCenterId) return null
+  return costCenterOptions.value.find((o: any) => o.value === cc.costCenterId) || null
+}
+
+// Handler for cost center selection change - using v-model binding
+const setCostCenterSelection = (cc: any, selected: any, multiselectRef?: any) => {
+  if (selected && !selected.isHeader) {
+    cc.costCenterId = selected.value
+  } else {
+    cc.costCenterId = null
+  }
+}
 
 // --- Attachments Logic ---
 const attachmentType = ref('Funding')
@@ -426,7 +615,7 @@ const resolveLineItemLabel = (item: any) => {
     return itemDef?.name || `Item #${item.itemId}`
   }
   if (item?.accountId) {
-    const accountDef = (accounts.value || []).find((acc: any) => acc.id === item.accountId)
+    const accountDef = (flatAccounts.value || []).find((acc: any) => acc.id === item.accountId)
     return accountDef?.name || `Account #${item.accountId}`
   }
   return 'Line Item'
@@ -437,7 +626,7 @@ const attachmentReferenceOptions = computed(() => {
     const source = form.value?.source
     if (!source?.sourceType) return []
     if (source.sourceType === 'CASH' && source.accountId) {
-      const account = (accounts.value || []).find((a: any) => a.id === source.accountId)
+      const account = (flatSourceAccounts.value || []).find((a: any) => a.id === source.accountId)
       return [{ label: account?.name || `Account #${source.accountId}`, value: `CASH:${source.accountId}` }]
     }
     if (source.sourceType === 'STORE' && source.sourceId) {
@@ -552,143 +741,6 @@ const openAttachment = (file: any) => {
   if (!file.url && file.file) {
     file.url = url
   }
-}
-
-// Custom filter for item/account options search
-const filterItemAccountOptions = (options: any[], search: string) => {
-  const searchLower = (search || '').toLowerCase().trim()
-  if (!searchLower) return options
-
-  return options.filter((option: any) => {
-    if (option.isHeader) {
-      // Show header if any child items match
-      const headerType = option.label.includes('Items') ? 'items' : 'accounts'
-      return options.some((opt: any) => {
-        if (opt.isHeader) return false
-        const optType = opt.value?.split(':')[0]?.toLowerCase()
-        const matchesType = (headerType === 'items' && optType === 'item') ||
-          (headerType === 'accounts' && optType === 'account')
-        if (!matchesType) return false
-        const searchText = (opt.searchText || opt.label || '').toLowerCase()
-        return searchText.includes(searchLower)
-      })
-    }
-    const searchText = (option.searchText || option.label || '').toLowerCase()
-    return searchText.includes(searchLower)
-  })
-}
-
-// Ref for source v-select so we can reposition on search
-const sourceSelect = ref<any>(null)
-
-// When searching, recalculate dropdown position after list updates
-const onSourceSearch = async (search: string) => {
-  await nextTick()
-  setTimeout(() => {
-    // Find visible dropdown menu
-    const menus = Array.from(document.querySelectorAll<HTMLElement>('.vs__dropdown-menu'))
-    const visible = menus.find(m => m.offsetParent !== null)
-    if (visible) {
-      // Reposition using our positioner
-      try {
-        dropdownPosition(visible, sourceSelect.value, {})
-      } catch (e) {
-        // ignore
-      }
-    }
-  }, 16)
-}
-
-// Calculate dropdown position to prefer opening upward and anchor bottom to input top
-const dropdownPosition = (dropdownList: HTMLElement, component: any, { width, top, left }: any) => {
-  try {
-    const triggerEl: HTMLElement | null = component && component.$el ? component.$el as HTMLElement : null
-    if (!triggerEl) return
-
-    const rect = triggerEl.getBoundingClientRect()
-    const GAP = 0
-    const MAX_HEIGHT = 300
-
-    const offsetParent = dropdownList.offsetParent as HTMLElement | null
-    const isLocalMenu = !!offsetParent && offsetParent !== document.body
-
-    if (isLocalMenu) {
-      dropdownList.style.position = 'absolute'
-      dropdownList.style.top = `${Math.round(triggerEl.offsetHeight)}px`
-      dropdownList.style.bottom = 'auto'
-      dropdownList.style.left = '0'
-      dropdownList.style.width = '100%'
-      dropdownList.style.maxHeight = `${MAX_HEIGHT}px`
-      dropdownList.style.height = 'auto'
-      dropdownList.style.overflowY = 'auto'
-      dropdownList.style.zIndex = '9999'
-      dropdownList.style.boxSizing = 'border-box'
-      dropdownList.style.visibility = 'visible'
-      dropdownList.style.display = 'block'
-      return
-    }
-
-    // Determine available space
-    const spaceAbove = rect.top
-    const spaceBelow = window.innerHeight - rect.bottom
-
-    // Prefer opening upward when there is any room above; otherwise open downward
-    if (spaceAbove > GAP) {
-      const maxHeight = Math.min(MAX_HEIGHT, Math.max(40, spaceAbove - GAP))
-      const anchorBottom = Math.round(window.innerHeight - rect.top + GAP)
-
-      dropdownList.style.position = 'absolute'
-      dropdownList.style.top = 'auto'
-      dropdownList.style.bottom = `${anchorBottom}px`
-      dropdownList.style.left = `${Math.round(window.scrollX + rect.left)}px`
-      dropdownList.style.width = `${Math.round(rect.width)}px`
-      dropdownList.style.maxHeight = `${Math.round(maxHeight)}px`
-      dropdownList.style.height = 'auto'
-      dropdownList.style.overflowY = 'auto'
-      dropdownList.style.zIndex = '9999'
-      dropdownList.style.boxSizing = 'border-box'
-      dropdownList.style.visibility = 'visible'
-      dropdownList.style.display = 'block'
-    } else {
-      // Not enough room above -> open downward
-      const maxHeight = Math.min(MAX_HEIGHT, Math.max(40, spaceBelow - GAP))
-      const topPos = Math.round(window.scrollY + rect.bottom + GAP)
-
-      dropdownList.style.position = 'absolute'
-      dropdownList.style.top = `${topPos}px`
-      dropdownList.style.bottom = 'auto'
-      dropdownList.style.left = `${Math.round(window.scrollX + rect.left)}px`
-      dropdownList.style.width = `${Math.round(rect.width)}px`
-      dropdownList.style.maxHeight = `${Math.round(maxHeight)}px`
-      dropdownList.style.height = 'auto'
-      dropdownList.style.overflowY = 'auto'
-      dropdownList.style.zIndex = '9999'
-      dropdownList.style.boxSizing = 'border-box'
-      dropdownList.style.visibility = 'visible'
-      dropdownList.style.display = 'block'
-    }
-  } catch (e) {
-    // ignore
-  }
-}
-
-// Custom filter for grouped options search
-const filterGroupedOptions = (options: any[], search: string) => {
-  const searchLower = (search || '').toLowerCase().trim()
-  if (!searchLower) return options
-
-  return options.filter((option: any) => {
-    if (option.isHeader) {
-      return options.some((opt: any) => {
-        if (opt.isHeader) return false
-        if (opt.groupKey !== option.groupKey) return false
-        const searchText = (opt.searchText || opt.label || '').toLowerCase()
-        return searchText.includes(searchLower)
-      })
-    }
-    const searchText = (option.searchText || option.label || '').toLowerCase()
-    return searchText.includes(searchLower)
-  })
 }
 
 // When user selects a dimension value, auto-fill the type
@@ -864,13 +916,18 @@ const allCostCentersGrandTotal = computed(() => {
 })
 
 const getItemAccountSelection = (line: any) => {
-  if (line?.itemId) return `ITEM:${line.itemId}`
-  if (line?.accountId) return `ACCOUNT:${line.accountId}`
-  return null
+  let val: string | null = null
+  if (line?.itemId) val = `ITEM:${line.itemId}`
+  else if (line?.accountId) val = `ACCOUNT:${line.accountId}`
+  
+  if (!val) return null
+  
+  return itemAccountOptions.value.find((opt: any) => opt.value === val) || null
 }
 
-const onItemAccountSelect = (line: any, value: string | null) => {
-  const raw = value ? String(value) : ''
+const onItemAccountSelect = (line: any, value: any, multiselectRef?: any) => {
+  // Handle both object (from vue-multiselect) and string values
+  const raw = value?.value ? String(value.value) : (value ? String(value) : '')
   const normalized = !raw || raw === 'null' ? null : raw
 
   if (!normalized) {
@@ -895,6 +952,13 @@ const onItemAccountSelect = (line: any, value: string | null) => {
     line.itemId = null
     line.unitId = null
   }
+  
+  // Close the dropdown
+  nextTick(() => {
+    if (multiselectRef?.deactivate) {
+      multiselectRef.deactivate()
+    }
+  })
 }
 </script>
 
@@ -965,7 +1029,7 @@ const onItemAccountSelect = (line: any, value: string | null) => {
                     <span class="input-icon"><i class="fa fa-exchange"></i></span>
                     <select v-model="form.fundDirection">
                       <option :value="null">Select...</option>
-                      <option value="EXPENSE">Direct payment</option>
+                      <option value="DIRECT_PAYMENT">Direct payment</option>
                       <option value="WITHDRAW">Withdraw</option>
                     </select>
                   </div>
@@ -1102,17 +1166,24 @@ const onItemAccountSelect = (line: any, value: string | null) => {
                       <i class="fa fa-chevron-down"></i>
                     </span>
                     <span class="cc-number">#{{ ccIndex + 1 }}</span>
-                    <v-select v-model="cc.costCenterId" class="v-select-field v-select-grouped cost-center-select"
-                      :options="costCenterOptions" :reduce="(opt) => opt.value" :filterable="true"
-                      :filter="filterGroupedOptions" :selectable="isSelectableOption" :append-to-body="false"
-                      :calculate-position="dropdownPosition" label="label" placeholder="🔍 Search cost center..."
+                    <Multiselect :ref="(el) => { if (el) cc._multiselectRef = el }"
+                      :model-value="getCostCenterSelection(cc)" 
+                      @update:model-value="(val) => setCostCenterSelection(cc, val, cc._multiselectRef)"
+                      class="v-select-field v-select-grouped cost-center-select"
+                      :options="costCenterOptions" label="label" track-by="value"
+                      :allow-empty="true" :append-to-body="true" :multiple="false"
+                      :close-on-select="true" :group-select="false"
+                      :option-height="28" :max-height="300"
+                      :selectable="(option) => !option.isHeader && !option.$isDisabled"
+                      :searchable="true" :options-limit="300"
+                      placeholder="Search cost center..." 
                       @click.stop>
-                      <template #option="{ label, isHeader }">
-                        <div :class="{ 'cost-center-header': isHeader, 'cost-center-option': !isHeader }">
-                          {{ label }}
+                      <template #option="{ option }">
+                        <div :class="{ 'cost-center-header': option.isHeader, 'cost-center-option': !option.isHeader }">
+                          {{ option.label }}
                         </div>
                       </template>
-                    </v-select>
+                    </Multiselect>
                   </div>
                   <div class="cost-center-actions">
                     <span class="cc-total">Total Amount: {{ getCurrencySymbol() }}{{
@@ -1148,19 +1219,25 @@ const onItemAccountSelect = (line: any, value: string | null) => {
                           <td class="text-center">{{ itemIndex + 1 }}</td>
 
                           <td>
-                            <v-select class="v-select-sm v-select-grouped" :modelValue="getItemAccountSelection(item)"
-                              :options="itemAccountOptions" :reduce="(opt) => opt.value" :filterable="true"
-                              :filter="filterItemAccountOptions" :selectable="(opt) => !opt.isHeader"
-                              :append-to-body="false" :calculate-position="dropdownPosition" label="label"
-                              placeholder="🔍 Search..."
-                              @update:modelValue="(value) => onItemAccountSelect(item, value)">
-                              <template #option="{ option, label, isHeader }">
-                                <div :class="{ 'item-header': isHeader, 'item-option': !isHeader }">
-                                  <span class="item-name">{{ option && option.name ? option.name : label }}</span>
+                            <Multiselect :ref="(el) => { if (el) item._multiselectRef = el }" 
+                              class="v-select-sm v-select-grouped" :modelValue="getItemAccountSelection(item)"
+                              :options="itemAccountOptions" label="label" track-by="value" :custom-label="(opt) => opt.label"
+                              :allow-empty="true" :multiple="false" :close-on-select="true" :group-select="false"
+                              :option-height="28" :max-height="300"
+                              :selectable="(option) => !option.isHeader && !option.isParentHeader && !option.$isDisabled"
+                              placeholder="Search..."
+                              @update:modelValue="(value) => onItemAccountSelect(item, value, item._multiselectRef)">
+                              <template #option="{ option }">
+                                <div :class="{ 
+                                  'item-header': option.isHeader || option.isParentHeader, 
+                                  'item-option': !option.isHeader && !option.isParentHeader,
+                                  'ps-3': option.isChild 
+                                }">
+                                  <span class="item-name">{{ option && option.name ? option.name : option.label }}</span>
                                   <span v-if="option && option.code" class="item-code">{{ option.code }}</span>
                                 </div>
                               </template>
-                            </v-select>
+                            </Multiselect>
                           </td>
 
                           <td>
@@ -1247,20 +1324,21 @@ const onItemAccountSelect = (line: any, value: string | null) => {
           <div class="form p-4" v-if="activeFormTab === 'sources'">
             <div class="form-section">
               <h4 class="section-title mb-3" >
-                {{ form.fundDirection === 'EXPENSE' ? 'Direct Payment' : 'Withdraw Funds' }}
+                {{ form.fundDirection === 'DIRECT_PAYMENT' ? 'Direct Payment' : 'Withdraw Funds' }}
               </h4>
 
-              <div v-if="form.fundDirection === 'EXPENSE'" class="direct-payment-card">
+              <div v-if="form.fundDirection === 'DIRECT_PAYMENT'" class="direct-payment-card">
                 <label class="field">
                   <span class="lbl">Payment Mode</span>
                   <div class="input-wrapper has-v-select">
                     <span class="input-icon"><i class="fa fa-credit-card"></i></span>
-                    <v-select v-model="form.source.modeOfPayment" class="v-select-field" :options="[
-                      { label: 'Bank Transfer', value: 'BANK_TRANSFER' },
-                      { label: 'Cash', value: 'CASH' },
-                      { label: 'Cheque', value: 'CHEQUE' },
-                      { label: 'Mobile Money', value: 'MOBILE_MONEY' }
-                    ]" :reduce="(opt) => opt.value" label="label" placeholder="Select payment mode...">
+                    <v-select ref="modeOfPaymentRef" v-model="modeOfPaymentSelection" class="v-select-field" 
+                      :options="paymentModeOptions"
+                      label="label" 
+                      :reduce="(option: any) => option"
+                      :clearable="false"
+                      :append-to-body="true"
+                      placeholder="Select payment mode...">
                     </v-select>
                   </div>
                 </label>
@@ -1271,13 +1349,19 @@ const onItemAccountSelect = (line: any, value: string | null) => {
                     <div class="input-wrapper has-v-select">
                       <span class="input-icon"><i class="fa fa-bank"></i></span>
                       <v-select ref="sourceAccountSelect" v-model="sourceSelection"
-                        class="v-select-field v-select-grouped" :options="sourceOptions" :reduce="(opt) => opt.value"
-                        :filterable="true" :filter="filterSourceOptions" :selectable="(opt) => !opt.isHeader"
-                        :append-to-body="false" :calculate-position="dropdownPosition" @search="onSourceSearch"
-                        label="label" placeholder="Search or select source...">
-                        <template #option="{ label, isHeader }">
-                          <div :class="{ 'source-header': isHeader, 'source-option': !isHeader }">
-                            {{ label }}
+                        class="v-select-field v-select-grouped" :options="sourceOptions"
+                        label="label" :reduce="(option: any) => option" :clearable="true"
+                        :selectable="(option: any) => !option.isHeader && !option.isParentHeader && !option.$isDisabled"
+                        placeholder="Search or select source..."
+                        :append-to-body="true"
+                        :filterable="true">
+                        <template #option="option">
+                          <div :class="{ 
+                            'source-header': option.isHeader || option.isParentHeader, 
+                            'source-option': !option.isHeader && !option.isParentHeader,
+                            'ps-3': option.isChild 
+                          }">
+                            {{ option.label }}
                           </div>
                         </template>
                       </v-select>
@@ -1307,7 +1391,7 @@ const onItemAccountSelect = (line: any, value: string | null) => {
 
               <div v-else-if="form.fundDirection === 'WITHDRAW'">
                 <!-- FROM Section -->
-                <div class="rounded-3 border overflow-hidden mb-0">
+                <div class="rounded-3 border mb-0">
                   <div class="px-3 py-2 fw-bold d-flex justify-content-between align-items-center"
                     style="background-color: #f8fafc; border-bottom: 1px solid #e2e8f0;">
                     <span>FROM <span class="text-muted fw-normal">(Source Account)</span></span>
@@ -1320,12 +1404,13 @@ const onItemAccountSelect = (line: any, value: string | null) => {
                         <span class="lbl">Bank Transfer</span>
                         <div class="input-wrapper has-v-select">
                           <span class="input-icon"><i class="fa fa-bank"></i></span>
-                          <v-select v-model="form.source.paymentMethod" class="v-select-field" :options="[
-                            { label: 'Bank Transfer', value: 'BANK_TRANSFER' },
-                            { label: 'Cash', value: 'CASH' },
-                            { label: 'Cheque', value: 'CHEQUE' },
-                            { label: 'Mobile Money', value: 'MOBILE_MONEY' }
-                          ]" :reduce="(opt) => opt.value" label="label" placeholder="Select payment method...">
+                          <v-select ref="paymentMethodRef" v-model="paymentMethodSelection" class="v-select-field" 
+                            :options="paymentModeOptions"
+                            label="label" 
+                            :reduce="(option: any) => option"
+                            :clearable="false"
+                            :append-to-body="true"
+                            placeholder="Select payment method...">
                           </v-select>
                         </div>
                       </label>
@@ -1336,13 +1421,18 @@ const onItemAccountSelect = (line: any, value: string | null) => {
                           <span class="input-icon"><i class="fa fa-credit-card"></i></span>
                           <v-select ref="sourceAccountSelect" v-model="sourceSelection"
                             class="v-select-field v-select-grouped" :options="sourceOptions"
-                            :reduce="(opt) => opt.value" :filterable="true" :filter="filterSourceOptions"
-                            :selectable="(opt) => !opt.isHeader" :append-to-body="false"
-                            :calculate-position="dropdownPosition" @search="onSourceSearch" label="label"
-                            placeholder="Select source account...">
-                            <template #option="{ label, isHeader }">
-                              <div :class="{ 'source-header': isHeader, 'source-option': !isHeader }">
-                                {{ label }}
+                            label="label" :reduce="(option: any) => option" :clearable="true"
+                            :selectable="(option: any) => !option.isHeader && !option.isParentHeader && !option.$isDisabled"
+                            placeholder="Select source account..."
+                            :append-to-body="true"
+                            :filterable="true">
+                            <template #option="option">
+                              <div :class="{ 
+                                'source-header': option.isHeader || option.isParentHeader, 
+                                'source-option': !option.isHeader && !option.isParentHeader,
+                                'ps-3': option.isChild 
+                              }">
+                                {{ option.label }}
                               </div>
                             </template>
                           </v-select>
@@ -1350,31 +1440,8 @@ const onItemAccountSelect = (line: any, value: string | null) => {
                       </label>
                     </div>
 
-                    <div class="row">
-                      <label class="field col-md-6">
-                        <span class="lbl">Payment <span class="req">*</span></span>
-                        <div class="input-wrapper">
-                          <span class="input-icon" v-if="false"><i class="fa fa-money"></i></span>
-                          <CurrencyInput
-                            v-model="form.source.amount"
-                            class="form-control"
-                            placeholder="0.00"
-                          />
-                        </div>
-                      </label>
-
-                      <label class="field col-md-6">
-                        <span class="lbl">Amount <span class="req">*</span></span>
-                        <div class="input-wrapper">
-                          <input :value="form.source.amount ? formatAmount(form.source.amount) : '0 TZS'" readonly
-                            type="text" class="form-control fw-bold bg-light text-end" placeholder="0 TZS" />
-                        </div>
-                      </label>
-                    </div>
                   </div>
                 </div>
-
-                <!-- Separator -->
                 <div class="text-center my-1 position-relative"
                   style="z-index: 2; margin-top: -12px !important; margin-bottom: -12px !important;">
                   <div
@@ -1385,7 +1452,7 @@ const onItemAccountSelect = (line: any, value: string | null) => {
                 </div>
 
                 <!-- TO Section -->
-                <div class="rounded-3 border overflow-hidden mt-0 mb-4">
+                <div class="rounded-3 border mt-0 mb-4">
                   <div class="px-3 py-2 fw-bold" style="background-color: #f8fafc; border-bottom: 1px solid #e2e8f0;">
                     TO <span class="text-muted fw-normal">(Receiving Account)</span>
                   </div>
@@ -1396,10 +1463,23 @@ const onItemAccountSelect = (line: any, value: string | null) => {
                         <span class="lbl">Receiving Account <span class="req">*</span></span>
                         <div class="input-wrapper has-v-select">
                           <span class="input-icon"><i class="fa fa-bank"></i></span>
-                          <v-select v-model="form.source.receivingAccountId" class="v-select-field" :options="accounts"
-                            :reduce="(opt) => opt.id" label="name" placeholder="Select receiving account...">
-                            <template #option="{ name, code }">
-                              <div>{{ name }} <span v-if="code" class="text-muted">({{ code }})</span></div>
+                          <v-select ref="receivingAccountRef" v-model="receivingAccountSelection" class="v-select-field" 
+                            :options="groupedReplenishAccountOptions"
+                            label="label" 
+                            :reduce="(option: any) => option"
+                            :clearable="true"
+                            :selectable="(option: any) => !option.isHeader && !option.isParentHeader && !option.$isDisabled"
+                            placeholder="Select receiving account..."
+                            :append-to-body="true"
+                            :filterable="true">
+                            <template #option="option">
+                              <div :class="{ 
+                                'source-header': option.isParentHeader, 
+                                'source-option': !option.isHeader,
+                                'ps-3': option.isChild 
+                              }">
+                                {{ option.label }}
+                              </div>
                             </template>
                           </v-select>
                         </div>
@@ -1410,8 +1490,13 @@ const onItemAccountSelect = (line: any, value: string | null) => {
                         <span class="lbl">Custodian / Holder <span class="req">*</span></span>
                         <div class="input-wrapper has-v-select">
                           <span class="input-icon"><i class="fa fa-user"></i></span>
-                          <v-select v-model="form.source.custodianId" class="v-select-field" :options="users"
-                            :reduce="(opt) => opt.id" label="name" placeholder="Select custodian...">
+                          <v-select ref="custodianRef" v-model="custodianSelection" class="v-select-field" :options="usersOptions"
+                            :reduce="(option: any) => option"
+                            :get-option-label="getUserDisplayName"
+                            :clearable="false"
+                            :append-to-body="true"
+                            :filterable="true"
+                            placeholder="Select custodian...">
                           </v-select>
                         </div>
                       </label>
@@ -1430,8 +1515,6 @@ const onItemAccountSelect = (line: any, value: string | null) => {
               </div>
             </div>
           </div>
-
-
           <!-- ATTACHMENTS TAB -->
           <div v-if="activeFormTab === 'attachments'" class="tab-content">
             <div class="form p-4">
@@ -1443,14 +1526,14 @@ const onItemAccountSelect = (line: any, value: string | null) => {
                     <div class="attachments-title d-flex align-items-center gap-2">
                       <i class="fa fa-paperclip"></i>
                       <span>Link Attachment To:</span>
-                      <v-select
+                      <Multiselect
                         v-model="attachmentType"
                         :options="attachmentTypeOptions"
-                        :clearable="false"
+                        :allow-empty="false" :multiple="false"
                         :searchable="false"
                         class="type-select"
                         style="min-width: 180px; display: inline-block;"
-                      ></v-select>
+                      ></Multiselect>
                     </div>
                     <div class="attachments-actions">
                       <button type="button" class="btn btn-sm btn-primary" @click="saveAttachment" :disabled="!selectedAttachmentFile || (attachmentType !== 'General' && !attachmentReference)">Save Attachment</button>
@@ -1463,16 +1546,15 @@ const onItemAccountSelect = (line: any, value: string | null) => {
                       <span class="lbl">Select {{ attachmentType }}</span>
                       <div class="input-wrapper has-v-select">
                         <span class="input-icon"><i class="fa fa-bank"></i></span>
-                        <v-select class="v-select-field" v-model="attachmentReference" :options="attachmentReferenceOptions"
-                          :selectable="isSelectableOption"
-                          :append-to-body="false" :calculate-position="dropdownPosition" label="label"
+                        <Multiselect class="v-select-field" v-model="attachmentReference" :options="attachmentReferenceOptions"
+                          label="label" track-by="value" :allow-empty="false" :multiple="false" :custom-label="(opt) => opt.label"
                           :placeholder="'Select ' + attachmentType">
-                          <template #option="{ label, isHeader }">
-                            <div :class="{ 'source-header': isHeader, 'source-option': !isHeader }">
-                              {{ label }}
+                          <template #option="{ option }">
+                            <div :class="{ 'source-header': option.isHeader, 'source-option': !option.isHeader }">
+                              {{ option.label }}
                             </div>
                           </template>
-                        </v-select>
+                        </Multiselect>
                       </div>
                     </label>
                   </div>
@@ -4203,7 +4285,7 @@ h1 {
   position: relative;
 }
 
-/* Fix icon overlap for v-select in input-wrapper */
+/* Fix icon overlap for v-select/multiselect in input-wrapper */
 .input-wrapper.has-v-select {
   position: relative;
 }
@@ -4223,172 +4305,242 @@ h1 {
   width: 100%;
 }
 
-.input-wrapper.has-v-select .v-select-field :deep(.vs__dropdown-toggle) {
+/* Multiselect spacing for icon */
+.input-wrapper.has-v-select .multiselect :deep(.multiselect__tags) {
+  padding-left: 36px;
   border: 1px solid #dbe5f0;
   border-radius: 12px;
   min-height: 38px;
-  padding: 0;
+  background: #f8faff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  font-size: 12px;
+}
+
+.input-wrapper.has-v-select .multiselect :deep(.multiselect__input) {
+  padding-left: 0;
+  font-size: 11px;
+}
+
+.input-wrapper.has-v-select .multiselect :deep(.multiselect__placeholder) {
+  padding-left: 0;
+  margin-bottom: 0;
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.input-wrapper.has-v-select .multiselect :deep(.multiselect__single) {
+  padding-left: 0;
+  margin-bottom: 0;
+  font-size: 11px;
+}
+
+/* Vue-select spacing for icon */
+.input-wrapper.has-v-select :deep(.vs__dropdown-toggle) {
+  padding-left: 36px;
+  border: 1px solid #dbe5f0;
+  border-radius: 12px;
+  min-height: 38px;
   background: #f8faff;
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
-.input-wrapper.has-v-select .v-select-field :deep(.vs__selected-options) {
-  padding: 6px 12px 6px 32px;
-  font-size: 12px;
+.input-wrapper.has-v-select :deep(.vs__search) {
+  padding-left: 0;
+  font-size: 11px;
+  margin: 0;
 }
 
-.input-wrapper.has-v-select .v-select-field :deep(.vs__search) {
-  padding: 4px 0;
-  margin: 0;
-  font-size: 12px;
+.input-wrapper.has-v-select :deep(.vs__selected) {
+  padding-left: 0;
+  margin: 4px 2px 0 0;
+  font-size: 11px;
+  color: #0f172a !important;
+}
+
+.input-wrapper.has-v-select :deep(.vs__actions) {
+  padding-right: 4px;
+}
+
+.input-wrapper.has-v-select :deep(.vs__clear) {
+  margin-right: 0;
+}
+
+.input-wrapper.has-v-select :deep(.vs__dropdown-menu) {
+  border: 1px solid #dbe5f0;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  background: #fff;
+  max-height: 300px;
+}
+
+.input-wrapper.has-v-select :deep(.vs__dropdown-option) {
+  padding: 6px 12px;
+  font-size: 11px;
+  white-space: normal;
+  word-wrap: break-word;
+}
+
+.input-wrapper.has-v-select :deep(.vs__dropdown-option--highlight) {
+  background: #2563eb;
+  color: #fff;
+}
+
+.input-wrapper.has-v-select :deep(.vs__dropdown-option--selected) {
+  background: #e0e7ff;
+  color: #1e40af;
+  font-weight: 600;
+}
+
+.input-wrapper.has-v-select :deep(.vs__dropdown-option--disabled) {
+  background: #f1f5f9;
+  color: #94a3b8;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Ensure vue-select dropdown renders above everything */
+.input-wrapper.has-v-select :deep(.vs__dropdown-menu) {
+  z-index: 9999 !important;
+  position: absolute;
+}
+
+/* Vue-select wrapper positioning */
+.v-select-field {
+  position: relative;
 }
 
 .v-select-field :deep(.vs__dropdown-toggle) {
-  border: 1px solid #dbe5f0;
-  border-radius: 12px;
-  min-height: 38px;
-  padding: 0;
-  background: #f8faff;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  position: relative;
 }
 
-.v-select-field :deep(.vs__selected-options) {
-  padding: 6px 12px 6px 32px;
-  font-size: 12px;
+/* Ensure dropdown renders above surrounding cards and is scrollable */
+.multiselect__content {
+  z-index: 2200 !important;
+  max-height: 320px;
+  overflow: auto;
 }
 
-.v-select-field :deep(.vs__search) {
-  padding: 4px 0;
-  margin: 0;
-  font-size: 12px;
+/* Global multiselect dropdown styles when appended to body */
+.multiselect__content-wrapper {
+  z-index: 9999 !important;
+  max-height: 300px !important;
+  border: 1px solid #dbe5f0 !important;
+  border-radius: 8px !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12) !important;
+  background: #fff !important;
 }
 
-.v-select-field :deep(.vs__dropdown-menu) {
-  margin-top: 0;
-  border-radius: 10px;
-  position: absolute;
-  width: 100%;
+.multiselect__option {
+  font-size: 10px !important;
+  padding: 4px 8px !important;
+  min-height: 24px !important;
+  line-height: 1.3 !important;
 }
 
-/* Grouped dropdown headers */
-.v-select-field :deep(.vs__dropdown-option-group-header) {
-  background: #f1f5f9;
-  font-weight: 700;
-  font-size: 12px;
-  color: #475569;
-  padding: 8px 12px;
-  margin: 0;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  border-bottom: 1px solid #e2e8f0;
-  cursor: default;
+.multiselect__option--highlight {
+  background: #2563eb !important;
+  color: #fff !important;
 }
 
-.v-select-field :deep(.vs__dropdown-option) {
-  padding: 8px 12px 8px 24px;
-  color: #0f172a;
-  font-size: 13px;
+.multiselect__option--selected {
+  background: #e0e7ff !important;
+  color: #1e40af !important;
+  font-weight: 600 !important;
 }
 
-.v-select-field :deep(.vs__dropdown-option--highlight) {
-  background: #dbeafe;
-  color: #1e40af;
+.multiselect__option--disabled {
+  background: #f8fafc !important;
+  color: #64748b !important;
+  font-weight: 600 !important;
+  font-size: 9px !important;
+  pointer-events: none !important;
 }
 
-/* Simple Source Dropdown */
-.v-select-grouped :deep(.vs__dropdown-option--disabled) {
-  opacity: 1;
-  background: transparent;
-  cursor: default;
-}
-
-.v-select-grouped :deep(.vs__dropdown-option--disabled):hover {
-  background: transparent;
-}
-
-.v-select-grouped :deep(.vs__dropdown-menu) {
-  max-height: 300px;
-  overflow-y: auto;
-  z-index: 9999;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  margin-top: 0;
-  position: absolute;
-  left: 0;
-  right: 0;
-}
-
+/* Source and option labels inside dropdown */
 .source-header {
-  font-size: 12px;
+  font-size: 9px;
   font-weight: 700;
-  color: #1e40af;
-  padding: 8px 12px;
+  color: #64748b;
+  padding: 4px 8px;
   text-transform: uppercase;
-  background: #f8fafc;
-  cursor: default;
+  background: #f1f5f9;
+  cursor: not-allowed;
+  border-top: 1px solid #e2e8f0;
+  margin-top: 2px;
+  pointer-events: none;
+}
+
+/* Vue-multiselect disabled option styling */
+.v-select-field :deep(.multiselect__option--disabled),
+.v-select-grouped :deep(.multiselect__option--disabled) {
+  background: #f1f5f9 !important;
+  color: #64748b !important;
+  cursor: not-allowed !important;
+  pointer-events: none !important;
+}
+
+.source-header:first-child {
+  margin-top: 0;
+  border-top: none;
 }
 
 .source-option {
-  font-size: 12px;
+  font-size: 10px;
   color: #0f172a;
-  padding: 8px 12px;
+  padding: 4px 8px;
 }
 
-.v-select-grouped :deep(.vs__dropdown-option--highlight) .source-option {
-  background: #dbeafe;
-  color: #1e40af;
+.source-option.ps-3 {
+  padding-left: 16px !important;
 }
 
 /* Cost Center Dropdown Styles */
 .cost-center-header {
-  font-size: 12px;
+  font-size: 9px;
   font-weight: 700;
   color: #059669;
-  padding: 8px 12px;
+  padding: 4px 8px;
   text-transform: uppercase;
   background: #f0fdf4;
   cursor: default;
 }
 
 .cost-center-option {
-  font-size: 12px;
+  font-size: 10px;
   color: #0f172a;
-  padding: 8px 12px;
-}
-
-.v-select-grouped :deep(.vs__dropdown-option--highlight) .cost-center-option {
-  background: #dcfce7;
-  color: #059669;
+  padding: 4px 8px;
 }
 
 /* Item/Account Dropdown Styles */
 .item-header {
-  font-size: 12px;
+  font-size: 9px;
   font-weight: 700;
-  color: #7c3aed;
-  padding: 8px 12px;
+  color: #64748b;
+  padding: 4px 8px;
   text-transform: uppercase;
-  background: #faf5ff;
+  background: #f1f5f9;
   cursor: default;
+  border-top: 1px solid #e2e8f0;
+  margin-top: 2px;
+}
+
+.item-header:first-child {
+  margin-top: 0;
+  border-top: none;
 }
 
 .item-option {
-  font-size: 12px;
+  font-size: 10px;
   color: #0f172a;
-  padding: 8px 12px;
+  padding: 4px 8px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 6px;
 }
 
-.v-select-sm :deep(.vs__selected-options) {
-  font-size: 12px;
-}
-
-.v-select-sm :deep(.vs__search) {
-  font-size: 12px;
+.item-option.ps-3 {
+  padding-left: 16px !important;
 }
 
 .item-name {
@@ -4399,24 +4551,14 @@ h1 {
 }
 
 .item-code {
-  font-size: 11px;
+  font-size: 9px;
   font-weight: 600;
   color: #64748b;
   background: #f1f5f9;
-  padding: 2px 6px;
-  border-radius: 4px;
+  padding: 1px 4px;
+  border-radius: 3px;
   white-space: nowrap;
   flex-shrink: 0;
-}
-
-.v-select-grouped :deep(.vs__dropdown-option--highlight) .item-option {
-  background: #f3e8ff;
-  color: #7c3aed;
-}
-
-.v-select-grouped :deep(.vs__dropdown-option--highlight) .item-code {
-  background: #ffffff;
-  color: #7c3aed;
 }
 
 /* Ensure parent containers don't clip dropdown */
@@ -4434,28 +4576,6 @@ h1 {
 
 .input-wrapper.has-v-select {
   overflow: visible;
-}
-
-.v-select-up :deep(.vs__dropdown-menu) {
-  margin-top: 0;
-  margin-bottom: 4px;
-}
-
-.v-select-sm :deep(.vs__dropdown-toggle) {
-  border: 1px solid #dbe5f0;
-  border-radius: 10px;
-  min-height: 32px;
-  padding: 0;
-  background: #f8faff;
-}
-
-.v-select-sm :deep(.vs__selected-options) {
-  padding: 2px 8px;
-}
-
-.v-select-sm :deep(.vs__search) {
-  padding: 2px 0;
-  margin: 0;
 }
 
 .cost-center-actions {
@@ -4609,45 +4729,43 @@ h1 {
   border: 2px dashed #e2e8f0;
   border-radius: 8px;
 }
+</style>
 
-/* Attachment Type Select */
-.type-select {
-  display: inline-block !important;
-  font-size: 13px;
-  background: #fff;
-  border-radius: 6px;
-  min-width: 150px;
-}
-.type-select :deep(.vs__dropdown-toggle) {
+<style>
+/* Global styles for vue-select dropdowns when appended to body */
+.v-select.v-select-field .vs__dropdown-menu {
+  z-index: 9999 !important;
   border: 1px solid #dbe5f0;
-  min-height: 32px;
-  padding: 0 10px;
-  background: #f8faff;
-  border-radius: 6px;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
-  transition: all 0.2s ease;
-}
-.type-select :deep(.vs__dropdown-toggle):hover {
-  border-color: #2563eb;
-  background: #ffffff;
-}
-.type-select :deep(.vs__selected) {
-    font-weight: 600;
-    color: #0f172a;
-    padding: 4px 0;
-}
-.type-select :deep(.vs__search) {
-    padding: 0;
-    margin: 0;
-    font-size: 12px;
-}
-.type-select :deep(.vs__dropdown-menu) {
   border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1);
-  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  background: #fff;
+  max-height: 300px;
 }
-.type-select :deep(.vs__dropdown-option) {
-  padding: 8px 12px;
-  font-size: 12px;
+
+.v-select.v-select-field .vs__dropdown-option {
+  padding: 6px 12px;
+  font-size: 11px;
+  white-space: normal;
+  word-wrap: break-word;
+  color: #0f172a;
+  background: #fff;
+}
+
+.v-select.v-select-field .vs__dropdown-option--highlight {
+  background: #2563eb !important;
+  color: #fff !important;
+}
+
+.v-select.v-select-field .vs__dropdown-option--selected {
+  background: #e0e7ff;
+  color: #1e40af;
+  font-weight: 600;
+}
+
+.v-select.v-select-field .vs__dropdown-option--disabled {
+  background: #f1f5f9;
+  color: #94a3b8;
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 </style>

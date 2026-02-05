@@ -759,7 +759,7 @@ const getExistingCustomers = async () => {
   loadingCustomers.value = true
   try {
     const response = await axios.get(
-      import.meta.env.VITE_APP_BASE_URL + 'entities',
+      import.meta.env.VITE_APP_BASE_URL + 'entities/individuals',
       { headers: { 'Content-Type': 'application/json' } }
     )
     

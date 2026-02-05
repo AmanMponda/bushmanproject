@@ -9,10 +9,8 @@
         <div class="page-head-right" style="display: flex; gap: 12px;">
           <button 
             type="button" 
-            @click="$router.push({ name: 'journal-vouchers' })"
+            @click="() => router.push({ name: 'journal-vouchers' })"
             style="background: white; border: 2px solid #2563eb; color: #2563eb; cursor: pointer; font-size: 14px; font-weight: 500; padding: 8px 16px; border-radius: 6px; display: flex; align-items: center; gap: 6px; transition: all 0.2s;"
-            @mouseover="$event.currentTarget.style.background = '#eff6ff'; $event.currentTarget.style.borderColor = '#1d4ed8'; $event.currentTarget.style.color = '#1d4ed8'"
-            @mouseout="$event.currentTarget.style.background = 'white'; $event.currentTarget.style.borderColor = '#2563eb'; $event.currentTarget.style.color = '#2563eb'"
           >
             <i class="fa fa-arrow-left"></i> Back to Vouchers
           </button>
@@ -39,199 +37,234 @@
       </div>
 
       <!-- Payment Tab Content -->
-      <div v-show="voucherTab === 'payment'" style="padding: 24px;">
+      <div v-show="voucherTab === 'payment'" style="padding: 20px;">
+        <div style="max-width: 1400px; margin: 0 auto; background: white; border-radius: 8px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
 
-      <!-- Full-width layout -->
-      <section>
-      
-        <!-- PAYMENT TAB FORM -->
-        <div style="padding: 24px; background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); width: 100%; max-width: 100%;">
-          <!-- Header Row 1: Voucher No, Branch/Depot, Voucher Date -->
-          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+          <!-- VOUCHER DETAILS -->
+          <div style="display: grid; grid-template-columns: 1.2fr 1fr 1.2fr 1.2fr 1fr; gap: 15px; margin-bottom: 20px;">
             <div>
-              <label style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 14px;">Voucher No. <span style="color: #dc2626;">*</span></label>
-              <select v-model="form.voucher_number" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px;">
+              <label style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 12px;">Voucher No. <span style="color: #dc2626;">*</span></label>
+              <Multiselect 
+                ref="voucherNumberSelect" 
+                v-model="voucherNumberSelection"
+                class="v-select-field" 
+                :options="voucherNumberOptions"
+                label="label" 
+                track-by="value" 
+                :allow-empty="true" 
+                :multiple="false"
+                :close-on-select="true"
+                :searchable="false"
+                placeholder="Select voucher number...">
+              </Multiselect>
+            </div>
+            <div>
+              <label style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 12px;">Date <span style="color: #dc2626;">*</span></label>
+              <input v-model="form.posting_date" type="date" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px;" />
+            </div>
+            <div>
+              <label style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 12px;">Branch <span style="color: #dc2626;">*</span></label>
+              <Multiselect 
+                ref="branchSelect" 
+                v-model="branchSelection"
+                class="v-select-field" 
+                :options="branchOptions"
+                label="label" 
+                track-by="value" 
+                :allow-empty="true" 
+                :multiple="false"
+                :close-on-select="true"
+                :searchable="true"
+                placeholder="Search or select branch...">
+              </Multiselect>
+            </div>
+            <div>
+              <label style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 12px;">Currency <span style="color: #dc2626;">*</span></label>
+              <select v-model="form.currency_id" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px;">
                 <option value="">-- Select --</option>
-                <option value="AUTO">AUTO</option>
-                <option value="MANUAL">MANUAL</option>
+                <option v-for="currency in currencies" :key="currency.id" :value="String(currency.id)">{{ currency.name }}</option>
               </select>
             </div>
             <div>
-              <label style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 14px;">Branch/Depot <span style="color: #dc2626;">*</span></label>
-              <select v-model="form.branch_id" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px;">
-                <option value="">-- Select --</option>
-                <option v-for="branch in branches" :key="branch.id" :value="String(branch.id)">{{ branch.name }}</option>
-              </select>
-            </div>
-            <div>
-              <label style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 14px;">Voucher Date <span style="color: #dc2626;">*</span></label>
-              <input v-model="form.posting_date" type="date" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px;" />
+              <label style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 12px;">Exchange Rate</label>
+              <input v-model.number="form.exchange_rate" type="number" step="0.01" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px;" />
             </div>
           </div>
 
-          <!-- Header Row 2: Branch, Currency, Exchange Rate -->
-          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-bottom: 20px;">
-            <div>
-              <label style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 14px;">Branch</label>
-              <input v-model="form.branch_name" type="text" placeholder="Branch name" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px;" />
-            </div>
-            <div>
-              <label style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 14px;">Currency <span style="color: #dc2626;">*</span></label>
-              <select v-model="form.currency_id" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px;">
-                <option value="">-- Select --</option>
-                <option v-for="currency in currencies" :key="currency.id" :value="String(currency.id)">{{ currency.name }} ({{ currency.code }})</option>
-              </select>
-            </div>
-            <div>
-              <label style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 14px;">Exchange Rate</label>
-              <input v-model.number="form.exchange_rate" type="number" step="0.01" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px;" />
-            </div>
-          </div>
+          <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;" />
 
-          <!-- Remarks -->
-          <div style="margin-bottom: 20px;">
-            <label style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 14px;">Remarks</label>
-            <textarea v-model="form.narration" placeholder="Narration, purpose, or reference" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px; min-height: 80px;" ></textarea>
-          </div>
-
-          <!-- PAYMENT FROM / TO Section -->
-          <div style="background: #f0f0f9; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px;">
-              
-              <!-- FROM (Credit) Section -->
-              <div>
-                <h6 style="margin: 0 0 16px 0; font-weight: 600; color: #1f2937;">From (Credit) <span style="color: #dc2626;">*</span></h6>
-                
-                <div style="margin-bottom: 12px;">
-                  <label style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 13px;">From Account <span style="color: #dc2626;">*</span></label>
-                  <select v-model="form.from_account_id" @change="onFromAccountChange" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px;">
-                    <option value="">-- Select --</option>
-                    <option v-for="account in bankCashAccounts" :key="account.id" :value="String(account.id)">{{ account.code }} - {{ account.name }}</option>
-                  </select>
-                </div>
-
+          <!-- PAYMENT DETAILS - MULTI ROW LAYOUT -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 20px;">
+            <!-- LEFT SIDE: PAYMENT FROM (CREDIT) -->
+            <div>
+              <h3 style="font-size: 13px; font-weight: 600; color: #1f2937; margin-bottom: 15px; padding-bottom: 8px; border-bottom: 2px solid #dbeafe;">PAYMENT FROM (Credit)</h3>
+              <div style="display: flex; flex-direction: column; gap: 12px;">
                 <div>
-                  <label style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 13px;">Payment Method <span style="color: #dc2626;">*</span></label>
-                  <select v-model="form.payment_method" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px;">
-                    <option value="">-- Select --</option>
-                    <option v-for="method in paymentMethods" :key="method" :value="method">{{ method }}</option>
-                  </select>
+                  <label style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 12px;">From Account <span style="color: #dc2626;">*</span></label>
+                  <Multiselect 
+                    ref="fromAccountSelect" 
+                    v-model="fromAccountSelection"
+                    class="v-select-field v-select-grouped" 
+                    :options="groupedBankCashAccountOptions"
+                    label="label" 
+                    track-by="value" 
+                    :allow-empty="true" 
+                    :multiple="false"
+                    :close-on-select="true" 
+                    :group-select="false"
+                    :option-height="28" 
+                    :max-height="300"
+                    :selectable="(option: any) => !option.isHeader && !option.isParentHeader && !option.$isDisabled"
+                    :append-to-body="true" 
+                    placeholder="Search or select account..."
+                    :searchable="true" 
+                    :internal-search="true" 
+                    :options-limit="300"
+                    @select="onFromAccountChange">
+                    <template #option="{ option }">
+                      <div :class="{ 
+                        'source-header': option.isHeader || option.isParentHeader, 
+                        'source-option': !option.isHeader && !option.isParentHeader,
+                        'ps-3': option.isChild 
+                      }">
+                        {{ option.label }}
+                      </div>
+                    </template>
+                  </Multiselect>
+                </div>
+                <div>
+                  <label style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 12px;">Fund Direction <span style="color: #dc2626;">*</span></label>
+                  <Multiselect 
+                    ref="fundDirectionSelect" 
+                    v-model="fundDirectionSelection"
+                    class="v-select-field" 
+                    :options="fundDirectionOptions"
+                    label="label" 
+                    track-by="value" 
+                    :allow-empty="true" 
+                    :multiple="false"
+                    :close-on-select="true"
+                    :searchable="false"
+                    placeholder="Select fund direction...">
+                  </Multiselect>
                 </div>
               </div>
+            </div>
 
-              <!-- TO (Debit) Section -->
-              <div>
-                <h6 style="margin: 0 0 16px 0; font-weight: 600; color: #1f2937;">To (Debit) <span style="color: #dc2626;">*</span></h6>
-                
-                <div style="margin-bottom: 12px;">
-                  <label style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 13px;">Payee <span style="color: #dc2626;">*</span></label>
-                  <select v-model="form.payee_id" @change="onPayeeChange" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px;">
-                    <option value="">-- Select --</option>
-                    <option v-for="payee in payees" :key="payee.id" :value="String(payee.id)">{{ payee.name }}</option>
-                  </select>
+            <!-- RIGHT SIDE: TO (DEBIT) -->
+            <div>
+              <h3 style="font-size: 13px; font-weight: 600; color: #1f2937; margin-bottom: 15px; padding-bottom: 8px; border-bottom: 2px solid #fee2e2;">TO (Debit)</h3>
+              <div style="display: flex; flex-direction: column; gap: 12px;">
+                <div v-if="form.fund_direction === 'DIRECT_PAYMENT'">
+                  <label style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 12px;">Payee</label>
+                  <Multiselect 
+                    ref="payeeSelect" 
+                    v-model="payeeSelection"
+                    class="v-select-field" 
+                    :options="payeeOptions"
+                    label="label" 
+                    track-by="value" 
+                    :allow-empty="true" 
+                    :multiple="false"
+                    :close-on-select="true"
+                    :searchable="true"
+                    placeholder="Search or select payee...">
+                  </Multiselect>
                 </div>
-
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                  <div>
-                    <label style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 13px;">Account</label>
-                    <input v-model="form.payee_account" type="text" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px;" />
+                <div>
+                  <label style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 12px;">Requisition Numbers</label>
+                  <div style="display: flex; gap: 8px;">
+                    <input v-model="requisitionNumbersInput" type="text" placeholder="No requisitions fetched" style="flex: 1; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; background: #f9fafb; color: #6b7280;" />
+                    <button type="button" @click="fetchEligibleRequisitions" :disabled="loadingRequisitions || !form.from_account_id" style="padding: 8px 16px; background: #2563eb; color: white; border: none; border-radius: 4px; font-weight: 500; font-size: 12px; cursor: pointer; white-space: nowrap; display: flex; align-items: center; gap: 6px;" :style="{ opacity: loadingRequisitions || !form.from_account_id ? 0.5 : 1, cursor: loadingRequisitions || !form.from_account_id ? 'not-allowed' : 'pointer' }">
+                      <i :class="['fa', loadingRequisitions ? 'fa-spinner fa-spin' : 'fa-search']"></i> Fetch Eligible Requisitions
+                    </button>
                   </div>
-                  <div>
-                    <label style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 13px;">Total Amount</label>
-                    <input v-model.number="form.total_amount" type="number" placeholder="0.00" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px;" />
-                  </div>
-                </div>
-
-                <div style="margin-top: 12px;">
-                  <button type="button" @click="fetchEligibleRequisitions" :disabled="loadingRequisitions || !form.payee_id" :style="{ width: '100%', padding: '10px', background: '#2563eb', color: 'white', border: 'none', borderRadius: '6px', fontWeight: '500', cursor: 'pointer', opacity: loadingRequisitions || !form.payee_id ? 0.6 : 1, transition: 'opacity 0.2s' }">
-                    <i :class="['fa', loadingRequisitions ? 'fa-spinner fa-spin' : 'fa-search']" style="margin-right: 6px;"></i> {{ loadingRequisitions ? 'Loading...' : 'Fetch Eligible Requisitions' }}
-                  </button>
                 </div>
               </div>
             </div>
           </div>
 
-          <!-- PAYEE DETAILS Section -->
-          <div style="margin-top: 24px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-              <h6 style="margin: 0; font-weight: 600; color: #1f2937; font-size: 15px;">PAYEE DETAILS</h6>
-              <button type="button" style="padding: 6px 12px; background: #f3f4f6; border: 1px solid #d1d5db; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 500;">
-                <i class="fa fa-list me-2"></i>Details
-              </button>
-            </div>
-            <p style="color: #6b7280; font-size: 12px; margin-bottom: 12px;">Showing Approved Direct Payment requisitions for selected From and To accounts</p>
-            
-            <div style="overflow-x: auto; border: 1px solid #e5e7eb; border-radius: 6px;">
-              <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
-                <thead style="background: #f3f4f6; border-bottom: 1px solid #d1d5db;">
-                  <tr>
-                    <th style="padding: 12px; text-align: left; font-weight: 600; border-right: 1px solid #e5e7eb;">No.</th>
-                    <th style="padding: 12px; text-align: left; font-weight: 600; border-right: 1px solid #e5e7eb;">Requisition #</th>
-                    <th style="padding: 12px; text-align: left; font-weight: 600; border-right: 1px solid #e5e7eb;">Description</th>
-                    <th style="padding: 12px; text-align: left; font-weight: 600; border-right: 1px solid #e5e7eb;">Cost Center</th>
-                    <th style="padding: 12px; text-align: right; font-weight: 600; border-right: 1px solid #e5e7eb;">Approved Amount</th>
-                    <th style="padding: 12px; text-align: right; font-weight: 600; border-right: 1px solid #e5e7eb;">Amount to Pay</th>
-                    <th style="padding: 12px; text-align: right; font-weight: 600; border-right: 1px solid #e5e7eb;">Balance Remaining</th>
-                    <th style="padding: 12px; text-align: center; font-weight: 600;">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-if="payeeRequisitions.length === 0" style="border-bottom: 1px solid #e5e7eb;">
-                    <td colspan="7" style="padding: 24px; text-align: center; color: #9ca3af;">No requisitions available</td>
-                  </tr>
-                  <tr v-for="(req, idx) in payeeRequisitions" :key="idx" style="border-bottom: 1px solid #e5e7eb;">
-                    <td style="padding: 12px; border-right: 1px solid #e5e7eb;">{{ idx + 1 }}</td>
-                    <td style="padding: 12px; border-right: 1px solid #e5e7eb;"><strong>{{ req.requisition_number }}</strong></td>
-                    <td style="padding: 12px; border-right: 1px solid #e5e7eb;">{{ req.description }}</td>
-                    <td style="padding: 12px; border-right: 1px solid #e5e7eb;">
-                      <span style="background: #bfdbfe; color: #1e40af; padding: 4px 8px; border-radius: 3px; font-size: 11px; font-weight: 500;">{{ req.cost_center }}</span>
-                    </td>
-                    <td style="padding: 12px; border-right: 1px solid #e5e7eb; text-align: right;">{{ formatCurrency(req.total_amount || 0) }}</td>
-                    <td style="padding: 12px; border-right: 1px solid #e5e7eb; text-align: right;">
-                      <input 
-                        v-model.number="req.amount_to_pay" 
-                        @input="onAmountToPay(idx)"
-                        type="number" 
-                        step="0.01"
-                        :max="req.total_amount"
-                        :min="0"
-                        style="width: 120px; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 11px; text-align: right;" 
-                      />
-                    </td>
-                    <td style="padding: 12px; border-right: 1px solid #e5e7eb; text-align: right;">{{ formatCurrency((req.balance_remaining || req.total_amount) - (req.amount_to_pay || 0)) }}</td>
-                    <td style="padding: 12px; text-align: center;">
-                      <button type="button" @click="removePayeeRequisition(idx)" style="background: #dc2626; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 11px;">
-                        Remove
-                      </button>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            <!-- Total Amount Summary -->
-            <div style="display: flex; justify-content: flex-end; margin-top: 16px; padding-top: 12px; border-top: 2px solid #d1d5db;">
-              <div style="background: #f0fdf4; border: 2px solid #10b981; border-radius: 6px; padding: 16px 24px; text-align: right;">
-                <div style="font-size: 13px; color: #6b7280; margin-bottom: 4px;">Total Amount to Pay</div>
-                <div style="font-size: 24px; font-weight: 700; color: #059669;">{{ formatCurrency(totalAmountToPay) }}</div>
-              </div>
-            </div>
+          <!-- NOTES -->
+          <div style="margin-bottom: 20px;">
+            <label style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 12px;">Notes</label>
+            <textarea v-model="form.narration" placeholder="Enter notes..." style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; min-height: 100px; font-family: inherit;"></textarea>
           </div>
 
-          <!-- Footer Buttons -->
-          <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
-            <button type="button" @click="saveDraft" style="padding: 10px 24px; background: white; border: 1px solid #d1d5db; border-radius: 6px; font-weight: 500; cursor: pointer;">
-              <i class="fa fa-save me-2"></i> Save Draft
-            </button>
-            <button type="button" @click="() => postVoucher()" style="padding: 10px 24px; background: #059669; color: white; border: none; border-radius: 6px; font-weight: 500; cursor: pointer;">
-              <i class="fa fa-check me-2"></i> Post
-            </button>
-            <button type="button" @click="closeForm" style="padding: 10px 24px; background: white; border: 1px solid #d1d5db; border-radius: 6px; font-weight: 500; cursor: pointer;">
-              <i class="fa fa-times me-2"></i> Close
-            </button>
+          <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;" />
+
+          <!-- REQUISITIONS TABLE -->
+          <div style="overflow-x: auto; border: 1px solid #e5e7eb; border-radius: 4px; max-height: 300px; overflow-y: auto; margin-bottom: 20px;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+              <thead style="background: #f3f4f6; border-bottom: 1px solid #d1d5db; position: sticky; top: 0;">
+                <tr>
+                  <th style="padding: 8px; text-align: center; font-weight: 600; width: 40px;">No.</th>
+                  <th style="padding: 8px; text-align: left; font-weight: 600; min-width: 80px;">Req #</th>
+                  <th style="padding: 8px; text-align: left; font-weight: 600;">Description</th>
+                  <th style="padding: 8px; text-align: center; font-weight: 600; width: 70px;">Cost Ctr</th>
+                  <th style="padding: 8px; text-align: right; font-weight: 600; width: 80px;">Amount</th>
+                  <th style="padding: 8px; text-align: right; font-weight: 600; width: 90px;">Pay Amount</th>
+                  <th style="padding: 8px; text-align: right; font-weight: 600; width: 80px;">Balance</th>
+                  <th style="padding: 8px; text-align: center; font-weight: 600; width: 45px;">Act</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-if="payeeRequisitions.length === 0" style="border-bottom: 1px solid #e5e7eb;">
+                  <td colspan="8" style="padding: 20px; text-align: center; color: #9ca3af; font-size: 12px;">No requisitions</td>
+                </tr>
+                <tr v-for="(req, idx) in payeeRequisitions" :key="idx" style="border-bottom: 1px solid #e5e7eb;">
+                  <td style="padding: 8px; text-align: center; color: #6b7280;">{{ idx + 1 }}</td>
+                  <td style="padding: 8px; font-weight: 500; color: #1f2937; font-size: 11px;">{{ req.requisition_number }}</td>
+                  <td style="padding: 8px; color: #6b7280; font-size: 11px;">{{ req.description }}</td>
+                  <td style="padding: 8px; text-align: center; font-size: 10px;">
+                    <span style="background: #bfdbfe; color: #1e40af; padding: 2px 4px; border-radius: 3px; font-weight: 500;">{{ req.cost_center }}</span>
+                  </td>
+                  <td style="padding: 8px; text-align: right; font-weight: 500; color: #1f2937; font-size: 11px;">{{ formatCurrency(req.total_amount || 0) }}</td>
+                  <td style="padding: 8px; text-align: right;">
+                    <input 
+                      v-model.number="req.amount_to_pay" 
+                      @input="onAmountToPay(idx)"
+                      type="number" 
+                      step="0.01"
+                      :max="req.total_amount"
+                      :min="0"
+                      style="width: 100%; padding: 4px; border: 1px solid #d1d5db; border-radius: 3px; font-size: 11px; text-align: right;" 
+                    />
+                  </td>
+                  <td style="padding: 8px; text-align: right; color: #059669; font-weight: 500; font-size: 11px;">{{ formatCurrency((req.balance_remaining || req.total_amount) - (req.amount_to_pay || 0)) }}</td>
+                  <td style="padding: 8px; text-align: center;">
+                    <button type="button" @click="removePayeeRequisition(idx)" style="background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; padding: 3px 6px; border-radius: 3px; cursor: pointer; font-size: 10px;" onmouseover="this.style.background='#fecaca'" onmouseout="this.style.background='#fee2e2'">
+                      <i class="fa fa-trash"></i>
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- SUMMARY & ACTIONS -->
+          <div style="display: flex; justify-content: flex-end; margin-top: 20px;">
+            <div style="display: flex; flex-direction: column; gap: 15px; align-items: flex-end;">
+              <!-- TOTAL AMOUNT BOX -->
+              <div style="background: #f0fdf4; border: 2px solid #10b981; padding: 12px 16px; border-radius: 6px; min-width: 250px; text-align: right;">
+                <div style="font-size: 11px; color: #6b7280; font-weight: 500; margin-bottom: 4px;">Total Amount</div>
+                <div style="font-size: 18px; font-weight: 700; color: #059669;">{{ formatCurrency(totalAmountToPay) }}</div>
+              </div>
+
+              <!-- BUTTONS -->
+              <div style="display: flex; gap: 12px;">
+                <button type="button" @click="saveDraft" style="padding: 10px 20px; background: white; border: 1px solid #d1d5db; border-radius: 4px; font-weight: 500; cursor: pointer; font-size: 12px; color: #6b7280;">
+                  <i class="fa fa-save me-1"></i>Save Draft
+                </button>
+                <button type="button" @click="() => postVoucher()" :disabled="submittingVoucher" style="padding: 10px 20px; background: #059669; border: none; border-radius: 4px; font-weight: 500; color: white; cursor: pointer; font-size: 12px;">
+                  <i :class="['fa', submittingVoucher ? 'fa-spinner fa-spin' : 'fa-check']" style="margin-right: 4px;"></i>{{ submittingVoucher ? 'Processing' : 'Post' }}
+                </button>
+                <button type="button" @click="closeForm" style="padding: 10px 20px; background: white; border: 1px solid #d1d5db; border-radius: 4px; font-weight: 500; color: #6b7280; cursor: pointer; font-size: 12px;">
+                  <i class="fa fa-times me-1"></i>Close
+                </button>
+              </div>
+            </div>
           </div>
         </div>
-      </section>
       </div>
     </main>
 
@@ -317,12 +350,14 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, computed, ref, nextTick } from 'vue'
+import { onMounted, onUnmounted, computed, ref, nextTick, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAccountingStore } from '@/stores/bushman/accounting-store'
 import { useToast } from '@/composables/useToast'
 import { useAppOptionStore } from '@/stores/app-option'
 import Swal from 'sweetalert2'
+import Multiselect from 'vue-multiselect'
+import 'vue-multiselect/dist/vue-multiselect.css'
 
 const router = useRouter()
 const route = useRoute()
@@ -336,6 +371,7 @@ const voucherId = computed(() => route.params.id ? Number(route.params.id) : nul
 const saving = ref(false)
 const savingLink = ref(false)
 const loadingRequisitions = ref(false)
+const submittingVoucher = ref(false)
 const errorMessage = ref('')
 const originalSidebarState = ref(false)
 const sidebarMinifiedForCreate = ref(false)
@@ -406,6 +442,187 @@ const linkedRequisitions = ref<any[]>([])
 // Editing Account Lines (for inline form rows)
 const editingAccountLines = ref<any[]>([])
 
+// Refs for multiselect dropdowns
+const fromAccountSelect = ref<any>(null)
+const payeeAccountSelect = ref<any>(null)
+const accountLineSelect = ref<any>(null)
+const voucherNumberSelect = ref<any>(null)
+const branchSelect = ref<any>(null)
+const fundDirectionSelect = ref<any>(null)
+const payeeSelect = ref<any>(null)
+
+// Helper function to flatten account hierarchy with parent grouping
+// Returns options with parent headers (non-selectable) and child accounts (selectable)
+const flattenAccountsWithGroups = (accountList: any[]): any[] => {
+  const options: any[] = []
+  
+  accountList.forEach((acc: any) => {
+    if (acc.children && acc.children.length > 0) {
+      // This is a parent account - add as header, then add children
+      options.push({
+        label: acc.label || `${acc.code} - ${acc.name}`,
+        value: null,
+        $isDisabled: true,
+        isHeader: true,
+        isParentHeader: true
+      })
+      // Add children under this parent
+      acc.children.forEach((child: any) => {
+        const displayLabel = child.label || (child.code ? `${child.code} - ${child.name}` : child.name)
+        options.push({
+          label: displayLabel,
+          value: child.id,
+          code: child.code || null,
+          name: child.name,
+          parentName: acc.name,
+          isChild: true,
+          searchText: `${child.name} ${child.code || ''} ${acc.name}`
+        })
+      })
+    } else {
+      // This is a standalone leaf account (no children) - add directly
+      const displayLabel = acc.label || (acc.code ? `${acc.code} - ${acc.name}` : acc.name)
+      options.push({
+        label: displayLabel,
+        value: acc.id,
+        code: acc.code || null,
+        name: acc.name,
+        isChild: false,
+        searchText: `${acc.name} ${acc.code || ''}`
+      })
+    }
+  })
+  
+  return options
+}
+
+// Flatten accounts for lookup by ID
+const flatBankCashAccounts = computed(() => {
+  const flattened: any[] = []
+  const flatten = (acc: any) => {
+    flattened.push(acc)
+    if (acc.children && acc.children.length > 0) {
+      acc.children.forEach((child: any) => flatten(child))
+    }
+  }
+  ;(bankCashAccounts.value || []).forEach(flatten)
+  return flattened
+})
+
+const flatPayableAccounts = computed(() => {
+  const flattened: any[] = []
+  const flatten = (acc: any) => {
+    flattened.push(acc)
+    if (acc.children && acc.children.length > 0) {
+      acc.children.forEach((child: any) => flatten(child))
+    }
+  }
+  ;(payableAccounts.value || []).forEach(flatten)
+  return flattened
+})
+
+// Grouped account options for dropdowns
+const groupedBankCashAccountOptions = computed(() => flattenAccountsWithGroups(bankCashAccounts.value || []))
+const groupedPayableAccountOptions = computed(() => flattenAccountsWithGroups(payableAccounts.value || []))
+
+// Multiselect selection computed properties
+const fromAccountSelection = computed({
+  get() {
+    const accountId = form.value.from_account_id
+    if (!accountId) return null
+    return groupedBankCashAccountOptions.value.find((opt: any) => opt.value === Number(accountId)) || null
+  },
+  set(selected: any) {
+    form.value.from_account_id = selected?.value ? String(selected.value) : ''
+  }
+})
+
+const payeeAccountSelection = computed({
+  get() {
+    const accountId = form.value.payee_account || form.value.payee_account_id
+    if (!accountId) return null
+    return groupedPayableAccountOptions.value.find((opt: any) => opt.value === Number(accountId)) || null
+  },
+  set(selected: any) {
+    form.value.payee_account = selected?.value ? String(selected.value) : ''
+    form.value.payee_account_id = selected?.value || null
+    form.value.payee_account_code = selected?.code || ''
+  }
+})
+
+// Voucher Number options
+const voucherNumberOptions = [
+  { label: 'AUTO', value: 'AUTO' },
+  { label: 'MANUAL', value: 'MANUAL' }
+]
+
+const voucherNumberSelection = computed({
+  get() {
+    return voucherNumberOptions.find((opt: any) => opt.value === form.value.voucher_number) || null
+  },
+  set(selected: any) {
+    form.value.voucher_number = selected?.value || ''
+  }
+})
+
+// Branch options and selection
+const branchOptions = computed(() => {
+  return (branches.value || []).map((branch: any) => ({
+    label: branch.name,
+    value: branch.id,
+    ...branch
+  }))
+})
+
+const branchSelection = computed({
+  get() {
+    if (!form.value.branch_id) return null
+    return branchOptions.value.find((opt: any) => opt.value === Number(form.value.branch_id)) || null
+  },
+  set(selected: any) {
+    form.value.branch_id = selected?.value ? String(selected.value) : ''
+  }
+})
+
+// Currency uses native <select> binding via `form.currency_id` in the template
+
+// Fund Direction options
+const fundDirectionOptions = [
+  { label: 'Direct payment', value: 'DIRECT_PAYMENT' },
+  { label: 'Withdraw', value: 'WITHDRAW' }
+]
+
+const fundDirectionSelection = computed({
+  get() {
+    return fundDirectionOptions.find((opt: any) => opt.value === form.value.fund_direction) || null
+  },
+  set(selected: any) {
+    form.value.fund_direction = selected?.value || ''
+  }
+})
+
+// Payee options and selection
+const payeeOptions = computed(() => {
+  return (payees.value || []).map((payee: any) => ({
+    label: payee.name,
+    value: payee.id,
+    ...payee
+  }))
+})
+
+const payeeSelection = computed({
+  get() {
+    if (!form.value.payee_id) return null
+    return payeeOptions.value.find((opt: any) => opt.value === Number(form.value.payee_id)) || null
+  },
+  set(selected: any) {
+    form.value.payee_id = selected?.value ? String(selected.value) : ''
+    if (selected?.value) {
+      onPayeeChange()
+    }
+  }
+})
+
 // New Payment Input
 const newPayment = ref({
   bank_account_id: '',
@@ -427,6 +644,7 @@ const requisitionsForLinking = computed(() => accountingStore.requisitionsForLin
 const branches = ref<any[]>([])
 const bankCashAccounts = ref<any[]>([])
 const payees = ref<any[]>([])
+const payableAccounts = ref<any[]>([])
 const paymentMethods = ref<string[]>(['Bank', 'Cash', 'Cheque', 'Wire Transfer', 'Deposit', 'Mobile Money'])
 
 // Balance Summary
@@ -457,6 +675,18 @@ const totalAmount = computed(() => {
 // Total Amount to Pay (sum of all amount_to_pay in payee requisitions)
 const totalAmountToPay = computed(() => {
   return payeeRequisitions.value.reduce((sum, r) => sum + (r.amount_to_pay || 0), 0)
+})
+
+// Requisition Numbers Input (writable by user). Keeps in-sync with fetched payee requisitions.
+const requisitionNumbersInput = ref('')
+
+// Keep the input updated when payeeRequisitions changes (e.g., after a fetch)
+watch(payeeRequisitions, (newVal) => {
+  if (!newVal || newVal.length === 0) {
+    requisitionNumbersInput.value = ''
+  } else {
+    requisitionNumbersInput.value = newVal.map((r: any) => r.requisition_number).join(', ')
+  }
 })
 
 // Methods
@@ -570,13 +800,6 @@ function searchRequisitions() {
       // Use local search from store data
       const rawReqs = requisitionsForLinking.value || []
       const searchLower = requisitionSearchQuery.value.toLowerCase().trim()
-      
-      console.log('Searching requisitions:', {
-        query: searchLower,
-        totalAvailable: rawReqs.length,
-        rawReqs: rawReqs
-      })
-      
       if (!rawReqs || rawReqs.length === 0) {
         console.warn('No requisitions available in store')
         filteredRequisitions.value = []
@@ -604,18 +827,9 @@ function searchRequisitions() {
             .join(' ')
           
           const matches = searchableText.includes(searchLower)
-          if (matches) {
-            console.log('Match found:', {
-              id: req.id,
-              reqNumber: formatReqNumber(req.id),
-              searchableText
-            })
-          }
           return matches
         })
         .slice(0, 10)
-      
-      console.log('Search results:', results)
       filteredRequisitions.value = results
     } catch (error) {
       console.error('Search error:', error)
@@ -626,10 +840,7 @@ function searchRequisitions() {
   }, 300) // Debounce 300ms
 }
 
-function selectSingleRequisition(requisition: any) {
-  console.log('Selecting requisition:', requisition)
-  
-  // Check if already selected
+function selectSingleRequisition(requisition: any) {// Check if already selected
   if (selectedRequisitions.value.some(req => req.id === requisition.id)) {
     init({
       message: `REQ-${String(requisition.id).padStart(4, '0')} is already selected`,
@@ -641,10 +852,7 @@ function selectSingleRequisition(requisition: any) {
   nextTick(async () => {
     requisitionSearchQuery.value = ''
     filteredRequisitions.value = []
-    showRequisitionDropdown.value = false
-    console.log('Requisition selected')
-    
-    // Fetch full requisition details and auto-populate form
+    showRequisitionDropdown.value = false// Fetch full requisition details and auto-populate form
     await fetchFullRequisitionAndPopulate(requisition.id)
   })
 }
@@ -653,18 +861,12 @@ function selectSingleRequisition(requisition: any) {
 async function fetchFullRequisitionAndPopulate(requisitionId: number) {
   try {
     savingLink.value = true
-    console.log('Fetching full requisition details for ID:', requisitionId)
-    
     const response = await accountingStore.getRequisitionDetails(requisitionId)
     const fullRequisition = response.data.data || response.data
-    
-    console.log('Full requisition data:', fullRequisition)
-    console.log('Requisition items:', fullRequisition.items || fullRequisition.line_items || fullRequisition.requisition_items || fullRequisition.lines)
-    console.log('Calculated total:', calculateRequisitionTotal(fullRequisition))
-    
+
     // Add to selectedRequisitions array
     selectedRequisitions.value.push(fullRequisition)
-    
+
     // Auto-populate form with complete requisition data
     autoPopulateFromRequisition(fullRequisition)
   } catch (error: any) {
@@ -681,31 +883,23 @@ async function fetchFullRequisitionAndPopulate(requisitionId: number) {
 // Auto-populate form when requisition is selected
 function autoPopulateFromRequisition(requisition: any) {
   if (!requisition) return
-  
-  console.log('Auto-populating form from requisition:', requisition)
-  
   try {
     // Set posting date from requisition date
     if (requisition.date) {
       form.value.posting_date = requisition.date.split('T')[0]
     }
-    
+
     // Store requisition reference in narration if empty
     if (!form.value.narration) {
       form.value.narration = `From Requisition ${requisition.requisition_number || `REQ-${String(requisition.id).padStart(4, '0')}`}`
     }
-    
+
     // Clear existing accounts and populate from requisition items
     form.value.accounts = []
-    
+
     const items = requisition.items || requisition.line_items || requisition.requisition_items || []
-    console.log('Requisition items found:', items.length, items)
-    
     if (items && Array.isArray(items) && items.length > 0) {
-      for (const item of items) {
-        console.log('Processing requisition item:', item)
-        
-        // Calculate amount - try multiple property names
+      for (const item of items) {// Calculate amount - try multiple property names
         let itemAmount = 0
         if (item.amount) {
           itemAmount = parseFloat(String(item.amount))
@@ -716,31 +910,16 @@ function autoPopulateFromRequisition(requisition: any) {
         } else if (item.price && item.qty) {
           itemAmount = parseFloat(String(item.price)) * parseFloat(String(item.qty))
         }
-        
-        console.log('Item amount calculated:', itemAmount, { 
-          direct: item.amount, 
-          total: item.total_amount, 
-          calc: item.unit_price && item.quantity ? item.unit_price * item.quantity : null 
-        })
-        
+
         // Get GL accounts from the item
         const itemAccounts = item.accounts || item.gl_accounts || []
-        
-        console.log('Item accounts:', itemAccounts)
-        
         if (itemAccounts && Array.isArray(itemAccounts) && itemAccounts.length > 0) {
           // Multiple accounts per item (pivot table structure)
           for (const account of itemAccounts) {
-            console.log('Adding account from accounts array:', account)
-            
             // The account object in items.accounts is a pivot table row
             // It has: id, account_id, amount, etc.
             const accountId = account.account_id || account.id
-            const accountAmount = parseFloat(String(account.amount)) || itemAmount
-            
-            console.log('Account details - ID:', accountId, 'Amount:', accountAmount)
-            
-            // Need to fetch the full account details from the accounts list
+            const accountAmount = parseFloat(String(account.amount)) || itemAmount// Need to fetch the full account details from the accounts list
             const fullAccount = accounts.value?.find((acc: any) => acc.id === accountId)
             
             form.value.accounts.push({
@@ -757,8 +936,6 @@ function autoPopulateFromRequisition(requisition: any) {
           }
         } else if (item.account_id) {
           // Single account per item
-          console.log('Adding account from account_id:', item.account_id)
-          
           const fullAccount = accounts.value?.find((acc: any) => acc.id === item.account_id)
           
           form.value.accounts.push({
@@ -774,8 +951,6 @@ function autoPopulateFromRequisition(requisition: any) {
           })
         } else if (item.account) {
           // Account object directly
-          console.log('Adding account from account object:', item.account)
-          
           const fullAccount = accounts.value?.find((acc: any) => acc.id === item.account.id)
           
           form.value.accounts.push({
@@ -791,7 +966,6 @@ function autoPopulateFromRequisition(requisition: any) {
           })
         } else {
           // No account found - still create line with amount for manual account selection
-          console.log('No account found for item, creating placeholder')
           form.value.accounts.push({
             account_id: 0,
             account_code: '',
@@ -805,11 +979,7 @@ function autoPopulateFromRequisition(requisition: any) {
           })
         }
       }
-    }
-    
-    console.log('Form populated with accounts:', form.value.accounts)
-    
-    init({
+    }init({
       message: `Requisition REQ-${String(requisition.id).padStart(4, '0')} loaded with ${form.value.accounts.length} account line(s)`,
       color: 'success'
     })
@@ -858,19 +1028,13 @@ function searchInvoices() {
   invoiceSearchTimeout = setTimeout(async () => {
     searchingInvoices.value = true
     try {
-      const searchLower = invoiceSearchQuery.value.toLowerCase().trim()
-      
-      console.log('Searching invoices:', searchLower)
-      
-      // Call the store's searchInvoices method
+      const searchLower = invoiceSearchQuery.value.toLowerCase().trim()// Call the store's searchInvoices method
       const response = await accountingStore.searchInvoices(
         searchLower,
         'APPROVED'
       )
       
       const results = response.data.data || response.data || []
-      console.log('Invoice search results:', results)
-      
       filteredInvoices.value = Array.isArray(results) ? results.slice(0, 10) : []
     } catch (error) {
       console.error('Invoice search error:', error)
@@ -887,10 +1051,7 @@ function selectRequisitionFromSearch(req: any) {
 }
 
 // Select an invoice from search results
-function selectInvoice(inv: any) {
-  console.log('Selecting invoice:', inv)
-  
-  if (selectedInvoice.value && selectedInvoice.value.id === inv.id) {
+function selectInvoice(inv: any) {if (selectedInvoice.value && selectedInvoice.value.id === inv.id) {
     init({
       message: `Invoice ${inv.document_number} is already selected`,
       color: 'info'
@@ -915,9 +1076,6 @@ function selectInvoice(inv: any) {
 // Auto-populate JV form from invoice
 async function autoPopulateFromInvoice(inv: any) {
   if (!inv) return
-  
-  console.log('Auto-populating from invoice:', inv)
-  
   try {
     // Set posting date from invoice date
     if (inv.invoice_date) {
@@ -971,11 +1129,7 @@ async function autoPopulateFromInvoice(inv: any) {
           invoice_id: inv.id
         })
       }
-    }
-    
-    console.log('Form auto-populated from invoice:', form.value.accounts)
-    
-    init({
+    }init({
       message: `Invoice ${inv.document_number} loaded. Please review and configure account lines manually.`,
       color: 'info'
     })
@@ -1037,14 +1191,7 @@ async function fetchAndAutoPopulate() {
   try {
     // Use the currently selected requisition data
     const requisitionData = selectedRequisition.value
-
-    console.log('Auto-populating from requisition:', requisitionData)
-    console.log('Requisition structure:', {
-      items: requisitionData?.items,
-      line_items: requisitionData?.line_items,
-      requisition_items: requisitionData?.requisition_items
-    })
-
+    
     // Auto-populate account lines from requisition
     // Try different possible property names for items
     const items = requisitionData?.items || requisitionData?.line_items || requisitionData?.requisition_items || []
@@ -1054,15 +1201,10 @@ async function fetchAndAutoPopulate() {
 
       // Process each requisition item to create account entries
       for (const item of items) {
-        console.log('Processing item:', item)
-        console.log('Item keys:', Object.keys(item))
-        console.log('Item structure - accounts:', item.accounts, 'gl_accounts:', item.gl_accounts, 'account_id:', item.account_id, 'account:', item.account)
-        
         // Get GL accounts associated with this item - try multiple property names
         const itemAccounts = item.accounts || item.gl_accounts || []
-        
+
         if (itemAccounts && Array.isArray(itemAccounts) && itemAccounts.length > 0) {
-          console.log('Found accounts array with', itemAccounts.length, 'accounts')
           for (const account of itemAccounts) {
             // Determine transaction type based on source type or account category
             const transactionType = getTransactionType(requisitionData.source?.sourceType, account.type)
@@ -1078,11 +1220,9 @@ async function fetchAndAutoPopulate() {
               requisition_item_id: item.id,
               dimensions: item.dimensions || []
             })
-            console.log('Added account:', account.code, account.name)
           }
         } else if (item.account_id) {
           // If item has a single account_id directly, create account line from it
-          console.log('Item has direct account_id:', item.account_id)
           const transactionType = getTransactionType(requisitionData.source?.sourceType, item.account_type)
           
           form.value.accounts.push({
@@ -1096,10 +1236,8 @@ async function fetchAndAutoPopulate() {
             requisition_item_id: item.id,
             dimensions: item.dimensions || []
           })
-          console.log('Added single account from account_id')
         } else if (item.account) {
           // If item has an account object directly
-          console.log('Item has account object:', item.account)
           const account = item.account
           const transactionType = getTransactionType(requisitionData.source?.sourceType, account.type)
           
@@ -1114,7 +1252,6 @@ async function fetchAndAutoPopulate() {
             requisition_item_id: item.id,
             dimensions: item.dimensions || []
           })
-          console.log('Added account from account object')
         } else {
           console.warn('Item has no accounts or account_id:', item)
         }
@@ -1122,9 +1259,7 @@ async function fetchAndAutoPopulate() {
     } else {
       console.warn('No items found in requisition. Items array:', items)
     }
-
-    console.log('Final accounts populated:', form.value.accounts)
-
+    
     // Auto-populate JV header fields from requisition
     if (requisitionData.currency_id) {
       form.value.currency_id = String(requisitionData.currency_id)
@@ -1336,28 +1471,144 @@ async function fetchEligibleRequisitions() {
     return
   }
 
-  // Validation: From account must be selected
-  if (!form.value.from_account_id) {
-    init({
-      message: 'Please select a From (Credit) account first',
-      color: 'warning'
-    })
-    return
-  }
-
   try {
     // Show loading state
     loadingRequisitions.value = true
     const originalList = [...payeeRequisitions.value]
     payeeRequisitions.value = []
-    
-    // Fetch approved requisitions for this payee from the backend
-    const response = await accountingStore.getApprovedRequisitionsForPayee(
-      Number(form.value.payee_id),
-      Number(form.value.from_account_id)
-    )
-    
-    const requisitions = response.data?.data || response.data || []
+
+      // If user has manually entered requisition numbers/ids in the input, try to resolve them first
+      const manualInput = String(requisitionNumbersInput.value || '').trim()
+      if (manualInput) {
+        const tokens = manualInput.split(/[,;\s]+/).map((t: string) => t.trim()).filter(Boolean)
+        const resolved: any[] = []
+
+        for (const token of tokens) {
+          // Try local store first (requisitionsForLinking)
+          const localMatch = (requisitionsForLinking.value || []).find((r: any) => {
+            if (!r) return false
+            const reqNum = String(r.requisition_number || '').toLowerCase()
+            if (reqNum && reqNum === token.toLowerCase()) return true
+            if (String(r.id) === token) return true
+            // support formats like REQ-0004
+            const digits = token.replace(/\D/g, '')
+            if (digits && String(r.id) === digits) return true
+            return false
+          })
+
+          if (localMatch) {
+            resolved.push(localMatch)
+            continue
+          }
+
+          // Try parsing numeric id and fetch from server using the new endpoint
+          const numeric = Number(token.replace(/\D/g, ''))
+          if (numeric) {
+            try {
+              // Use the new eligible-requisitions endpoint with requisition_id filter
+              // Include fund_direction if selected to ensure filtering
+              const filters: { requisition_id: number; fund_direction?: string } = {
+                requisition_id: numeric
+              }
+              if (form.value.fund_direction) {
+                filters.fund_direction = form.value.fund_direction
+              }
+              
+              const resp = await accountingStore.getEligibleRequisitions(
+                Number(form.value.from_account_id),
+                filters
+              )
+              
+              const requisitions = resp.data?.data || resp.data || []
+              
+              // The endpoint already filters by APPROVED status
+              // If we get a result, it's approved and has a funding account
+              if (Array.isArray(requisitions) && requisitions.length > 0) {
+                const req = requisitions[0] // Should only be one result
+                
+                // Get first source for payee info and funding account
+                const source = req.sources?.[0] || {}
+                
+                // Get cost center from items.cost_centers if available
+                let costCenter = 'N/A'
+                if (req.items?.length > 0 && req.items[0].cost_centers?.length > 0) {
+                  costCenter = req.items[0].cost_centers[0].code || req.items[0].cost_centers[0].name || 'N/A'
+                }
+                
+                resolved.push({
+                  requisition_id: req.requisition_id,
+                  id: req.requisition_id,
+                  requisition_number: req.requisition_number,
+                  total_amount: parseFloat(String(req.total_amount || 0)),
+                  cost_center: costCenter,
+                  status: 'APPROVED',
+                  payee_name: source.payee || '',
+                  funding_account_id: source.funding_account_id,
+                  funding_account_code: source.funding_account_code,
+                  funding_account_name: source.funding_account_name,
+                  currency_id: source.currency_id,
+                  fund_direction: req.fund_direction,
+                  description: req.items?.[0]?.remarks || source.payee || 'General requisition',
+                  sources: req.sources || [],
+                  items: req.items || []
+                })
+              } else {
+                console.warn(`Requisition ${numeric} not found or not eligible (not APPROVED or missing funding account)`)
+              }
+              continue
+            } catch (err) {
+              // ignore single failures and continue
+              console.warn('No requisition found for token:', token, err)
+            }
+          }
+          // If not found, continue to next token
+        }
+
+        if (resolved.length === 0) {
+          init({ message: 'No matching requisitions found or requisitions are not approved', color: 'info' })
+          loadingRequisitions.value = false
+          return
+        }
+
+        // Map resolved requisitions into payeeRequisitions (same mapping as API response)
+        payeeRequisitions.value = resolved.map((req: any) => ({
+          id: req.id,
+          requisition_id: req.id,
+          requisition_number: req.requisition_number || `REQ-${String(req.id).padStart(4, '0')}`,
+          description: req.description || req.narrative || req.narration || req.remarks || 'General requisition',
+          cost_center: req.cost_center || req.cost_center_code || 'N/A',
+          total_amount: parseFloat(String(req.total_amount || req.total || 0)),
+          balance_remaining: parseFloat(String(req.balance_remaining || req.total_amount || req.total || 0)),
+          amount_to_pay: parseFloat(String(req.amount_to_pay || req.total_amount || req.total || 0)),
+          status: req.status || 'APPROVED',
+          payee_id: req.payee_id || form.value.payee_id,
+          posting_date: req.posting_date || req.date || new Date().toISOString().split('T')[0]
+        }))
+
+        // Update total amount
+        form.value.total_amount = totalAmountToPay.value
+
+        init({ message: `Found ${payeeRequisitions.value.length} requisition(s)`, color: 'success' })
+        loadingRequisitions.value = false
+        return
+      }
+
+      // If no manual input, use the new eligible-requisitions endpoint
+      // This endpoint returns APPROVED requisitions with funding accounts
+      const filters: { payee?: string; fund_direction?: string } = {}
+      if (form.value.payee_id) {
+        // Get payee name for filtering if available
+        const payeeOption = payeeOptions.value.find((p: any) => p.value === form.value.payee_id)
+        if (payeeOption?.label) filters.payee = payeeOption.label
+      }
+      if (form.value.fund_direction) filters.fund_direction = form.value.fund_direction
+
+      const response = await accountingStore.getEligibleRequisitions(
+        Number(form.value.from_account_id),
+        filters
+      )
+      
+      const requisitions = response.data?.data || response.data || []
     
     if (!Array.isArray(requisitions)) {
       payeeRequisitions.value = originalList
@@ -1368,20 +1619,41 @@ async function fetchEligibleRequisitions() {
       return
     }
 
-    // Transform requisitions for the payment table
-    payeeRequisitions.value = requisitions.map((req: any) => ({
-      id: req.id,
-      requisition_id: req.id,
-      requisition_number: req.requisition_number || `REQ-${String(req.id).padStart(4, '0')}`,
-      description: req.description || req.narrative || req.narration || 'General requisition',
-      cost_center: req.cost_center || req.cost_center_code || 'N/A',
-      total_amount: parseFloat(String(req.total_amount || req.amount || 0)),
-      balance_remaining: parseFloat(String(req.balance_remaining || 0)),
-      amount_to_pay: parseFloat(String(req.amount_to_pay || req.total_amount || req.amount || 0)),
-      status: req.status || 'APPROVED',
-      payee_id: req.payee_id || form.value.payee_id,
-      posting_date: req.posting_date || new Date().toISOString().split('T')[0]
-    }))
+    // Transform requisitions for the payment table using the new response structure
+    // The new endpoint returns: requisition_id, requisition_number, total_amount, sources[], items[]
+    payeeRequisitions.value = requisitions.map((req: any) => {
+      // Get first source for payee info and funding account
+      const source = req.sources?.[0] || {}
+      
+      // Get cost center from items.cost_centers if available
+      let costCenter = 'N/A'
+      if (req.items?.length > 0 && req.items[0].cost_centers?.length > 0) {
+        costCenter = req.items[0].cost_centers[0].code || req.items[0].cost_centers[0].name || 'N/A'
+      }
+
+      return {
+        id: req.requisition_id,
+        requisition_id: req.requisition_id,
+        requisition_number: req.requisition_number || `REQ-${String(req.requisition_id).padStart(4, '0')}`,
+        description: req.items?.[0]?.remarks || source.payee || 'General requisition',
+        cost_center: costCenter,
+        total_amount: parseFloat(String(req.total_amount || 0)),
+        balance_remaining: parseFloat(String(req.balance_remaining || req.total_amount || 0)),
+        amount_to_pay: parseFloat(String(req.total_amount || 0)),
+        status: 'APPROVED',
+        payee_id: source.entity_id || form.value.payee_id,
+        payee_name: source.payee || '',
+        funding_account_id: source.funding_account_id,
+        funding_account_code: source.funding_account_code,
+        funding_account_name: source.funding_account_name,
+        currency_id: source.currency_id,
+        fund_direction: req.fund_direction,
+        posting_date: req.requisition_date?.split('T')[0] || new Date().toISOString().split('T')[0],
+        // Store full source and items for journal entry creation
+        sources: req.sources || [],
+        items: req.items || []
+      }
+    })
 
     // Update total amount from sum of requisitions
     form.value.total_amount = totalAmountToPay.value
@@ -1437,6 +1709,66 @@ function removePayeeRequisition(index: number) {
       message: `Requisition ${removed.requisition_number} removed`,
       color: 'success'
     })
+  }
+}
+
+async function viewRequisitionDetails(requisition: any) {
+  try {
+    loadingRequisitionDetails.value = true
+    showRequisitionDetailsModal.value = true
+    selectedRequisitionDetails.value = null
+
+    // Fetch full requisition details from backend
+    const response = await accountingStore.getRequisitionDetails(requisition.requisition_id || requisition.id)
+    
+    const reqData = response.data?.data || response.data// Extract items - they can be nested in different ways
+    let allItems: any[] = []
+    
+    if (reqData?.items && Array.isArray(reqData.items)) {
+      // Process each item and check for nested materials or accounts
+      reqData.items.forEach((item: any, index: number) => {// First priority: Materials
+        if (item.materials && Array.isArray(item.materials) && item.materials.length > 0) {item.materials.forEach((material: any) => {allItems.push({
+              description: material.description || material.material_description || material.item_name || material.material_name || material.name || material.item?.name || material.code || 'Material',
+              quantity: parseFloat(material.quantity || material.qty || 0),
+              unit_price: parseFloat(material.rate || material.unit_price || material.price || 0),
+              amount: parseFloat(material.line_total || material.amount || material.total || (parseFloat(material.quantity || 0) * parseFloat(material.rate || material.unit_price || 0)) || 0)
+            })
+          })
+        }
+        // Second priority: Accounts
+        else if (item.accounts && Array.isArray(item.accounts) && item.accounts.length > 0) {item.accounts.forEach((account: any) => {allItems.push({
+              description: account.description || account.account_description || account.account_name || account.account?.name || account.account?.code || account.name || account.code || 'Account',
+              quantity: 1,
+              unit_price: parseFloat(account.amount || account.total || account.debit || account.credit || 0),
+              amount: parseFloat(account.amount || account.total || account.debit || account.credit || 0)
+            })
+          })
+        }
+        // Fallback: Use item properties directly
+        else {allItems.push({
+            description: item.description || item.item_description || item.narration || item.remarks || item.name || item.code || `Item ${index + 1}`,
+            quantity: parseFloat(item.quantity || item.qty || 0),
+            unit_price: parseFloat(item.rate || item.unit_price || item.price || 0),
+            amount: parseFloat(item.line_total || item.amount || item.total || item.item_total || (parseFloat(item.quantity || 0) * parseFloat(item.rate || item.unit_price || 0)) || 0)
+          })
+        }
+      })
+    }selectedRequisitionDetails.value = {
+      requisition_number: requisition.requisition_number,
+      cost_center: requisition.cost_center,
+      description: requisition.description,
+      total_amount: requisition.total_amount,
+      amount_to_pay: requisition.amount_to_pay,
+      items: allItems
+    }} catch (error: any) {
+    console.error('Error fetching requisition details:', error)
+    init({
+      message: 'Failed to load requisition details',
+      color: 'danger'
+    })
+    showRequisitionDetailsModal.value = false
+  } finally {
+    loadingRequisitionDetails.value = false
   }
 }
 
@@ -1780,19 +2112,16 @@ async function loadPaymentVoucherData() {
     branches.value = branchesResponse.data?.data || branchesResponse.data || []
     
     // Fetch bank/cash accounts for the From Account dropdown
-    const bankCashResponse = await accountingStore.getBankCashAccounts(accountingStore.companyId)
+    const bankCashResponse = await accountingStore.getBankCashAccounts()
     bankCashAccounts.value = bankCashResponse.data?.data || bankCashResponse.data || []
     
     // Fetch all payees from API
     const payeesResponse = await accountingStore.fetchPayees(accountingStore.companyId)
     payees.value = payeesResponse.data?.data || payeesResponse.data || []
     
-    console.log('Payment voucher data loaded:', {
-      branches: branches.value.length,
-      bankCashAccounts: bankCashAccounts.value.length,
-      payees: payees.value.length
-    })
-  } catch (error: any) {
+    // Fetch payable accounts from API
+    const payableAccountsResponse = await accountingStore.fetchPayableAccounts()
+    payableAccounts.value = payableAccountsResponse.data?.data || payableAccountsResponse.data || []} catch (error: any) {
     console.error('Error loading payment voucher data:', error)
     init({
       message: 'Some dropdown data could not be loaded. Please try again.',
@@ -1802,9 +2131,7 @@ async function loadPaymentVoucherData() {
 }
 
 // Handle From Account selection change
-function onFromAccountChange() {
-  console.log('From account changed to:', form.value.from_account_id)
-  // Clear payee requisitions when account changes (they were for a different account)
+function onFromAccountChange() {// Clear payee requisitions when account changes (they were for a different account)
   payeeRequisitions.value = []
 }
 
@@ -1814,7 +2141,7 @@ async function onPayeeChange() {
   // Clear payee requisitions when payee changes
   payeeRequisitions.value = []
 
-  // Auto-populate Account field based on payee
+  // Auto-populate Payable Account based on payee
   if (form.value.payee_id) {
     try {
       const response = await accountingStore.fetchPayeeAccount(
@@ -1823,11 +2150,11 @@ async function onPayeeChange() {
       )
 
       if (response.success && response.data) {
-        // Auto-populate Account field
+        // Auto-populate Payable Account field with default account ID
         form.value.payee_account_id = response.data.id
         form.value.payee_account_code = response.data.code
-        form.value.payee_account = response.data.label || response.data.code
-        console.log('Account auto-populated:', response.data.label)
+        form.value.payee_account = String(response.data.id) // Store as string for dropdown
+        console.log('Payable account auto-populated:', response.data.id, response.data.label)
       }
     } catch (error) {
       console.error('Error fetching payee account:', error)
@@ -1836,7 +2163,7 @@ async function onPayeeChange() {
   } else {
     // Clear account if payee is cleared
     form.value.payee_account_id = null
-    form.value.payee_account_code = null
+    form.value.payee_account_code = ''
     form.value.payee_account = ''
   }
 }
@@ -1878,29 +2205,68 @@ onMounted(async () => {
   if (isEdit.value && voucherId.value) {
     try {
       const response = await accountingStore.getJournalVoucher(voucherId.value)
-      const voucher = response.data.data
-      form.value = {
-        document_type_id: String(voucher.document_type_id),
-        currency_id: String(voucher.currency_id),
-        document_number: voucher.document_number || '',
-        posting_date: voucher.posting_date,
-        primary_account_id: String(voucher.primary_account_id || ''),
-        exchange_rate: voucher.exchange_rate || 1.0,
-        status: voucher.status || 'DRAFT',
-        narration: voucher.narration || '',
-        accounts: voucher.accounts || [],
-        payments: voucher.payments || []
-      } as any
-
-      // Load linked requisitions if any (for future use)
-      if (voucher.accounts && voucher.accounts.length > 0) {
-        try {
-          // This can be used to fetch and display linked documents if needed
-          // const linkedDocsResponse = await accountingStore.getLinkedDocumentsForVoucher(voucherId.value, voucher.accounts[0].id)
-        } catch (err) {
-          // Silently fail if no linked documents
-        }
+      const voucher = response.data.data || response.data
+      
+      // Debug: Log the full voucher structure)// Store the full voucher for display
+      loadedVoucher.value = voucher
+      
+      // Check if this is a payment voucher by document type
+      const isPaymentVoucher = voucher.document_type?.code === 'PV' || voucher.document_type?.name?.includes('Payment')
+      
+      if (isPaymentVoucher && voucher.accounts && voucher.accounts.length >= 2) {// Extract payment details from accounts
+        // CR account is the source (from_account), DR account is the destination (payee_account)
+        const creditAccount = voucher.accounts.find((a: any) => a.transaction_type === 'CR')
+        const debitAccount = voucher.accounts.find((a: any) => a.transaction_type === 'DR')
+        
+        // Extract payment method from narration (e.g., "Payment from CASH-IN-HAND via Cash")
+        const paymentMethodMatch = creditAccount?.narration?.match(/via (\w+)/)
+        const paymentMethod = paymentMethodMatch ? paymentMethodMatch[1] : ''
+        
+        // Load payment voucher data
+        form.value = {
+          ...form.value,
+          voucher_number: voucher.document_number || '',
+          posting_date: voucher.posting_date?.split('T')[0],
+          branch_id: String(voucher.branch_id || ''),
+          currency_id: String(voucher.currency_id || ''),
+          exchange_rate: 1.0,
+          from_account_id: String(creditAccount?.account_id || ''),
+          payment_method: paymentMethod,
+          payee_account: String(debitAccount?.account_id || ''),
+          total_amount: parseFloat(creditAccount?.amount || debitAccount?.amount || 0),
+          narration: voucher.narration || '',
+          status: voucher.status || 'DRAFT'
+        } as any} else {
+        // Load standard journal voucher data
+        form.value = {
+          document_type_id: String(voucher.document_type_id),
+          currency_id: String(voucher.currency_id),
+          document_number: voucher.document_number || '',
+          posting_date: voucher.posting_date,
+          primary_account_id: String(voucher.primary_account_id || ''),
+          exchange_rate: voucher.exchange_rate || 1.0,
+          status: voucher.status || 'DRAFT',
+          narration: voucher.narration || '',
+          accounts: voucher.accounts || [],
+          payments: voucher.payments || []
+        } as any
       }
+
+      // Check for requisitions in the voucher response
+      // They might be under 'requisitions', 'payment_requisitions', or nested in accounts
+      const requisitionsData = voucher.requisitions || voucher.payment_requisitions || []
+      
+      if (requisitionsData && requisitionsData.length > 0) {
+        payeeRequisitions.value = requisitionsData.map((req: any) => ({
+          requisition_id: req.requisition_id || req.id,
+          requisition_number: req.requisition_number || req.number || `REQ-${String(req.requisition_id || req.id || '').padStart(4, '0')}`,
+          description: req.description || req.narration || 'Payment requisition',
+          cost_center_code: req.cost_center?.code || req.cost_center_code || 'N/A',
+          cost_center: req.cost_center?.code || req.cost_center_code || 'N/A',
+          amount: req.total_amount || req.amount || 0,
+          amount_to_pay: req.amount || req.paid_amount || req.amount_to_pay || 0,
+          total_amount: req.total_amount || req.amount || 0
+        }))} else {}
     } catch (error) {
       init({
         message: 'Failed to load journal voucher',
@@ -2865,5 +3231,96 @@ h1 {
     flex: 1;
     min-width: 120px;
   }
+}
+
+/* Vue Multiselect Customization */
+.v-select-field {
+  width: 100%;
+  font-size: 12px;
+}
+
+.v-select-field .multiselect__tags {
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 12px;
+  min-height: 36px;
+  padding: 4px 40px 0 8px;
+}
+
+.v-select-field .multiselect__single {
+  font-size: 12px;
+  margin-bottom: 4px;
+  color: #1f2937;
+}
+
+.v-select-field .multiselect__placeholder {
+  font-size: 12px;
+  color: #9ca3af;
+  margin-bottom: 4px;
+  padding-top: 0;
+}
+
+.v-select-field .multiselect__select {
+  height: 36px;
+}
+
+.v-select-field .multiselect__input {
+  font-size: 12px;
+  padding: 0;
+  margin-bottom: 4px;
+}
+
+.v-select-field .multiselect__option {
+  font-size: 12px;
+  padding: 8px 12px;
+  min-height: 28px;
+  line-height: 1.4;
+}
+
+.v-select-field .multiselect__option--highlight {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.v-select-field .multiselect__option--selected {
+  background: #2563eb;
+  color: white;
+  font-weight: 500;
+}
+
+.v-select-field .multiselect__option--selected.multiselect__option--highlight {
+  background: #1d4ed8;
+  color: white;
+}
+
+/* Grouped multiselect styles */
+.v-select-grouped .source-header {
+  background: #f3f4f6;
+  color: #374151;
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  padding: 6px 12px !important;
+  cursor: default;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.v-select-grouped .source-option {
+  color: #1f2937;
+}
+
+.v-select-grouped .ps-3 {
+  padding-left: 24px !important;
+}
+
+.multiselect__content-wrapper {
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.multiselect__content {
+  width: 100%;
 }
 </style>

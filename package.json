@@ -12,6 +12,7 @@
     "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --fix --ignore-path .gitignore"
   },
   "dependencies": {
+    "@bhplugin/vue3-datatable": "^2.0.2",
     "@caohenghu/vue-colorpicker": "^1.2.4",
     "@capacitor/android": "^8.0.0-alpha.1",
     "@capacitor/core": "^8.0.0-alpha.1",
@@ -58,6 +59,7 @@
     "device-uuid": "^1.0.4",
     "highlight.js": "^11.11.1",
     "highlightjs": "^9.16.2",
+    "html2canvas": "^1.4.1",
     "jquery": "^3.7.1",
     "jspdf": "^3.0.4",
     "jspdf-autotable": "^5.0.2",

@@ -58,6 +58,16 @@ export const requisitionService = {
     return response.data
   },
 
+  async getMaster(id: number) {
+    const response = await axios.get(`${API_BASE}/${id}/master`, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeaders(),
+      },
+    })
+    return response.data
+  },
+
   async create(payload: Record<string, any>) {
     const response = await axios.post(API_BASE, payload, {
       headers: {

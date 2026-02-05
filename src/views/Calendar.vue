@@ -83,12 +83,11 @@
                 <div class="d-flex align-items-center">
                     <label class="me-2 fw-bold">Year:</label>
                     <select v-model="currentYear" class="form-select w-auto fw-bold border-primary text-primary">
-                        <option :value="2025">2025</option>
-                        <option :value="2026">2026</option>
+                        <option v-for="year in availableYears" :key="year" :value="year">{{ year }}</option>
                     </select>
                 </div>
-                <button class="btn btn-outline-primary" @click="downloadPdf" :disabled="downloadingPdf">
-                    <i class="bi bi-file-earmark-pdf me-1"></i> {{ downloadingPdf ? 'Preparing...' : 'Download PDF' }}
+                <button class="btn btn-outline-primary" @click="openPdfDialog">
+                    <i class="bi bi-file-earmark-pdf me-1"></i> Export PDF
                 </button>
                 <button class="btn btn-outline-secondary" @click="printCalendar">
                     <i class="bi bi-printer me-1"></i> Print
@@ -155,6 +154,66 @@
                 </div>
             </div>
         </div>
+    </div>
+
+    <!-- PDF Export Options Modal -->
+    <div v-if="showPdfDialog" class="pdf-modal-overlay" @click.self="closePdfDialog">
+      <div class="pdf-modal-card">
+        <div class="pdf-modal-header">
+          <div>
+            <div class="pdf-modal-kicker">Bushman</div>
+            <h5 class="pdf-modal-title">Export Calendar PDF</h5>
+          </div>
+          <button type="button" class="btn-close" @click="closePdfDialog"></button>
+        </div>
+        <div class="pdf-modal-body p-4">
+          <div class="mb-4">
+            <h6 class="mb-3">Select Time Frame</h6>
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label fw-bold">Start Month</label>
+                <select v-model="pdfStartMonth" class="form-select">
+                  <option v-for="(month, index) in monthNames" :key="index" :value="index">
+                    {{ month }}
+                  </option>
+                </select>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-bold">End Month</label>
+                <select v-model="pdfEndMonth" class="form-select">
+                  <option v-for="(month, index) in monthNames" :key="index" :value="index">
+                    {{ month }}
+                  </option>
+                </select>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-bold">Year</label>
+                <select v-model="pdfYear" class="form-select">
+                  <option v-for="year in availableYears" :key="year" :value="year">{{ year }}</option>
+                </select>
+              </div>
+            </div>
+            
+            <div class="alert alert-info mt-3 d-flex align-items-center">
+              <i class="bi bi-info-circle me-2"></i>
+              <span>Selected: {{ monthNames[pdfStartMonth] }} - {{ monthNames[pdfEndMonth] }}, {{ pdfYear }}</span>
+            </div>
+          </div>
+          
+          <div class="d-flex justify-content-end gap-2">
+            <button class="btn btn-secondary" @click="closePdfDialog">Cancel</button>
+            <button 
+              class="btn btn-primary" 
+              @click="generateAndOpenPdf"
+              :disabled="downloadingPdf || pdfEndMonth < pdfStartMonth"
+            >
+              <i class="bi bi-file-pdf me-1" v-if="!downloadingPdf"></i>
+              <span class="spinner-border spinner-border-sm me-1" v-else></span>
+              {{ downloadingPdf ? 'Generating...' : 'Generate PDF' }}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Event Details Modal -->
@@ -365,19 +424,85 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, nextTick } from 'vue'
+import { ref, onMounted, watch, nextTick, computed } from 'vue'
 import jsPDF from 'jspdf'
-import html2canvas from 'html2canvas'
-import bookingsData2026 from '@/assets/data/bookings_2026.json'
-import bookingsData2025 from '@/assets/data/bookings_2025.json'
+import CalendarPdfExport from './bushman/details/CalendarPdfExport.vue'
 
 const totalEvents = ref(15)
 const confirmedEvents = ref(12)
 const provisionEvents = ref(3)
 const completedEvents = ref(5)
-const currentYear = ref(2026)
+const currentYear = ref(new Date().getFullYear())
 const calendarRef = ref<HTMLElement | null>(null)
 const downloadingPdf = ref(false)
+const showPdfDialog = ref(false)
+
+// PDF Export Options
+const pdfStartMonth = ref(0) // January
+const pdfEndMonth = ref(11) // December
+const pdfYear = ref(new Date().getFullYear())
+const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+
+// Generate available years dynamically (current year - 1 to current year + 5)
+const currentYearValue = new Date().getFullYear()
+const availableYears = Array.from({ length: 7 }, (_, i) => currentYearValue - 1 + i)
+
+// Booking data store (will be loaded dynamically)
+const bookingsDataStore = ref<Record<number, any>>({})
+
+const loadBookingData = async (year: number) => {
+    if (bookingsDataStore.value[year]) {
+        return bookingsDataStore.value[year]
+    }
+    
+    try {
+        // Try to dynamically import the year's data
+        const data = await import(`@/assets/data/bookings_${year}.json`)
+        bookingsDataStore.value[year] = data.default || data
+        return bookingsDataStore.value[year]
+    } catch (error) {
+        console.warn(`No booking data found for year ${year}, using empty data`)
+        // Return empty bookings structure
+        bookingsDataStore.value[year] = { bookings: [] }
+        return bookingsDataStore.value[year]
+    }
+}
+
+// Event Details Modal
+const showModal = ref(false)
+const selectedEvent = ref<any>(null)
+
+const closeModal = () => {
+    showModal.value = false
+    selectedEvent.value = null
+}
+
+const selectedEventStatus = computed(() => {
+    return selectedEvent.value?.extendedProps?.status || 'Unknown'
+})
+
+const selectedEventDuration = computed(() => {
+    if (!selectedEvent.value?.start || !selectedEvent.value?.end) return 0
+    const start = new Date(selectedEvent.value.start)
+    const end = new Date(selectedEvent.value.end)
+    return Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1
+})
+
+const formatEventDate = (date: any) => {
+    if (!date) return 'N/A'
+    const d = new Date(date)
+    return d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+}
+
+const getStatusBadgeClass = (status: string) => {
+    const statusMap: Record<string, string> = {
+        'confirmed': 'bg-success',
+        'provisional': 'bg-warning text-dark',
+        'pending': 'bg-info',
+        'cancelled': 'bg-danger'
+    }
+    return statusMap[status.toLowerCase()] || 'bg-secondary'
+}
 
 // --- Custom Scheduler Data Types ---
 interface BookingSegment {
@@ -430,8 +555,8 @@ const getDaysInMonth = (year: number, monthIndex: number) => {
     return new Date(year, monthIndex + 1, 0).getDate()
 }
 
-const loadDataForYear = (year: number) => {
-    const rawData = year === 2026 ? bookingsData2026 : bookingsData2025
+const loadDataForYear = async (year: number) => {
+    const rawData = await loadBookingData(year)
     
     // 1. Identify all unique Area Names from the source data to ensure consistency
     const allAreaNames = new Set<string>()
@@ -538,71 +663,276 @@ const printCalendar = () => {
     window.print()
 }
 
+const generateYearCalendarPdf = (selectedYear: number, startMonth: number = 0, endMonth: number = 11, customData?: any) => {
+    const pdf = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' })
+    const pageWidth = pdf.internal.pageSize.getWidth()
+    const pageHeight = pdf.internal.pageSize.getHeight()
+    const margin = 30
+    const weekDays = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
+    const monthNames = [
+        'January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'
+    ]
+
+    // Colors (as tuples for TypeScript)
+    const primaryBlue: [number, number, number] = [59, 130, 246]
+    const huntGreen: [number, number, number] = [16, 185, 129]
+    const travelBlue: [number, number, number] = [14, 165, 233]
+    const headerBg: [number, number, number] = [248, 250, 252]
+    const borderColor: [number, number, number] = [226, 232, 240]
+    const textDark: [number, number, number] = [30, 41, 59]
+    const textMuted: [number, number, number] = [100, 116, 139]
+
+    // Use custom data if provided, otherwise use loaded booking data
+    const dataSource = customData || bookingsDataStore.value[selectedYear] || { bookings: [] }
+    
+    // Build events map from the data source
+    const eventsMap = new Map<string, Array<{ type: string; label: string; client: string }>>()
+    
+    // If using current calendarData structure AND it's for the same year being exported
+    if (!customData && calendarData.value.length > 0 && currentYear.value === selectedYear) {
+        calendarData.value.forEach((month, monthIndex) => {
+            if (monthIndex < startMonth || monthIndex > endMonth) return // Skip months outside range
+            
+            month.areas.forEach(area => {
+                area.rows.forEach(row => {
+                    row.segments.forEach(seg => {
+                        for (let day = seg.start; day <= seg.end; day++) {
+                            const dateKey = `${selectedYear}-${String(monthIndex + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+                            if (!eventsMap.has(dateKey)) {
+                                eventsMap.set(dateKey, [])
+                            }
+                            eventsMap.get(dateKey)?.push({
+                                type: seg.type,
+                                label: seg.label || '',
+                                client: row.clientName
+                            })
+                        }
+                    })
+                })
+            })
+        })
+    } else {
+        // Parse from raw bookings data
+        if (dataSource && dataSource.bookings) {
+            dataSource.bookings.forEach((booking: any) => {
+                const bookingStart = new Date(booking.booking_from)
+                const bookingEnd = new Date(booking.booking_to)
+                
+                // Add travel day
+                if (booking.travel_date) {
+                    const travelDate = new Date(booking.travel_date)
+                    const month = travelDate.getMonth()
+                    if (month >= startMonth && month <= endMonth) {
+                        const travelKey = `${travelDate.getFullYear()}-${String(travelDate.getMonth() + 1).padStart(2, '0')}-${String(travelDate.getDate()).padStart(2, '0')}`
+                        if (!eventsMap.has(travelKey)) {
+                            eventsMap.set(travelKey, [])
+                        }
+                        eventsMap.get(travelKey)?.push({
+                            type: 'travel',
+                            label: booking.client_name || '',
+                            client: booking.client_name || ''
+                        })
+                    }
+                }
+                
+                // Add hunt days
+                for (let d = new Date(bookingStart); d <= bookingEnd; d.setDate(d.getDate() + 1)) {
+                    const month = d.getMonth()
+                    if (month >= startMonth && month <= endMonth) {
+                        const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+                        if (!eventsMap.has(dateKey)) {
+                            eventsMap.set(dateKey, [])
+                        }
+                        eventsMap.get(dateKey)?.push({
+                            type: 'hunt',
+                            label: booking.client_name || '',
+                            client: booking.client_name || ''
+                        })
+                    }
+                }
+            })
+        }
+    }
+
+    // Calculate months to display and split into pages (max 6 months per page)
+    const monthsToDisplay = []
+    for (let m = startMonth; m <= endMonth; m++) {
+        monthsToDisplay.push(m)
+    }
+    
+    const monthsPerPage = 6
+    const totalPages = Math.ceil(monthsToDisplay.length / monthsPerPage)
+    
+    // Generate each page
+    for (let pageIndex = 0; pageIndex < totalPages; pageIndex++) {
+        if (pageIndex > 0) {
+            pdf.addPage()
+        }
+        
+        const pageMonthStart = pageIndex * monthsPerPage
+        const pageMonthEnd = Math.min(pageMonthStart + monthsPerPage, monthsToDisplay.length)
+        const pageMonths = monthsToDisplay.slice(pageMonthStart, pageMonthEnd)
+        
+        // --- Header ---
+        const headerTop = margin
+
+        // Title section
+        pdf.setFillColor(...headerBg)
+        pdf.roundedRect(margin, headerTop, pageWidth - margin * 2, 50, 6, 6, 'F')
+        
+        pdf.setFont('helvetica', 'bold')
+        pdf.setFontSize(20)
+        pdf.setTextColor(...primaryBlue)
+        const headerTitle = pageMonths.length === 1 
+            ? `${monthNames[pageMonths[0]]} ${selectedYear}`
+            : `${monthNames[pageMonths[0]]} - ${monthNames[pageMonths[pageMonths.length - 1]]} ${selectedYear}`
+        pdf.text(headerTitle, margin + 15, headerTop + 32)
+        
+        // Navigation hint
+        pdf.setFontSize(10)
+        pdf.setTextColor(...textMuted)
+        pdf.text('Safari Bookings Calendar', pageWidth / 2, headerTop + 32, { align: 'center' })
+        
+        // Page number if multiple pages
+        if (totalPages > 1) {
+            pdf.setFont('helvetica', 'normal')
+            pdf.setFontSize(9)
+            pdf.setTextColor(...textMuted)
+            pdf.text(`Page ${pageIndex + 1} of ${totalPages}`, pageWidth - margin - 60, headerTop + 32)
+        }
+
+        // --- Calendar Grid ---
+        const gridTop = headerTop + 70
+        const gapX = 16
+        const gapY = 16
+        const columns = 3
+        const rows = 2 // Max 2 rows for 6 months
+        const gridWidth = pageWidth - margin * 2
+        const gridHeight = pageHeight - gridTop - margin - 20
+        const monthBoxWidth = (gridWidth - gapX * (columns - 1)) / columns
+        const monthBoxHeight = (gridHeight - gapY * (rows - 1)) / rows
+        const cellWidth = monthBoxWidth / 7
+        const cellHeight = (monthBoxHeight - 30) / 7
+
+        pageMonths.forEach((monthIndex, idx) => {
+            const col = idx % columns
+            const row = Math.floor(idx / columns)
+            const startX = margin + col * (monthBoxWidth + gapX)
+            const startY = gridTop + row * (monthBoxHeight + gapY)
+
+            // Month box background
+            pdf.setFillColor(255, 255, 255)
+            pdf.setDrawColor(...borderColor)
+            pdf.setLineWidth(1)
+            pdf.roundedRect(startX, startY, monthBoxWidth, monthBoxHeight, 4, 4, 'FD')
+
+            // Month header
+            pdf.setFillColor(...headerBg)
+            pdf.roundedRect(startX, startY, monthBoxWidth, 22, 4, 4, 'F')
+            pdf.setFont('helvetica', 'bold')
+            pdf.setFontSize(10)
+            pdf.setTextColor(...textDark)
+            pdf.text(monthNames[monthIndex] + ' ' + selectedYear, startX + monthBoxWidth / 2, startY + 15, { align: 'center' })
+
+            // Weekday headers
+            const weekHeaderY = startY + 28
+            pdf.setFont('helvetica', 'normal')
+            pdf.setFontSize(7)
+            pdf.setTextColor(...textMuted)
+            for (let d = 0; d < 7; d++) {
+                const dayX = startX + d * cellWidth + cellWidth / 2
+                pdf.text(weekDays[d], dayX, weekHeaderY, { align: 'center' })
+            }
+
+            // Calendar days
+            const firstDay = new Date(selectedYear, monthIndex, 1).getDay()
+            const daysInMonth = new Date(selectedYear, monthIndex + 1, 0).getDate()
+            const cellStartY = weekHeaderY + 6
+
+            let currentRow = 0
+            for (let day = 1; day <= daysInMonth; day++) {
+                const weekDay = (firstDay + day - 1) % 7
+                const cellX = startX + weekDay * cellWidth
+                const cellY = cellStartY + currentRow * cellHeight
+                const dateKey = `${selectedYear}-${String(monthIndex + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+                
+                // Day number
+                pdf.setFont('helvetica', 'normal')
+                pdf.setFontSize(8)
+                pdf.setTextColor(...textDark)
+                pdf.text(String(day), cellX + 3, cellY + 9)
+
+                // Event bars for this day
+                const dayEvents = eventsMap.get(dateKey) || []
+                let barY = cellY + 12
+                const barHeight = 5
+                const maxBars = 2
+
+                dayEvents.slice(0, maxBars).forEach((evt: any) => {
+                    if (evt.type === 'hunt') {
+                        pdf.setFillColor(...huntGreen)
+                    } else {
+                        pdf.setFillColor(...travelBlue)
+                    }
+                    pdf.roundedRect(cellX + 2, barY, cellWidth - 4, barHeight, 1, 1, 'F')
+                    
+                    // Event label (truncated)
+                    pdf.setFontSize(4)
+                    pdf.setTextColor(255, 255, 255)
+                    const label = (evt.client || evt.label || '').substring(0, 10)
+                    if (label) {
+                        pdf.text(label, cellX + 3, barY + 4)
+                    }
+                    barY += barHeight + 1
+                })
+
+                if (weekDay === 6) {
+                    currentRow++
+                }
+            }
+        })
+
+        // --- Legend (on each page) ---
+        const legendY = pageHeight - margin
+        pdf.setFontSize(8)
+        
+        // Hunt legend
+        pdf.setFillColor(...huntGreen)
+        pdf.roundedRect(margin, legendY - 8, 12, 8, 2, 2, 'F')
+        pdf.setTextColor(...textDark)
+        pdf.text('Hunt', margin + 16, legendY - 1)
+        
+        // Travel legend
+        pdf.setFillColor(...travelBlue)
+        pdf.roundedRect(margin + 60, legendY - 8, 12, 8, 2, 2, 'F')
+        pdf.text('Travel', margin + 76, legendY - 1)
+
+        // Generated date
+        pdf.setTextColor(...textMuted)
+        pdf.text(`Generated: ${new Date().toLocaleDateString()}`, pageWidth - margin, legendY - 1, { align: 'right' })
+    }
+
+    return pdf
+}
+
 const downloadPdf = async () => {
     if (!calendarRef.value || downloadingPdf.value) return
     downloadingPdf.value = true
     await nextTick()
 
     try {
-        const element = calendarRef.value
-        const canvas = await html2canvas(element, {
-            scale: 2,
-            backgroundColor: '#ffffff',
-            useCORS: true,
-            windowWidth: element.scrollWidth,
-            windowHeight: element.scrollHeight
-        })
-        const imgData = canvas.toDataURL('image/png')
-        const pdf = new jsPDF('l', 'pt', 'a4')
-        const pageWidth = pdf.internal.pageSize.getWidth()
-        const pageHeight = pdf.internal.pageSize.getHeight()
-        const margin = 24
-        const contentWidth = pageWidth - margin * 2
-        const contentHeight = pageHeight - margin * 2
-        const ratio = contentWidth / canvas.width
-        const pageHeightPx = Math.floor(contentHeight / ratio)
-        let renderedHeight = 0
-
-        while (renderedHeight < canvas.height) {
-            const sliceHeight = Math.min(pageHeightPx, canvas.height - renderedHeight)
-            const pageCanvas = document.createElement('canvas')
-            pageCanvas.width = canvas.width
-            pageCanvas.height = sliceHeight
-            const ctx = pageCanvas.getContext('2d')
-            if (!ctx) break
-
-            ctx.fillStyle = '#ffffff'
-            ctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height)
-            ctx.drawImage(
-                canvas,
-                0,
-                renderedHeight,
-                canvas.width,
-                sliceHeight,
-                0,
-                0,
-                canvas.width,
-                sliceHeight
-            )
-
-            const sliceData = pageCanvas.toDataURL('image/png')
-            if (renderedHeight > 0) {
-                pdf.addPage()
-            }
-            pdf.addImage(
-                sliceData,
-                'PNG',
-                margin,
-                margin,
-                contentWidth,
-                sliceHeight * ratio,
-                undefined,
-                'FAST'
-            )
-            renderedHeight += sliceHeight
-        }
-
-        pdf.save(`calendar-${currentYear.value}.pdf`)
+        // Use full year by default for the old button (if it still exists)
+        const pdf = generateYearCalendarPdf(currentYear.value, 0, 11)
+        
+        // Open PDF in new tab for viewing
+        const pdfBlob = pdf.output('blob')
+        const blobUrl = URL.createObjectURL(pdfBlob)
+        window.open(blobUrl, '_blank')
+        
+        // Clean up blob URL after some time
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 120000)
+        
     } catch (err) {
         console.error('Failed to export calendar PDF:', err)
     } finally {
@@ -610,8 +940,60 @@ const downloadPdf = async () => {
     }
 }
 
-onMounted(() => {
-    loadDataForYear(currentYear.value)
+const openPdfDialog = () => {
+    // Set defaults to current year and full year range
+    pdfYear.value = currentYear.value
+    pdfStartMonth.value = 0
+    pdfEndMonth.value = 11
+    showPdfDialog.value = true
+}
+
+const closePdfDialog = () => {
+    showPdfDialog.value = false
+}
+
+const generateAndOpenPdf = async () => {
+    try {
+        downloadingPdf.value = true
+        
+        // Get selected months range
+        const startMonth = pdfStartMonth.value
+        const endMonth = pdfEndMonth.value
+        const year = pdfYear.value
+        
+        if (endMonth < startMonth) {
+            alert('End month must be after or equal to start month')
+            return
+        }
+        
+        // Always load data for the selected year to ensure correct data
+        const yearData = await loadBookingData(year)
+        const pdf = generateYearCalendarPdf(year, startMonth, endMonth, yearData)
+        
+        // Open PDF in new tab for viewing
+        const pdfBlob = pdf.output('blob')
+        const blobUrl = URL.createObjectURL(pdfBlob)
+        window.open(blobUrl, '_blank')
+        
+        // Clean up blob URL after some time
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 120000)
+        
+        closePdfDialog()
+    } catch (error) {
+        console.error('Error generating PDF:', error)
+        alert('Failed to generate PDF. Please try again.')
+    } finally {
+        downloadingPdf.value = false
+    }
+}
+
+onMounted(async () => {
+    await loadDataForYear(currentYear.value)
+})
+
+// Watch for year changes and reload data
+watch(currentYear, async (newYear) => {
+    await loadDataForYear(newYear)
 })
 </script>
 
@@ -622,6 +1004,59 @@ onMounted(() => {
 
 .calendar-page.is-exporting .d-print-none {
   display: none !important;
+}
+
+.pdf-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.5);
+  backdrop-filter: blur(4px);
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 24px;
+  z-index: 1060;
+  overflow: auto;
+}
+
+.pdf-modal-card {
+  background: #ffffff;
+  width: min(1200px, 96vw);
+  border-radius: 14px;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.25);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  max-height: 92vh;
+}
+
+.pdf-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #ffffff;
+}
+
+.pdf-modal-kicker {
+  font-size: 0.7rem;
+  letter-spacing: 0.12rem;
+  text-transform: uppercase;
+  color: #6b7280;
+  font-weight: 700;
+}
+
+.pdf-modal-title {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #111827;
+}
+
+.pdf-modal-body {
+  overflow: auto;
+  background: #f9fafb;
 }
 
 .stat-card {

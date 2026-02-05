@@ -436,8 +436,7 @@ const openDatePicker = () => {
 const fetchData = (event) => {
   selectedDate.value = event.target.value
   // if (selectedDate) {
-  //   console.log("Date selected:", selectedDate)
-  // }
+  //// }
 }
 
 // active-agents
@@ -462,8 +461,7 @@ const saveAgent = async () => {
     return;
   }
   try {
-    // console.log(service_point.value?.id);
-    const response = await axiosInstance.post('/locations/assign-agents', {
+    //const response = await axiosInstance.post('/locations/assign-agents', {
       office_id: route.params.id,
       agent_ids: agent.value.map(a => a.id),
       service_point: service_point.value?.id
@@ -663,8 +661,7 @@ const initializeMap = () => {
 //     if (layer instanceof L.Polygon || layer instanceof L.Marker) map.value.removeLayer(layer);
 //   });
 
-//   console.log("GEOPHANCE DATA",geofences.value);
-
+//
 //   geofences.value.forEach((g) => {
 //     if (g.type === 'POINT') {
 //       g.coordinates.forEach((c) => {
@@ -688,9 +685,7 @@ const drawGeofencesOnMap = () => {
     if (layer instanceof L.Polygon || layer instanceof L.Marker) map.value.removeLayer(layer);
   });
 
-  // console.log("GEOPHANCE DATA", geofences.value);
-
-  geofences.value.forEach((g) => {
+  //geofences.value.forEach((g) => {
     if (g.type === 'POINT') {
       g.coordinates.forEach((c) => {
         L.marker([c.lat, c.lng]).addTo(map.value);

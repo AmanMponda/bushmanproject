@@ -128,7 +128,7 @@ onMounted(() => {
 })
 
 const savePlace = () => {
-  // console.log('Saving place', form.value)
+  //
 }
 
 const saveAndAdd = () => {

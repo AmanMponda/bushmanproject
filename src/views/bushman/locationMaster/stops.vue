@@ -1,129 +1,181 @@
 <template>
+  <div class="row layout-top-spacing rounded bg-white mt-2">
+    <div class="col-xl-12 col-lg-12 col-sm-12 layout-spacing">
+      <div class="panel br-6 p-0">
+        <div class="custom-table p-3">
+          <StandardDataTable :columns="stopColumns" :data="stopsList" :loading="isLoading" :filters="stopTableOption"
+            :defaultPageSize="stopTableOption.pageSize" :disablePagination="false" :showDateFilters="false"
+            :actionButtons="stopPageActions">
+            <template #name="{ row }">
+              <span>{{ row.name }}</span>
+            </template>
+            <template #city="{ row }">
+              <span>{{ row.city }}</span>
+            </template>
+            <template #type="{ row }">
+              <span>{{ row.type }}</span>
+            </template>
+            <template #status="{ row }">
+              <span class="badge bg-success">{{ row.status }}</span>
+            </template>
+            <template #actions="{ row }">
+              <button class="btn btn-sm me-1" @click="openStopModal(row)" title="Edit Stop">
+                <i class="fa fa-edit text-primary"></i>
+              </button>
+              <!-- <button class="btn btn-sm" @click="deleteStop(row.id)"> <i class="fa fa-trash text-danger "></i></button> -->
 
-
-              <div  class="row layout-top-spacing rounded bg-white mt-2">
-                <div class="col-xl-12 col-lg-12 col-sm-12 layout-spacing">
-                  <div class="panel br-6 p-0">
-                    <div class="custom-table p-3">
-                      <StandardDataTable :columns="stopColumns" :data="stopsList" :loading="isLoading"
-                        :filters="stopTableOption" :defaultPageSize="stopTableOption.pageSize"
-                        :disablePagination="false" :showDateFilters="false" :actionButtons="stopPageActions">
-                        <template #name="{ row }">
-                          <span>{{ row.name }}</span>
-                        </template>
-                        <template #city="{ row }">
-                          <span>{{ row.city }}</span>
-                        </template>
-                        <template #status="{ row }">
-                          <span class="badge bg-success">{{ row.status }}</span>
-                        </template>
-                        <template #actions="{ row }">
-                          <button class="btn btn-sm me-1" @click="openStopModal(row)" title="Edit Stop">
-                            <i class="fa fa-edit text-primary"></i>
-                          </button>
-                          <!-- <button class="btn btn-sm" @click="deleteStop(row.id)"> <i class="fa fa-trash text-danger "></i></button> -->
-
-                          <!-- <button class="btn btn-sm" title="Details" @click="showDetails(row, 'stop')">
+              <!-- <button class="btn btn-sm" title="Details" @click="showDetails(row, 'stop')">
                             <i class="fa fa-eye text-info"></i>
                           </button> -->
-                        </template>
-                      </StandardDataTable>
-                    </div>
-                  </div>
-                </div>
+            </template>
+          </StandardDataTable>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- Stop Modal -->
+  <div class="modal modal-xl fade" id="stopModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-scrollable ">
+      <div class="modal-content vh-100">
+        <div class="modal-header">
+          <h5 class="modal-title">{{ currentStop.id ? 'Edit Stop' : 'Add Stop' }}</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <!-- Single Stop Form (for editing) -->
+          <div v-if="!isMultipleStopMode">
+            <div class="row">
+              <div class="col-md-4 mb-3">
+                <label>Name</label>
+                <input v-model="currentStop.name" type="text" class="form-control" @input="formatStopNameToUppercase" />
               </div>
-              <!-- Stop Modal -->
-              <div class="modal modal-xl fade" id="stopModal" tabindex="-1">
-                <div class="modal-dialog modal-dialog-scrollable ">
-                  <div class="modal-content vh-100">
-                    <div class="modal-header">
-                      <h5 class="modal-title">{{ currentStop.id ? 'Edit Stop' : 'Add Stop' }}</h5>
-                      <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                    </div>
-                    <div class="modal-body">
-                      <!-- Single Stop Form (for editing) -->
-                      <div v-if="!isMultipleStopMode">
-                        <div class="row">
-                          <div class="col-md-4 mb-3">
-                            <label>Name</label>
-                            <input v-model="currentStop.name" type="text" class="form-control"
-                              @input="formatStopNameToUppercase" />
-                          </div>
-                          <div class="col-md-4 mb-3">
-                            <label>City</label>
-                            <Multiselect v-model="currentStop.city_id" :options="cities" label="name" track-by="id"
-                              placeholder="Select City" />
-                          </div>
-                        </div>
-                        <div class="row">
-                          <div class="col-md-4 mb-3">
-                            <label>Status</label>
-                            <select v-model="currentStop.status" class="form-control">
-                              <option value="Active">Active</option>
-                              <option value="Inactive">Inactive</option>
-                            </select>
-                          </div>
-                        </div>
-                      </div>
-
-                      <!-- Multiple Stops Form (for adding new) -->
-                      <div v-else>
-                        <table class="table table-bordered table-sm align-middle">
-                            <thead class="table-light">
-                              <tr>
-                                <th style="width: 5%">#</th>
-                                <th style="width: 30%">Name</th>
-                                <th style="width: 30%">City</th>
-                                <th v-if="multipleStops.length > 1" style="width: 10%">Action</th>
-                              </tr>
-                            </thead>
-
-                            <tbody>
-                              <tr v-for="(stop, index) in multipleStops" :key="index">
-
-                                <!-- Number -->
-                                <td class="text-center fw-bold">
-                                  {{ multipleStops.length - index }}
-                                </td>
-
-                                <!-- Name -->
-                                <td>
-                                  <input v-model="stop.name" @input="formatMultipleStopNameToUppercase(index)"
-                                    type="text" class="form-control form-control" placeholder="Enter stop name" />
-                                </td>
-                                <!-- City -->
-                                <td>
-                                  <Multiselect v-model="stop.city_id" :options="cities" label="name" track-by="id"
-                                    placeholder="Select City" />
-                                </td>
-
-
-
-                                <!-- Delete -->
-                                <td v-if="multipleStops.length > 1" class="text-center">
-                                  <button type="button" class="btn btn-sm btn-outline-danger"
-                                    @click="removeStopRow(index)">
-                                    remove
-                                  </button>
-                                </td>
-
-                              </tr>
-                            </tbody>
-                          </table>
-                      </div>
-                    </div>
-                    <div class="modal-footer">
-                      <button class="btn btn-outline-danger" data-bs-dismiss="modal">Cancel</button>
-                      <button v-if="isMultipleStopMode" type="button" class="btn btn btn-outline-secondary"
-                        @click="addStopRow">
-                        <i class="fa fa-plus me-1"></i> Add Row
-                      </button>
-                      <button class="btn btn-outline-primary" @click="saveStop">{{ currentStop.id ? 'Update' : 'Save'
-                      }}</button>
-                    </div>
-                  </div>
-                </div>
+              <div class="col-md-4 mb-3">
+                <label>City/Town</label>
+                <Multiselect v-model="currentStop.city_id" :options="parentLocations" label="name" track-by="id"
+                  placeholder="Select City/Town" />
               </div>
+              <div class="col-md-4 mb-3">
+                <label>Type</label>
+                <select v-model="currentStop.type" class="form-control">
+                  <option v-for="opt in stopTypeOptions" :key="opt.id" :value="opt.id">
+                    {{ opt.name }}
+                  </option>
+                </select>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-md-4 mb-3">
+                <label>Code</label>
+                <input v-model="currentStop.code" @input="currentStop.code = $event.target.value.toUpperCase()"
+                  type="text" class="form-control" />
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-md-4 mb-3">
+                <label>Status</label>
+                <select v-model="currentStop.status" class="form-control">
+                  <option value="Active">Active</option>
+                  <option value="Inactive">Inactive</option>
+                </select>
+              </div>
+            </div>
+            <div class="mb-3">
+              <label>Map Picker (optional)</label>
+              <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+                <input v-model="stopSearchQuery" type="text" class="form-control"
+                  placeholder="Search place (OpenStreetMap)" style="max-width: 320px;" />
+                <button class="btn btn-outline-secondary btn-sm" type="button" :disabled="stopSearchLoading"
+                  @click="searchStopPlaces">
+                  Search
+                </button>
+              </div>
+              <div v-if="stopSearchResults.length" class="list-group mb-2">
+                <button v-for="place in stopSearchResults" :key="place.place_id"
+                  class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
+                  type="button" @click="centerStopPlace(place)">
+                  <span class="text-start">{{ place.display_name }}</span>
+                  <span class="badge bg-light text-dark">Center</span>
+                </button>
+              </div>
+              <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+                <small class="text-muted">Point selected: {{ stopMapPoints.length }}</small>
+                <button class="btn btn-outline-secondary btn-sm" type="button" :disabled="!stopMapPoints.length"
+                  @click="removeLastStopPoint">
+                  Undo Last
+                </button>
+                <button class="btn btn-outline-secondary btn-sm" type="button" :disabled="!stopMapPoints.length"
+                  @click="clearStopPoints">
+                  Clear Points
+                </button>
+              </div>
+              <div id="stop-map" class="stop-map"></div>
+            </div>
+          </div>
+
+          <!-- Multiple Stops Form (for adding new) -->
+          <div v-else>
+            <table class="table table-bordered table-sm align-middle">
+              <thead class="table-light">
+                <tr>
+                  <th style="width: 5%">#</th>
+                  <th style="width: 30%">Name</th>
+                  <th style="width: 25%">City/Town</th>
+                  <th style="width: 20%">Type</th>
+                  <th v-if="multipleStops.length > 1" style="width: 10%">Action</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                <tr v-for="(stop, index) in multipleStops" :key="index">
+
+                  <!-- Number -->
+                  <td class="text-center fw-bold">
+                    {{ multipleStops.length - index }}
+                  </td>
+
+                  <!-- Name -->
+                  <td>
+                    <input v-model="stop.name" @input="formatMultipleStopNameToUppercase(index)" type="text"
+                      class="form-control form-control" placeholder="Enter stop name" />
+                  </td>
+                  <!-- City -->
+                  <td>
+                    <Multiselect v-model="stop.city_id" :options="parentLocations" label="name" track-by="id"
+                      placeholder="Select City/Town" />
+                  </td>
+                  <td>
+                    <select v-model="stop.type" class="form-control form-control-sm">
+                      <option v-for="opt in stopTypeOptions" :key="opt.id" :value="opt.id">
+                        {{ opt.name }}
+                      </option>
+                    </select>
+                  </td>
+
+
+
+                  <!-- Delete -->
+                  <td v-if="multipleStops.length > 1" class="text-center">
+                    <button type="button" class="btn btn-sm btn-outline-danger" @click="removeStopRow(index)">
+                      remove
+                    </button>
+                  </td>
+
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline-danger" data-bs-dismiss="modal">Cancel</button>
+          <button v-if="isMultipleStopMode" type="button" class="btn btn btn-outline-secondary" @click="addStopRow">
+            <i class="fa fa-plus me-1"></i> Add Row
+          </button>
+          <button class="btn btn-outline-primary" @click="saveStop">{{ currentStop.id ? 'Update' : 'Save'
+          }}</button>
+        </div>
+      </div>
+    </div>
+  </div>
   <div v-if="false">
     <!-- Breadcrumb -->
     <div class="d-flex justify-content-between align-items-center">
@@ -600,6 +652,8 @@ import { Modal } from 'bootstrap';
 import StandardDataTable from '@/components/plugins/StandardDataTable.vue';
 import Multiselect from 'vue-multiselect';
 import 'vue-multiselect/dist/vue-multiselect.min.css';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import { useNotification } from '@/composables/notification';
 import { useAuthStore } from "@/stores/auth";
 
@@ -615,16 +669,12 @@ const authStore = useAuthStore();
 const debugModal = (modalId) => {
   const modalElement = document.getElementById(modalId);
   // if (modalElement) {
-  //   console.log(`Modal ${modalId} state:`, {
-  //     display: modalElement.style.display,
-  //     classes: modalElement.className,
-  //     ariaHidden: modalElement.getAttribute('aria-hidden'),
+  //,
   //     ariaModal: modalElement.getAttribute('aria-modal'),
   //     isVisible: modalElement.offsetParent !== null
   //   });
   // } else {
-  //   console.log(`Modal ${modalId} not found in DOM`);
-  // }
+  //// }
 };
 
 // Helper function to safely open modals
@@ -638,8 +688,7 @@ const openModalSafely = async (modalId, modalRef) => {
       return;
     }
 
-    // console.log(`Opening modal: ${modalId}`);
-    debugModal(modalId);
+    //debugModal(modalId);
 
     // Dispose existing modal instance if it exists
     if (modalRef.value) {
@@ -660,12 +709,10 @@ const openModalSafely = async (modalId, modalRef) => {
 
       // Add event listeners for debugging
       // modalElement.addEventListener('shown.bs.modal', () => {
-      //   console.log(`Modal ${modalId} shown successfully`);
-      // });
+      //// });
 
       // modalElement.addEventListener('hidden.bs.modal', () => {
-      //   console.log(`Modal ${modalId} hidden`);
-      // });
+      //// });
 
       modalRef.value.show();
 
@@ -714,8 +761,7 @@ const openModalSafely = async (modalId, modalRef) => {
         }
       };
 
-      // console.log(`Modal ${modalId} opened manually`);
-    }
+  }
   } catch (error) {
     console.error(`Error opening modal ${modalId}:`, error);
     showAlert('error', `Failed to open modal: ${modalId}`);
@@ -810,14 +856,6 @@ const saveQuickCity = async () => {
 };
 
 
-
-
-
-
-
-
-
-
 // Fetch offices
 const fetchScheduleTimetable = async () => {
   isLoading.value = true;
@@ -856,53 +894,33 @@ const fetchroutes = async () => {
   }
 };
 
-const fetchFormData = async () => {
-  if (formDataLoaded.value) return; // Skip if already loaded
+// const fetchFormData = async () => {
+//   if (formDataLoaded.value) return; // Skip if already loaded
 
-  try {
-    const response = await axiosInstance.get('/locations/form-data');
-    // console.log('Form Data Response:', response.data); // Debug log
+//   try {
+//     const response = await axiosInstance.get('/locations/form-data');
+//     //// Debug log
 
-    serviceClasses.value = response.data.data.service_classes || [];
-    originalTerminals.value = response.data.data.original_terminals || [];
-    destinationTerminals.value = response.data.data.destination_terminals || [];
-    cities.value = response.data.data.cities || [];
+//     serviceClasses.value = response.data.data.service_classes || [];
+//     originalTerminals.value = response.data.data.original_terminals || [];
+//     destinationTerminals.value = response.data.data.destination_terminals || [];
+//     cities.value = response.data.data.cities || [];
 
-    // console.log('Cities loaded:', cities.value); // Debug log
-    formDataLoaded.value = true;
+//     //// Debug log
+//     formDataLoaded.value = true;
 
-  } catch (error) {
-    console.error('Form Data Error:', error); // Debug log
-    showAlert('error', 'Failed to fetch form data');
-  }
-};
+//   } catch (error) {
+//     console.error('Form Data Error:', error); // Debug log
+//     showAlert('error', 'Failed to fetch form data');
+//   }
+// };
 
 const scheduleTimetableAction = () => {
   fetchScheduleTimetable();
-  fetchFormData();
+  // fetchFormData();
   fetchroutes();
 
 };
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 const isLoadingCityLink = ref(false);
 const cityLinks = ref([]);
@@ -989,9 +1007,9 @@ const fetchCityLinks = async () => {
 
 const openCityLinkModal = async (link = null) => {
   // Ensure cities are loaded before opening modal
- 
-    await fetchFormData();
- 
+
+  await fetchFormData();
+
 
   if (link) {
     currentCityLink.value = { ...link };
@@ -1526,9 +1544,7 @@ const filteredLinks = computed(() => {
     .map(r => (r.city_link_id?.id ?? r.city_link_id)) // handle object or number
     .filter(id => id != null);
 
-  // console.log("Selected IDs:", selectedIds);
-
-  // ✅ Return cityLinks that are NOT selected
+  //// ✅ Return cityLinks that are NOT selected
   return cityLinks.value.filter(link => !selectedIds.includes(link.id));
 });
 
@@ -1582,14 +1598,11 @@ const fetchSubRoutesList = async () => {
   isLoadingSubRoutes.value = true;
   try {
     const response = await axiosInstance.get('/sub-routes');
-    // console.log(response.data);
-
-    subRoutesList.value = response.data.data.map((d, index) => ({
-      sno: index + 1,
-      ...d
-    }));
-    // console.log(subRoutesList.value);
-    subRoutesLoaded.value = true;
+subRoutesList.value = response.data.data.map((d, index) => ({
+        sno: index + 1,
+        ...d
+      }));
+      subRoutesLoaded.value = true;
 
   } catch (error) {
     showAlert('error', 'Failed to fetch subroutes');
@@ -1911,20 +1924,21 @@ const currentStop = ref({
   id: null,
   name: "",
   city_id: "",
-  status: "Active"
+  type: "AIRPORT",
+  code: "",
+  status: "Active",
+  geo_locations: []
 });
 
 // Multiple stops functionality
 const multipleStops = ref([]);
 const isMultipleStopMode = ref(false);
 
-
-
-
 const stopColumns = ref([
   { key: 'sno', label: 'Sno', visible: true, sortable: false },
   { key: 'name', label: 'Name', visible: true, sortable: false },
-  { key: 'city', label: 'City', visible: true, sortable: false },
+  { key: 'city', label: 'City/Town', visible: true, sortable: false },
+  { key: 'type', label: 'Type', visible: true, sortable: false },
   { key: 'status', label: 'Status', visible: true, sortable: false },
   { key: 'actions', label: 'Actions', visible: true, sortable: false },
 ]);
@@ -1962,7 +1976,21 @@ const stopPageActions = computed(() => {
 });
 
 
+const parentLocations = ref([]);
 const cities = ref([]);
+
+const stopTypeOptions = ref([
+  { id: 'AIRPORT', name: 'AIRPORT' },
+  { id: 'PORT', name: 'PORT' },
+  { id: 'DEPOT', name: 'DEPOT' }
+]);
+
+const stopMapPoints = ref([]);
+const stopMap = ref(null);
+const stopMapLayer = ref(null);
+const stopSearchQuery = ref('');
+const stopSearchResults = ref([]);
+const stopSearchLoading = ref(false);
 
 // Lazy loading flags to prevent unnecessary API calls
 const routesLoaded = ref(false);
@@ -2103,14 +2131,171 @@ const formatMultipleStopNameToUppercase = (stopIndex) => {
 
 
 
+const resolveId = (value) => {
+  if (!value) return null;
+  if (typeof value === 'object') return value.id ?? null;
+  return value;
+};
+
+const parsePayloadRows = (payload) => {
+  if (Array.isArray(payload?.data)) return payload.data;
+  if (Array.isArray(payload)) return payload;
+  return [];
+};
+
+const parseGeoCoordinates = (input) => {
+  if (!input) return null;
+  let coords = input;
+  if (typeof input === 'string') {
+    try {
+      coords = JSON.parse(input);
+    } catch (error) {
+      return null;
+    }
+  }
+  if (coords?.coordinates && Array.isArray(coords.coordinates) && coords.coordinates.length >= 2) {
+    return { lat: coords.coordinates[1], lng: coords.coordinates[0] };
+  }
+  return coords;
+};
+
+const renderStopPoints = () => {
+  if (!stopMapLayer.value) return;
+  stopMapLayer.value.clearLayers();
+  stopMapPoints.value.forEach((point) => {
+    L.marker([point.lat, point.lng]).addTo(stopMapLayer.value);
+  });
+};
+
+const addStopPoint = (latlng) => {
+  stopMapPoints.value = [{ lat: latlng.lat, lng: latlng.lng }];
+  renderStopPoints();
+};
+
+const clearStopPoints = () => {
+  stopMapPoints.value = [];
+  renderStopPoints();
+};
+
+const removeLastStopPoint = () => {
+  if (!stopMapPoints.value.length) return;
+  stopMapPoints.value.pop();
+  renderStopPoints();
+};
+
+const initStopMap = () => {
+  const el = document.getElementById('stop-map');
+  if (!el) return;
+
+  if (!stopMap.value) {
+    stopMap.value = L.map(el).setView([-6.7924, 39.2083], 6);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(stopMap.value);
+    stopMapLayer.value = L.layerGroup().addTo(stopMap.value);
+    stopMap.value.on('click', (event) => addStopPoint(event.latlng));
+  } else {
+    stopMap.value.invalidateSize();
+  }
+
+  if (stopMapPoints.value.length) {
+    const firstPoint = stopMapPoints.value[0];
+    stopMap.value.setView([firstPoint.lat, firstPoint.lng], 12);
+  }
+
+  renderStopPoints();
+};
+
+const searchStopPlaces = async () => {
+  const query = stopSearchQuery.value.trim();
+  if (!query) {
+    stopSearchResults.value = [];
+    return;
+  }
+  stopSearchLoading.value = true;
+  try {
+    const response = await axios.get('https://nominatim.openstreetmap.org/search', {
+      params: {
+        format: 'json',
+        q: query,
+        limit: 5
+      }
+    });
+    stopSearchResults.value = Array.isArray(response.data) ? response.data : [];
+  } catch (error) {
+    showAlert('error', 'Failed to search places');
+  } finally {
+    stopSearchLoading.value = false;
+  }
+};
+
+const centerStopPlace = (place) => {
+  if (!place || !stopMap.value) return;
+  const lat = Number(place.lat);
+  const lng = Number(place.lon);
+  if (Number.isNaN(lat) || Number.isNaN(lng)) return;
+  stopMap.value.setView([lat, lng], 13);
+  stopMapPoints.value = [{ lat, lng }];
+  renderStopPoints();
+  stopSearchQuery.value = place.display_name || '';
+  stopSearchResults.value = [];
+};
+
+const buildGeoLocationsPayload = () => {
+  if (!stopMapPoints.value.length) return [];
+  const firstPoint = stopMapPoints.value[0];
+  return [{
+    coordinates_type: 'POINT',
+    coordinates: JSON.stringify({ lat: firstPoint.lat, lng: firstPoint.lng })
+  }];
+};
+
+const fetchStopParents = async () => {
+  try {
+    const [citiesRes, townsRes] = await Promise.all([
+      axiosInstance.get('/locations?type=CITY'),
+      axiosInstance.get('/locations?type=TOWN')
+    ]);
+    const citiesPayload = citiesRes.data?.data || citiesRes.data;
+    const townsPayload = townsRes.data?.data || townsRes.data;
+    const citiesRows = parsePayloadRows(citiesPayload);
+    const townsRows = parsePayloadRows(townsPayload);
+    parentLocations.value = [...citiesRows, ...townsRows];
+  } catch (error) {
+    showAlert('error', 'Failed to fetch cities/towns');
+  }
+};
+
 const fetchStopsList = async () => {
   isLoadingStops.value = true;
   try {
-    const response = await axiosInstance.get('locations/stops');
-    stopsList.value = response.data.data.map((d, index) => ({
+    const responses = await Promise.all([
+      axiosInstance.get('/locations?type=AIRPORT&with_coordinates=1'),
+      axiosInstance.get('/locations?type=PORT&with_coordinates=1'),
+      axiosInstance.get('/locations?type=DEPOT&with_coordinates=1')
+    ]);
+    const rows = responses.flatMap((res) => {
+      const payload = res.data?.data || res.data;
+      return parsePayloadRows(payload);
+    });
+    const unique = new Map();
+    rows.forEach((row) => {
+      if (row?.id != null) {
+        unique.set(row.id, row);
+      }
+    });
+
+    stopsList.value = Array.from(unique.values()).map((d, index) => ({
       sno: index + 1,
-      ...d,
-      status: 'Active' // Set all stops as active for now
+      id: d.id,
+      name: d.name,
+      code: d.code || '',
+      type: d.type || '',
+      city: d.parent_name || '',
+      city_id: d.parent?.id || null,
+      status: d.is_disabled ? 'Inactive' : 'Active',
+      geo_locations: d.geo_locations || d.coordinates || []
     }));
     stopsLoaded.value = true;
   } catch (error) {
@@ -2122,26 +2307,49 @@ const fetchStopsList = async () => {
 
 const openStopModal = async (stop = null) => {
   fetchFormData();
+  await fetchStopParents();
+  clearStopPoints();
+  stopSearchQuery.value = '';
+  stopSearchResults.value = [];
+
   if (stop) {
-    currentStop.value = { ...stop };
+    currentStop.value = {
+      id: stop.id,
+      name: stop.name,
+      city_id: parentLocations.value.find((d) => d.id === stop.city_id) || stop.city_id,
+      type: stop.type || 'AIRPORT',
+      code: stop.code || '',
+      status: stop.status || 'Active',
+      geo_locations: stop.geo_locations || []
+    };
     isMultipleStopMode.value = false;
     multipleStops.value = [];
+
+    const points = [];
+    (stop.geo_locations || []).forEach((geo) => {
+      const coords = parseGeoCoordinates(geo.coordinates);
+      if (coords?.lat != null && coords?.lng != null) {
+        points.push({ lat: coords.lat, lng: coords.lng });
+      }
+    });
+    stopMapPoints.value = points;
   } else {
     currentStop.value = {
       id: null,
       name: "",
       city_id: "",
-      status: "Active"
+      type: "AIRPORT",
+      code: "",
+      status: "Active",
+      geo_locations: []
     };
-    isMultipleStopMode.value = true; // Always start in multiple mode for new entries
-    multipleStops.value = [{
-      id: null,
-      name: "",
-      city_id: "",
-      status: "Active"
-    }];
+    isMultipleStopMode.value = false;
+    multipleStops.value = [];
   }
+
   await openModalSafely('stopModal', stopModal);
+  await nextTick();
+  initStopMap();
 };
 
 // Add new stop row
@@ -2150,13 +2358,12 @@ const addStopRow = () => {
     id: null,
     name: "",
     city_id: "",
+    type: "AIRPORT",
     status: "Active"
   };
 
-  // Add to the beginning of the array (latest first)
   multipleStops.value.unshift(newRow);
 
-  // Scroll to the top to show the newly added row
   nextTick(() => {
     const container = document.querySelector('.stops-container');
     if (container) {
@@ -2179,25 +2386,60 @@ const saveStop = async () => {
   }
 
   try {
-    let params = {
+    const parentId = resolveId(currentStop.value.city_id);
+    if (!parentId) {
+      showAlert('error', 'Please select a City/Town');
+      return;
+    }
+
+    const geoLocations = buildGeoLocationsPayload();
+    if (geoLocations === null) {
+      return;
+    }
+
+    const payload = {
+      location_id: parentId,
       name: currentStop.value.name,
-      city_id: typeof currentStop.value.city_id === 'object' ? currentStop.value.city_id.id : currentStop.value.city_id,
-      status: currentStop.value.status
+      code: (currentStop.value.code || '').toUpperCase(),
+      type: currentStop.value.type,
+      operation_type: 'PHYSICAL_LOCATION',
+      is_disabled: currentStop.value.status === 'Inactive'
     };
+
+    if (geoLocations.length) {
+      payload.geo_locations = geoLocations;
+    }
+
     let response;
     if (currentStop.value.id) {
-      response = await axiosInstance.put(`locations/stops/${currentStop.value.id}`, params);
+      response = await axiosInstance.put(`/locations/${currentStop.value.id}`, payload);
+      if (geoLocations.length) {
+        for (const geo of geoLocations) {
+          await axiosInstance.post(`/locations/${currentStop.value.id}/geo-locations`, geo);
+        }
+      }
     } else {
-      response = await axiosInstance.post('locations/stops', params);
+      response = await axiosInstance.post('/locations', payload);
     }
-    if (response.data.status === "success") {
+
+    if (response?.data?.status === "success" || response?.data?.success) {
       showAlert('success', 'Stop saved successfully');
       stopModal.value.hide();
-      stopsLoaded.value = false; // Reset flag to reload data
+      stopsLoaded.value = false;
+      await fetchStopsList();
+    } else {
+      showAlert('success', 'Stop saved successfully');
+      stopModal.value.hide();
+      stopsLoaded.value = false;
       await fetchStopsList();
     }
   } catch (error) {
-    showAlert('error', 'Failed to save stop');
+    if (error.response?.status === 422) {
+      const errors = error.response.data.errors || {};
+      Object.values(errors).forEach(msgs => msgs.forEach(msg => showAlert('error', msg)));
+    } else {
+      showAlert('error', 'Failed to save stop');
+    }
   }
 };
 
@@ -2205,32 +2447,30 @@ const saveStop = async () => {
 const saveMultipleStops = async () => {
   isLoading.value = false;
   try {
-    // Validate all entries
     for (let i = 0; i < multipleStops.value.length; i++) {
       const stop = multipleStops.value[i];
-      if (!stop.name || !stop.city_id || !stop.status) {
+      if (!stop.name || !stop.city_id || !stop.type) {
         showAlert('error', `Please fill all required fields in row ${i + 1}`);
         return;
       }
     }
 
-    // Prepare batch data
     const batchData = multipleStops.value.map(stop => ({
+      location_id: resolveId(stop.city_id),
       name: stop.name,
-      city_id: typeof stop.city_id === 'object' ? stop.city_id.id : stop.city_id,
-      status: 'active'
+      code: (stop.code || '').toUpperCase(),
+      type: stop.type,
+      operation_type: 'PHYSICAL_LOCATION',
+      is_disabled: stop.status === 'Inactive'
     }));
 
-    // Send batch request
-    const response = await axiosInstance.post('locations/stops', { stops: batchData });
+    await axiosInstance.post('/locations', { locations: batchData });
 
-    if (response.data.status === "success") {
-      showAlert('success', `${multipleStops.value.length} Stops saved successfully`);
-      stopModal.value.hide();
-      isLoading.value = false;
-      stopsLoaded.value = false; // Reset flag to reload data
-      await fetchStopsList();
-    }
+    showAlert('success', `${multipleStops.value.length} Stops saved successfully`);
+    stopModal.value.hide();
+    isLoading.value = false;
+    stopsLoaded.value = false;
+    await fetchStopsList();
   } catch (error) {
     if (error.response?.status === 422) {
       isLoading.value = false;
@@ -2353,7 +2593,8 @@ const stSubRouteAction = () => {
 
 
 onMounted(async () => {
- fetchStopsList()
+  await fetchStopParents();
+  await fetchStopsList();
 });
 
 </script>
@@ -2712,5 +2953,12 @@ input[type="text"] {
   position: absolute !important;
   z-index: 9999 !important;
   max-height: 250px !important;
+}
+
+.stop-map {
+  height: 360px;
+  width: 100%;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
 }
 </style>

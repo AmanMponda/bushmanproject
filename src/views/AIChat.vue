@@ -21,9 +21,7 @@ export default {
   export default {
     async mounted() {
       const response = await fetch('https://api.example.com/data');
-      const data = await response.json();
-      console.log(data);
-    }
+      const data = await response.json();}
   }
 <\/script>`};
   },

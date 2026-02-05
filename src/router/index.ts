@@ -13,12 +13,17 @@ import ComingSoon from "@/views/auth/ComingSoon.vue";
 
 // bushman routes
 const Dashboard = () => import ('@/views/bushman/dashboard/Dashboard.vue')
+const BushmanFleetMaster = () => import('@/views/bushman/assets/FleetMaster.vue')
+const BushmanFleetMasterPdf = () => import('@/views/bushman/assets/FleetMasterPdf.vue')
+const BushmanLocationHistory = () => import('@/views/bushman/assets/LocationHistory.vue')
+const BushmanOdometerReadingHistory = () => import('@/views/bushman/assets/OdometerReadingHistory.vue')
 const SalesQuotas = () => import ('@/views/bushman/details/QoutaPage.vue')
 const Salespipeline = () => import('@/views/bushman/sales/SalesPipeline.vue');
 const SalesCalendar = () => import ('@/views/bushman/details/Calendar.vue')
 const ManagePriceList = () => import('@/views/bushman/sales/ManagePriceList.vue');
 const SalesRequisitions = () => import('@/views/bushman/sales/Requisitions.vue');
 const SalesRequisitionDetails = () => import('@/views/bushman/sales/RequisitionDetails.vue');
+const SalesRequisitionPrint = () => import('@/views/bushman/sales/RequisitionPdfView.vue');
 const PriceStructureAddItem = () => import('@/views/bushman/sales/price-structures/PriceStructureAddItem.vue');
 const PriceStructureAddPrice = () => import('@/views/bushman/sales/price-structures/PriceStructureAddPrice.vue');
 const PriceStructureAddSafariExtra = () => import('@/views/bushman/sales/price-structures/PriceStructureAddSafariExtra.vue');
@@ -38,12 +43,18 @@ const ManageRequisitionTypes = () => import('@/views/bushman/module-settings/Man
 const ManageCostCenters = () => import('@/views/bushman/module-settings/ManageCostCenters.vue');
 const ManageAreaSettings = () => import('@/views/bushman/module-settings/ManageArea.vue');
 const ManageHuntingTypes = () => import('@/views/bushman/module-settings/ManageHuntingTypes.vue');
+const ManageSeasons = () => import('@/views/bushman/module-settings/ManageSeasons.vue');
 const ManageSpeciesSettings = () => import('@/views/bushman/module-settings/ManageSpecies.vue');
 const ManageAccounts = () => import('@/views/bushman/module-settings/ManageAccounts.vue');
 const ManageUsers = () => import('@/views/bushman/module-settings/ManageUsers.vue');
 const ManageDocuments = () => import('@/views/bushman/module-settings/ManageDocuments.vue');
 const ManageInstallmentSetups = () => import('@/views/bushman/module-settings/ManageInstallmentSetups.vue');
+const ManageEntityCategories = () => import('@/views/bushman/module-settings/ManageEntityCategories.vue');
+const EntityManagement = () => import('@/views/bushman/module-settings/EntityManagement.vue');
+const EntityCreate = () => import('@/views/bushman/module-settings/EntityCreate.vue');
 const GovernmentFees = () => import('@/views/GovernmentFees.vue');
+const ModuleComingSoon = () => import('@/views/bushman/module-settings/ModuleComingSoon.vue');
+const AssetGroups = () => import('@/views/bushman/module-settings/AssetGroups.vue');
 
 const Managesalesinquiry = () => import('@/views/bushman/sales/SalesInquiries.vue');
 const SalesInquiryDetails = () => import('@/views/bushman/sales/salesinquiries/SalesInquiryDetails.vue');
@@ -56,6 +67,10 @@ const OrderDetails = () => import('@/views/orders/OrderDetails.vue');
 const ContractList = () => import('@/views/contracts/ContractList.vue');
 const ContractForm = () => import('@/views/contracts/ContractForm.vue');
 const ContractDetails = () => import('@/views/contracts/ContractDetails.vue');
+const Suppliers = () => import('@/views/bushman/procurement/Suppliers.vue');
+const SupplierCreate = () => import('@/views/bushman/procurement/SupplierCreate.vue');
+const SupplierView = () => import('@/views/bushman/procurement/SupplierView.vue');
+const Clients = () => import('@/views/bushman/sales/Clients.vue');
 
 // Location Master routes
 const LocationMasterIndex = () => import('@/views/bushman/locationMaster/index.vue');
@@ -129,6 +144,37 @@ const router = createRouter({
       component: Dashboard,
       meta: { requiresAuth: true }
     },
+    {
+      path: "/bushman/assets/fleet-master",
+      name: "bushman-fleet-master",
+      component: BushmanFleetMaster,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/bushman/assets/fleet-master/print",
+      name: "bushman-fleet-master-print",
+      component: BushmanFleetMasterPdf,
+      meta: { requiresAuth: true }
+    },
+    // Dynamic details route - supports deep-linking to either registration or numeric id
+    {
+      path: "/bushman/assets/fleet-master/:id",
+      name: "bushman-fleet-master-details",
+      component: BushmanFleetMaster,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/bushman/assets/location-history",
+      name: "bushman-location-history",
+      component: BushmanLocationHistory,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/bushman/assets/odometer-reading",
+      name: "bushman-odometer-reading",
+      component: BushmanOdometerReadingHistory,
+      meta: { requiresAuth: true }
+    },
 
     {
       path: "/sales/quotas",
@@ -136,6 +182,12 @@ const router = createRouter({
       component: SalesQuotas,
       meta: { requiresAuth: true }
     },
+    // {
+    //   path: "/sales/clients",
+    //   name: "sales-clients",
+    //   component: SalesClients,
+    //   meta: { requiresAuth: true }
+    // },
     {
       path: "/sales/sales-pipeline",
       name: "Sales-pipeline",
@@ -176,6 +228,12 @@ const router = createRouter({
       component: SalesRequisitionDetails,
       meta: { requiresAuth: true },
       props: (route) => ({ id: Number(route.params.id) })
+    },
+    {
+      path: "/sales/requisitions/:id/print",
+      name: "sales-requisition-print",
+      component: SalesRequisitionPrint,
+      meta: { requiresAuth: true }
     },
     {
       path: "/sales/requisitions/:id/edit",
@@ -228,6 +286,12 @@ const router = createRouter({
       path: "/sales/sales-inquiry",
       name: "sales-inquiry",
       component: Managesalesinquiry,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/sales/clients",
+      name: "sales-clients",
+      component: Clients,
       meta: { requiresAuth: true }
     },
 
@@ -292,6 +356,38 @@ const router = createRouter({
       meta: { requiresAuth: true },
       props: (route) => ({ id: Number(route.params.id) })
     },
+    {
+      path: "/procurement/suppliers",
+      name: "procurement-suppliers",
+      component: Suppliers,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/procurement/suppliers/create",
+      name: "procurement-suppliers-create",
+      component: SupplierCreate,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/procurement/suppliers/view/:id",
+      name: "procurement-suppliers-view",
+      component: SupplierView,
+      meta: { requiresAuth: true },
+      props: (route) => ({ id: Number(route.params.id) })
+    },
+    {
+      path: "/procurement/suppliers/edit/:id",
+      name: "procurement-suppliers-edit",
+      component: SupplierCreate,
+      meta: { requiresAuth: true },
+      props: (route) => ({ id: Number(route.params.id) })
+    },
+    // {
+    //   path: "/procurement/suppliers/print",
+    //   name: "procurement-suppliers-print",
+    //   component: SupplierPdf,
+    //   meta: { requiresAuth: true }
+    // },
 
     {
       path: "/module-settings/regulatory-package",
@@ -391,6 +487,12 @@ const router = createRouter({
       meta: { requiresAuth: true }
     },
     {
+      path: "/module-settings/seasons",
+      name: "seasons",
+      component: ManageSeasons,
+      meta: { requiresAuth: true }
+    },
+    {
       path: "/module-settings/species-settings/species",
       name: "species-settings",
       component: ManageSpeciesSettings,
@@ -412,6 +514,242 @@ const router = createRouter({
       path: "/module-settings/installment-setups",
       name: "installment-setups",
       component: ManageInstallmentSetups,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/module-settings/entity-categories",
+      name: "entity-categories",
+      component: ManageEntityCategories,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/module-settings/entities",
+      name: "module-settings-entities",
+      component: EntityManagement,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/module-settings/entities/create",
+      name: "entity-create",
+      component: EntityCreate,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/module-settings/entities/:id/edit",
+      name: "entity-edit",
+      component: EntityCreate,
+      meta: { requiresAuth: true }
+    },
+
+    // Asset Management Routes
+    {
+      path: "/module-settings/asset-groups",
+      name: "asset-groups",
+      component: AssetGroups,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/module-settings/asset-categories",
+      name: "asset-categories",
+      component: AssetGroups,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/module-settings/asset-depreciation",
+      name: "asset-depreciation",
+      component: ModuleComingSoon,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/module-settings/location-master",
+      name: "module-location-master",
+      component: ModuleComingSoon,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/module-settings/vehicle-models",
+      name: "vehicle-models",
+      component: () => import('@/views/bushman/module-settings/VehicleModels.vue'),
+      meta: { requiresAuth: true }
+    },
+
+    // Procurement Settings Routes
+    {
+      path: "/module-settings/supplier-categories",
+      name: "supplier-categories",
+      component: ModuleComingSoon,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/module-settings/purchase-approval-rules",
+      name: "purchase-approval-rules",
+      component: ModuleComingSoon,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/module-settings/reorder-levels",
+      name: "reorder-levels",
+      component: ModuleComingSoon,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/module-settings/procurement-tax-rules",
+      name: "procurement-tax-rules",
+      component: ModuleComingSoon,
+      meta: { requiresAuth: true }
+    },
+
+    // Inventory Settings Routes
+    {
+      path: "/module-settings/uom",
+      name: "uom",
+      component: ModuleComingSoon,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/module-settings/warehouses",
+      name: "warehouses",
+      component: ModuleComingSoon,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/module-settings/stock-valuation",
+      name: "stock-valuation",
+      component: ModuleComingSoon,
+      meta: { requiresAuth: true }
+    },
+
+    // CRM Settings Routes
+    {
+      path: "/module-settings/customer-categories",
+      name: "customer-categories",
+      component: ModuleComingSoon,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/module-settings/customer-types",
+      name: "customer-types",
+      component: ModuleComingSoon,
+      meta: { requiresAuth: true }
+    },
+
+    // Accounting Settings Routes
+    {
+      path: "/module-settings/account-dimensions",
+      name: "account-dimensions",
+      component: ModuleComingSoon,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/module-settings/fiscal-years",
+      name: "fiscal-years",
+      component: ModuleComingSoon,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/module-settings/accounting-periods",
+      name: "accounting-periods",
+      component: ModuleComingSoon,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/module-settings/tax-types",
+      name: "tax-types",
+      component: ModuleComingSoon,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/module-settings/payment-methods",
+      name: "payment-methods",
+      component: ModuleComingSoon,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/module-settings/currency-setup",
+      name: "currency-setup",
+      component: ModuleComingSoon,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/module-settings/instalment-rules",
+      name: "instalment-rules",
+      component: ModuleComingSoon,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/module-settings/revenue-recognition",
+      name: "revenue-recognition",
+      component: ModuleComingSoon,
+      meta: { requiresAuth: true }
+    },
+
+    // Operations Setup Routes
+    {
+      path: "/module-settings/contract-types",
+      name: "contract-types",
+      component: ModuleComingSoon,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/module-settings/approval-levels",
+      name: "approval-levels",
+      component: ModuleComingSoon,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/module-settings/escalation-rules",
+      name: "escalation-rules",
+      component: ModuleComingSoon,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/module-settings/delegation-rules",
+      name: "delegation-rules",
+      component: ModuleComingSoon,
+      meta: { requiresAuth: true }
+    },
+
+    // System Configuration Routes
+    {
+      path: "/module-settings/numbering-series",
+      name: "numbering-series",
+      component: ModuleComingSoon,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/module-settings/date-time-formats",
+      name: "date-time-formats",
+      component: ModuleComingSoon,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/module-settings/localization",
+      name: "localization",
+      component: ModuleComingSoon,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/module-settings/notifications",
+      name: "notifications",
+      component: ModuleComingSoon,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/module-settings/audit-logs",
+      name: "audit-logs",
+      component: ModuleComingSoon,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/module-settings/user-access",
+      name: "user-access",
+      component: ModuleComingSoon,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/module-settings",
+      name: "module-settings-main",
+      component: ModuleComingSoon,
       meta: { requiresAuth: true }
     },
 

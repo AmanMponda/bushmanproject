@@ -343,9 +343,10 @@ onMounted(async () => {
 const fetchOffices = async () => {
   isLoading.value = true;
   try {
-    const response = await axiosInstance.get('/locations/offices');
-    const data = response.data.data || response.data;
-    offices.value = (Array.isArray(data) ? data : []).map((d, index) => {
+    const response = await axiosInstance.get('/locations?type=OFFICE');
+    const payload = response.data?.data || response.data;
+    const rows = Array.isArray(payload?.data) ? payload.data : (Array.isArray(payload) ? payload : []);
+    offices.value = rows.map((d, index) => {
       return {
         sno: index + 1,
         id: d.id,
@@ -369,9 +370,10 @@ const fetchOffices = async () => {
 // Fetch branches for selection
 const fetchBranches = async () => {
   try {
-    const response = await axiosInstance.get('/locations/branches');
-    const data = response.data.data || response.data;
-    branches.value = Array.isArray(data) ? data : [];
+    const response = await axiosInstance.get('/locations?type=BRANCH');
+    const payload = response.data?.data || response.data;
+    const rows = Array.isArray(payload?.data) ? payload.data : (Array.isArray(payload) ? payload : []);
+    branches.value = rows;
   } catch (error) {
     showAlert('error', 'Failed to fetch branches');
   }
@@ -440,9 +442,7 @@ const openModal = (office = null, multiple = false) => {
         code: ''
       };
   }
-  // console.log("filter branch", currentOffice.value.branch_id);
-
-  formModal.value = new Modal(document.getElementById('officeModal'));
+  //formModal.value = new Modal(document.getElementById('officeModal'));
   formModal.value.show();
 };
 
@@ -477,6 +477,7 @@ const saveOffice = async () => {
       const payload = multipleOffices.value.map(o => ({
         name: o.name,
         type: 'OFFICE',
+        operation_type: 'PHYSICAL_LOCATION',
         location_id: o.branch_id?.id,
         status: o.status,
         address: o.address,
@@ -495,6 +496,7 @@ const saveOffice = async () => {
         const payload = {
           name: currentOffice.value.name,
           type: 'OFFICE',
+          operation_type: 'PHYSICAL_LOCATION',
           location_id: currentOffice.value.branch_id?.id,
           status: currentOffice.value.status,
           address: currentOffice.value.address,
@@ -508,6 +510,7 @@ const saveOffice = async () => {
         await axiosInstance.post('/locations', {
           name: currentOffice.value.name,
           type: 'OFFICE',
+          operation_type: 'PHYSICAL_LOCATION',
           location_id: currentOffice.value.branch_id?.id,
           status: currentOffice.value.status,
           address: currentOffice.value.address,

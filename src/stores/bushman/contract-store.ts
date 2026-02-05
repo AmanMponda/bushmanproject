@@ -78,52 +78,37 @@ export const useContractStore = defineStore('contract', {
           ...params
         }
         const url = `${CONTRACTS_BASE()}/`
-        console.log('📋 Fetching contracts from:', url, 'with params:', queryParams)
         const response: any = await axios.get(url, { params: queryParams })
-        console.log('✅ Contracts API Response:', response)
-        console.log('🔍 Full response.data.data:', response.data?.data)
-        console.log('🔍 Keys in response.data.data:', Object.keys(response.data?.data || {}))
-        
+
         // Handle different API response structures
-        let responseData = []
+        let responseData: any[] = []
         const dataObj = response.data?.data
-        
+
         if (dataObj) {
           // Try to find array in various possible locations
           if (Array.isArray(dataObj)) {
-            console.log('✅ response.data.data is already an array')
             responseData = dataObj
-          } else if (dataObj.data && Array.isArray(dataObj.data)) {
-            console.log('✅ Found array at response.data.data.data')
+          } else if (Array.isArray(dataObj.data)) {
             responseData = dataObj.data
-          } else if (dataObj.items && Array.isArray(dataObj.items)) {
-            console.log('✅ Found array at response.data.data.items')
+          } else if (Array.isArray(dataObj.items)) {
             responseData = dataObj.items
-          } else if (dataObj.contracts && Array.isArray(dataObj.contracts)) {
-            console.log('✅ Found array at response.data.data.contracts')
+          } else if (Array.isArray(dataObj.contracts)) {
             responseData = dataObj.contracts
-          } else if (dataObj.results && Array.isArray(dataObj.results)) {
-            console.log('✅ Found array at response.data.data.results')
+          } else if (Array.isArray(dataObj.results)) {
             responseData = dataObj.results
           } else {
             // If it's an object, try to find first array property
             for (const [key, value] of Object.entries(dataObj)) {
               if (Array.isArray(value)) {
-                console.log(`✅ Found array at response.data.data.${key}`)
                 responseData = value
                 break
               }
             }
           }
+        } else if (Array.isArray(response.data)) {
+          responseData = response.data
         }
-        
-        console.log('📊 Final extracted data:', responseData)
-        console.log('📊 First contract sample:', responseData[0])
-        if (responseData[0]) {
-          console.log('📊 First contract keys:', Object.keys(responseData[0]))
-          console.log('📊 Status value in first contract:', responseData[0].status || 'MISSING')
-        }
-        console.log('📊 Contracts loaded:', Array.isArray(responseData) ? responseData.length : 0, 'items')
+
         this.contracts = Array.isArray(responseData) ? responseData : []
         return response
       } catch (err: any) {
@@ -135,6 +120,7 @@ export const useContractStore = defineStore('contract', {
         this.loading = false
       }
     },
+
 
     async getContract(id: number): Promise<any> {
       this.loading = true

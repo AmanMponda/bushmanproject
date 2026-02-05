@@ -307,9 +307,7 @@ const openStopsModal = async (city, multiple) => {
       }
     ];
   }
-  // console.log(selectedStop.value);
-
-  // await fetchStops();
+  //// await fetchStops();
   new Modal(document.getElementById('locations/stopsModal')).show();
 };
 
