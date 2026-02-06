@@ -153,7 +153,12 @@ export const useAppSidebarMenuStore = defineStore("appSidebarMenu", () => {
       children: [
         { url: '/sales/requisitions', icon: 'fa fa-file-alt', text: 'Requisitions', permission: 'CAN_VIEW_SALES' },
         { url: '/accounting/journal-vouchers', icon: 'fa fa-receipt', text: 'Payment Vouchers', permission: 'CAN_VIEW_ACCOUNTS' },
-        { url: '/accounting/payments/payment-advice/create', icon: 'fa fa-hand-holding-dollar', text: 'Payment Advices', permission: 'CAN_CREATE_PAYMENT_ADVICE' },
+        { 
+          url: '/accounting/payments/payment-advice/create', 
+          icon: 'fa fa-hand-holding-dollar', 
+          text: 'Payment Advices', 
+          permission: 'CAN_CREATE_PAYMENT_ADVICE' 
+        },
         { url: '/accounting/invoices', icon: 'fa fa-file-invoice', text: 'Invoices', permission: 'CAN_VIEW_ACCOUNTS' },
         { url: '/accounting/chart-of-accounts', icon: 'fa fa-book', text: 'Chart of Accounts', permission: 'CAN_VIEW_ACCOUNTS' },
       ]
