@@ -434,6 +434,7 @@ onBeforeUnmount(() => {
 <style scoped>
 .sales-analytics {
   height: 100%;
+  min-height: 180px;
   display: flex;
   flex-direction: column;
 }
@@ -442,25 +443,25 @@ onBeforeUnmount(() => {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 20px;
+  margin-bottom: 6px;
 }
 
 .analytics-title {
-  font-size: 16px;
+  font-size: 13px;
   font-weight: 700;
   color: #1a1a1a;
   margin: 0;
 }
 
 .analytics-subtitle {
-  font-size: 13px;
+  font-size: 9px;
   color: #666;
-  margin: 4px 0 0 0;
+  margin: 1px 0 0 0;
 }
 
 .refresh-btn {
-  width: 32px;
-  height: 32px;
+  width: 24px;
+  height: 24px;
   border: none;
   background: #f3f4f6;
   border-radius: 6px;
@@ -498,7 +499,7 @@ onBeforeUnmount(() => {
 .chart-container {
   flex: 1;
   position: relative;
-  min-height: 250px;
+  min-height: 100px;
 }
 
 .loading-state {
@@ -506,15 +507,15 @@ onBeforeUnmount(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 40px 20px;
-  gap: 12px;
-  min-height: 250px;
+  padding: 10px 8px;
+  gap: 4px;
+  min-height: 100px;
 }
 
 .spinner {
-  width: 32px;
-  height: 32px;
-  border: 3px solid #f3f4f6;
+  width: 20px;
+  height: 20px;
+  border: 2px solid #f3f4f6;
   border-top-color: #3b82f6;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
@@ -522,7 +523,7 @@ onBeforeUnmount(() => {
 
 .loading-state p {
   color: #666;
-  font-size: 14px;
+  font-size: 10px;
   margin: 0;
 }
 
@@ -533,16 +534,16 @@ onBeforeUnmount(() => {
   transform: translate(-50%, -50%);
   text-align: center;
   color: #999;
-  font-size: 14px;
+  font-size: 10px;
 }
 
 .performance-summary {
   display: flex;
   justify-content: space-around;
-  padding: 12px 0;
-  margin-top: 12px;
+  padding: 4px 0;
+  margin-top: 4px;
   border-top: 1px solid #e5e7eb;
-  gap: 16px;
+  gap: 6px;
   flex-wrap: wrap;
 }
 
@@ -550,20 +551,20 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 0px;
   flex: 1;
-  min-width: 100px;
+  min-width: 60px;
 }
 
 .summary-label {
-  font-size: 11px;
+  font-size: 8px;
   color: #666;
   font-weight: 500;
   text-align: center;
 }
 
 .summary-value {
-  font-size: 16px;
+  font-size: 11px;
   font-weight: 700;
   color: #1a1a1a;
 }

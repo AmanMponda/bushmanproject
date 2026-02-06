@@ -62,43 +62,40 @@
       </div>
 
       <div class="legend-section">
-        <div class="legend-item" v-if="provisioned > 0">
+        <div class="legend-item">
           <span class="legend-dot" style="background: #3b82f6"></span>
           <div class="legend-info">
             <span class="legend-label">Provisioned</span>
             <span class="legend-value">{{ provisioned }} ({{ provisionedPercentage.toFixed(1) }}%)</span>
           </div>
         </div>
-        <div class="legend-item" v-if="confirmed > 0">
+        <div class="legend-item">
           <span class="legend-dot" style="background: #10b981"></span>
           <div class="legend-info">
             <span class="legend-label">Confirmed</span>
             <span class="legend-value">{{ confirmed }} ({{ confirmedPercentage.toFixed(1) }}%)</span>
           </div>
         </div>
-        <div class="legend-item" v-if="cancelled > 0">
+        <div class="legend-item">
           <span class="legend-dot" style="background: #f59e0b"></span>
           <div class="legend-info">
             <span class="legend-label">Cancelled</span>
             <span class="legend-value">{{ cancelled }} ({{ cancelledPercentage.toFixed(1) }}%)</span>
           </div>
         </div>
-        <div class="legend-item" v-if="pending > 0">
+        <div class="legend-item">
           <span class="legend-dot" style="background: #ef4444"></span>
           <div class="legend-info">
             <span class="legend-label">Pending</span>
             <span class="legend-value">{{ pending }} ({{ pendingPercentage.toFixed(1) }}%)</span>
           </div>
         </div>
-        <div class="legend-item" v-if="taken > 0">
+        <div class="legend-item">
           <span class="legend-dot" style="background: #d1d5db"></span>
           <div class="legend-info">
             <span class="legend-label">Taken</span>
             <span class="legend-value">{{ taken }} ({{ takenPercentage.toFixed(1) }}%)</span>
           </div>
-        </div>
-        <div v-if="totalQuota === 0" class="no-data-message">
-          <p>No quota data available</p>
         </div>
       </div>
     </div>
@@ -176,6 +173,7 @@ onMounted(() => {
 <style scoped>
 .web-traffic {
   height: 100%;
+  min-height: 180px;
   display: flex;
   flex-direction: column;
 }
@@ -184,25 +182,25 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 20px;
+  margin-bottom: 8px;
 }
 
 .analytics-title {
-  font-size: 16px;
+  font-size: 13px;
   font-weight: 700;
   color: #1a1a1a;
   margin: 0;
 }
 
 .analytics-subtitle {
-  font-size: 13px;
+  font-size: 10px;
   color: #666;
-  margin: 4px 0 0 0;
+  margin: 1px 0 0 0;
 }
 
 .refresh-btn {
-  width: 32px;
-  height: 32px;
+  width: 24px;
+  height: 24px;
   border: none;
   background: #f3f4f6;
   border-radius: 6px;
@@ -242,7 +240,7 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  gap: 16px;
+  gap: 6px;
 }
 
 .distribution-stats {
@@ -255,27 +253,27 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: 2px;
 }
 
 .stat-number {
-  font-size: 36px;
+  font-size: 18px;
   font-weight: 700;
   color: #1a1a1a;
 }
 
 .stat-change {
-  font-size: 13px;
+  font-size: 10px;
   font-weight: 600;
   color: #10b981;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
 }
 
 .progress-section {
-  margin: 16px 0;
-  min-height: 28px;
+  margin: 4px 0;
+  min-height: 10px;
   display: flex;
   align-items: center;
   width: 100%;
@@ -285,8 +283,8 @@ onMounted(() => {
   display: flex;
   flex-direction: row;
   width: 100%;
-  height: 20px;
-  border-radius: 10px;
+  height: 8px;
+  border-radius: 4px;
   overflow: hidden;
   gap: 0;
   background: transparent;
@@ -326,31 +324,31 @@ onMounted(() => {
 }
 
 .progress-segment:first-child {
-  border-radius: 10px 0 0 10px;
+  border-radius: 4px 0 0 4px;
 }
 
 .progress-segment:last-child {
-  border-radius: 0 10px 10px 0;
+  border-radius: 0 4px 4px 0;
 }
 
 .legend-section {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding-top: 12px;
+  gap: 2px;
+  padding-top: 4px;
   border-top: 1px solid #e5e7eb;
 }
 
 .legend-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-size: 12px;
+  gap: 6px;
+  font-size: 9px;
 }
 
 .legend-dot {
-  width: 10px;
-  height: 10px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   flex-shrink: 0;
 }
@@ -381,14 +379,14 @@ onMounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 40px 20px;
-  gap: 12px;
+  padding: 12px 10px;
+  gap: 6px;
 }
 
 .spinner {
-  width: 32px;
-  height: 32px;
-  border: 3px solid #f3f4f6;
+  width: 20px;
+  height: 20px;
+  border: 2px solid #f3f4f6;
   border-top-color: #3b82f6;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
@@ -396,14 +394,14 @@ onMounted(() => {
 
 .loading-state p {
   color: #666;
-  font-size: 14px;
+  font-size: 10px;
   margin: 0;
 }
 
 .no-data-message {
   text-align: center;
-  padding: 20px;
+  padding: 8px;
   color: #999;
-  font-size: 14px;
+  font-size: 10px;
 }
 </style>

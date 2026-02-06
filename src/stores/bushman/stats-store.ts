@@ -67,5 +67,25 @@ export const useStatsStore = defineStore('stats', {
         throw error
       }
     },
+
+    async getSalesSummaryStats() {
+      const baseUrl = import.meta.env.VITE_APP_BASE_URL || ''
+      const url = `${baseUrl}reportings/sales-summary-stats`
+
+      const token = localStorage.getItem('token')
+      const config = {
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        },
+      }
+      try {
+        const response = await axios.get(url, config)
+        return response
+      } catch (error: any) {
+        console.error('Error fetching sales summary stats:', error)
+        throw error
+      }
+    },
   },
 })
