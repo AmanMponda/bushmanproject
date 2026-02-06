@@ -113,20 +113,71 @@ export const useDocumentsStore = defineStore('documents-store', {
     async downloadDocument(id: number | string) {
       const config = {
         method: 'get',
-        url: this.buildUrl(id, 'file'),
+        url: this.buildUrl(id, 'download'),
         headers: this.authHeaders(),
         responseType: 'blob',
       }
       return axios.request(config)
     },
 
-    // Get a viewable URL for the document (returns blob URL for inline viewing)
-    async getViewableUrl(id: number | string): Promise<string> {
-      const response = await this.downloadDocument(id)
-      const blob = response.data
-      const mimeType = response.headers['content-type'] || 'application/octet-stream'
-      const viewableBlob = new Blob([blob], { type: mimeType })
-      return window.URL.createObjectURL(viewableBlob)
+    async viewDocument(id: number | string) {
+      const config = {
+        method: 'get',
+        url: this.buildUrl(id, 'view'),
+        headers: this.authHeaders(),
+        responseType: 'blob',
+      }
+      return axios.request(config)
     },
+
+
+    // Get a viewable URL for the document (returns blob URL or direct download URL for inline viewing)
+    async getViewableUrl(id: number | string): Promise<{ url: string; mimeType?: string }> {
+      if (id === undefined || id === null || id === '') throw new Error('Document id is required')
+
+      // Try inline view endpoint first (preferred for in-browser preview)
+      try {
+        const response = await this.viewDocument(id)
+        const blob = response.data
+        const mimeType = response.headers['content-type'] || 'application/octet-stream'
+        const viewableBlob = new Blob([blob], { type: mimeType })
+        return { url: window.URL.createObjectURL(viewableBlob), mimeType }
+      } catch (err: any) {
+        // If server returned 404 on view, try the binary download endpoint (older behavior)
+        if (err?.response?.status === 404) {
+          try {
+            const response = await this.downloadDocument(id)
+            const blob = response.data
+            const mimeType = response.headers['content-type'] || 'application/octet-stream'
+            const viewableBlob = new Blob([blob], { type: mimeType })
+            return { url: window.URL.createObjectURL(viewableBlob), mimeType }
+          } catch (downloadErr: any) {
+            // If download also returns 404, try metadata (base64 or download_url)
+            if (downloadErr?.response?.status === 404) {
+              try {
+                const metaResp = await this.getDocument(id, true)
+                const data = metaResp.data?.data || metaResp.data
+                if (data && data.file_base64) {
+                  const binary = atob(data.file_base64)
+                  const len = binary.length
+                  const bytes = new Uint8Array(len)
+                  for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i)
+                  const viewableBlob = new Blob([bytes], { type: data.mime_type || 'application/octet-stream' })
+                  return { url: window.URL.createObjectURL(viewableBlob), mimeType: data.mime_type }
+                }
+                if (data && data.download_url) {
+                  return { url: data.download_url, mimeType: data.mime_type }
+                }
+              } catch (metaErr) {
+                console.warn('[documents-store] fallback metadata fetch failed', metaErr)
+              }
+            }
+            throw downloadErr
+          }
+        }
+        throw err
+      }
+    },
+
   },
 })

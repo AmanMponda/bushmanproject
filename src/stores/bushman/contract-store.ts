@@ -244,8 +244,9 @@ export const useContractStore = defineStore('contract', {
     },
 
     async downloadVersionFile(contractId: number, versionId: number) {
-      return axios.get(`${CONTRACTS_BASE()}/${contractId}/versions/${versionId}/file`, { responseType: 'blob' })
+      return axios.get(`${CONTRACTS_BASE()}/${contractId}/versions/${versionId}/download`, { responseType: 'blob' })
     },
+
 
     async fetchContractTypes(): Promise<any> {
       this.loading = true

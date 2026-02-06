@@ -2,6 +2,8 @@
   <div class="fleet-master-page">
 
 
+    <!-- Breadcrumb -->
+     
     <!-- VEHICLE LIST VIEW -->
     <template v-if="showVehicleList">
       <div class="fleet-master-list">
@@ -440,8 +442,8 @@ const pageActions = computed(() => {
 const vehicleColumns = [
   { key: 'select', label: '', sortable: false, visible: true },
   { key: 'registration', label: 'Registration', sortable: true, visible: true },
-  { key: 'model', label: 'Model', sortable: true, visible: true, filter: { type: 'text', placeholder: 'Filter by model' } },
-  { key: 'make', label: 'Make', sortable: true, visible: true, filter: { type: 'text', placeholder: 'Filter by make' } },
+  { key: 'make', label: 'Make', sortable: true, visible: true },
+  { key: 'model', label: 'Model', sortable: true, visible: true },
   { key: 'manufacture_year', label: 'Year', sortable: true, visible: true },
   { key: 'registration_date', label: 'Registration Date', sortable: true, visible: true },
   { key: 'chassis', label: 'Chassis', sortable: false, visible: true },
@@ -736,27 +738,6 @@ function fetchWithTimeout<T>(promise: Promise<T>, ms = 20000) {
 }
 
 async function openVehicleDetails(vehicle: VehicleAsset) {
-  console.debug('[FleetMaster] openVehicleDetails called', vehicle)
-  console.info('[FleetMaster] openVehicleDetails called (info level)', { vehicle: vehicle })
-  loadingDetails.value = true
-
-  // Show the profile shell immediately (with whatever data we have) so user sees progress
-  if (vehicle) {
-    vehicleDetails.value = vehicle
-    selectedVehicleUuid.value = (vehicle as any).id ?? (vehicle as any).asset_id ?? (vehicle as any).pk ?? null
-  }
-
-  // Ensure any leftover full-screen viewers/modals are closed to avoid blocking interaction
-  showDocumentViewer.value = false
-  showImagePreviewModal.value = false
-  showDocumentsModal.value = false
-  showDocumentsModalFallback.value = false
-  console.info('[FleetMaster] cleared modal/viewer flags before loading details')
-
-  showVehicleList.value = false
-  showVehicleDetailsPage.value = true
-  safeToast('info', 'Opening vehicle details...', { duration: 1000 })
-
   // Try common id locations
   let id: any = null
   if (vehicle) {
@@ -1154,20 +1135,41 @@ async function uploadVehicleDocument() {
   }
 }
 
-async function downloadVehicleDocument(doc: any) {
+function getFilenameFromHeader(headerValue: string | undefined, fallback: string) {
+  if (!headerValue) return fallback
+  const match = headerValue.match(/filename\*?=(?:UTF-8''|"|')?([^;"']+)/i)
+  if (match && match[1]) return decodeURIComponent(match[1].replace(/"/g, '').trim())
+  const simple = headerValue.match(/filename="?([^";]+)"?/)
+  return simple?.[1] || fallback
+}
+
+async function downloadVehicleDocument(docOrId: any) {
   try {
-    const response = await documentsStore.downloadDocument(doc.id)
-    const blob = new Blob([response.data], { type: doc.mime_type || response.headers['content-type'] })
+    const id = typeof docOrId === 'object' ? docOrId.id : docOrId
+    if (!id) {
+      toast.error('Document id missing')
+      return
+    }
+
+    const response = await documentsStore.downloadDocument(id)
+
+    // Try to best-effort find filename
+    const mime = (typeof docOrId === 'object' && docOrId.mime_type) ? docOrId.mime_type : response.headers['content-type']
+    const filename = (typeof docOrId === 'object' && docOrId.name) ? docOrId.name : getFilenameFromHeader(response.headers['content-disposition'], `document-${id}`)
+
+    const blob = new Blob([response.data], { type: mime })
     const url = window.URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.setAttribute('download', doc.name || `document-${doc.id}`)
+    link.setAttribute('download', filename)
     document.body.appendChild(link)
     link.click()
     link.remove()
     window.URL.revokeObjectURL(url)
-  } catch (err) {
-    toast.error('Failed to download file')
+  } catch (err: any) {
+    console.error('Download failed', err)
+    const msg = err?.response?.data?.message || 'Failed to download file'
+    toast.error(msg)
   }
 }
 
@@ -1182,22 +1184,46 @@ async function viewVehicleDocument(doc: any) {
   try {
     documentViewerLoading.value = true
     documentViewerName.value = doc.name || doc.title || 'Document'
-    documentViewerMimeType.value = doc.mime_type || ''
     showDocumentViewer.value = true
-    
-    // Fetch the document and create a blob URL for viewing (inline to avoid HMR issues)
-    const response = await documentsStore.downloadDocument(doc.id)
-    const blob = response.data
-    const mimeType = doc.mime_type || response.headers['content-type'] || 'application/octet-stream'
-    const viewableBlob = new Blob([blob], { type: mimeType })
-    documentViewerUrl.value = window.URL.createObjectURL(viewableBlob)
-  } catch (err) {
+
+    // Validate document id or fallback to download_url if present
+    if (!doc?.id) {
+      if (doc?.download_url) {
+        documentViewerUrl.value = doc.download_url
+        // Try to set mime from available data if present
+        documentViewerMimeType.value = doc.mime_type || ''
+        return
+      }
+      throw new Error('Document id is missing')
+    }
+
+    // Use store helper which tries view -> download -> metadata
+    const res = await documentsStore.getViewableUrl(doc.id)
+    documentViewerUrl.value = res.url
+    // Prefer explicit mime from response, fall back to doc.mime_type
+    documentViewerMimeType.value = res.mimeType || doc.mime_type || ''
+
+    // If mime still unknown, infer from filename extension
+    if (!documentViewerMimeType.value && (doc.name || doc.file_name)) {
+      documentViewerMimeType.value = inferMimeFromFilename(doc.name || doc.file_name)
+    }
+  } catch (err: any) {
     console.error('Failed to open document:', err)
-    toast.error('Failed to open document')
+    const serverMsg = err?.response?.data?.message || err?.message || 'Failed to open document'
+    toast.error(serverMsg)
     showDocumentViewer.value = false
   } finally {
     documentViewerLoading.value = false
   }
+}
+
+function inferMimeFromFilename(name: string) {
+  const n = name.toLowerCase()
+  if (n.endsWith('.pdf')) return 'application/pdf'
+  if (n.endsWith('.jpg') || n.endsWith('.jpeg')) return 'image/jpeg'
+  if (n.endsWith('.png')) return 'image/png'
+  if (n.endsWith('.gif')) return 'image/gif'
+  return ''
 }
 
 function closeDocumentViewer() {
@@ -1242,13 +1268,21 @@ async function openImagePreview(doc: any) {
   }
 
   try {
-    const response = await documentsStore.downloadDocument(doc.id)
-    const blob = new Blob([response.data], { type: response.headers['content-type'] || doc.mime_type })
-    const url = window.URL.createObjectURL(blob)
-    previewImageUrl.value = url
+    if (!doc?.id) {
+      if (doc?.download_url) {
+        previewImageUrl.value = doc.download_url
+        showImagePreviewModal.value = true
+        return
+      }
+      throw new Error('Document id is missing')
+    }
+
+    const res = await documentsStore.getViewableUrl(doc.id)
+    previewImageUrl.value = res.url
     showImagePreviewModal.value = true
-  } catch (err) {
-    toast.error('Failed to load image preview')
+  } catch (err: any) {
+    const msg = err?.response?.data?.message || err?.message || 'Failed to load image preview'
+    toast.error(msg)
   }
 }
 
