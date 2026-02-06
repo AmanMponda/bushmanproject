@@ -10,9 +10,10 @@ import PageComingSoon from "@/views/PageComingSoon.vue";
 import LoginPage from "@/views/auth/PageLogin.vue"; 
 import CompanyDashboard from "@/views/auth/CompanyDashboard.vue"; 
 import ComingSoon from "@/views/auth/ComingSoon.vue"; 
+import Dashboard from "@/views/bushman/dashboard/Dashboard.vue"
 
 // bushman routes
-const Dashboard = () => import ('@/views/bushman/dashboard/Dashboard.vue')
+// const Dashboard = () => import ('@/views/bushman/dashboard/Dashboard.vue')
 const BushmanFleetMaster = () => import('@/views/bushman/assets/FleetMaster.vue')
 const BushmanFleetMasterPdf = () => import('@/views/bushman/assets/FleetMasterPdf.vue')
 const BushmanLocationHistory = () => import('@/views/bushman/assets/LocationHistory.vue')
@@ -77,45 +78,12 @@ const LocationMasterIndex = () => import('@/views/bushman/locationMaster/index.v
 const RouteRegister = () => import('@/views/bushman/locationMaster/routeplanning/RouteRegister.vue');
 
 // Accounting routes
-const JournalVoucherList = () => import('@/views/bushman/accounting/JournalVoucherList.vue');
-const JournalVoucherForm = () => import('@/views/bushman/accounting/JournalVoucherForm.vue');
-const InvoiceList = () => import('@/views/bushman/accounting/InvoiceList.vue');
-const InvoiceForm = () => import('@/views/bushman/accounting/InvoiceForm.vue');
+const JournalVoucherList = () => import('@/views/bushman/accounting/Journal-Vouchers/JournalVoucherList.vue');
+const JournalVoucherForm = () => import('@/views/bushman/accounting/Journal-Vouchers/JournalVoucherForm.vue');
+const InvoiceList = () => import('@/views/bushman/accounting/Invoices/InvoiceList.vue');
+const InvoiceForm = () => import('@/views/bushman/accounting/Invoices/InvoiceForm.vue');
 const ChartOfAccounts = () => import('@/views/bushman/accounting/ChartOfAccounts.vue');
-
-// const LoginPage = () => import('@/views/auth/PageLogin.vue');
-// const CompanyDashboard = () => import('@/views/auth/CompanyDashboard.vue');
-// const ComingSoon = () => import('@/views/auth/ComingSoon.vue');
-// const Unauthorized = () => import('@/views/auth/Unauthorized.vue');
-// const PageComingSoon = () => import('@/views/PageComingSoon.vue');
-// const PageError = () => import('@/views/PageError.vue');
-
-// const StoreDashboard = () => import("@/views/MA-Cargo/Store-Management/storeDashboard.vue");
-// const OperationDashboard = () => import("@/views/MA-Cargo/Operation-Management/operationDashboard.vue");
-// const FuelDashboard = () => import("@/views/MA-Cargo/Fuel-Dashboard/fuelDashboard.vue");
-// const Profile = () => import("@/views/Profile.vue");
-// const SalesDashboard = () => import("@/views/MA-Cargo/performance_dashboard/Dashboard.vue");
-// const GeneralDashboard = () => import("@/views/GHRM/general-dashboard/generalDashboard.vue");
-// const AccountDashboard = () => import("@/views/MA-Cargo/account_dashboard/Dashboard.vue");
-// const Sales = () => import("@/views/ABS/Sales-Dashboard/sales.vue");
-// const ABSOperationDashboard = () => import("@/views/ABS/Operation-Dashboard/absOperationDashboard.vue");
-// const ABSFuelDashboard = () => import("@/views/ABS/Fuel-Dashboard/absFuelDashboard.vue");
-// const WorkshopDashboard = () => import("@/views/MA-Cargo/Workshop-Dashboard/workshopDashboard.vue");
-// const MACargoReports = () => import("@/views/MA-Cargo/Reports/reports.vue");
-// const ProcurementDashboard = () => import("@/views/MA-Cargo/Procurement-Dashboard/procurementDashboard.vue");
-// const ABSProcurementDashboard = () => import("@/views/ABS/Procurement-Dashboard/absProcurementDashboard.vue");
-// const ABSReports = () => import("@/views/ABS/Reports/reports.vue");
-// const ABSStoreDashboard = () => import("@/views/ABS/Store-Dashboard/absStoreDashboard.vue");
-// const ABSWorkshopDashboard = () => import("@/views/ABS/Workshop-Dashboard/absWorkshopDashboard.vue");
-// const HSEDashboard = () => import("@/views/MA-Cargo/HSE-Dashboard/HSEDashboard.vue");
-// const AdministrationDashboard = () => import("@/views/MA-Cargo/Administration-Dashboard/administrationDashboard.vue");
-// const ABSAdministrationDashboard = () => import("@/views/ABS/Administration-Dashboard/absAdministrationDashboard.vue");
-// const gHRMReports = () => import("@/views/GHRM/Reports/reports.vue");
-// const ABSHSEDashboard = () => import("@/views/ABS/HSE-Dashboard/absHSEDashboard.vue");
-// const ABSAccountDashboard = () => import("@/views/ABS/Account-Dashboard/absAccountDashboard.vue");
-// const ABSCRMDashboard = () => import("@/views/ABS/CRM-Dashboard/ABSCRMDashboard.vue");
-// const PetaOperationsOverview = () => import("@/views/Peta-Holding/Operations-Overview/operationsOverview.vue");
-// const PetaReports = () => import("@/views/Peta-Holding/Reports/reports.vue");
+const CreatePaymentAdvice = () => import('@/views/bushman/accounting/Payments/CreatePaymentAdvice.vue');
 
 const router = createRouter({
   history: createWebHashHistory(import.meta.env.BASE_URL),
@@ -156,6 +124,13 @@ const router = createRouter({
       component: BushmanFleetMasterPdf,
       meta: { requiresAuth: true }
     },
+    // Dynamic details route - supports deep-linking to either registration or numeric id
+    {
+      path: "/bushman/assets/fleet-master/:id",
+      name: "bushman-fleet-master-details",
+      component: BushmanFleetMaster,
+      meta: { requiresAuth: true }
+    },
     {
       path: "/bushman/assets/location-history",
       name: "bushman-location-history",
@@ -175,6 +150,12 @@ const router = createRouter({
       component: SalesQuotas,
       meta: { requiresAuth: true }
     },
+    // {
+    //   path: "/sales/clients",
+    //   name: "sales-clients",
+    //   component: SalesClients,
+    //   meta: { requiresAuth: true }
+    // },
     {
       path: "/sales/sales-pipeline",
       name: "Sales-pipeline",
@@ -187,10 +168,8 @@ const router = createRouter({
       name: "Sales-calendar",
       component: SalesCalendar,
       meta: { requiresAuth: true }
-    },
+    },  
     
-    
-
     {
       path: "/sales/price-list",
       name: "sales-price-list",
@@ -828,6 +807,12 @@ const router = createRouter({
       component: InvoiceForm,
       meta: { requiresAuth: true },
       props: (route) => ({ id: Number(route.params.id) })
+    },
+    {
+      path: "/accounting/payments/payment-advice/create",
+      name: "Create-Payment-Advice",
+      component: CreatePaymentAdvice,
+      meta: { requiresAuth: true }
     },
 
     // Location Master routes

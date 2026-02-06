@@ -35,44 +35,41 @@ const buildPdf = () => {
     ? vehicles.value.map((vehicle: any, index: number) => ([
         `${index + 1}`,
         vehicle.registration_number || '-',
-        vehicle.make || '-',
         vehicle.model || '-',
+        vehicle.make || '-',
         vehicle.manufacture_year?.toString() || '-',
         vehicle.registration_date || '-',
         vehicle.chassis_number || '-'
       ]))
-    : [['-', '-', '-', 'No vehicles found', '-', '-', '-']]
+    : [['-', '-', '-', 'No vehicles found', '-', '-']]
 
   const pageWidth = doc.internal.pageSize.getWidth()
   const marginLeft = 36
   const marginRight = 36
-  const tableWidth = pageWidth - marginLeft - marginRight
-  const snWidth = 40
-  const regWidth = 120
-  const makeWidth = 110
-  const modelWidth = 120
-  const yearWidth = 80
-  const regDateWidth = 120
-  const remaining = tableWidth - (snWidth + regWidth + makeWidth + modelWidth + yearWidth + regDateWidth)
-  const chassisWidth = Math.max(120, remaining)
+  // Only sum the widths of the actual columns
+  const snWidth = 22
+  const yearWidth = 60
+  const modelWidth = 110
+  const regDateWidth = 70
+  // No extra column, so no need to calculate remaining/tableWidth for an extra column
 
   autoTable(doc, {
-    head: [['S.No', 'Registration', 'Make', 'Model', 'Year', 'Registration Date', 'Chassis Number']],
+    head: [['S.No', 'Registration', 'Model', 'Make', 'Year', 'Registration Date', 'Chassis Number']],
     body,
     startY: 90,
     theme: 'grid',
     showHead: 'everyPage',
-    margin: { top: 90, left: marginLeft, right: marginRight, bottom: 40 },
-    tableWidth,
-    tableLineWidth: 0.75,
+    margin: { top: 70, left: 20, right: 20, bottom: 20 },
+    tableLineWidth: 0.5,
     tableLineColor: 0,
     styles: {
-      font: 'Times',
-      fontSize: 9,
-      cellPadding: 5,
+      font: 'times',
+      fontStyle: 'normal',
+      fontSize: 7,
+      cellPadding: 1,
       valign: 'top',
       textColor: 0,
-      lineWidth: 0.75,
+      lineWidth: 0.5,
       lineColor: 0
     },
     headStyles: {
@@ -80,17 +77,17 @@ const buildPdf = () => {
       textColor: 0,
       fontStyle: 'bold',
       halign: 'center',
-      lineWidth: 0.75,
+      lineWidth: 0.5,
       lineColor: 0
     },
     columnStyles: {
       0: { cellWidth: snWidth, halign: 'center' },
-      1: { cellWidth: regWidth },
-      2: { cellWidth: makeWidth },
-      3: { cellWidth: modelWidth },
+      1: { halign: 'center' },
+      2: { cellWidth: modelWidth, halign: 'center' },
+      3: { halign: 'center' },
       4: { cellWidth: yearWidth, halign: 'center' },
       5: { cellWidth: regDateWidth, halign: 'center' },
-      6: { cellWidth: chassisWidth }
+      6: { halign: 'center' }
     }
   })
 

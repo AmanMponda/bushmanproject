@@ -7,7 +7,6 @@
           <li class="breadcrumb-item"><a href="#">Module Settings</a></li>
           <li class="breadcrumb-item active">Vehicle Models</li>
         </ol>
-        <h1 class="page-header mb-0">Vehicle Models</h1>
       </div>
     </div>
 
@@ -15,9 +14,6 @@
     <template v-if="showModelList">
       <div class="vehicle-models-list">
         <card>
-          <!-- <card-header class="d-flex align-items-center bg-inverse bg-opacity-10 fw-400">
-            <i class="fa fa-list me-2"></i>Vehicle Models
-          </card-header> -->
           <card-body>
             <StandardDataTable
               :columns="modelColumns"
@@ -25,35 +21,20 @@
               :loading="loading"
               :filters="filters"
               :actionButtons="actionButtons"
-              :pageSizeOptions="[10,25,50]"
-              :defaultPageSize="10"
+              :pageSizeOptions="[10,25,50,100]"
+              :defaultPageSize="100"
               @update:filters="handleFiltersUpdate"
             >
             <template #make="{ row }">
-              <span class="badge bg-warning bg-opacity-20 fs-14px fw-bold text-danger">
-                <i class="fa fa-industry me-1"></i>
-                {{ row.make }}
-              </span>
+              {{ row.make }}
             </template>
 
             <template #model="{ row }">
-              <span class="badge bg-secondary bg-opacity-20 fs-14px fw-bold text-info">
-                {{ row.model }}
-                <span v-if="row.variant" class="text-muted"> - {{ row.variant }}</span>
-              </span>
+              {{ row.model }}<span v-if="row.variant" class="text-muted"> - {{ row.variant }}</span>
             </template>
 
             <template #type="{ row }">
-              <span class="badge bg-secondary bg-opacity-20 fs-14px fw-bold text-primary">
-                <i :class="getTypeIcon(row.type)" class="me-1"></i>
-                {{ row.type }}
-              </span>
-            </template>
-
-            <template #vehicles_count="{ row }">
-              <span class="badge bg-secondary bg-opacity-20 fs-14px fw-bold text-success">
-                {{ row.motor_vehicles?.length || 0 }}
-              </span>
+              <i :class="getTypeIcon(row.type)" class="me-1"></i>{{ row.type }}
             </template>
 
             <template #actions="{ row }">
@@ -72,64 +53,57 @@
       </div>
     </template>
 
-    <!-- FORM VIEW -->
-    <template v-else>
-      <div class="card">
-        <div class="card-header bg-white">
-          <div>
-            <h5 class="mb-0">
-              <i :class="editingId ? 'fa fa-edit text-warning' : 'fa fa-plus-circle text-primary'" class="me-2"></i>
-              {{ editingId ? 'Edit Vehicle Model' : 'Add New Vehicle Model' }}
-            </h5>
-            <small class="text-muted">{{ editingId ? 'Update model details' : 'Register a new vehicle model' }}</small>
-          </div>
+    <!-- VEHICLE MODEL MODAL -->
+    <StandardModal
+      id="vehicleModelModal"
+      ref="vehicleModelModalRef"
+      :title="editingId ? 'Edit Vehicle Model' : 'Add Vehicle Model'"
+      size="lg"
+      :scrollable="true"
+      :show-footer="false"
+      @close="handleModelFormClose"
+      @hidden="handleModelFormHidden"
+    >
+      <div v-if="error" class="alert alert-danger">{{ error }}</div>
+      <div class="row g-3">
+        <div class="col-md-4">
+          <label class="form-label">Make <span class="text-danger">*</span></label>
+          <input v-model="form.make" type="text" class="form-control" placeholder="Toyota" />
         </div>
-        <div class="card-body">
-          <div v-if="error" class="alert alert-danger">
-            <i class="fa fa-exclamation-circle me-2"></i>{{ error }}
-          </div>
-
-          <div class="row g-3">
-            <div class="col-md-6">
-              <label class="form-label">Make <span class="text-danger">*</span></label>
-              <input v-model="form.make" type="text" class="form-control" placeholder="e.g., Toyota" maxlength="100" required />
-            </div>
-            <div class="col-md-6">
-              <label class="form-label">Model <span class="text-danger">*</span></label>
-              <input v-model="form.model" type="text" class="form-control" placeholder="e.g., Hilux" maxlength="100" required />
-            </div>
-            <div class="col-md-6">
-              <label class="form-label">Variant</label>
-              <input v-model="form.variant" type="text" class="form-control" placeholder="Optional" maxlength="100" />
-            </div>
-            <div class="col-md-6">
-              <label class="form-label">Type <span class="text-danger">*</span></label>
-              <select v-model="form.type" class="form-select" required>
-                <option value="">-- Select Type --</option>
-                <option value="CAR">Car</option>
-                <option value="TRUCK">Truck</option>
-                <option value="BUS">Bus</option>
-                <option value="MOTORBIKE">Motorbike</option>
-                <option value="TRACTOR">Tractor</option>
-                <option value="OTHER">Other</option>
-              </select>
-            </div>
-            <div class="col-12">
-              <label class="form-label">Description</label>
-              <textarea v-model="form.description" class="form-control" rows="2" placeholder="Optional"></textarea>
-            </div>
-          </div>
-
-          <div class="d-flex justify-content-end gap-2 mt-4">
-            <button type="button" class="btn btn-outline-secondary btn-sm" @click="closeForm">Cancel</button>
-            <button type="button" class="btn btn-primary btn-sm" :disabled="saving" @click="saveModel">
-              <span v-if="saving" class="spinner-border spinner-border-sm me-2"></span>
-              {{ editingId ? 'Update' : 'Create' }}
-            </button>
-          </div>
+        <div class="col-md-4">
+          <label class="form-label">Model <span class="text-danger">*</span></label>
+          <input v-model="form.model" type="text" class="form-control" placeholder="Hiace" />
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Variant</label>
+          <input v-model="form.variant" type="text" class="form-control" placeholder="2.5L" />
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Type <span class="text-danger">*</span></label>
+          <select v-model="form.type" class="form-select">
+            <option value="">-- Select Type --</option>
+            <option value="CAR">Car</option>
+            <option value="TRUCK">Truck</option>
+            <option value="BUS">Bus</option>
+            <option value="MOTORBIKE">Motorbike</option>
+            <option value="TRACTOR">Tractor</option>
+            <option value="OTHER">Other</option>
+          </select>
+        </div>
+        <div class="col-md-8">
+          <label class="form-label">Description</label>
+          <input v-model="form.description" type="text" class="form-control" placeholder="Optional description" />
         </div>
       </div>
-    </template>
+
+      <div class="d-flex justify-content-end gap-2 mt-4">
+        <button type="button" class="btn btn-outline-secondary btn-sm" @click="closeModelForm">Cancel</button>
+        <button type="button" class="btn btn-primary btn-sm" @click="saveModel" :disabled="saving">
+          <span v-if="saving" class="spinner-border spinner-border-sm me-1"></span>
+          {{ editingId ? 'Update' : 'Create' }}
+        </button>
+      </div>
+    </StandardModal>
   </div>
 </template>
 
@@ -138,7 +112,8 @@ import { ref, onMounted } from 'vue'
 import { useToast } from '@/composables/useToast'
 import { useSwal } from '@/composables/useSwal'
 import vehicleModelService, { type VehicleModel } from '@/services/vehicleModelService'
-import StandardDataTable from '@/components/bootstrap/StandardDataTable.vue' 
+import StandardDataTable from '@/components/bootstrap/StandardDataTable.vue'
+import StandardModal from '@/components/plugins/StandardModal.vue' 
 
 const toast = useToast()
 const swal = useSwal()
@@ -152,19 +127,19 @@ const selectedModel = ref<VehicleModel | null>(null)
 const editingId = ref<number | null>(null)
 const saving = ref(false)
 const error = ref('')
-const form = ref<Partial<VehicleModel>>({
+const vehicleModelModalRef = ref<{ show: () => void; hide: () => void } | null>(null)
+const form = ref<any>({
   make: '',
   model: '',
   variant: '',
-  type: 'CAR',
+  type: '',
   description: ''
 })
 
 const modelColumns = [
+   { key: 'model', label: 'Model', sortable: true, visible: true },
   { key: 'make', label: 'Make', sortable: true, visible: true },
-  { key: 'model', label: 'Model', sortable: true, visible: true },
   { key: 'type', label: 'Type', sortable: true, visible: true },
-  { key: 'vehicles_count', label: 'Vehicles', sortable: false, visible: true },
   { key: 'actions', label: 'Actions', sortable: false, visible: true }
 ]
 
@@ -189,69 +164,72 @@ async function loadModels() {
   }
 }
 
-function openAddModelForm() {
-  selectedModel.value = null
-  editingId.value = null
-  form.value = { make: '', model: '', variant: '', type: 'CAR', description: '' }
+function resetModelForm() {
+  form.value = {
+    make: '',
+    model: '',
+    variant: '',
+    type: '',
+    description: ''
+  }
   error.value = ''
-  showModelList.value = false
+}
+
+function openAddModelForm() {
+  editingId.value = null
+  resetModelForm()
+  vehicleModelModalRef.value?.show()
 }
 
 function openEditModelForm(model: VehicleModel) {
-  selectedModel.value = model
-  editingId.value = model?.id ?? null
-  form.value = { ...model }
+  editingId.value = model.id ?? null
+  form.value = {
+    make: model.make || '',
+    model: model.model || '',
+    variant: model.variant || '',
+    type: model.type || '',
+    description: model.description || ''
+  }
   error.value = ''
-  showModelList.value = false
+  vehicleModelModalRef.value?.show()
 }
 
-function closeForm() {
-  showModelList.value = true
-  selectedModel.value = null
+function closeModelForm() {
+  vehicleModelModalRef.value?.hide()
+  resetModelForm()
   editingId.value = null
-  form.value = { make: '', model: '', variant: '', type: 'CAR', description: '' }
-  error.value = ''
+}
+
+function handleModelFormClose() {
+  resetModelForm()
+  editingId.value = null
+}
+
+function handleModelFormHidden() {
+  resetModelForm()
+  editingId.value = null
 }
 
 async function saveModel() {
   error.value = ''
-  if (!form.value.make?.trim() || !form.value.model?.trim() || !form.value.type) {
-    error.value = 'Make, Model, and Type are required'
+  if (!form.value.make || !form.value.model || !form.value.type) {
+    error.value = 'Make, Model and Type are required'
     return
   }
-
   saving.value = true
-  const payload: Partial<VehicleModel> = {
-    make: form.value.make!.trim(),
-    model: form.value.model!.trim(),
-    variant: form.value.variant?.trim() || null,
-    type: form.value.type as any,
-    description: form.value.description?.trim() || null
-  }
-
   try {
     if (editingId.value) {
-      await vehicleModelService.updateVehicleModel(editingId.value, payload)
+      await vehicleModelService.updateVehicleModel(editingId.value, form.value)
       toast.success('Vehicle model updated successfully')
     } else {
-      await vehicleModelService.createVehicleModel(payload)
+      await vehicleModelService.createVehicleModel(form.value)
       toast.success('Vehicle model created successfully')
     }
-    closeForm()
+    closeModelForm()
     await loadModels()
   } catch (err: any) {
-    let errorMsg = 'Failed to save vehicle model'
-    if (err.response) {
-      if (err.response.status === 422) {
-        const errors = err.response.data?.errors
-        if (errors) errorMsg = Object.values(errors).flat().join(', ')
-        else errorMsg = err.response.data?.message || 'Validation error'
-      } else if (err.response.data?.message) {
-        errorMsg = err.response.data.message
-      }
-    }
-    error.value = errorMsg
-    toast.error(errorMsg)
+    const message = err.response?.data?.message || err.message || 'Failed to save vehicle model'
+    toast.error(message)
   } finally {
     saving.value = false
   }

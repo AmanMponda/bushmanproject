@@ -1,170 +1,47 @@
 <template>
   <div class="ps-page">
-    <main class="content" style="padding-top: 10px;">
+    <main class="content">
       <!-- Page Title Row -->
-      <div class="page-head" style="display: flex; justify-content: space-between; align-items: center; padding: 0 5px 5px 5px; margin-bottom: 0;">
+      <div class="page-head" style="display: flex; justify-content: space-between; align-items: flex-start; padding: 0 20px; margin-bottom: 20px;">
         <div class="page-head-left">
-          <h1 style="margin: 0; font-size: 24px;">{{ isViewMode ? 'View Payment Voucher' : (isEdit ? 'Edit Payment Voucher' : 'New Payment Voucher') }}</h1>
+          <h1>New Voucher</h1>
         </div>
         <div class="page-head-right" style="display: flex; gap: 12px;">
           <button 
             type="button" 
             @click="() => router.push({ name: 'journal-vouchers' })"
-            style="background: white; border: 2px solid #2563eb; color: #2563eb; cursor: pointer; font-size: 14px; font-weight: 500; padding: 6px 14px; border-radius: 6px; display: flex; align-items: center; gap: 6px; transition: all 0.2s;"
+            style="background: white; border: 2px solid #2563eb; color: #2563eb; cursor: pointer; font-size: 14px; font-weight: 500; padding: 8px 16px; border-radius: 6px; display: flex; align-items: center; gap: 6px; transition: all 0.2s;"
           >
-            <i class="fa fa-arrow-left"></i> Back to List
+            <i class="fa fa-arrow-left"></i> Back to Vouchers
           </button>
         </div>
       </div>
 
       <!-- Tab Navigation -->
-      <div v-if="!isViewMode" style="display: flex; gap: 0; border-bottom: 2px solid #e5e7eb; background: #f9fafb; padding: 0 5px;">
+      <div style="display: flex; gap: 0; border-bottom: 2px solid #e5e7eb; background: #f9fafb; padding: 0 20px;">
         <button 
           type="button" 
           @click="voucherTab = 'payment'"
           :style="{ borderBottom: voucherTab === 'payment' ? '3px solid #2563eb' : 'none', color: voucherTab === 'payment' ? '#2563eb' : '#6b7280' }"
-          style="padding: 8px 20px; font-weight: 500; cursor: pointer; border: none; background: none; transition: all 0.2s;"
+          style="padding: 12px 20px; font-weight: 500; cursor: pointer; border: none; background: none; transition: all 0.2s;"
         >
           Payment
         </button>
       </div>
 
       <!-- Error Alert -->
-      <div v-if="errorMessage" class="alert alert-danger alert-dismissible fade show mx-3 mt-2" role="alert">
+      <div v-if="errorMessage" class="alert alert-danger alert-dismissible fade show mx-3" role="alert">
         <i class="fa fa-exclamation-triangle me-2"></i>
         {{ errorMessage }}
         <button type="button" class="btn-close" @click="errorMessage = ''"></button>
       </div>
 
       <!-- Payment Tab Content -->
-      <div v-show="voucherTab === 'payment'" style="padding: 0 5px 20px 5px;">
-        
-        <!-- LOADING STATE -->
-        <div v-if="loadingVoucher" style="max-width: 1400px; margin: 0 auto; background: white; border-radius: 8px; padding: 60px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); text-align: center;">
-          <i class="fa fa-spinner fa-spin" style="font-size: 48px; color: #2563eb; margin-bottom: 20px;"></i>
-          <div style="font-size: 16px; color: #6b7280; font-weight: 500;">Loading voucher...</div>
-        </div>
-        
-        <!-- READ-ONLY VIEW MODE (for POSTED vouchers) -->
-        <div v-else-if="isViewMode" style="max-width: 1400px; margin: 0 auto; background: white; border-radius: 8px; padding: 30px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-          
-          <!-- Status Banner -->
-          <div style="background: #d1fae5; border: 2px solid #10b981; padding: 12px 20px; border-radius: 6px; margin-bottom: 25px; display: flex; align-items: center; gap: 12px;">
-            <i class="fa fa-check-circle" style="font-size: 24px; color: #059669;"></i>
-            <div>
-              <div style="font-weight: 600; font-size: 14px; color: #065f46;">Payment Voucher Posted</div>
-              <div style="font-size: 12px; color: #047857;">This voucher has been posted and cannot be modified</div>
-            </div>
-          </div>
-
-          <!-- Voucher Information Grid -->
-          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 30px;">
-            <div>
-              <label style="display: block; font-size: 11px; color: #6b7280; font-weight: 500; margin-bottom: 4px; text-transform: uppercase;">Voucher Number</label>
-              <div style="font-size: 16px; font-weight: 600; color: #1f2937;">{{ loadedVoucher?.voucher_number || loadedVoucher?.document_number || form.voucher_number || 'AUTO' }}</div>
-            </div>
-            <div>
-              <label style="display: block; font-size: 11px; color: #6b7280; font-weight: 500; margin-bottom: 4px; text-transform: uppercase;">Posting Date</label>
-              <div style="font-size: 14px; font-weight: 500; color: #1f2937;">{{ form.posting_date }}</div>
-            </div>
-            <div>
-              <label style="display: block; font-size: 11px; color: #6b7280; font-weight: 500; margin-bottom: 4px; text-transform: uppercase;">Status</label>
-              <span style="background: #10b981; color: white; padding: 4px 12px; border-radius: 4px; font-size: 12px; font-weight: 600;">{{ form.status }}</span>
-            </div>
-            <div>
-              <label style="display: block; font-size: 11px; color: #6b7280; font-weight: 500; margin-bottom: 4px; text-transform: uppercase;">Currency</label>
-              <div style="font-size: 14px; font-weight: 500; color: #1f2937;">{{ loadedVoucher?.currency?.name || loadedVoucher?.currency?.code || currencies.find((c: any) => c.id === Number(form.currency_id))?.name || 'N/A' }}</div>
-            </div>
-            <div>
-              <label style="display: block; font-size: 11px; color: #6b7280; font-weight: 500; margin-bottom: 4px; text-transform: uppercase;">Exchange Rate</label>
-              <div style="font-size: 14px; font-weight: 500; color: #1f2937;">{{ form.exchange_rate }}</div>
-            </div>
-            <div>
-              <label style="display: block; font-size: 11px; color: #6b7280; font-weight: 500; margin-bottom: 4px; text-transform: uppercase;">Total Amount</label>
-              <div style="font-size: 18px; font-weight: 700; color: #059669;">{{ formatCurrency(form.total_amount || totalAmountToPay) }}</div>
-            </div>
-          </div>
-
-          <hr style="border: none; border-top: 2px solid #e5e7eb; margin: 25px 0;" />
-
-          <!-- Payment Details -->
-          <h3 style="font-size: 14px; font-weight: 600; color: #1f2937; margin-bottom: 15px;">Payment Details</h3>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 30px;">
-            <div>
-              <div style="background: #f9fafb; padding: 15px; border-radius: 6px; border: 1px solid #e5e7eb;">
-                <h4 style="font-size: 12px; color: #6b7280; font-weight: 600; margin-bottom: 12px; text-transform: uppercase;">From (Credit)</h4>
-                <div style="margin-bottom: 12px;">
-                  <label style="display: block; font-size: 11px; color: #6b7280; margin-bottom: 4px;">Account</label>
-                  <div style="font-size: 13px; font-weight: 500; color: #1f2937;">{{ fromAccountDisplay }}</div>
-                </div>
-                <div>
-                  <label style="display: block; font-size: 11px; color: #6b7280; margin-bottom: 4px;">Payment Method</label>
-                  <div style="font-size: 13px; font-weight: 500; color: #1f2937;">{{ form.payment_method || 'Not specified' }}</div>
-                </div>
-              </div>
-            </div>
-            <div>
-              <div style="background: #f9fafb; padding: 15px; border-radius: 6px; border: 1px solid #e5e7eb;">
-                <h4 style="font-size: 12px; color: #6b7280; font-weight: 600; margin-bottom: 12px; text-transform: uppercase;">To (Debit)</h4>
-                <div style="margin-bottom: 12px;">
-                  <label style="display: block; font-size: 11px; color: #6b7280; margin-bottom: 4px;">Payee Account</label>
-                  <div style="font-size: 13px; font-weight: 500; color: #1f2937;">{{ toAccountDisplay }}</div>
-                </div>
-                <div>
-                  <label style="display: block; font-size: 11px; color: #6b7280; margin-bottom: 4px;">Amount</label>
-                  <div style="font-size: 16px; font-weight: 600; color: #059669;">{{ formatCurrency(loadedVoucher?.accounts?.find((a: any) => a.transaction_type === 'DR')?.amount || form.total_amount) }}</div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Narration -->
-          <div v-if="form.narration" style="margin-bottom: 30px;">
-            <label style="display: block; font-size: 11px; color: #6b7280; font-weight: 500; margin-bottom: 8px; text-transform: uppercase;">Notes</label>
-            <div style="background: #f9fafb; padding: 12px; border-radius: 6px; border: 1px solid #e5e7eb; font-size: 13px; color: #1f2937; line-height: 1.6;">{{ form.narration }}</div>
-          </div>
-
-          <!-- Requisitions Table - Only show if we have requisitions -->
-          <div v-if="payeeRequisitions.length > 0">
-            <h3 style="font-size: 14px; font-weight: 600; color: #1f2937; margin-bottom: 15px;">Paid Requisitions</h3>
-            <div style="overflow-x: auto; border: 1px solid #e5e7eb; border-radius: 6px; margin-bottom: 20px;">
-              <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
-                <thead style="background: #f9fafb;">
-                  <tr>
-                    <th style="padding: 12px; text-align: left; font-weight: 600; border-bottom: 2px solid #e5e7eb;">No.</th>
-                    <th style="padding: 12px; text-align: left; font-weight: 600; border-bottom: 2px solid #e5e7eb;">Requisition #</th>
-                    <th style="padding: 12px; text-align: left; font-weight: 600; border-bottom: 2px solid #e5e7eb;">Description</th>
-                    <th style="padding: 12px; text-align: center; font-weight: 600; border-bottom: 2px solid #e5e7eb;">Cost Center</th>
-                    <th style="padding: 12px; text-align: right; font-weight: 600; border-bottom: 2px solid #e5e7eb;">Amount Paid</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="(req, idx) in payeeRequisitions" :key="idx" style="border-bottom: 1px solid #e5e7eb;">
-                    <td style="padding: 12px; color: #6b7280;">{{ idx + 1 }}</td>
-                    <td style="padding: 12px; font-weight: 500; color: #2563eb;">{{ req.requisition_number }}</td>
-                    <td style="padding: 12px; color: #374151;">{{ req.description }}</td>
-                    <td style="padding: 12px; text-align: center;">
-                      <span style="background: #dbeafe; color: #1e40af; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 500;">{{ req.cost_center_code || req.cost_center || 'N/A' }}</span>
-                    </td>
-                    <td style="padding: 12px; text-align: right; font-weight: 600; color: #059669;">{{ formatCurrency(req.amount_to_pay || req.amount) }}</td>
-                  </tr>
-                </tbody>
-                <tfoot style="background: #f9fafb; border-top: 2px solid #e5e7eb;">
-                  <tr>
-                    <td colspan="4" style="padding: 12px; text-align: right; font-weight: 600; font-size: 14px;">Total Paid:</td>
-                    <td style="padding: 12px; text-align: right; font-weight: 700; font-size: 16px; color: #059669;">{{ formatCurrency(form.total_amount || totalAmountToPay) }}</td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        <!-- EDITABLE FORM MODE (for DRAFT/new vouchers) -->
-        <div v-else style="max-width: 1400px; margin: 0 auto; background: white; border-radius: 8px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-top: 15px;">
+      <div v-show="voucherTab === 'payment'" style="padding: 20px;">
+        <div style="max-width: 1400px; margin: 0 auto; background: white; border-radius: 8px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
 
           <!-- VOUCHER DETAILS -->
-          <div style="display: grid; grid-template-columns: 1.2fr 1fr 1.2fr 0.8fr 1fr; gap: 15px; margin-bottom: 20px;">
+          <div style="display: grid; grid-template-columns: 1.2fr 1fr 1.2fr 1.2fr 1fr; gap: 15px; margin-bottom: 20px;">
             <div>
               <label style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 12px;">Voucher No. <span style="color: #dc2626;">*</span></label>
               <Multiselect 
@@ -202,12 +79,10 @@
               </Multiselect>
             </div>
             <div>
-              <label style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 12px;">Currency</label>
+              <label style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 12px;">Currency <span style="color: #dc2626;">*</span></label>
               <select v-model="form.currency_id" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px;">
                 <option value="">-- Select --</option>
-                <option v-for="currency in currencies" :key="currency.id" :value="String(currency.id)">
-                  {{ currency.code }} - {{ currency.name }}
-                </option>
+                <option v-for="currency in currencies" :key="currency.id" :value="String(currency.id)">{{ currency.name }}</option>
               </select>
             </div>
             <div>
@@ -216,13 +91,9 @@
             </div>
           </div>
 
-          <!-- NOTES -->
-          <div style="margin-bottom: 20px;">
-            <label style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 12px;">Notes</label>
-            <textarea v-model="form.narration" placeholder="Enter notes..." style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; min-height: 60px; resize: vertical; font-family: inherit;"></textarea>
-          </div>
+          <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;" />
 
-          <!-- PAYMENT DETAILS - TWO COLUMN LAYOUT -->
+          <!-- PAYMENT DETAILS - MULTI ROW LAYOUT -->
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 20px;">
             <!-- LEFT SIDE: PAYMENT FROM (CREDIT) -->
             <div>
@@ -313,6 +184,14 @@
             </div>
           </div>
 
+          <!-- NOTES -->
+          <div style="margin-bottom: 20px;">
+            <label style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 12px;">Notes</label>
+            <textarea v-model="form.narration" placeholder="Enter notes..." style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; min-height: 100px; font-family: inherit;"></textarea>
+          </div>
+
+          <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;" />
+
           <!-- REQUISITIONS TABLE -->
           <div style="overflow-x: auto; border: 1px solid #e5e7eb; border-radius: 4px; max-height: 300px; overflow-y: auto; margin-bottom: 20px;">
             <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
@@ -353,14 +232,9 @@
                   </td>
                   <td style="padding: 8px; text-align: right; color: #059669; font-weight: 500; font-size: 11px;">{{ formatCurrency((req.balance_remaining || req.total_amount) - (req.amount_to_pay || 0)) }}</td>
                   <td style="padding: 8px; text-align: center;">
-                    <div style="display: flex; gap: 4px; justify-content: center;">
-                      <button type="button" @click="viewRequisitionDetails(req)" title="View Details" style="background: #dbeafe; color: #2563eb; border: 1px solid #93c5fd; padding: 3px 6px; border-radius: 3px; cursor: pointer; font-size: 10px;" onmouseover="this.style.background='#bfdbfe'" onmouseout="this.style.background='#dbeafe'">
-                        <i class="fa fa-eye"></i>
-                      </button>
-                      <button type="button" @click="removePayeeRequisition(idx)" title="Remove" style="background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; padding: 3px 6px; border-radius: 3px; cursor: pointer; font-size: 10px;" onmouseover="this.style.background='#fecaca'" onmouseout="this.style.background='#fee2e2'">
-                        <i class="fa fa-trash"></i>
-                      </button>
-                    </div>
+                    <button type="button" @click="removePayeeRequisition(idx)" style="background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; padding: 3px 6px; border-radius: 3px; cursor: pointer; font-size: 10px;" onmouseover="this.style.background='#fecaca'" onmouseout="this.style.background='#fee2e2'">
+                      <i class="fa fa-trash"></i>
+                    </button>
                   </td>
                 </tr>
               </tbody>
@@ -472,100 +346,6 @@
         </div>
       </div>
     </div>
-
-    <!-- REQUISITION DETAILS MODAL -->
-    <div v-if="showRequisitionDetailsModal" @click.self="showRequisitionDetailsModal = false" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 9999; padding: 20px;">
-      <div style="background: white; border-radius: 8px; max-width: 800px; width: 100%; max-height: 90vh; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04); display: flex; flex-direction: column;">
-        <!-- Modal Header -->
-        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; display: flex; justify-content: space-between; align-items: center;">
-          <div style="display: flex; align-items: center; gap: 12px; color: white;">
-            <i class="fa fa-file-alt" style="font-size: 24px;"></i>
-            <h3 style="margin: 0; font-size: 18px; font-weight: 600;">Requisition Details</h3>
-          </div>
-          <button @click="showRequisitionDetailsModal = false" style="background: rgba(255,255,255,0.2); border: none; color: white; width: 32px; height: 32px; border-radius: 4px; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center;" onmouseover="this.style.background='rgba(255,255,255,0.3)'" onmouseout="this.style.background='rgba(255,255,255,0.2)'">
-            <i class="fa fa-times"></i>
-          </button>
-        </div>
-
-        <!-- Modal Body -->
-        <div style="padding: 20px; overflow-y: auto; flex: 1;">
-          <div v-if="loadingRequisitionDetails" style="text-align: center; padding: 40px;">
-            <i class="fa fa-spinner fa-spin" style="font-size: 32px; color: #667eea;"></i>
-            <p style="margin-top: 12px; color: #6b7280;">Loading details...</p>
-          </div>
-
-          <div v-else-if="selectedRequisitionDetails">
-            <!-- Summary Info -->
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; padding: 16px; background: #f9fafb; border-radius: 6px; border: 1px solid #e5e7eb;">
-              <div>
-                <div style="font-size: 11px; color: #6b7280; font-weight: 500; margin-bottom: 4px; text-transform: uppercase;">Requisition Number</div>
-                <div style="font-size: 16px; font-weight: 600; color: #667eea;">{{ selectedRequisitionDetails.requisition_number }}</div>
-              </div>
-              <div>
-                <div style="font-size: 11px; color: #6b7280; font-weight: 500; margin-bottom: 4px; text-transform: uppercase;">Cost Center</div>
-                <div style="font-size: 14px; font-weight: 500; color: #1f2937;">{{ selectedRequisitionDetails.cost_center }}</div>
-              </div>
-              <div>
-                <div style="font-size: 11px; color: #6b7280; font-weight: 500; margin-bottom: 4px; text-transform: uppercase;">Total Amount</div>
-                <div style="font-size: 18px; font-weight: 700; color: #059669;">{{ formatCurrency(selectedRequisitionDetails.total_amount || 0) }}</div>
-              </div>
-              <div>
-                <div style="font-size: 11px; color: #6b7280; font-weight: 500; margin-bottom: 4px; text-transform: uppercase;">Amount to Pay</div>
-                <div style="font-size: 18px; font-weight: 700; color: #dc2626;">{{ formatCurrency(selectedRequisitionDetails.amount_to_pay || 0) }}</div>
-              </div>
-              <div style="grid-column: 1 / -1;">
-                <div style="font-size: 11px; color: #6b7280; font-weight: 500; margin-bottom: 4px; text-transform: uppercase;">Description</div>
-                <div style="font-size: 13px; color: #374151;">{{ selectedRequisitionDetails.description || 'N/A' }}</div>
-              </div>
-            </div>
-
-            <!-- Requisition Items -->
-            <h4 style="font-size: 14px; font-weight: 600; color: #1f2937; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
-              <i class="fa fa-list" style="color: #667eea;"></i>
-              Requisition Items
-            </h4>
-            <div style="overflow-x: auto; border: 1px solid #e5e7eb; border-radius: 6px;">
-              <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
-                <thead style="background: #f3f4f6; border-bottom: 2px solid #e5e7eb;">
-                  <tr>
-                    <th style="padding: 10px; text-align: center; font-weight: 600; color: #374151; border-right: 1px solid #e5e7eb;">#</th>
-                    <th style="padding: 10px; text-align: left; font-weight: 600; color: #374151; border-right: 1px solid #e5e7eb;">Item Description</th>
-                    <th style="padding: 10px; text-align: center; font-weight: 600; color: #374151; border-right: 1px solid #e5e7eb;">Qty</th>
-                    <th style="padding: 10px; text-align: right; font-weight: 600; color: #374151; border-right: 1px solid #e5e7eb;">Unit Price</th>
-                    <th style="padding: 10px; text-align: right; font-weight: 600; color: #374151;">Amount</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-if="!selectedRequisitionDetails.items || selectedRequisitionDetails.items.length === 0">
-                    <td colspan="5" style="padding: 20px; text-align: center; color: #9ca3af;">No items found</td>
-                  </tr>
-                  <tr v-for="(item, idx) in selectedRequisitionDetails.items" :key="idx" style="border-bottom: 1px solid #e5e7eb;">
-                    <td style="padding: 10px; text-align: center; color: #6b7280; border-right: 1px solid #f3f4f6;">{{ Number(idx) + 1 }}</td>
-                    <td style="padding: 10px; color: #1f2937; border-right: 1px solid #f3f4f6;">{{ item.description || item.item_name || 'N/A' }}</td>
-                    <td style="padding: 10px; text-align: center; color: #374151; border-right: 1px solid #f3f4f6;">{{ item.quantity || 0 }}</td>
-                    <td style="padding: 10px; text-align: right; color: #374151; border-right: 1px solid #f3f4f6; font-family: monospace;">{{ formatCurrency(item.unit_price || item.rate || 0) }}</td>
-                    <td style="padding: 10px; text-align: right; color: #059669; font-weight: 600; font-family: monospace;">{{ formatCurrency(item.amount || (item.quantity * (item.unit_price || item.rate)) || 0) }}</td>
-                  </tr>
-                </tbody>
-                <tfoot style="background: #f9fafb; border-top: 2px solid #e5e7eb;">
-                  <tr>
-                    <td colspan="4" style="padding: 12px; text-align: right; font-weight: 600; color: #1f2937;">Total:</td>
-                    <td style="padding: 12px; text-align: right; font-weight: 700; color: #059669; font-size: 14px; font-family: monospace;">{{ formatCurrency(selectedRequisitionDetails.total_amount || 0) }}</td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        <!-- Modal Footer -->
-        <div style="padding: 16px 20px; background: #f9fafb; border-top: 1px solid #e5e7eb; display: flex; justify-content: flex-end;">
-          <button @click="showRequisitionDetailsModal = false" style="padding: 8px 20px; background: #6b7280; color: white; border: none; border-radius: 4px; font-weight: 500; cursor: pointer; font-size: 13px;" onmouseover="this.style.background='#4b5563'" onmouseout="this.style.background='#6b7280'">
-            <i class="fa fa-times" style="margin-right: 6px;"></i>Close
-          </button>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -587,20 +367,6 @@ const appOptionStore = useAppOptionStore()
 
 const isEdit = computed(() => !!route.params.id)
 const voucherId = computed(() => route.params.id ? Number(route.params.id) : null)
-const isViewMode = computed(() => {
-  // If we're editing and the loaded voucher is POSTED, it's view mode
-  if (isEdit.value && loadedVoucher.value && loadedVoucher.value.status === 'POSTED') {
-    return true
-  }
-  // Also check form status as fallback
-  if (isEdit.value && form.value.status === 'POSTED') {
-    return true
-  }
-  return false
-})
-const isPaymentVoucher = computed(() => {
-  return loadedVoucher.value?.document_type?.code === 'PV' || loadedVoucher.value?.document_type?.name?.includes('Payment')
-})
 
 const saving = ref(false)
 const savingLink = ref(false)
@@ -610,8 +376,6 @@ const errorMessage = ref('')
 const originalSidebarState = ref(false)
 const sidebarMinifiedForCreate = ref(false)
 const activeTab = ref('source')
-const loadedVoucher = ref<any>(null) // Store full voucher for view mode
-const loadingVoucher = ref(!!route.params.id) // Start as loading if we have an ID
 
 // Voucher Tab State
 const voucherTab = ref('payment')
@@ -644,7 +408,6 @@ const form = ref({
   payee_account: '',
   payee_account_id: null,
   payee_account_code: '',
-  fund_direction: '',
   total_amount: 0
 })
 
@@ -656,11 +419,6 @@ const selectedRequisitions = ref<any[]>([])
 
 // Single Selected Requisition (for linking)
 const selectedRequisition = ref<any>(null)
-
-// Requisition Details Modal
-const showRequisitionDetailsModal = ref(false)
-const selectedRequisitionDetails = ref<any>(null)
-const loadingRequisitionDetails = ref(false)
 
 // Requisition Search
 const showRequisitionModal = ref(false)
@@ -888,33 +646,6 @@ const bankCashAccounts = ref<any[]>([])
 const payees = ref<any[]>([])
 const payableAccounts = ref<any[]>([])
 const paymentMethods = ref<string[]>(['Bank', 'Cash', 'Cheque', 'Wire Transfer', 'Deposit', 'Mobile Money'])
-
-// Computed properties for account display in view mode
-const fromAccountDisplay = computed(() => {
-  const crAccount = loadedVoucher.value?.accounts?.find((a: any) => a.transaction_type === 'CR')
-  if (crAccount?.account) {
-    return `${crAccount.account.code || ''} - ${crAccount.account.name || ''}`.trim().replace(/^-\s*/, '')
-  }
-  // Fallback to lookup by account_id
-  const account = bankCashAccounts.value.find(a => a.id === crAccount?.account_id || a.id === Number(form.value.from_account_id))
-  if (account) {
-    return `${account.code || ''} - ${account.name || ''}`.trim().replace(/^-\s*/, '')
-  }
-  return 'Not specified'
-})
-
-const toAccountDisplay = computed(() => {
-  const drAccount = loadedVoucher.value?.accounts?.find((a: any) => a.transaction_type === 'DR')
-  if (drAccount?.account) {
-    return `${drAccount.account.code || ''} - ${drAccount.account.name || ''}`.trim().replace(/^-\s*/, '')
-  }
-  // Fallback to lookup by account_id
-  const account = payableAccounts.value.find(a => a.id === drAccount?.account_id || a.id === Number(form.value.payee_account))
-  if (account) {
-    return `${account.code || account.label?.split('-')[0]?.trim() || ''} - ${account.name || account.label?.split('-')[1]?.trim() || ''}`.trim().replace(/^-\s*/, '')
-  }
-  return 'Not specified'
-})
 
 // Balance Summary
 const balanceSummary = computed(() => {
@@ -1731,10 +1462,10 @@ async function submitJournalVoucher() {
 // ==================== PAYMENT VOUCHER METHODS ====================
 
 async function fetchEligibleRequisitions() {
-  // Validation: From account must be selected
-  if (!form.value.from_account_id) {
+  // Validation: Payee must be selected
+  if (!form.value.payee_id) {
     init({
-      message: 'Please select a From (Credit) account first',
+      message: 'Please select a payee first',
       color: 'warning'
     })
     return
@@ -1924,14 +1655,6 @@ async function fetchEligibleRequisitions() {
       }
     })
 
-    // Auto-populate currency from first requisition if available
-    if (requisitions.length > 0 && requisitions[0].currency_id) {
-      form.value.currency_id = String(requisitions[0].currency_id)
-      if (requisitions[0].exchange_rate) {
-        form.value.exchange_rate = requisitions[0].exchange_rate
-      }
-    }
-
     // Update total amount from sum of requisitions
     form.value.total_amount = totalAmountToPay.value
 
@@ -2068,6 +1791,14 @@ async function saveDraft() {
     return
   }
 
+  if (!form.value.payee_id) {
+    init({
+      message: 'Please select a payee',
+      color: 'warning'
+    })
+    return
+  }
+
   if (!form.value.currency_id) {
     init({
       message: 'Please select a currency',
@@ -2089,7 +1820,7 @@ async function saveDraft() {
       exchange_rate: form.value.exchange_rate || 1.0,
       from_account_id: Number(form.value.from_account_id),
       payment_method: form.value.payment_method,
-      ...(form.value.payee_id && { payee_id: Number(form.value.payee_id) }),
+      payee_id: Number(form.value.payee_id),
       payee_account: form.value.payee_account,
       total_amount: form.value.total_amount || payeeRequisitions.value.reduce((sum, r) => sum + r.amount_to_pay, 0),
       narration: form.value.narration,
@@ -2149,9 +1880,9 @@ async function postVoucher(voucherId?: number) {
     }
 
     // Validation: Required fields
-    if (!form.value.from_account_id || !form.value.currency_id) {
+    if (!form.value.from_account_id || !form.value.payee_id || !form.value.currency_id) {
       init({
-        message: 'Please fill all required fields (From Account, Currency)',
+        message: 'Please fill all required fields (From Account, Payee, Currency)',
         color: 'warning'
       })
       return
@@ -2191,7 +1922,7 @@ async function postVoucher(voucherId?: number) {
         exchange_rate: form.value.exchange_rate || 1.0,
         from_account_id: Number(form.value.from_account_id),
         payment_method: form.value.payment_method,
-        ...(form.value.payee_id && { payee_id: Number(form.value.payee_id) }),
+        payee_id: Number(form.value.payee_id),
         payee_account: form.value.payee_account,
         total_amount: form.value.total_amount || payeeRequisitions.value.reduce((sum, r) => sum + r.amount_to_pay, 0),
         narration: form.value.narration,
@@ -2215,7 +1946,7 @@ async function postVoucher(voucherId?: number) {
       })
 
       // Redirect to vouchers list
-      router.push({ name: 'journal-vouchers' })
+      router.push({ name: 'payment-vouchers' })
     } catch (error: any) {
       console.error('Error posting payment voucher:', error)
       init({
@@ -2242,7 +1973,7 @@ async function postVoucher(voucherId?: number) {
 
       // Redirect to vouchers list
       setTimeout(() => {
-        router.push({ name: 'journal-vouchers' })
+        router.push({ name: 'payment-vouchers' })
       }, 1500)
     } catch (error: any) {
       console.error('Error posting payment voucher:', error)
@@ -2270,11 +2001,11 @@ function closeForm() {
       cancelButtonText: 'Cancel'
     }).then((result) => {
       if (result.isConfirmed) {
-        router.push({ name: 'journal-vouchers' })
+        router.push({ name: 'payment-vouchers' })
       }
     })
   } else {
-    router.push({ name: 'journal-vouchers' })
+    router.push({ name: 'payment-vouchers' })
   }
 }
 
@@ -2385,7 +2116,7 @@ async function loadPaymentVoucherData() {
     bankCashAccounts.value = bankCashResponse.data?.data || bankCashResponse.data || []
     
     // Fetch all payees from API
-    const payeesResponse = await accountingStore.fetchPayees()
+    const payeesResponse = await accountingStore.fetchPayees(accountingStore.companyId)
     payees.value = payeesResponse.data?.data || payeesResponse.data || []
     
     // Fetch payable accounts from API
@@ -2405,19 +2136,46 @@ function onFromAccountChange() {// Clear payee requisitions when account changes
 }
 
 // Handle Payee selection change
-function onPayeeChange() {
+async function onPayeeChange() {
+  console.log('Payee changed to:', form.value.payee_id)
   // Clear payee requisitions when payee changes
   payeeRequisitions.value = []
+
+  // Auto-populate Payable Account based on payee
+  if (form.value.payee_id) {
+    try {
+      const response = await accountingStore.fetchPayeeAccount(
+        Number(form.value.payee_id),
+        1
+      )
+
+      if (response.success && response.data) {
+        // Auto-populate Payable Account field with default account ID
+        form.value.payee_account_id = response.data.id
+        form.value.payee_account_code = response.data.code
+        form.value.payee_account = String(response.data.id) // Store as string for dropdown
+        console.log('Payable account auto-populated:', response.data.id, response.data.label)
+      }
+    } catch (error) {
+      console.error('Error fetching payee account:', error)
+      // Don't show error to user, field can be filled manually if needed
+    }
+  } else {
+    // Clear account if payee is cleared
+    form.value.payee_account_id = null
+    form.value.payee_account_code = ''
+    form.value.payee_account = ''
+  }
 }
 
 // Lifecycle
 onMounted(async () => {
-  // Sidebar auto-hide removed - keep user's preference
-  // if (!isEdit.value) {
-  //   originalSidebarState.value = appOptionStore.appSidebarMinified
-  //   appOptionStore.appSidebarMinified = true
-  //   sidebarMinifiedForCreate.value = true
-  // }
+  // Minify sidebar for create mode (like Requisition page)
+  if (!isEdit.value) {
+    originalSidebarState.value = appOptionStore.appSidebarMinified
+    appOptionStore.appSidebarMinified = true
+    sidebarMinifiedForCreate.value = true
+  }
 
   // Add click outside listener to close search dropdown
   const handleClickOutside = (event: MouseEvent) => {
@@ -2445,9 +2203,7 @@ onMounted(async () => {
   }
 
   if (isEdit.value && voucherId.value) {
-    loadingVoucher.value = true
     try {
-      // Load journal voucher with payment includes
       const response = await accountingStore.getJournalVoucher(voucherId.value)
       const voucher = response.data.data || response.data
       
@@ -2512,13 +2268,10 @@ onMounted(async () => {
           total_amount: req.total_amount || req.amount || 0
         }))} else {}
     } catch (error) {
-      console.error('Error loading voucher:', error)
       init({
-        message: 'Failed to load payment voucher',
+        message: 'Failed to load journal voucher',
         color: 'danger'
       })
-    } finally {
-      loadingVoucher.value = false
     }
   }
 

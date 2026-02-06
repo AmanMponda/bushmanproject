@@ -1,58 +1,11 @@
 <template>
   <div>
-    <div class="d-flex align-items-center mb-0">
+    <div class="d-flex align-items-center mb-2">
       <div>
-        <ol class="breadcrumb">
+        <ol class="breadcrumb mb-0">
           <li class="breadcrumb-item"><a href="javascript:;">ASSETS</a></li>
           <li class="breadcrumb-item active">ODOMETER READING HISTORY</li>
         </ol>
-      </div>
-    </div>
-
-    <div class="row mt-0 mb-3 d-flex flex-row justify-content-between align-items-center g-3 align-items-stretch">
-      <div class="col-xl-6 col-lg-6 col-md-12 col-sm-12">
-        <card class="h-100">
-          <card-body class="text-center">
-            <h3 class="text-muted">
-              <i class="fa fa-tachometer-alt"></i>
-              Odometer Reading Summary
-            </h3>
-            <p class="text-small fst-italic">
-              Odometer reading is done either manually or through GPS.
-              <br />
-              Here is what we have collected so far.
-            </p>
-          </card-body>
-        </card>
-      </div>
-
-      <div class="col-xl-3 col-lg-3 col-md-6 col-sm-6">
-        <card class="h-100">
-          <card-body class="d-flex align-items-center justify-content-between">
-            <div>
-              <div class="fw-bold text-muted fs-20px">Total Fleet</div>
-              <div class="fw-bold fs-24px">{{ summary.total_fleet }}</div>
-            </div>
-            <div class="w-50px h-50px bg-danger bg-opacity-30 rounded-circle d-flex align-items-center justify-content-center fw-bold fs-24px">
-              <i class="fa fa-bus text-danger"></i>
-            </div>
-          </card-body>
-        </card>
-      </div>
-
-      <div class="col-xl-3 col-lg-3 col-md-6 col-sm-6">
-        <card class="h-100">
-          <card-body class="d-flex align-items-center justify-content-between">
-            <div>
-              <div class="fw-bold text-muted fs-20px">Updated Vehicles</div>
-              <div class="fw-bold fs-24px">{{ summary.updated_vehicles }}</div>
-              <div class="fs-14px fst-italic text-success mt-1">{{ updatedVehiclesPercentage() }}% of fleet updated</div>
-            </div>
-            <div class="w-50px h-50px bg-danger bg-opacity-30 rounded-circle d-flex align-items-center justify-content-center fw-bold fs-24px">
-              <i class="fa fa-bus text-danger"></i>
-            </div>
-          </card-body>
-        </card>
       </div>
     </div>
 
@@ -121,32 +74,11 @@ import StandardDataTable from '@/components/plugins/StandardDataTable.vue'
 
 const loading = ref(false)
 
-const readingHistory = ref([
-  {
-    vehicle_name: 'Land Cruiser',
-    model_name: 'LC 300',
-    reading_source: 'GPS',
-    odometer_reading: 24500,
-    gps_reading: 24500,
-    remarks: 'OK',
-    read_by: 'System',
-    reading_date: '21 Jan 2026'
-  },
-  {
-    vehicle_name: 'Hilux',
-    model_name: 'Revo',
-    reading_source: 'Manual',
-    odometer_reading: 13200,
-    gps_reading: 13190,
-    remarks: 'Manual update',
-    read_by: 'Mechanic',
-    reading_date: '20 Jan 2026'
-  }
-])
+const readingHistory = ref([])
 
 const summary = ref({
-  total_fleet: 18,
-  updated_vehicles: 12
+  total_fleet: 0,
+  updated_vehicles: 0
 })
 
 const tableColumns = ref([
@@ -201,5 +133,9 @@ const handleFiltersUpdate = (newFilters) => {
 <style scoped>
 .cursor-pointer {
   cursor: pointer;
+}
+
+:deep(.soft-divider) {
+  display: none;
 }
 </style>
