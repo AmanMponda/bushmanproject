@@ -218,7 +218,8 @@ const monthsMap: Record<string, number> = {
 }
 
 const buildEventsMap = (rawData: any[], year: number) => {
-  const map = new Map<string, Array<{ type: string; label: string }>>()
+  const events: Array<{ startDate: Date; endDate: Date; type: string; label: string; id: string }> = []
+  let eventIdCounter = 0
 
   rawData.forEach((monthData: any) => {
     const monthLabel = (monthData.id || monthData.name || '').toLowerCase()
@@ -232,16 +233,15 @@ const buildEventsMap = (rawData: any[], year: number) => {
           area.rows.forEach((row: any) => {
             if (row.segments) {
               row.segments.forEach((seg: any) => {
-                for (let day = seg.start; day <= seg.end; day++) {
-                  const dateKey = `${year}-${String(monthIndex + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-                  if (!map.has(dateKey)) {
-                    map.set(dateKey, [])
-                  }
-                  map.get(dateKey)?.push({
-                    type: seg.type,
-                    label: row.clientName || seg.label || ''
-                  })
-                }
+                const startDate = new Date(year, monthIndex, seg.start)
+                const endDate = new Date(year, monthIndex, seg.end)
+                events.push({
+                  startDate,
+                  endDate,
+                  type: seg.type,
+                  label: row.clientName || seg.label || '',
+                  id: `evt-${eventIdCounter++}`
+                })
               })
             }
           })
@@ -250,7 +250,7 @@ const buildEventsMap = (rawData: any[], year: number) => {
     }
   })
 
-  return map
+  return events
 }
 
 // Computed
@@ -293,7 +293,7 @@ const generatePdf = async () => {
 
     // Load events
     const rawData = await loadBookingData(settings.year)
-    const eventsMap = buildEventsMap(rawData, settings.year)
+    const allEvents = buildEventsMap(rawData, settings.year)
 
     // Calculate pages
     const monthsToRender = []
@@ -386,7 +386,7 @@ const generatePdf = async () => {
         // Weekday headers
         const weekHeaderY = startY + 35
         pdf.setFont('helvetica', 'bold')
-        pdf.setFontSize(6)
+        pdf.setFontSize(7)
         pdf.setTextColor(...textMuted)
         for (let d = 0; d < 7; d++) {
           pdf.text(weekDays[d], startX + d * cellWidth + cellWidth / 2, weekHeaderY, { align: 'center' })
@@ -397,12 +397,12 @@ const generatePdf = async () => {
         const daysInMonth = new Date(settings.year, monthIndex + 1, 0).getDate()
         const cellStartY = weekHeaderY + 8
 
+        // Draw day numbers and highlights first
         let currentRow = 0
         for (let day = 1; day <= daysInMonth; day++) {
           const weekDay = (firstDay + day - 1) % 7
           const cellX = startX + weekDay * cellWidth
           const cellY = cellStartY + currentRow * cellHeight
-          const dateKey = `${settings.year}-${String(monthIndex + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
           
           // Today highlight
           const today = new Date()
@@ -420,39 +420,121 @@ const generatePdf = async () => {
           }
           
           pdf.setFont('helvetica', isToday ? 'bold' : 'normal')
-          pdf.setFontSize(7)
+          pdf.setFontSize(8)
           pdf.text(String(day), cellX + cellWidth / 2, cellY + 8, { align: 'center' })
 
-          // Events
-          const dayEvents = eventsMap.get(dateKey) || []
-          let barY = cellY + 12
-          const barHeight = 3.5
-          const maxBars = 3
-
-          dayEvents.slice(0, maxBars).forEach((evt) => {
-            if (evt.type === 'hunt') {
-              pdf.setFillColor(...huntGreen)
-            } else {
-              pdf.setFillColor(...travelBlue)
-            }
-            pdf.roundedRect(cellX + 1, barY, cellWidth - 2, barHeight, 1, 1, 'F')
-            
-            if (settings.showEventLabels && cellWidth > 30) {
-              pdf.setFontSize(3)
-              pdf.setTextColor(...white)
-              const label = (evt.label || '').substring(0, 8)
-              if (label) pdf.text(label, cellX + 2, barY + 2.5)
-            }
-            barY += barHeight + 0.5
-          })
-
-          if (dayEvents.length > maxBars) {
-            pdf.setFontSize(4)
-            pdf.setTextColor(...textMuted)
-            pdf.text(`+${dayEvents.length - maxBars}`, cellX + cellWidth / 2, barY + 2, { align: 'center' })
-          }
-
           if (weekDay === 6) currentRow++
+        }
+
+        // Draw continuous event bars
+        const monthStart = new Date(settings.year, monthIndex, 1)
+        const monthEnd = new Date(settings.year, monthIndex + 1, 0)
+        const monthEvents = allEvents.filter(evt => 
+          evt.startDate <= monthEnd && evt.endDate >= monthStart
+        )
+
+        // Group events by row to stack them
+        const eventRows: Array<Array<any>> = []
+        monthEvents.forEach(evt => {
+          let placed = false
+          for (const row of eventRows) {
+            const hasOverlap = row.some(existingEvt => 
+              !(evt.endDate < existingEvt.startDate || evt.startDate > existingEvt.endDate)
+            )
+            if (!hasOverlap) {
+              row.push(evt)
+              placed = true
+              break
+            }
+          }
+          if (!placed) {
+            eventRows.push([evt])
+          }
+        })
+
+        const barHeight = 5.5
+        const barSpacing = 1
+        const maxBars = 2
+
+        eventRows.slice(0, maxBars).forEach((row, rowIndex) => {
+          row.forEach(evt => {
+            const evtStartDate = evt.startDate < monthStart ? monthStart : evt.startDate
+            const evtEndDate = evt.endDate > monthEnd ? monthEnd : evt.endDate
+            
+            const startDay = evtStartDate.getDate()
+            const endDay = evtEndDate.getDate()
+            
+            // Determine event color
+            const evtColor: [number, number, number] = evt.type === 'hunt' ? huntGreen : travelBlue
+
+            // Split event into week-row segments and draw one continuous bar per calendar row
+            let day = startDay
+            while (day <= endDay) {
+              const dayOffset = firstDay + day - 1
+              const col = dayOffset % 7
+              const weekRow = Math.floor(dayOffset / 7)
+
+              // How many days left until Saturday (end of this calendar row)
+              const daysUntilSaturday = 6 - col
+              const rowEndDay = Math.min(day + daysUntilSaturday, endDay)
+              const endCol = (firstDay + rowEndDay - 1) % 7
+
+              // Calculate single continuous bar coordinates
+              const barStartX = startX + col * cellWidth + 1
+              const barEndX = startX + (endCol + 1) * cellWidth - 1
+              const barWidth = barEndX - barStartX
+              const cellY = cellStartY + weekRow * cellHeight
+              const barY = cellY + 12 + rowIndex * (barHeight + barSpacing)
+
+              const isEventStart = day === startDay
+              const isEventEnd = rowEndDay === endDay
+              const radius = 2.5
+
+              // IMPORTANT: Re-set fill color before every draw call
+              // (jsPDF setTextColor can override the fill state)
+              pdf.setFillColor(...evtColor)
+
+              if (isEventStart && isEventEnd) {
+                pdf.roundedRect(barStartX, barY, barWidth, barHeight, radius, radius, 'F')
+              } else if (isEventStart) {
+                // Round left, extend flush to right edge
+                pdf.roundedRect(barStartX, barY, barWidth + 1, barHeight, radius, radius, 'F')
+                pdf.setFillColor(...evtColor)
+                pdf.rect(barStartX + barWidth - radius, barY, radius + 1, barHeight, 'F')
+              } else if (isEventEnd) {
+                // Extend flush from left edge, round right
+                pdf.roundedRect(barStartX - 1, barY, barWidth + 1, barHeight, radius, radius, 'F')
+                pdf.setFillColor(...evtColor)
+                pdf.rect(barStartX - 1, barY, radius + 1, barHeight, 'F')
+              } else {
+                // Middle rows: full width, no rounding
+                pdf.rect(barStartX - 1, barY, barWidth + 2, barHeight, 'F')
+              }
+
+              // Draw label text on each row segment
+              if (settings.showEventLabels) {
+                const maxChars = Math.max(6, Math.floor(barWidth / 3))
+                const label = (evt.label || '').substring(0, maxChars)
+                if (label) {
+                  pdf.setFontSize(5)
+                  pdf.setFont('helvetica', 'bold')
+                  pdf.setTextColor(...white)
+                  pdf.text(label, barStartX + 2, barY + 4)
+                }
+              }
+
+              day = rowEndDay + 1
+            }
+          })
+        })
+
+        // Show overflow indicator if there are more events than can be displayed
+        if (eventRows.length > maxBars) {
+          const lastVisibleRow = maxBars - 1
+          const indicatorY = cellStartY + 12 + lastVisibleRow * (barHeight + barSpacing) + barHeight + 2
+          pdf.setFontSize(4)
+          pdf.setTextColor(...textMuted)
+          pdf.text(`+${eventRows.length - maxBars} more`, startX + 2, indicatorY)
         }
       })
 
