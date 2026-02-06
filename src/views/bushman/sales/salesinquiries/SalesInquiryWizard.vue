@@ -44,7 +44,7 @@
                 <span class="section-icon"><i class="fa fa-calendar-alt"></i></span>
                 Hunt Details
               </div>
-              
+
               <label class="field">
                 <span class="lbl">Season <span class="req">*</span></span>
                 <div class="input-wrapper">
@@ -56,27 +56,18 @@
               </label>
 
               <label class="field">
-                <span class="lbl">Start Date <span class="req">*</span></span>
-                <div class="input-wrapper vueform-date-wrapper">
-                  <Vueform size="sm" :display-errors="false" :endpoint="false">
-                    <DateElement
-                      name="start_date"
-                      :default="form.start_date"
-                      @change="onStartDateChange"
-                      :disabled="!form.season"
-                      :display-format="'MMM D, YYYY'"
-                      :value-format="'YYYY-MM-DD'"
-                      placeholder="Select start date..."
-                      :add-class="{ DateElement: { input: 'form-control' } }"
-                    />
-                  </Vueform>
+                <span class="lbl">Start Date</span>
+                <div class="input-wrapper">
+                  <Datepicker v-model="form.start_date" mode="date" :placeholder="'Select start date...'"
+                    @update:modelValue="onStartDateChange" />
                 </div>
               </label>
 
               <label class="field">
                 <span class="lbl">Price Structure</span>
                 <div class="input-wrapper">
-                  <select v-model="form.priceStructureId" :disabled="!form.season" @change="onPriceStructureChange(form.priceStructureId)">
+                  <select v-model="form.priceStructureId" :disabled="!form.season"
+                    @change="onPriceStructureChange(form.priceStructureId)">
                     <option :value="null">Select Price Structure...</option>
                     <option v-for="p in priceStructureItems" :key="p.value" :value="p.value">{{ p.label }}</option>
                   </select>
@@ -86,7 +77,9 @@
               <label class="field">
                 <span class="lbl">Hunting Package</span>
                 <div class="input-wrapper">
-                  <select v-model="form.priceListId" :disabled="!form.season || !form.priceStructureId || loadingPackageItems" @change="onPackageChange(form.priceListId)">
+                  <select v-model="form.priceListId"
+                    :disabled="!form.season || !form.priceStructureId || loadingPackageItems"
+                    @change="onPackageChange(form.priceListId)">
                     <option :value="null">Select Package...</option>
                     <option v-for="p in filteredPackageItems" :key="p.value" :value="p.value">{{ p.label }}</option>
                   </select>
@@ -96,7 +89,8 @@
               <label class="field">
                 <span class="lbl">Number of Days <span class="req">*</span></span>
                 <div class="input-wrapper">
-                  <input type="number" v-model.number="form.no_of_days" min="1" placeholder="e.g., 10" @change="onDaysChange(form.no_of_days)" />
+                  <input type="number" v-model.number="form.no_of_days" min="1" placeholder="e.g., 10"
+                    @change="onDaysChange(form.no_of_days)" />
                 </div>
               </label>
 
@@ -133,13 +127,8 @@
           <!-- Tabs -->
           <div class="inner-card tabs-card">
             <div class="tabs">
-              <button
-                v-for="t in tabs"
-                :key="t.key"
-                class="tab"
-                :class="{ active: activeTab === t.key }"
-                @click="activeTab = t.key"
-              >
+              <button v-for="t in tabs" :key="t.key" class="tab" :class="{ active: activeTab === t.key }"
+                @click="activeTab = t.key">
                 <span class="tab-icon"><i :class="t.icon"></i></span>
                 <span class="tab-text">{{ t.label }}</span>
                 <span class="tab-count" v-if="getTabCount(t.key) > 0">{{ getTabCount(t.key) }}</span>
@@ -158,18 +147,16 @@
                 <label class="field">
                   <span class="lbl">Previous Experience</span>
                   <div class="input-wrapper">
-                    <textarea v-model="form.prev_experience" rows="3" placeholder="Describe hunting experience..."></textarea>
+                    <textarea v-model="form.prev_experience" rows="3"
+                      placeholder="Describe hunting experience..."></textarea>
                   </div>
                 </label>
 
                 <label class="field">
                   <span class="lbl">Special Requests</span>
                   <div class="input-wrapper">
-                    <textarea
-                      v-model="form.special_requests"
-                      rows="3"
-                      placeholder="Any special requests or requirements..."
-                    ></textarea>
+                    <textarea v-model="form.special_requests" rows="3"
+                      placeholder="Any special requests or requirements..."></textarea>
                   </div>
                 </label>
               </div>
@@ -179,20 +166,37 @@
                 <span><i class="fa fa-paw me-2"></i>Species Selection</span>
               </div>
 
+
+
               <!-- Add Species Form -->
               <div class="add-item-row">
-                <select v-model="selectedSpeciesId" class="form-select" :disabled="!form.area || loadingAreaSpecies">
-                  <option :value="null">Select Species...</option>
-                  <option v-for="s in speciesItems" :key="s.value" :value="s.value">{{ s.label }}</option>
-                </select>
+                <Multiselect :ref="(el: any) => { if (el) speciesMultiselectRef = el }"
+                  :model-value="getSpeciesSelection()" @update:model-value="setSpeciesSelection"
+                  class="v-select-field v-select-grouped species-select" :options="groupedSpeciesOptions" label="label"
+                  track-by="value" :allow-empty="true" :append-to-body="true" :multiple="false" :close-on-select="true"
+                  :group-select="false" :option-height="28" :max-height="300"
+                  :selectable="(option: any) => !option.isHeader && !option.isCategoryHeader && !option.$isDisabled"
+                  :searchable="true" :options-limit="500" :disabled="!currentSalesPackage?.regulatory_package"
+                  placeholder="Search species by name...">
+                  <template #option="{ option }">
+                    <div :class="{
+                      'species-category-header': option.isHeader || option.isCategoryHeader,
+                      'species-option': !option.isHeader && !option.isCategoryHeader,
+                      'ps-3': option.isChild
+                    }">
+                      <span class="species-name">{{ option.name || option.label }}</span>
+                      <span v-if="option.scientificName" class="species-scientific text-muted ms-2">
+                        <em>{{ option.scientificName }}</em>
+                      </span>
+                      <span v-if="option.regulatoryQty > 0 && !option.isHeader" class="badge bg-secondary ms-2">
+                        Qty: {{ option.regulatoryQty }}
+                      </span>
+                    </div>
+                  </template>
+                </Multiselect>
                 <input type="number" v-model.number="speciesQuantity" min="1" placeholder="Qty" class="qty-input" />
-                <button
-                  type="button"
-                  class="btn btn-primary"
-                  style="background-color: #3b82f6; border-color: #3b82f6;"
-                  :disabled="!form.area || loadingAreaSpecies"
-                  @click="addSpeciesToList"
-                >
+                <button type="button" class="btn btn-primary" style="background-color: #3b82f6; border-color: #3b82f6;"
+                  :disabled="!currentSalesPackage?.regulatory_package" @click="addSpeciesToList">
                   <i class="fa fa-plus me-1"></i> Add
                 </button>
               </div>
@@ -203,29 +207,37 @@
                   <strong>Selected Species ({{ speciesObjects.length }})</strong>
                   <small class="text-muted">Click priority badge to toggle</small>
                 </div>
-                
+
                 <div v-if="speciesObjects.length > 0" class="list-items">
                   <div v-for="(s, index) in speciesObjects" :key="index" class="list-item">
                     <div class="item-info">
                       <strong>{{ s.name }}</strong>
                       <span v-if="s.fromPackage" class="badge bg-info ms-2">from Package</span>
-                      <span 
-                        class="badge ms-2 cursor-pointer" 
+                      <span class="badge ms-2 cursor-pointer"
                         :class="s.priority === 'MUST_HAVE' ? 'bg-danger' : 'bg-secondary'"
-                        @click="togglePriority(index)"
-                        style="cursor: pointer;">
+                        @click="togglePriority(index)" style="cursor: pointer;">
                         {{ s.priority === 'MUST_HAVE' ? 'MUST HAVE' : 'NICE TO HAVE' }}
+                      </span>
+                      <span v-if="s.regulatoryQty && s.regulatoryQty > 0" class="badge bg-light text-dark ms-2">
+                        <i class="fa fa-balance-scale me-1"></i> Regulatory: {{ s.regulatoryQty }}
+                      </span>
+                      <span v-if="s.regulatoryQty && s.quantity > s.regulatoryQty"
+                        class="badge bg-warning text-dark ms-2"
+                        title="Requested quantity exceeds regulatory quantity (allowed but will be flagged)">
+                        <i class="fa fa-exclamation-triangle me-1"></i> Exceeds Limit
                       </span>
                     </div>
                     <div class="item-actions">
-                      <button type="button" class="btn btn-sm btn-outline-primary" :disabled="s.quantity <= 1" @click="decrementQuantity(index)">
+                      <button type="button" class="btn btn-sm btn-outline-primary" :disabled="s.quantity <= 1"
+                        @click="decrementQuantity(index)">
                         <i class="fa fa-minus"></i>
                       </button>
                       <span class="qty-badge">{{ s.quantity }}</span>
                       <button type="button" class="btn btn-sm btn-outline-primary" @click="incrementQuantity(index)">
                         <i class="fa fa-plus"></i>
                       </button>
-                      <button type="button" class="btn btn-sm btn-outline-danger ms-2" @click="deleteFromStorage(index)">
+                      <button type="button" class="btn btn-sm btn-outline-danger ms-2"
+                        @click="deleteFromStorage(index)">
                         <i class="fa fa-trash"></i>
                       </button>
                     </div>
@@ -267,19 +279,24 @@
                 <label class="field">
                   <span class="lbl">Budget Minimum (USD)</span>
                   <div class="input-wrapper">
-                    <CurrencyInput v-model="form.budget_min" currency="USD" placeholder="e.g., 5,000" />
+                    <CurrencyInput :model-value="form.budget_min ?? 0"
+                      @update:model-value="(val: number) => form.budget_min = val" currency="USD"
+                      placeholder="e.g., 5,000" />
                   </div>
                 </label>
                 <label class="field">
                   <span class="lbl">Budget Maximum (USD)</span>
                   <div class="input-wrapper">
-                    <CurrencyInput v-model="form.budget_max" currency="USD" placeholder="e.g., 15,000" />
+                    <CurrencyInput :model-value="form.budget_max ?? 0"
+                      @update:model-value="(val: number) => form.budget_max = val" currency="USD"
+                      placeholder="e.g., 15,000" />
                   </div>
                 </label>
               </div>
               <div v-if="form.budget_min && form.budget_max" class="info-alert">
                 <i class="fa fa-info-circle me-2"></i>
-                <strong>Budget Range:</strong> ${{ form.budget_min.toLocaleString() }} - ${{ form.budget_max.toLocaleString() }}
+                <strong>Budget Range:</strong> ${{ form.budget_min.toLocaleString() }} - ${{
+                  form.budget_max.toLocaleString() }}
               </div>
 
               <!-- Safari Extras -->
@@ -291,9 +308,11 @@
               <div class="add-item-row">
                 <select v-model="selectedSafariExtraId" class="form-select">
                   <option :value="null">Select Safari Extra...</option>
-                  <option v-for="item in safariExtrasItems" :key="item.value" :value="item.value">{{ item.label }}</option>
+                  <option v-for="item in safariExtrasItems" :key="item.value" :value="item.value">{{ item.label }}
+                  </option>
                 </select>
-                <button type="button" class="btn btn-primary" style="background-color: #3b82f6; border-color: #3b82f6;" @click="addSafariExtra">
+                <button type="button" class="btn btn-primary" style="background-color: #3b82f6; border-color: #3b82f6;"
+                  @click="addSafariExtra">
                   <i class="fa fa-plus me-1"></i> Add
                 </button>
               </div>
@@ -304,23 +323,31 @@
                   <strong>Selected Safari Extras ({{ selectedSafariExtras.length }})</strong>
                   <small class="text-muted">Click priority badge to toggle</small>
                 </div>
-                
+
                 <div v-if="selectedSafariExtras.length > 0" class="list-items">
                   <div v-for="(extra, index) in selectedSafariExtras" :key="index" class="list-item">
                     <div class="item-info">
                       <strong>{{ extra.name }}</strong>
                       <span v-if="extra.fromPackage" class="badge bg-info ms-2">from Package</span>
-                      <span 
-                        class="badge ms-2 cursor-pointer" 
+                      <span class="badge ms-2 cursor-pointer"
                         :class="extra.priority === 'MUST_HAVE' ? 'bg-danger' : 'bg-secondary'"
-                        @click="toggleSafariExtraPriority(index)"
-                        style="cursor: pointer;">
+                        @click="toggleSafariExtraPriority(index)" style="cursor: pointer;">
                         {{ extra.priority === 'MUST_HAVE' ? 'MUST HAVE' : 'NICE TO HAVE' }}
                       </span>
                       <small class="text-muted ms-2" v-if="extra.description">{{ extra.description }}</small>
                     </div>
-                    <div class="item-actions">
-                      <button type="button" class="btn btn-sm btn-outline-danger ms-2" @click="removeSafariExtra(index)">
+                    <div class="item-actions d-flex align-items-center">
+                      <div class="quantity-controls me-2 d-flex align-items-center">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" :disabled="extra.quantity <= 1"
+                          @click="extra.quantity = Math.max(1, Number(extra.quantity || 1) - 1)">-
+                        </button>
+                        <span class="qty-badge mx-2">{{ extra.quantity || 1 }}</span>
+                        <button type="button" class="btn btn-sm btn-outline-secondary"
+                          @click="extra.quantity = Number(extra.quantity || 0) + 1">+
+                        </button>
+                      </div>
+                      <button type="button" class="btn btn-sm btn-outline-danger ms-2"
+                        @click="removeSafariExtra(index)">
                         <i class="fa fa-trash"></i>
                       </button>
                     </div>
@@ -363,7 +390,8 @@
                   <i class="fa fa-comment text-primary me-2"></i>
                   <h6>Enquiry Remarks</h6>
                 </div>
-                <textarea v-model="form.remarks" class="form-control mb-3" rows="3" placeholder="Add any additional remarks or notes for this enquiry (optional)..."></textarea>
+                <textarea v-model="form.remarks" class="form-control mb-3" rows="3"
+                  placeholder="Add any additional remarks or notes for this enquiry (optional)..."></textarea>
               </div>
 
               <!-- Customer Summary -->
@@ -373,12 +401,23 @@
                   <h6>Customer Information</h6>
                 </div>
                 <div class="review-grid">
-                  <div class="review-item"><span class="label">Full Name:</span><span class="value">{{ form.full_name || 'N/A' }}</span></div>
-                  <div class="review-item"><span class="label">Country:</span><span class="value">{{ getItemLabel(countryItems, form.country) }}</span></div>
-                  <div class="review-item"><span class="label">Nationality:</span><span class="value">{{ getItemLabel(nationalityItems, form.nationality) }}</span></div>
-                  <div class="review-item"><span class="label">Email:</span><span class="value">{{ form.email || 'N/A' }}</span></div>
-                  <div class="review-item"><span class="label">Phone:</span><span class="value">{{ form.phone || 'N/A' }}</span></div>
-                  <div class="review-item"><span class="label">Address:</span><span class="value">{{ form.address || 'N/A' }}</span></div>
+                  <div class="review-item"><span class="label">Full Name:</span><span class="value">{{ form.full_name ||
+                      'N/A'
+                      }}</span></div>
+                  <div class="review-item"><span class="label">Country:</span><span class="value">{{
+                    getItemLabel(countryItems,
+                      form.country) }}</span></div>
+                  <div class="review-item"><span class="label">Nationality:</span><span class="value">{{
+                    getItemLabel(nationalityItems, form.nationality) }}</span></div>
+                  <div class="review-item"><span class="label">Email:</span><span class="value">{{ form.email || 'N/A'
+                      }}</span>
+                  </div>
+                  <div class="review-item"><span class="label">Phone:</span><span class="value">{{ form.phone || 'N/A'
+                      }}</span>
+                  </div>
+                  <div class="review-item"><span class="label">Address:</span><span class="value">{{ form.address ||
+                      'N/A'
+                      }}</span></div>
                 </div>
               </div>
 
@@ -389,8 +428,12 @@
                   <h6>Season & Package</h6>
                 </div>
                 <div class="review-grid">
-                  <div class="review-item"><span class="label">Season:</span><span class="value">{{ getItemLabel(seasonItems, form.season) }}</span></div>
-                  <div class="review-item"><span class="label">Package:</span><span class="value">{{ getItemLabel(packageItems, form.priceListId) || 'No package selected' }}</span></div>
+                  <div class="review-item"><span class="label">Season:</span><span class="value">{{
+                    getItemLabel(seasonItems,
+                      form.season) }}</span></div>
+                  <div class="review-item"><span class="label">Package:</span><span class="value">{{
+                    getItemLabel(packageItems,
+                      form.priceListId) || 'No package selected' }}</span></div>
                 </div>
               </div>
 
@@ -401,12 +444,22 @@
                   <h6>Schedule & Hunt Party</h6>
                 </div>
                 <div class="review-grid">
-                  <div class="review-item"><span class="label">Start Date:</span><span class="value">{{ formatReviewDate(form.start_date) }}</span></div>
-                  <div class="review-item"><span class="label">Days:</span><span class="value">{{ form.no_of_days || 'N/A' }}</span></div>
-                  <div class="review-item"><span class="label">End Date:</span><span class="value text-info">{{ formatReviewDate(calculatedEndDate) }}</span></div>
-                  <div class="review-item"><span class="label">Hunting Area:</span><span class="value">{{ form.area || 'N/A' }}</span></div>
-                  <div class="review-item"><span class="label">Participants:</span><span class="value">{{ form.no_of_participants || 1 }}</span></div>
-                  <div class="review-item"><span class="label">Experience:</span><span class="value">{{ form.prev_experience || 'N/A' }}</span></div>
+                  <div class="review-item"><span class="label">Start Date:</span><span class="value">{{
+                    formatReviewDate(form.start_date) }}</span></div>
+                  <div class="review-item"><span class="label">Days:</span><span class="value">{{ form.no_of_days ||
+                      'N/A'
+                      }}</span></div>
+                  <div class="review-item"><span class="label">End Date:</span><span class="value text-info">{{
+                    formatReviewDate(calculatedEndDate) }}</span></div>
+                  <div class="review-item"><span class="label">Hunting Area:</span><span class="value">{{ form.area ||
+                      'N/A'
+                      }}</span></div>
+                  <div class="review-item"><span class="label">Participants:</span><span class="value">{{
+                    form.no_of_participants
+                      || 1 }}</span></div>
+                  <div class="review-item"><span class="label">Experience:</span><span class="value">{{
+                    form.prev_experience ||
+                      'N/A' }}</span></div>
                 </div>
               </div>
 
@@ -417,7 +470,8 @@
                   <h6>Selected Species ({{ speciesObjects.length }})</h6>
                 </div>
                 <div v-if="speciesObjects.length > 0" class="species-badges">
-                  <span v-for="(s, index) in speciesObjects" :key="index" class="badge" :class="s.fromPackage ? 'bg-info' : 'bg-primary'">
+                  <span v-for="(s, index) in speciesObjects" :key="index" class="badge"
+                    :class="s.fromPackage ? 'bg-info' : 'bg-primary'">
                     {{ s.name }} (x{{ s.quantity }})
                   </span>
                 </div>
@@ -433,7 +487,9 @@
                 <div class="extras-badges">
                   <div v-for="extra in selectedSafariExtras" :key="extra.id" class="extra-badge">
                     <span class="extra-badge-name">{{ extra.name || 'Safari Extra' }}</span>
-                    <span class="extra-badge-price">{{ extra.currency_code || 'USD' }} {{ parseFloat(extra.amount || 0).toFixed(2) }}</span>
+                    <span class="extra-badge-price">{{ extra.currency_code || 'USD' }} {{ parseFloat(extra.amount ||
+                      0).toFixed(2)
+                      }}</span>
                   </div>
                 </div>
               </div>
@@ -479,8 +535,11 @@ import { usePriceListStore } from '@/stores/bushman/price-list-store'
 import { useAuthStore } from '@/stores/auth'
 import { useAppOptionStore } from '@/stores/app-option'
 import CurrencyInput from '@/components/CurrencyInput.vue'
+import Datepicker from '@/components/plugins/Datepicker.vue'
+import Multiselect from 'vue-multiselect'
+import 'vue-multiselect/dist/vue-multiselect.css'
 
-const props = defineProps<{ 
+const props = defineProps<{
   editRow?: any | null
   customerData?: any | null
 }>()
@@ -514,6 +573,7 @@ const form = reactive({
   area: null as any,
   season: null as any,
   start_date: null as any,
+  preferred_start_month: null as any,
   remarks: '',
   prev_experience: '',
   budget_min: null as number | null,
@@ -534,6 +594,13 @@ const seasonsOptions = ref<any[]>([])
 const packagesOptions = ref<any[]>([])
 const priceStructuresOptions = ref<any[]>([])
 const existingCustomersOptions = ref<any[]>([])
+
+// Species categorization (display-only)
+const regulatoryPackageSpecies = ref<any[]>([])
+const customizedPackageSpecies = ref<any[]>([])
+const currentSalesPackage = ref<any>(null)
+const speciesMultiselectRef = ref<any>(null)
+const showFullRegulatoryPackage = ref(false)
 
 const saving = ref(false)
 const loadingPackageItems = ref(false)
@@ -577,21 +644,6 @@ const trophyFees = ref<any[]>([])
 const companionCosts = ref<any[]>([])
 const selectedPackageDetail = ref<any>(null)
 
-const createQuotation = ref(false)
-const quotationForm = reactive({
-  confirmation_date: null as Date | null,
-  hunting_license: '',
-  remarks: '',
-  installments: [] as { narration: string; amount_due: number; due_days_type: string; due_days: number }[],
-})
-
-const dueDaysTypeOptions = [
-  { value: 'upon_booking', text: 'Upon Booking' },
-  { value: 'before_arrival', text: 'Before Arrival' },
-  { value: 'on_arrival', text: 'On Arrival' },
-  { value: 'after_hunt', text: 'After Hunt' },
-]
-
 const authStore = useAuthStore()
 const settingsStore = useSettingsStore()
 const priceListStore = usePriceListStore()
@@ -599,17 +651,17 @@ const salesPackagesSpecies = computed(() => settingsStore.salesPackagesSpecies)
 const huntLengths = ref<any[]>([])
 
 // Computed items for Vueform select elements
-const countryItems = computed(() => 
+const countryItems = computed(() =>
   countries.value.map((c: any) => ({ value: c.value, label: c.text }))
 )
 
-const nationalityItems = computed(() => 
+const nationalityItems = computed(() =>
   nationality.value.map((n: any) => ({ value: n.value, label: n.text }))
 )
 
-const seasonItems = computed(() => 
-  seasonsOptions.value.map((s: any) => ({ 
-    value: s.value, 
+const seasonItems = computed(() =>
+  seasonsOptions.value.map((s: any) => ({
+    value: s.value,
     label: s.selfItem ? `${s.text} - ${formatDateRange(s.selfItem.start_at, s.selfItem.end_at)}` : s.text,
     selfItem: s.selfItem
   }))
@@ -623,21 +675,18 @@ const priceStructureItems = computed(() =>
   }))
 )
 
-const packageItems = computed(() => 
+const packageItems = computed(() =>
   packagesOptions.value.map((pkg: any) => ({
     value: pkg.value,
-    label: pkg.selfItem 
-      ? `${pkg.text}, ${pkg.selfItem?.price_structure?.location_name || 'N/A'}, ${pkg.selfItem?.hunting_type_name || 'N/A'}, ${pkg.selfItem?.hunt_length_days || 0} days, ${pkg.selfItem?.currency_symbol || '$'}${pkg.selfItem?.amount || '0'}`
+    label: pkg.selfItem
+      ? `${pkg.text}, ${pkg.selfItem?.price_structure?.location || 'N/A'}, ${pkg.selfItem?.hunting_type || 'N/A'}, ${pkg.selfItem?.hunt_length || 0} days, ${pkg.selfItem?.currency_symbol || '$'}${pkg.selfItem?.amount || '0'}`
       : pkg.text,
     selfItem: pkg.selfItem
   }))
 )
 
-const areaItems = computed(() => 
-  areasOptions.value.map((a: any) => ({ value: a.value, label: a.text }))
-)
 
-const gameAreaItems = computed(() => 
+const gameAreaItems = computed(() =>
   areasOptions.value
     // Accept both "game" and "GAME" and also check selfItem.type when available
     .filter((a: any) => (a.type && String(a.type).toLowerCase() === 'game') || (a.selfItem && String(a.selfItem.type).toLowerCase() === 'game'))
@@ -657,33 +706,34 @@ const speciesItems = computed(() => {
   return source.map((s: any) => ({ value: s.value, label: s.text }))
 })
 
-const safariExtrasItems = computed(() => 
-  safariExtrasOptions.value.map((item: any) => ({ 
-    value: item.id, 
+// Grouped species options for multiselect (with category headers for display only)
+const groupedSpeciesOptions = computed(() => {
+  console.log('groupedSpeciesOptions - currentSalesPackage:', currentSalesPackage.value)
+  // Always show regulatory package species for search
+  if (currentSalesPackage.value?.regulatory_package?.species_by_category) {
+    const speciesToShow = currentSalesPackage.value.regulatory_package.species_by_category
+
+    console.log('groupedSpeciesOptions - speciesToShow (regulatory_package):', speciesToShow)
+    const flattened = flattenSpeciesWithCategories(speciesToShow)
+    console.log('groupedSpeciesOptions - flattened:', flattened)
+    return flattened
+  }
+
+  // No package selected - return empty
+  console.log('groupedSpeciesOptions - returning empty (no package)')
+  return []
+})
+
+const safariExtrasItems = computed(() =>
+  safariExtrasOptions.value.map((item: any) => ({
+    value: item.id,
     label: `${item.name} - ${item.description || ''}`,
     item: item
   }))
 )
 
-const existingCustomerItems = computed(() => 
-  existingCustomersOptions.value.map((c: any) => ({ 
-    value: c.value, 
-    label: `${c.text} - ${c.selfItem?.email || 'N/A'} ◆ ${c.selfItem?.country || 'N/A'}`,
-    selfItem: c.selfItem
-  }))
-)
 
-const selectedPackageInfo = computed(() => {
-  if (!form.priceListId) return null
-  const pkg = packagesOptions.value.find((p: any) => p.value === form.priceListId)
-  if (!pkg?.selfItem) return null
-  return {
-    area: pkg.selfItem?.price_structure?.location_name || 'N/A',
-    huntingType: pkg.selfItem?.hunting_type_name || 'N/A',
-    duration: pkg.selfItem?.hunt_length_days || 0,
-    amount: `${pkg.selfItem?.currency_symbol || '$'}${pkg.selfItem?.amount || 'N/A'}`
-  }
-})
+
 
 const selectedUpgradeFees = computed(() => {
   if (!form.priceListId) return []
@@ -691,7 +741,6 @@ const selectedUpgradeFees = computed(() => {
   return pkg?.selfItem?.upgrade_fees || []
 })
 
-const bookedDatesForSelectedSeason = computed(() => bookedDates.value)
 
 const currentUserId = computed(() => {
   const rawId = authStore.user?.id
@@ -709,17 +758,7 @@ const calculatedEndDate = computed(() => {
   return end.toISOString().split('T')[0]
 })
 
-const quotationTotalAmount = computed(() =>
-  quotationForm.installments.reduce((sum, inst) => sum + (Number(inst.amount_due) || 0), 0),
-)
 
-const totalCompanionCost = computed(() => {
-  if (companionCosts.value.length === 0) return 0
-  const rate = parseFloat(companionCosts.value[0]?.amount || 0)
-  const days = Number(form.no_of_days) || 0
-  const participants = Number(form.no_of_participants) || 0
-  return rate * days * participants
-})
 
 // Helper function to get label from items array
 const getItemLabel = (items: any[], value: any) => {
@@ -735,63 +774,70 @@ const getPackagePriceStructureId = (pkg: any) =>
   pkg?.selfItem?.price_structure_detail?.price_structure?.id ||
   null
 
-const getAreaOptionFromSelection = (selection: any) => {
-  if (!selection) return null
-  if (typeof selection === 'number') {
-    return areasOptions.value.find((a: any) => a.value === selection) || null
-  }
-  const byText = areasOptions.value.find((a: any) => a.text === selection)
-  if (byText) return byText
-  return areasOptions.value.find((a: any) =>
-    Array.isArray(a.selfItem?.hunting_areas) &&
-    a.selfItem.hunting_areas.some((h: any) => h?.name === selection)
-  ) || null
+
+
+// Helper function to flatten species with category grouping (similar to account selection in RequisitionForm)
+const flattenSpeciesWithCategories = (speciesByCategory: any[]): any[] => {
+  const options: any[] = []
+
+  speciesByCategory.forEach((categoryGroup: any) => {
+    const category = categoryGroup.category || 'Uncategorized'
+    const speciesList = categoryGroup.species || []
+
+    if (speciesList.length > 0) {
+      // Add category header (non-selectable)
+      options.push({
+        label: category.toUpperCase(),
+        value: null,
+        $isDisabled: true,
+        isHeader: true,
+        isCategoryHeader: true,
+        category: category
+      })
+
+      // Add species under this category
+      speciesList.forEach((species: any) => {
+        options.push({
+          label: species.name,
+          value: species.id,
+          name: species.name,
+          category: category,
+          regulatoryQty: species.quantity || 0,
+          description: species.description || '',
+          scientificName: species.scientific_name || '',
+          isChild: true,
+          searchText: `${species.name} ${species.scientific_name || ''} ${category}`
+        })
+      })
+    }
+  })
+
+  return options
 }
 
-const getHuntingAreaIdFromOption = (areaOption: any, selection: any) => {
-  if (!areaOption?.selfItem?.hunting_areas) return null
-  const list = areaOption.selfItem.hunting_areas
-  if (typeof selection === 'string') {
-    const match = list.find((h: any) => h?.name === selection)
-    if (match?.id) return match.id
-  }
-  return list[0]?.id || null
+// Get species selection object for multiselect
+const getSpeciesSelection = () => {
+  if (!selectedSpeciesId.value) return null
+  const allOptions = groupedSpeciesOptions.value
+  return allOptions.find((opt: any) => opt.value === selectedSpeciesId.value) || null
 }
 
-const normalizeAreaSpecies = (list: any[]) =>
-  (list || []).map((s: any) => ({
-    value: s.id,
-    text: s.name,
-    scientific_name: s.scientific_name || ''
-  }))
-
-const loadAreaSpeciesForWizard = async (selection: any) => {
-  const areaOption = getAreaOptionFromSelection(selection)
-  const huntingAreaId = getHuntingAreaIdFromOption(areaOption, selection)
-
-  if (!areaOption || !huntingAreaId) {
-    selectedAreaSpecies.value = []
-    areaSpeciesLoaded.value = false
-    return
-  }
-
-  loadingAreaSpecies.value = true
-  areaSpeciesLoaded.value = false
-  try {
-    const response = await axios.get(`${apiBaseUrl}/locations/hunting-areas/${huntingAreaId}`, {
-      headers: { 'Content-Type': 'application/json' },
-    })
-    const list = response.data?.data?.species || []
-    selectedAreaSpecies.value = normalizeAreaSpecies(list)
-    areaSpeciesLoaded.value = true
-  } catch (error) {
-    console.error('Error loading area species:', error)
-    selectedAreaSpecies.value = []
-    areaSpeciesLoaded.value = false
-  } finally {
-    loadingAreaSpecies.value = false
-  }
+// Set species selection from multiselect
+const setSpeciesSelection = (selected: any) => {
+  selectedSpeciesId.value = selected?.value || null
 }
+
+// Get regulatory quantity for a species
+const getRegulatoryQuantity = (speciesId: number): number => {
+  if (!currentSalesPackage.value?.regulatory_package?.species_by_category) return 0
+
+  for (const catGroup of currentSalesPackage.value.regulatory_package.species_by_category) {
+    const species = (catGroup.species || []).find((s: any) => s.id === speciesId)
+    if (species) return species.quantity || 0
+  }
+  return 0
+}
+
 
 // Customer data is now received from CustomerSelectionModal via props
 // No need for customer type change handlers here
@@ -820,12 +866,37 @@ const onSeasonChange = async (value: any) => {
 
 const onPackageChange = async (value: any) => {
   form.priceListId = value
-  
+
+  console.log('onPackageChange - value:', value)
+
   if (!value) {
     speciesObjects.value = []
+    currentSalesPackage.value = null
+    regulatoryPackageSpecies.value = []
+    customizedPackageSpecies.value = []
     return
   }
-  
+
+  // Extract sales package data from packagesOptions for species selection
+  const pkgOption = packagesOptions.value.find((p: any) => p.value === value)
+  console.log('onPackageChange - pkgOption:', pkgOption)
+  console.log('onPackageChange - pkgOption.selfItem:', pkgOption?.selfItem)
+  console.log('onPackageChange - sales_package:', pkgOption?.selfItem?.sales_package)
+
+  if (pkgOption?.selfItem?.sales_package) {
+    currentSalesPackage.value = pkgOption.selfItem.sales_package
+    regulatoryPackageSpecies.value = currentSalesPackage.value.regulatory_package.species_by_category
+    customizedPackageSpecies.value = currentSalesPackage.value.customized_species_by_category
+    console.log('onPackageChange - SET currentSalesPackage:', currentSalesPackage.value)
+    console.log('onPackageChange - regulatory species:', regulatoryPackageSpecies.value)
+    console.log('onPackageChange - customized species:', customizedPackageSpecies.value)
+  } else {
+    currentSalesPackage.value = null
+    regulatoryPackageSpecies.value = []
+    customizedPackageSpecies.value = []
+    console.log('onPackageChange - NO sales_package found!')
+  }
+
   await populateFormFromPackage()
 }
 
@@ -858,15 +929,11 @@ const onDaysChange = (newValue: any) => {
   checkBookedDateConflict()
 }
 
-const onParticipantsChange = (newValue: any) => {
-  form.no_of_participants = Number(newValue) || 1
-}
 
-// Sync Vueform data with local form state
 const syncFormData = () => {
   if (!vueformRef.value) return
   const data = vueformRef.value.data
-  
+
   form.full_name = data.full_name || ''
   form.nick_name = data.nick_name || ''
   form.country = data.country || null
@@ -884,7 +951,6 @@ const syncFormData = () => {
   form.no_of_participants = Number(form.no_of_hunters) || Number(data.no_of_participants) || 1
   form.prev_experience = data.prev_experience || ''
   form.special_requests = data.special_requests || ''
-  createQuotation.value = data.createQuotation || false
 }
 
 // Handle form submission from Vueform
@@ -895,12 +961,8 @@ const handleSubmit = async (formData: any, form$: any) => {
 
 // Add species to list
 const addSpeciesToList = () => {
-  if (!form.area) {
-    init({ message: 'Please select a hunting area to load species.', color: 'warning' })
-    return
-  }
-  if (loadingAreaSpecies.value) {
-    init({ message: 'Species are still loading for this area. Please wait.', color: 'warning' })
+  if (!currentSalesPackage.value?.regulatory_package) {
+    init({ message: 'Please select a hunting package first to load species.', color: 'warning' })
     return
   }
   if (!selectedSpeciesId.value) {
@@ -917,52 +979,50 @@ const addSpeciesToList = () => {
 
   const exists = speciesObjects.value.some((species: { species_id: any }) => species.species_id === selectedSpeciesId.value)
   if (!exists) {
-    const source = !!form.area && areaSpeciesLoaded.value ? selectedAreaSpecies.value : speciesOptions.value
-    const speciesOption = source.find((s: any) => s.value === selectedSpeciesId.value)
+    // Find species in grouped options (has category and regulatory data)
+    const speciesOption = groupedSpeciesOptions.value.find((opt: any) => opt.value === selectedSpeciesId.value && !opt.isHeader)
+
+    if (!speciesOption) {
+      init({ message: 'Selected species not found in package.', color: 'danger' })
+      return
+    }
+
+    // Get regulatory quantity for this species
+    const regulatoryQty = getRegulatoryQuantity(selectedSpeciesId.value)
+
+    const speciesName = speciesOption.name || speciesOption.label || 'Unknown'
+
     speciesObjects.value.push({
       species_id: selectedSpeciesId.value,
-      name: speciesOption?.text || 'Unknown',
+      name: speciesName,
       quantity: quantity,
+      regulatoryQty: regulatoryQty,
+      category: speciesOption.category || 'General',
       priority: 'NICE_TO_HAVE',
       notes: '',
       fromPackage: false,
     })
+
     // Reset selection
     selectedSpeciesId.value = null
     speciesQuantity.value = 1
-    init({ message: `Added "${speciesOption?.text || 'Unknown'}" to species list`, color: 'success' })
+
+    // Show warning if exceeding regulatory quantity
+    if (regulatoryQty > 0 && quantity > regulatoryQty) {
+      init({
+        message: `Added "${speciesName}" to species list. Warning: Requested quantity (${quantity}) exceeds regulatory quantity (${regulatoryQty}).`,
+        color: 'warning'
+      })
+    } else {
+      init({ message: `Added "${speciesName}" to species list`, color: 'success' })
+    }
   } else {
     init({ message: 'This species is already added. Update the quantity instead.', color: 'warning' })
   }
 }
 
-const contactForm = reactive({
-  id: null as any,
-  client_id: null as any,
-  contact: '',
-  contact_type: null as any,
-  contactable: false,
-})
-
-const contactsTypes = ref<any[]>([])
 
 const currentStep = ref(0)
-const wizardSteps = [
-  { label: 'Personal Info' },
-  { label: 'Season, Package, Dates & Species' },
-  { label: 'Safari Extras & Trophy Fees' },
-  { label: 'Review' },
-]
-
-const isStep1Complete = computed(
-  () => !!(form.full_name && form.country && form.nationality && form.email && form.phone && form.address),
-)
-
-const isStep2Complete = computed(
-  () => !!(form.season && form.start_date && form.no_of_days > 0 && speciesObjects.value.length > 0),
-)
-
-const isStep3Complete = computed(() => currentStep.value >= 3)
 
 const hasInput = (value: any) => {
   if (typeof value === 'string') return value.trim().length > 0
@@ -977,7 +1037,6 @@ const canProceedToNextStep = computed(() => {
     case 1:
       return (
         hasInput(form.season) &&
-        hasInput(form.start_date) &&
         !!(form.no_of_days && form.no_of_days > 0) &&
         hasInput(form.area) &&
         !!(huntDuration.value && huntDuration.value > 0) &&
@@ -1004,7 +1063,6 @@ const canSubmit = computed(() => {
   return (
     hasCustomerInfo &&
     hasInput(form.season) &&
-    hasInput(form.start_date) &&
     // Area may be optional in some cases, but require when available
     // (keep existing behavior for now)
     hasInput(form.area) &&
@@ -1025,45 +1083,14 @@ const filteredPackagesOptions = computed(() => {
 const filteredPackageItems = computed(() =>
   filteredPackagesOptions.value.map((pkg: any) => ({
     value: pkg.value,
-    label: pkg.selfItem 
-      ? `${pkg.text}, ${pkg.selfItem?.price_structure?.location_name || 'N/A'}, ${pkg.selfItem?.hunting_type_name || 'N/A'}, ${pkg.selfItem?.hunt_length_days || 0} days, ${pkg.selfItem?.currency_symbol || '$'}${pkg.selfItem?.amount || '0'}`
+    label: pkg.selfItem
+      ? `${pkg.text}, ${pkg.selfItem?.price_structure?.location || 'N/A'}, ${pkg.selfItem?.hunting_type || 'N/A'}, ${pkg.selfItem?.hunt_length || 0} days, ${pkg.selfItem?.currency_symbol || '$'}${pkg.selfItem?.amount || '0'}`
       : pkg.text,
     selfItem: pkg.selfItem
   }))
 )
 
-const speciesList = computed(() => salesPackagesSpecies.value)
 
-const resetQuotationForm = () => {
-  createQuotation.value = false
-  quotationForm.confirmation_date = null
-  quotationForm.hunting_license = ''
-  quotationForm.remarks = ''
-  quotationForm.installments = []
-}
-
-const clearCustomerInformation = () => {
-  form.full_name = ''
-  form.nick_name = ''
-  form.email = ''
-  form.phone = ''
-  form.phone_additional = ''
-  form.address = ''
-  form.country = null
-  form.nationality = null
-  // Also update Vueform if available
-  if (vueformRef.value) {
-    vueformRef.value.update({
-      full_name: '',
-      email: '',
-      phone: '',
-      phone_additional: '',
-      address: '',
-      country: null,
-      nationality: null
-    })
-  }
-}
 
 const resetEditMode = () => {
   isEditMode.value = false
@@ -1073,7 +1100,6 @@ const resetEditMode = () => {
   trophyFees.value = []
   companionCosts.value = []
   selectedPackageDetail.value = null
-  resetQuotationForm()
   currentStep.value = 0
   form.remarks = ''
   form.prev_experience = ''
@@ -1093,13 +1119,6 @@ const cancelWizard = () => {
   emit('cancel')
 }
 
-const nextStep = () => {
-  if (currentStep.value < wizardSteps.length - 1 && canProceedToNextStep.value) {
-    currentStep.value++
-  } else if (!canProceedToNextStep.value) {
-    showStepValidationError()
-  }
-}
 
 const previousStep = () => {
   if (currentStep.value > 0) currentStep.value--
@@ -1112,7 +1131,7 @@ const goToStep = (stepIndex: number) => {
 const showStepValidationError = () => {
   const stepMessages: { [key: number]: string } = {
     0: 'Please fill in all customer information fields (Name, Country, Nationality, Email, Phone, Address).',
-    1: 'Please select season, dates, hunting area, enter the number of days, and add at least one species.',
+    1: 'Please select season, hunting area, enter the number of days, and add at least one species.',
   }
   init({ message: stepMessages[currentStep.value] || 'Please complete all required fields.', color: 'warning' })
 }
@@ -1139,9 +1158,6 @@ const formatReviewDate = (date: any): string => {
   }
 }
 
-const formatBookingDateRange = (booking: any) => {
-  return `${formatReviewDate(booking.start_date)} - ${formatReviewDate(booking.end_date)}`
-}
 
 const formatDateRange = (startDate: string, endDate: string) => {
   if (!startDate || !endDate) return 'N/A'
@@ -1168,16 +1184,16 @@ const fetchCreationMetadata = async () => {
     const response = await axios.get(`${apiBaseUrl}/sales-enquiries/creation-metadata`, {
       headers: { 'Content-Type': 'application/json' },
     })
-    
+
     const data = response.data?.data || response.data || {}
-    
+
     // Map entities (customers)
     if (Array.isArray(data.entities)) {
       existingCustomersOptions.value = data.entities.map((entity: any) => {
         let email = ''
         let phone = ''
         let address = ''
-        
+
         if (Array.isArray(entity.contacts)) {
           entity.contacts.forEach((contact: any) => {
             const contactType = String(contact.type || '').toLowerCase()
@@ -1190,7 +1206,7 @@ const fetchCreationMetadata = async () => {
             }
           })
         }
-        
+
         return {
           value: entity.id,
           text: entity.full_name || 'Unknown',
@@ -1203,12 +1219,12 @@ const fetchCreationMetadata = async () => {
         }
       })
     }
-    
+
     // Map seasons
     if (Array.isArray(data.seasons)) {
       const today = new Date()
       today.setHours(0, 0, 0, 0)
-      
+
       seasonsOptions.value = data.seasons
         .filter((item: any) => {
           if (!item.end_at) return true
@@ -1218,13 +1234,13 @@ const fetchCreationMetadata = async () => {
         })
         .map((item: any) => ({ value: item.id, text: item.name, selfItem: item }))
     }
-    
+
     // Map locations (countries and hunting areas)
     if (Array.isArray(data.locations)) {
       countries.value = data.locations
         .filter((loc: any) => loc.type === 'COUNTRY')
         .map((country: any) => ({ value: country.id, text: country.name }))
-      
+
       areasOptions.value = data.locations.map((item: any) => ({
         value: item.id,
         text: item.name,
@@ -1232,7 +1248,7 @@ const fetchCreationMetadata = async () => {
         selfItem: item
       }))
     }
-    
+
     // Map hunting areas separately if needed
     if (Array.isArray(data.hunting_areas)) {
       const huntingAreas = data.hunting_areas.map((item: any) => ({
@@ -1244,7 +1260,7 @@ const fetchCreationMetadata = async () => {
       // Merge with locations if not already there
       areasOptions.value = [...areasOptions.value, ...huntingAreas]
     }
-    
+
     // Map species
     if (Array.isArray(data.species)) {
       speciesOptions.value = data.species.map((species: any) => ({
@@ -1253,234 +1269,79 @@ const fetchCreationMetadata = async () => {
         scientific_name: species.scientific_name || ''
       }))
     }
-    
+
     // Map safari extras
     if (Array.isArray(data.safari_extras)) {
       safariExtrasOptions.value = data.safari_extras
     }
-    
-    // Map price structure details
-    if (Array.isArray(data.price_structure_details)) {
-      packagesOptions.value = data.price_structure_details.map((item: any) => ({
-        value: item.id,
-        text: item.name || `Package #${item.id}`,
-        selfItem: item,
+
+    // Map price structures with their details and sales packages - EXACT API structure only
+    if (Array.isArray(data.price_structures)) {
+      console.log('fetchCreationMetadata - price_structures received:', data.price_structures)
+      packagesOptions.value = []
+      priceStructuresOptions.value = data.price_structures.map((ps: any) => ({
+        value: ps.id,
+        text: ps.name,
+        selfItem: ps
       }))
+
+      // Flatten price structure details from all price structures
+      data.price_structures.forEach((priceStructure: any) => {
+        console.log('Processing priceStructure:', priceStructure)
+        if (Array.isArray(priceStructure.details)) {
+          console.log('  Details:', priceStructure.details)
+          priceStructure.details.forEach((detail: any) => {
+            console.log('    Detail:', detail)
+            console.log('    Detail sales_packages:', detail.sales_packages)
+            packagesOptions.value.push({
+              value: detail.id,
+              text: detail.name || `${priceStructure.name} - ${detail.hunt_length || ''}`,
+              selfItem: {
+                ...detail,
+                price_structure_id: priceStructure.id,
+                price_structure: priceStructure,
+                // Include the first sales package if available
+                sales_package: detail.sales_packages && detail.sales_packages.length > 0
+                  ? detail.sales_packages[0]
+                  : null
+              }
+            })
+          })
+        }
+      })
+      console.log('fetchCreationMetadata - final packagesOptions:', packagesOptions.value)
     }
-    
+
     // Map currencies
     if (Array.isArray(data.currencies)) {
       // Store currencies if you have a ref for them
       // currencies.value = data.currencies
     }
-    
+
     // Map users
     if (Array.isArray(data.users)) {
       // Store users if you have a ref for them
       // users.value = data.users
     }
-    
+
     // Nationalities can be derived from countries or use a separate endpoint if needed
     nationality.value = countries.value
-    
+
   } catch (error) {
     console.error('Error loading creation metadata:', error)
     // Fallback to individual endpoints if metadata endpoint fails
-    await loadFallbackData()
   }
 }
 
 // Fallback to individual endpoints if metadata endpoint fails
-const loadFallbackData = async () => {
-  try {
-    // Countries
-    const countriesResponse = await axios.get(import.meta.env.VITE_APP_BASE_URL + import.meta.env.VITE_APP_COUNTRIES_URL, {
-      headers: { 'Content-Type': 'application/json' },
-    })
-    if (countriesResponse.status === 200) {
-      countries.value = countriesResponse.data.map((country: any) => ({ value: country.id, text: country.name }))
-    }
-    
-    // Nationalities
-    const nationalitiesResponse = await axios.get(import.meta.env.VITE_APP_BASE_URL + import.meta.env.VITE_APP_NATIONALITIES_URL, {
-      headers: { 'Content-Type': 'application/json' },
-    })
-    if (nationalitiesResponse.status === 200) {
-      nationality.value = nationalitiesResponse.data.map((nat: any) => ({ value: nat.id, text: nat.name }))
-    }
-    
-    // Species
-    const speciesResponse = await axios.get(`${apiBaseUrl}/settings/species/`, {
-      headers: { 'Content-Type': 'application/json' },
-    })
-    const speciesData = speciesResponse.data?.data ?? speciesResponse.data ?? []
-    speciesOptions.value = Array.isArray(speciesData) ? speciesData
-      .filter((species: any) => species.is_active !== false)
-      .map((species: any) => ({ 
-        value: species.id, 
-        text: species.name,
-        scientific_name: species.scientific_name || ''
-      })) : []
-    
-    // Safari Extras
-    const extrasResponse = await axios.get(`${apiBaseUrl}/settings/items?subtype=SAFARI_EXTRA`, {
-      headers: { 'Content-Type': 'application/json' },
-    })
-    const extrasData = extrasResponse.data?.data ?? extrasResponse.data ?? []
-    safariExtrasOptions.value = Array.isArray(extrasData) ? extrasData : []
-    
-    // Locations/Areas
-    const areasResponse = await axios.get(`${apiBaseUrl}/locations`, {
-      headers: { 'Content-Type': 'application/json' },
-    })
-    const areasData = areasResponse.data?.data ?? areasResponse.data ?? []
-    const areasArray = Array.isArray(areasData) ? areasData : Array.isArray(areasData?.data) ? areasData.data : []
-    areasOptions.value = areasArray.map((item: any) => ({ value: item.id, text: item.name, type: item.type, selfItem: item }))
-    
-    // Seasons
-    const seasonsResponse = await axios.get(`${apiBaseUrl}/settings/seasons`, {
-      headers: { 'Content-Type': 'application/json' },
-    })
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const seasonsData = seasonsResponse.data?.data || seasonsResponse.data || []
-    if (Array.isArray(seasonsData)) {
-      seasonsOptions.value = seasonsData
-        .filter((item: any) => {
-          if (!item.end_at) return true
-          const endDate = new Date(item.end_at)
-          endDate.setHours(23, 59, 59, 999)
-          return endDate >= today
-        })
-        .map((item: any) => ({ value: item.id, text: item.name, selfItem: item }))
-    }
-  } catch (error) {
-    console.error('Error in fallback data loading:', error)
-  }
-}
 
 
-const getPriceStructures = async () => {
-  try {
-    const response = await priceListStore.getPriceStructures()
-    if (response.status === 200) {
-      const data = response.data?.data || response.data || []
-      priceStructuresOptions.value = data.map((item: any) => ({
-        value: item.id,
-        text: `PS-${item.id} - ${item.area?.name || item.area_name || 'N/A'} (${item.start_date || 'N/A'})`,
-        selfItem: item
-      }))
-    }
-  } catch (error) {
-    console.error('Error loading price structures:', error)
-  }
-}
 
-const getPL = async () => {
-  try {
-    const response = await axios.get(`${apiBaseUrl}/settings/price-items`, {
-      headers: { 'Content-Type': 'application/json' },
-    })
-    const dataArray = Array.isArray(response.data?.data)
-      ? response.data.data
-      : Array.isArray(response.data) ? response.data : []
-    
-    packagesOptions.value = dataArray.map((item: any) => ({
-      value: item.id,
-      text: item.package_name || item.name || item.code || `Package #${item.id}`,
-      selfItem: item,
-    }))
-  } catch (error) {
-    console.error('Error loading packages:', error)
-  }
-}
 
-// getExistingCustomers function removed - now part of fetchCreationMetadata
 
-// Placeholder to maintain code structure
-const _unusedFunction = () => {
-  loadingCustomers.value = true
-  try {
-    // This function has been replaced by fetchCreationMetadata
-  } catch (error) {
-    console.error('Error:', error)
-  } finally {
-    loadingCustomers.value = false
-  }
-}
 
-const populateFormFromCustomer = (customer: any) => {
-  if (!customer || !customer.selfItem) return
-  const entity = customer.selfItem
 
-  form.full_name = entity.full_name || ''
-  form.email = entity.email || ''
-  form.phone = entity.phone || ''
-  form.address = entity.address || ''
 
-  let countryValue = null
-  const countryId = entity.country_id
-  if (countryId) {
-    const countryOption = countries.value.find((c: any) => c.value === countryId)
-    if (countryOption) {
-      form.country = countryOption.value
-      countryValue = countryOption.value
-    }
-  } else if (entity.country) {
-    const countryOption = countries.value.find((c: any) => c.text === entity.country)
-    if (countryOption) {
-      form.country = countryOption.value
-      countryValue = countryOption.value
-    }
-  }
-
-  let nationalityValue = null
-  const nationalityId = entity.nationality_id
-  if (nationalityId) {
-    const nationalityOption = nationality.value.find((n: any) => n.value === nationalityId)
-    if (nationalityOption) {
-      form.nationality = nationalityOption.value
-      nationalityValue = nationalityOption.value
-    }
-  } else if (entity.nationality) {
-    const nationalityOption = nationality.value.find((n: any) => n.text === entity.nationality)
-    if (nationalityOption) {
-      form.nationality = nationalityOption.value
-      nationalityValue = nationalityOption.value
-    }
-  }
-
-  // Update Vueform with new values
-  if (vueformRef.value) {
-    vueformRef.value.update({
-      full_name: form.full_name,
-      email: form.email,
-      phone: form.phone,
-      address: form.address,
-      country: countryValue,
-      nationality: nationalityValue
-    })
-  }
-}
-
-const onSeasonSelected = async (selectedSeason: any) => {
-  dateConflictWarning.value = ''
-  form.start_date = null
-  form.no_of_days = 0
-
-  if (!selectedSeason || !selectedSeason.selfItem) {
-    seasonMinDate.value = null
-    seasonMaxDate.value = null
-    bookedDates.value = []
-    return
-  }
-
-  const seasonData = selectedSeason.selfItem
-  if (seasonData.start_at) seasonMinDate.value = new Date(seasonData.start_at)
-  if (seasonData.end_at) seasonMaxDate.value = new Date(seasonData.end_at)
-
-  await fetchBookedDates(selectedSeason.value)
-}
 
 const fetchBookedDates = async (seasonId: number, areaId?: number) => {
   loadingBookedDates.value = true
@@ -1531,211 +1392,56 @@ const checkBookedDateConflict = () => {
 
 const populateFormFromPackage = async () => {
   if (!form.priceListId) return
-  
+  if (!currentSalesPackage.value) return
+
   const pkg = packagesOptions.value.find((p: any) => p.value === form.priceListId)
   if (!pkg?.selfItem) return
-  
+
   const pkgData = pkg.selfItem
-  const priceStructureDetailId = form.priceListId
 
   // Reset all package-related data
   speciesObjects.value = []
-  // Safari extras are never loaded from package, so no need to filter
   trophyFees.value = []
   companionCosts.value = []
   selectedPackageDetail.value = null
 
-  // Get area from price_structure.location_name and set it directly as the display value
-  const areaName = pkgData?.price_structure?.location_name
-  if (areaName) {
-    // Set the area directly as the location name (read-only)
-    form.area = areaName
-    // Also update Vueform
-    if (vueformRef.value) {
-      vueformRef.value.update({ area: areaName })
-    }
+  console.log('populateFormFromPackage - pkgData:', pkgData)
+  console.log('populateFormFromPackage - currentSalesPackage:', currentSalesPackage.value)
+
+  // Get area from price_structure.location
+  form.area = pkgData.price_structure?.location || pkgData.price_structure?.location_name || null
+  if (vueformRef.value) {
+    vueformRef.value.update({ area: form.area })
   }
 
-  // Get duration from hunt_length_days (optional, doesn't force it)
-  const duration = pkgData?.hunt_length_days || pkgData?.regulatory_package?.duration
-  if (duration && !form.no_of_days) {
+  // Get duration from regulatory_package.duration
+  const duration = currentSalesPackage.value.regulatory_package.duration
+  if (!form.no_of_days) {
     form.no_of_days = Number(duration)
-    // Also update Vueform
     if (vueformRef.value) {
       vueformRef.value.update({ no_of_days: duration })
     }
   }
 
-  // Fetch items from preview endpoint
-  if (priceStructureDetailId) {
-    loadingPackageItems.value = true
-    try {
-      const response = await salesEnquiryService.previewPriceItems(priceStructureDetailId)
-      
-      // Handle both response structures: { success, data } or direct data
-      const responseData = response?.data || response
-      const isSuccess = response?.success !== false // Consider success if not explicitly false
-      
-      if (isSuccess && responseData) {
-        const data = responseData.data || responseData
+  // Use species data from currentSalesPackage
+  currentSalesPackage.value.customized_species_by_category.forEach((catGroup: any) => {
+    catGroup.species.forEach((s: any) => {
+      const regulatoryQty = getRegulatoryQuantity(s.id)
 
-        // Store full package detail info for preview
-        selectedPackageDetail.value = data
-
-        // Populate species (item_preferences)
-        if (Array.isArray(data.species) && data.species.length > 0) {
-          data.species.forEach((s: any) => {
-            speciesObjects.value.push({
-              species_id: s.item_id || s.species_id || s.id,
-              name: s.item_name || s.species_name || s.name || 'Unknown',
-              quantity: s.quantity || 1,
-              notes: s.notes || '',
-              priority: 'NICE_TO_HAVE',
-              fromPackage: true,
-            })
-          })
-        } else {
-          // Try fallback to get species from the package's selfItem
-          populateFormFromPackageFallback(pkg)
-        }
-
-        // Safari extras are NOT loaded from package - only manually added from items table
-
-        // Populate trophy fees
-        if (Array.isArray(data.trophy_fees)) {
-          trophyFees.value = data.trophy_fees.map((fee: any) => ({
-            id: fee.id,
-            species_id: fee.species_id,
-            species_name: fee.species_name,
-            sequence_order: fee.sequence_order,
-            amount: parseFloat(fee.amount) || 0,
-            currency_code: fee.currency_code,
-          }))
-        }
-
-        // Populate companion costs (per participant daily rates)
-        // Calculate estimated daily rate from available hunt length costs
-        if (Array.isArray(data.companion_costs) && data.companion_costs.length > 0) {
-          // Group costs by hunt_length_id to get the rate structure
-          const costsByHuntLength = data.companion_costs.reduce((acc: any, cost: any) => {
-            if (!acc[cost.hunt_length_id]) {
-              acc[cost.hunt_length_id] = []
-            }
-            acc[cost.hunt_length_id].push(cost)
-            return acc
-          }, {})
-
-          // Calculate average daily rate from all available hunt length costs
-          let totalDailyRate = 0
-          let countRates = 0
-          
-          for (const huntLengthId in costsByHuntLength) {
-            const costs = costsByHuntLength[huntLengthId]
-            const huntLength = huntLengths.value.find((hl: any) => hl.id === Number(huntLengthId))
-            if (huntLength && huntLength.days > 0) {
-              costs.forEach((cost: any) => {
-                const dailyRate = parseFloat(cost.amount) / huntLength.days
-                totalDailyRate += dailyRate
-                countRates++
-              })
-            }
-          }
-
-          // Use average daily rate
-          const estimatedDailyRate = countRates > 0 ? totalDailyRate / countRates : 0
-          
-          if (estimatedDailyRate > 0) {
-            companionCosts.value = [{
-              id: 'estimated',
-              amount: estimatedDailyRate,
-              currency_code: data.companion_costs[0]?.currency_code || 'USD',
-              description: 'Estimated per participant daily rate',
-              is_estimated: true
-            }]
-          }
-        }
-
-        init({ message: 'Package items loaded successfully', color: 'success' })
-      }
-    } catch (error) {
-      console.error('Error fetching package items:', error)
-      // Fallback to old method if preview endpoint fails
-      populateFormFromPackageFallback(pkg)
-    } finally {
-      loadingPackageItems.value = false
-    }
-  }
-}
-
-// Fallback method if preview endpoint is not available
-const populateFormFromPackageFallback = (pkg: any) => {
-  const pkgData = pkg?.selfItem || pkg
-  
-  // Try multiple possible locations for species data
-  // Option 1: Direct species array on the package
-  let speciesArray = pkgData?.species || []
-  
-  // Option 2: species in sales_packages[0].species
-  if ((!speciesArray || speciesArray.length === 0) && pkgData?.sales_packages) {
-    const salesPackages = pkgData.sales_packages
-    if (Array.isArray(salesPackages) && salesPackages.length > 0) {
-      speciesArray = salesPackages[0]?.species || []
-    }
-  }
-  
-  // Option 3: item_preferences array
-  if ((!speciesArray || speciesArray.length === 0) && pkgData?.item_preferences) {
-    speciesArray = pkgData.item_preferences
-  }
-  
-  if (Array.isArray(speciesArray) && speciesArray.length > 0) {
-    speciesArray.forEach((s: any) => {
-      const speciesId = s.species_id || s.item_id || s.id
-      const speciesName = s.species_name || s.item_name || s.name || s.species?.name || 'Unknown'
-      const quantity = s.quantity || 1
-      
-      if (speciesId) {
-        speciesObjects.value.push({ 
-          species_id: speciesId, 
-          name: speciesName, 
-          quantity, 
-          priority: 'NICE_TO_HAVE',
-          fromPackage: true 
-        })
-      }
+      speciesObjects.value.push({
+        species_id: s.id,
+        name: s.name,
+        quantity: s.quantity,
+        regulatoryQty: regulatoryQty,
+        category: catGroup.category,
+        notes: '',
+        priority: 'NICE_TO_HAVE',
+        fromPackage: true,
+      })
     })
-  }
+  })
 
-  // Safari extras are NOT loaded from package - only manually added from items table
-}
-
-const addNewSpeciesItemToStorage = () => {
-  if (!form.species || !form.quantity) {
-    init({ message: 'Please fill all required fields.', color: 'warning' })
-    return
-  }
-
-  if (Number(form.quantity) <= 0) {
-    init({ message: 'Quantity must be greater than zero.', color: 'warning' })
-    return
-  }
-
-  const exists = speciesObjects.value.some((species: { species_id: any }) => species.species_id === form.species.value)
-  if (!exists) {
-    speciesObjects.value.push({
-      species_id: form.species.value,
-      name: form.species.text,
-      quantity: form.quantity,
-      priority: 'NICE_TO_HAVE',
-      notes: '',
-      fromPackage: false,
-    })
-    // Reset form fields after adding
-    form.species = null
-    form.quantity = 0
-  } else {
-    init({ message: 'This species is already added. Update the quantity instead.', color: 'warning' })
-  }
+  init({ message: 'Package species loaded', color: 'success' })
 }
 
 const deleteFromStorage = (index: number) => {
@@ -1743,23 +1449,36 @@ const deleteFromStorage = (index: number) => {
 }
 
 const incrementQuantity = (index: number) => {
-  if (speciesObjects.value[index]) speciesObjects.value[index].quantity++
+  if (speciesObjects.value[index]) {
+    speciesObjects.value[index].quantity++
+
+    // Warn if exceeding regulatory quantity
+    const species = speciesObjects.value[index]
+    if (species.regulatoryQty && species.quantity > species.regulatoryQty) {
+      init({
+        message: `Warning: "${species.name}" quantity (${species.quantity}) exceeds regulatory quantity (${species.regulatoryQty})`,
+        color: 'warning'
+      })
+    }
+  }
 }
 
 const decrementQuantity = (index: number) => {
-  if (speciesObjects.value[index] && speciesObjects.value[index].quantity > 1) speciesObjects.value[index].quantity--
+  if (speciesObjects.value[index] && speciesObjects.value[index].quantity > 1) {
+    speciesObjects.value[index].quantity--
+  }
 }
 
 const togglePriority = (index: number) => {
   if (speciesObjects.value[index]) {
-    speciesObjects.value[index].priority = 
+    speciesObjects.value[index].priority =
       speciesObjects.value[index].priority === 'MUST_HAVE' ? 'NICE_TO_HAVE' : 'MUST_HAVE'
   }
 }
 
 const toggleSafariExtraPriority = (index: number) => {
   if (selectedSafariExtras.value[index]) {
-    selectedSafariExtras.value[index].priority = 
+    selectedSafariExtras.value[index].priority =
       selectedSafariExtras.value[index].priority === 'MUST_HAVE' ? 'NICE_TO_HAVE' : 'MUST_HAVE'
   }
 }
@@ -1797,17 +1516,10 @@ const removeSafariExtra = (index: number) => {
   if (removed.length > 0) init({ message: `Removed "${removed[0].name}" from safari extras`, color: 'info' })
 }
 
-const addQuotationInstallment = () => {
-  quotationForm.installments.push({ narration: '', amount_due: 0, due_days_type: 'upon_booking', due_days: 0 })
-}
-
-const removeQuotationInstallment = (index: number) => {
-  quotationForm.installments.splice(index, 1)
-}
 
 const submit = async () => {
   saving.value = true
-  
+
   // Sync form data from Vueform
   syncFormData()
 
@@ -1836,10 +1548,12 @@ const submit = async () => {
   }
 
   if (!form.no_of_days || form.no_of_days <= 0) {
-    init({ message: 'Please select valid start and end dates.', color: 'warning' })
+    init({ message: 'Please provide the number of days for the hunt.', color: 'warning' })
     saving.value = false
     return
   }
+
+
 
   if (!currentUserId.value) {
     init({ message: 'Unable to detect the logged-in user. Please re-login and try again.', color: 'warning' })
@@ -1850,13 +1564,13 @@ const submit = async () => {
   // Build the request payload according to backend SalesEnquiryController expectations
   const requestdata: any = {
     // Core enquiry fields
-    date: form.start_date || new Date().toISOString().split('T')[0],
+    date: form.start_date || null,
     user_id: 1, // Hardcoded to user ID 1
     season_id: form.season || null,
     status: isEditMode.value ? undefined : 'NEW', // Only set status on create
     remarks: form.remarks || null,
     price_structure_detail_id: form.priceListId || null, // Include selected package/price structure
-    
+
     // Areas - backend expects array of { location_id }
     // Look up the area ID from the area name if form.area is a string
     areas: form.area ? (() => {
@@ -1868,21 +1582,25 @@ const submit = async () => {
       const areaOption = areasOptions.value.find((a: any) => a.text === form.area)
       return areaOption ? [{ location_id: areaOption.value }] : []
     })() : [],
-    
-    // Item preferences (game preferences) - backend expects item_id, not species_item_id
-    item_preferences: speciesObjects.value.map((item: any) => ({
-      item_id: item.species_id || item.item_id || item.id,
-      desired_quantity: item.quantity || 1,
-      priority: item.priority || 'NICE_TO_HAVE',
-      notes: item.notes || null,
-    })),
-    
-    // Safari extras - send item IDs with priority
-    safari_extras: selectedSafariExtras.value.map((extra: any) => ({
-      item_id: extra.id,
-      priority: extra.priority || 'NICE_TO_HAVE',
-    })),
-    
+
+    // Item preferences (including safari extras) - both stored in same table
+    item_preferences: [
+      ...speciesObjects.value.map((item: any) => ({
+        item_id: item.species_id || item.item_id || item.id,
+        desired_quantity: item.quantity || 1,
+        priority: item.priority || 'NICE_TO_HAVE',
+        notes: item.notes || null,
+      })),
+      ...selectedSafariExtras.value.map((extra: any) => ({
+        item_id: extra.id,
+        desired_quantity: Number(extra.quantity || 1),
+        priority: extra.priority || 'NICE_TO_HAVE',
+        notes: extra.notes || null,
+      }))
+    ],
+    // Note: safari_extras intentionally merged into item_preferences to match backend table format
+
+
     // Preference - backend uses no_of_participants
     preference: {
       prev_experience: form.prev_experience || null,
@@ -1898,7 +1616,7 @@ const submit = async () => {
 
   // Get entity_id directly from customerData prop (passed from CustomerSelectionModal)
   const entityId = props.customerData?.entity_id
-  
+
   if (!entityId) {
     console.error('No entity_id found in customerData!')
     Swal.fire({
@@ -1908,11 +1626,11 @@ const submit = async () => {
     })
     return
   }
-  
+
   requestdata.entity_id = entityId
 
   try {
-    
+
     let response: any
     if (isEditMode.value && editingInquiryId.value) {
       response = await salesEnquiryService.update(editingInquiryId.value, requestdata)
@@ -1974,7 +1692,7 @@ const loadInquiryForEdit = (rowData: any) => {
   editingInquiryId.value = rowData.id
 
   const item = rowData.selfitem || rowData
-  
+
   // Load entity/client information
   form.full_name = item.entity?.full_name || rowData.name || ''
   form.nick_name = item.entity?.nick_name || ''
@@ -2003,7 +1721,7 @@ const loadInquiryForEdit = (rowData: any) => {
     item.entity.contacts.forEach((contact: any) => {
       const contactType = String(contact.type || '').toLowerCase()
       const contactTypeId = contact.contact_type_id
-      
+
       if (contactTypeId === 1 || contactType === 'email') {
         form.email = contact.contact || ''
       } else if (contactTypeId === 2 || contactType === 'phone_number' || contactType === 'phone') {
@@ -2113,21 +1831,12 @@ const loadInquiryForEdit = (rowData: any) => {
   init({ message: 'Loaded inquiry data for editing', color: 'info' })
 }
 
-const loadHuntLengths = async () => {
-  try {
-    await priceListStore.getHuntLengths()
-    huntLengths.value = priceListStore.huntLengths || []
-  } catch (error) {
-    console.error('Failed to load hunt lengths:', error)
-  }
-}
-
 // Initialize form data from customerData prop
 const initializeFromCustomerData = () => {
   if (!props.customerData) return
 
   const data = props.customerData
-  
+
   // Populate form fields for display only
   form.full_name = data.full_name || ''
   form.nick_name = data.nick_name || ''
@@ -2137,7 +1846,7 @@ const initializeFromCustomerData = () => {
   form.phone = data.phone || ''
   form.phone_additional = data.phone_additional || ''
   form.address = data.address || ''
-  
+
   // Update Vueform if available
   if (vueformRef.value) {
     vueformRef.value.update({
@@ -2174,29 +1883,12 @@ watch(
   { immediate: true },
 )
 
-watch(
-  [() => form.area, () => areasOptions.value.length],
-  ([areaValue]) => {
-    selectedSpeciesId.value = null
-    if (!areaValue) {
-      selectedAreaSpecies.value = []
-      areaSpeciesLoaded.value = false
-      return
-    }
-    loadAreaSpeciesForWizard(areaValue)
-  },
-  { immediate: true },
-)
 
 onMounted(async () => {
   // Save original sidebar state and collapse it
   originalSidebarState.value = appOptionStore.appSidebarMinified
   appOptionStore.appSidebarMinified = true
-  
-  await loadHuntLengths()
   await fetchCreationMetadata()
-  getPriceStructures()
-  getPL()
 })
 
 // Restore sidebar state when leaving the page
@@ -3748,10 +3440,105 @@ onUnmounted(() => {
     opacity: 0;
     transform: translateY(10px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+/* Multiselect Species Styling */
+.species-select {
+  flex: 1;
+  min-width: 250px;
+}
+
+.species-category-header {
+  font-weight: 700;
+  font-size: 11px;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 8px 12px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.species-option {
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: background 0.15s ease;
+}
+
+.species-option:hover {
+  background: #f1f5f9;
+}
+
+.species-name {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.species-scientific {
+  font-size: 11px;
+  font-style: italic;
+}
+
+/* v-select and multiselect global adjustments */
+:deep(.v-select-field .multiselect__tags) {
+  border-radius: 10px;
+  border: 2px solid #e2e8f0;
+  min-height: 42px;
+  padding: 6px 40px 0 8px;
+}
+
+:deep(.v-select-field .multiselect__single) {
+  font-size: 13px;
+  margin-bottom: 6px;
+  padding: 2px 0;
+}
+
+:deep(.v-select-field .multiselect__placeholder) {
+  font-size: 13px;
+  color: #94a3b8;
+  margin-bottom: 6px;
+  padding-top: 2px;
+}
+
+:deep(.v-select-field .multiselect__select) {
+  height: 42px;
+  top: 0;
+  right: 1px;
+  width: 40px;
+}
+
+:deep(.v-select-grouped .multiselect__option--disabled) {
+  background: #f8fafc !important;
+  color: #64748b !important;
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  cursor: default;
+  pointer-events: none;
+}
+
+:deep(.v-select-grouped .multiselect__option) {
+  padding: 10px 12px;
+  font-size: 13px;
+}
+
+:deep(.v-select-grouped .multiselect__option--highlight) {
+  background: #eff6ff;
+  color: #1e40af;
+}
+
+:deep(.v-select-grouped .multiselect__option--selected) {
+  background: #dbeafe;
+  color: #1e40af;
+  font-weight: 600;
 }
 
 /* Responsive */

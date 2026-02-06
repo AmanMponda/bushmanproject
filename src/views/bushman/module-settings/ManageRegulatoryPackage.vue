@@ -969,15 +969,18 @@ const toggleSpeciesAvailability = async (species: any, event: Event) => {
 }
 
 const toggleSpeciesCountEdit = () => {
+  console.log('toggleSpeciesCountEdit - editSpeciesCounts=', editSpeciesCounts.value)
   if (!editSpeciesCounts.value) {
     editableSpeciesList.value = []
     return
   }
   const source = getSpeciesList()
+  console.log('toggleSpeciesCountEdit - source length=', source.length, 'source sample=', source[0])
   editableSpeciesList.value = source.map((species: any) => ({
     ...species,
     quantity: Number(species.quantity ?? species.qty ?? 1),
   }))
+  console.log('toggleSpeciesCountEdit - editableSpeciesList length=', editableSpeciesList.value.length)
 }
 
 const cancelSpeciesCountEdit = () => {
@@ -986,16 +989,22 @@ const cancelSpeciesCountEdit = () => {
 }
 
 const incrementSpeciesCount = (index: number) => {
+  console.log('incrementSpeciesCount - index=', index)
   const row = editableSpeciesList.value[index]
+  console.log('incrementSpeciesCount - before row=', row)
   if (!row) return
   row.quantity = Number(row.quantity || 0) + 1
+  console.log('incrementSpeciesCount - after row=', row)
 }
 
 const decrementSpeciesCount = (index: number) => {
+  console.log('decrementSpeciesCount - index=', index)
   const row = editableSpeciesList.value[index]
+  console.log('decrementSpeciesCount - before row=', row)
   if (!row) return
   const current = Number(row.quantity || 1)
   row.quantity = current > 1 ? current - 1 : 1
+  console.log('decrementSpeciesCount - after row=', row)
 }
 
 const saveSpeciesCountChanges = async () => {
@@ -1009,6 +1018,8 @@ const saveSpeciesCountChanges = async () => {
       quantity: Number(row.quantity || 1),
     }))
     .filter((row: any) => row.species_id && row.quantity > 0)
+
+  console.log('saveSpeciesCountChanges - speciesBulk payload:', speciesBulk)
 
   if (speciesBulk.length === 0) {
     toastInit({ message: 'No species quantities to save.', color: 'warning' })

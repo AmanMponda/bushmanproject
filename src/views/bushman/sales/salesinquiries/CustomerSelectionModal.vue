@@ -139,30 +139,32 @@
                 </div>
                 <div class="col-md-6">
                   <label class="form-label required">Country</label>
-                  <select 
-                    v-model="form.country" 
-                    class="form-select"
+                  <Multiselect
+                    v-model="selectedCountryObject"
+                    :options="countries"
+                    :searchable="true"
+                    :close-on-select="true"
+                    :show-labels="false"
+                    placeholder="-- Select Country --"
+                    label="text"
+                    track-by="value"
                     :class="{ 'is-invalid': errors.country }"
-                  >
-                    <option :value="null">-- Select Country --</option>
-                    <option v-for="country in countries" :key="country.value" :value="country.value">
-                      {{ country.text }}
-                    </option>
-                  </select>
+                  />
                   <div v-if="errors.country" class="invalid-feedback">{{ errors.country }}</div>
                 </div>
                 <div class="col-md-6">
                   <label class="form-label required">Nationality</label>
-                  <select 
-                    v-model="form.nationality" 
-                    class="form-select"
+                  <Multiselect
+                    v-model="selectedNationalityObject"
+                    :options="nationalities"
+                    :searchable="true"
+                    :close-on-select="true"
+                    :show-labels="false"
+                    placeholder="-- Select Nationality --"
+                    label="text"
+                    track-by="value"
                     :class="{ 'is-invalid': errors.nationality }"
-                  >
-                    <option :value="null">-- Select Nationality --</option>
-                    <option v-for="nat in nationalities" :key="nat.value" :value="nat.value">
-                      {{ nat.text }}
-                    </option>
-                  </select>
+                  />
                   <div v-if="errors.nationality" class="invalid-feedback">{{ errors.nationality }}</div>
                 </div>
               </div>
@@ -191,9 +193,10 @@
                   <div class="phone-input-wrapper">
                     <div class="country-code-wrapper">
                       <country-flag :country="selectedPhoneCountry.iso" size="normal" class="selected-flag" />
-                      <select 
-                        v-model="form.phone_country_code" 
+                      <select
+                        v-model="form.phone_country_code"
                         class="country-code-select"
+                        aria-label="Select country code"
                       >
                         <option :value="null">Select...</option>
                         <option v-for="(cc, idx) in countryCodes" :key="idx" :value="cc.code">
@@ -218,9 +221,10 @@
                   <div class="phone-input-wrapper">
                     <div class="country-code-wrapper">
                       <country-flag :country="selectedPhoneAdditionalCountry.iso" size="normal" class="selected-flag" />
-                      <select 
-                        v-model="form.phone_additional_country_code" 
+                      <select
+                        v-model="form.phone_additional_country_code"
                         class="country-code-select"
+                        aria-label="Select additional country code"
                       >
                         <option :value="null">Select...</option>
                         <option v-for="(cc, idx) in countryCodes" :key="idx" :value="cc.code">
@@ -278,6 +282,8 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import axios from 'axios'
 import CountryFlag from 'vue-country-flag-next'
+import Multiselect from 'vue-multiselect'
+import 'vue-multiselect/dist/vue-multiselect.min.css'
 import { salesEnquiryService } from '@/stores/bushman/salesEnquiryService'
 import { useToast } from '@/composables/useToast'
 
@@ -312,6 +318,27 @@ const selectedPhoneCountry = computed(() => {
 })
 const selectedPhoneAdditionalCountry = computed(() => {
   return countryCodes.find(cc => cc.code === form.phone_additional_country_code) || countryCodes[0]
+})
+
+// Computed properties for multiselect bindings
+const selectedCountryObject = computed({
+  get: () => countries.value.find(c => c.value === form.country) || null,
+  set: (val) => { form.country = val?.value || null }
+})
+
+const selectedNationalityObject = computed({
+  get: () => nationalities.value.find(n => n.value === form.nationality) || null,
+  set: (val) => { form.nationality = val?.value || null }
+})
+
+const selectedPhoneCountryObject = computed({
+  get: () => countryCodes.find(cc => cc.code === form.phone_country_code) || null,
+  set: (val) => { form.phone_country_code = val?.code || '+1' }
+})
+
+const selectedPhoneAdditionalCountryObject = computed({
+  get: () => countryCodes.find(cc => cc.code === form.phone_additional_country_code) || null,
+  set: (val) => { form.phone_additional_country_code = val?.code || '+1' }
 })
 
 const errors = reactive({
@@ -544,16 +571,34 @@ const populateFormFromCustomer = (customer: any) => {
   form.email = entity.email || ''
   form.address = entity.address || ''
   
-  // Split phone number into country code and number
+  // Split phone number into country code and number using known country codes
   if (entity.phone) {
-    const match = entity.phone.match(/^(\+\d+)(\d+)$/)
-    if (match) {
-      form.phone_country_code = match[1] // e.g., "+255"
-      form.phone = match[2] // e.g., "627380744"
-    } else {
-      // If format doesn't match, store as-is
-      form.phone = entity.phone
-    }
+    const full = String(entity.phone || '').trim()
+    const phoneParts = (() => {
+      // Try to find the longest matching country code prefix from countryCodes
+      if (!full) return { countryCode: null, number: full }
+      const sorted = countryCodes.slice().sort((a, b) => b.code.length - a.code.length)
+      for (const cc of sorted) {
+        if (full.startsWith(cc.code)) {
+          return { countryCode: cc.code, number: full.slice(cc.code.length) }
+        }
+      }
+      // Fallback: if it starts with '+', split after '+' and first 2-4 digits heuristically
+      if (full.startsWith('+')) {
+        const rest = full.slice(1)
+        // split heuristic: country codes are usually 1-4 digits
+        for (let len = 4; len >= 1; len--) {
+          if (rest.length > len) {
+            const maybeCode = `+${rest.slice(0, len)}`
+            return { countryCode: maybeCode, number: rest.slice(len) }
+          }
+        }
+      }
+      return { countryCode: null, number: full }
+    })()
+
+    form.phone_country_code = phoneParts.countryCode || form.phone_country_code || '+1'
+    form.phone = phoneParts.number || ''
   } else {
     form.phone = ''
   }
@@ -730,7 +775,8 @@ const getCountries = async () => {
     if (response.status === 200) {
       countries.value = response.data.map((country: any) => ({ 
         value: country.id, 
-        text: country.name 
+        text: country.name,
+        code: country.code
       }))
     }
   } catch (error) {
@@ -864,27 +910,35 @@ const loadEditData = () => {
       if (contactTypeId === 1) {
         form.email = contact.contact || ''
       } else if (contactTypeId === 2) {
-        const fullPhone = contact.contact || ''
+        const fullPhone = String(contact.contact || '').trim()
         if (fullPhone) {
-          // Split phone number into country code and number
-          const match = fullPhone.match(/^(\+\d+)(\d+)$/)
-          if (match) {
-            if (!phoneFound) {
-              form.phone_country_code = match[1] // e.g., "+255"
-              form.phone = match[2] // e.g., "627380744"
-              phoneFound = true
-            } else {
-              form.phone_additional_country_code = match[1]
-              form.phone_additional = match[2]
+          // Find country code using countryCodes list (longest match)
+          const sorted = countryCodes.slice().sort((a, b) => b.code.length - a.code.length)
+          let splitPhone = { countryCode: null, number: fullPhone }
+          for (const cc of sorted) {
+            if (fullPhone.startsWith(cc.code)) {
+              splitPhone = { countryCode: cc.code, number: fullPhone.slice(cc.code.length) }
+              break
             }
+          }
+          // Fallback heuristic for +prefix if not matched
+          if (!splitPhone.countryCode && fullPhone.startsWith('+')) {
+            const rest = fullPhone.slice(1)
+            for (let len = 4; len >= 1; len--) {
+              if (rest.length > len) {
+                splitPhone = { countryCode: `+${rest.slice(0, len)}`, number: rest.slice(len) }
+                break
+              }
+            }
+          }
+
+          if (!phoneFound) {
+            form.phone_country_code = splitPhone.countryCode || form.phone_country_code || '+1'
+            form.phone = splitPhone.number || ''
+            phoneFound = true
           } else {
-            // If format doesn't match, store as-is
-            if (!phoneFound) {
-              form.phone = fullPhone
-              phoneFound = true
-            } else {
-              form.phone_additional = fullPhone
-            }
+            form.phone_additional_country_code = splitPhone.countryCode || form.phone_additional_country_code || '+1'
+            form.phone_additional = splitPhone.number || ''
           }
         }
       } else if (contactTypeId === 3) {
@@ -898,6 +952,34 @@ watch(() => props.editData, () => {
   loadEditData()
 }, { immediate: true })
 
+// Watch for country changes and auto-select phone country code
+watch(() => form.country, (newCountry) => {
+  if (!newCountry) return
+  
+  // Get the selected country object which now includes the ISO code
+  const selectedCountry = countries.value.find(c => c.value === newCountry)
+  if (!selectedCountry?.code) return
+  
+  // Find the matching country code entry using the ISO code from database
+  const matchingCode = countryCodes.find(cc => cc.iso === selectedCountry.code)
+  if (matchingCode) {
+    form.phone_country_code = matchingCode.code
+    // Optionally also set the additional phone country code if it's unset or default
+    if (!form.phone_additional_country_code || form.phone_additional_country_code === '+1') {
+      form.phone_additional_country_code = matchingCode.code
+    }
+  }
+})
+
+// Watch primary phone country code changes and mirror to additional phone when appropriate
+watch(() => form.phone_country_code, (newCode, oldCode) => {
+  if (!newCode) return
+  // If additional is unset, equals old primary, or is the default '+1', mirror the change
+  if (!form.phone_additional_country_code || form.phone_additional_country_code === oldCode || form.phone_additional_country_code === '+1') {
+    form.phone_additional_country_code = newCode
+  }
+})
+
 onMounted(async () => {
   await Promise.all([
     getCountries(),
@@ -907,6 +989,8 @@ onMounted(async () => {
   loadEditData()
 })
 </script>
+
+<style src="vue-multiselect/dist/vue-multiselect.css"></style>
 
 <style scoped>
 :root {
@@ -1256,7 +1340,63 @@ onMounted(async () => {
   border-right: 1px solid #d1d5db;
   position: relative;
   cursor: pointer;
-  min-width: 85px;
+  min-width: 120px;
+}
+
+.country-code-wrapper .country-code-multiselect {
+  flex: 1;
+  min-width: 0;
+}
+
+.country-code-wrapper .country-code-multiselect :deep(.multiselect__tags) {
+  border: none;
+  background: transparent;
+  padding: 0;
+  min-height: auto;
+}
+
+.country-code-wrapper .country-code-multiselect :deep(.multiselect__single) {
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+  background: transparent;
+  margin: 0;
+  padding: 0;
+  line-height: 1.5;
+}
+
+.country-code-wrapper .country-code-multiselect :deep(.multiselect__select) {
+  height: 100%;
+  top: 0;
+  right: -5px;
+}
+
+.country-code-wrapper .country-code-multiselect :deep(.multiselect__content-wrapper) {
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  margin-top: 4px;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+}
+
+.country-code-wrapper .country-code-multiselect :deep(.multiselect__option) {
+  padding: 8px 12px;
+  font-size: 13px;
+}
+
+.country-code-wrapper .country-code-multiselect :deep(.multiselect__option--highlight) {
+  background: #2563eb;
+  color: white;
+}
+
+.country-code-wrapper .country-code-multiselect :deep(.multiselect__option--selected) {
+  background: #dbeafe;
+  color: #1e40af;
+  font-weight: 500;
+}
+
+.country-code-wrapper .country-code-multiselect :deep(.multiselect__input) {
+  font-size: 13px;
+  padding: 4px 0;
 }
 
 .country-code-wrapper .selected-flag {
@@ -1329,6 +1469,98 @@ onMounted(async () => {
 
 .form-control.is-invalid,
 .form-select.is-invalid {
+  border-color: #dc2626;
+}
+
+/* Multiselect styling */
+:deep(.multiselect) {
+  min-height: 42px;
+  font-size: 14px;
+}
+
+:deep(.multiselect__tags) {
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 8px 40px 0 8px;
+  min-height: 42px;
+  background: #fff;
+  font-size: 14px;
+}
+
+:deep(.multiselect__single) {
+  font-size: 14px;
+  line-height: 1.5;
+  color: #374151;
+  margin-bottom: 8px;
+  padding: 0 4px;
+}
+
+:deep(.multiselect__placeholder) {
+  color: #9ca3af;
+  margin-bottom: 8px;
+  padding: 0 4px;
+}
+
+:deep(.multiselect__input) {
+  font-size: 14px;
+  padding: 0 4px;
+  margin-bottom: 8px;
+}
+
+:deep(.multiselect__select) {
+  height: 42px;
+  right: 1px;
+  top: 1px;
+  padding: 4px 8px;
+}
+
+:deep(.multiselect__select::before) {
+  border-color: #6b7280 transparent transparent;
+  border-width: 5px 5px 0;
+  top: 50%;
+  margin-top: -2px;
+}
+
+:deep(.multiselect__tags:hover) {
+  border-color: #9ca3af;
+}
+
+:deep(.multiselect--active .multiselect__tags) {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+:deep(.multiselect__content-wrapper) {
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  margin-top: 4px;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+}
+
+:deep(.multiselect__option) {
+  padding: 10px 12px;
+  font-size: 14px;
+  color: #374151;
+  min-height: auto;
+}
+
+:deep(.multiselect__option--highlight) {
+  background: #2563eb;
+  color: white;
+}
+
+:deep(.multiselect__option--selected) {
+  background: #dbeafe;
+  color: #1e40af;
+  font-weight: 500;
+}
+
+:deep(.multiselect__option--selected.multiselect__option--highlight) {
+  background: #1e40af;
+  color: white;
+}
+
+:deep(.multiselect.is-invalid .multiselect__tags) {
   border-color: #dc2626;
 }
 
