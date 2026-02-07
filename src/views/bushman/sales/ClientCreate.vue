@@ -1,5 +1,6 @@
 <template>
   <FormPageLayout
+    title="Create Client"
     icon="fa fa-user"
     :breadcrumbs="[
       { label: 'SALES', to: '/sales' },
@@ -28,7 +29,7 @@
                 :searchable="false"
                 :allow-empty="false"
                 placeholder="Select type"
-                @update:model-value="(val) => (clientForm.type = val.value)"
+                @update:model-value="setClientType"
               />
             </FormField>
             <FormField label="Full Name" required>
@@ -52,8 +53,49 @@
                 :close-on-select="true"
                 label="display_name"
                 track-by="id"
-                :reduce="(cat) => cat.id"
+                :reduce="reduceCategory"
                 placeholder="Select classification category"
+              />
+            </FormField>
+          </FormSection>
+
+          <FormSection v-if="clientForm.type !== 'INDIVIDUAL'" :columns="1">
+            <FormField label="Contact Person">
+              <div class="form-check">
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  id="createContactPerson"
+                  v-model="createContactPerson"
+                />
+                <label class="form-check-label" for="createContactPerson">
+                  Create Contact Person for this Client
+                </label>
+              </div>
+            </FormField>
+          </FormSection>
+
+          <FormSection v-if="createContactPerson && clientForm.type !== 'INDIVIDUAL'" :columns="3">
+            <FormField label="Contact Person Name" required>
+              <input
+                v-model="contactPersonForm.full_name"
+                type="text"
+                placeholder="Enter contact person name"
+                required
+              />
+            </FormField>
+            <FormField label="Contact Person Email" optional>
+              <input
+                v-model="contactPersonForm.email"
+                type="email"
+                placeholder="Enter email address"
+              />
+            </FormField>
+            <FormField label="Contact Person Phone" optional>
+              <input
+                v-model="contactPersonForm.phone"
+                type="tel"
+                placeholder="Enter phone number"
               />
             </FormField>
           </FormSection>
@@ -92,7 +134,7 @@
           </FormSection>
 
           <FormSection :columns="1">
-            <FormField label="Notes" optional>
+            <FormField label="Notes">
               <textarea v-model="clientForm.notes" rows="2" placeholder="Additional notes or comments"></textarea>
             </FormField>
           </FormSection>
@@ -142,6 +184,27 @@
                 v-model="clientForm.individual_profile.marital_status"
                 :options="['SINGLE', 'MARRIED', 'DIVORCED', 'WIDOWED']"
                 placeholder="Select status"
+              />
+            </FormField>
+            <FormField label="Email" optional>
+              <input
+                v-model="clientForm.individual_profile.email"
+                type="email"
+                placeholder="Enter email address"
+              />
+            </FormField>
+            <FormField label="Phone" optional>
+              <input
+                v-model="clientForm.individual_profile.phone"
+                type="tel"
+                placeholder="Enter phone number"
+              />
+            </FormField>
+            <FormField label="Address" optional>
+              <input
+                v-model="clientForm.individual_profile.address"
+                type="text"
+                placeholder="Enter address"
               />
             </FormField>
           </FormSection>
@@ -203,68 +266,10 @@
                 placeholder="Select country"
               />
             </FormField>
-          </FormSection>
-        </FormCard>
-
-        <FormCard title="Contacts" icon="fa fa-address-book" icon-variant="info" variant="bordered">
-          <FormSection v-for="(contact, index) in clientForm.contacts" :key="index" :columns="3">
-            <FormField label="Type" required>
-              <Multiselect
-                :model-value="contactTypes.find((t) => t.name === contact.type)"
-                :options="contactTypes"
-                label="name"
-                track-by="name"
-                :searchable="false"
-                :allow-empty="false"
-                placeholder="Select type"
-                :preselect-first="true"
-                @update:model-value="(val) => (contact.type = val.name)"
-              />
+            <FormField v-if="clientForm.company_profile.tax_residency_country_id" label="TIN" optional>
+              <input v-model="clientForm.company_profile.tin" type="text" placeholder="Tax Identification Number" />
             </FormField>
-            <FormField label="Contact Detail" required>
-              <div class="d-flex gap-2">
-                <input
-                  v-model="contact.contact"
-                  type="text"
-                  placeholder="Email, Phone, Address, etc."
-                  class="form-control"
-                  required
-                />
-              </div>
-            </FormField>
-            <div class="d-flex align-items-end mb-3">
-              <div class="form-check me-3">
-                <input
-                  class="form-check-input"
-                  type="checkbox"
-                  v-model="contact.contactable"
-                  :id="`contactable-${index}`"
-                />
-                <label class="form-check-label" :for="`contactable-${index}`"> Contactable </label>
-              </div>
-              <button
-                type="button"
-                class="btn btn-outline-danger btn-sm ms-auto"
-                @click="removeContact(index)"
-                v-if="clientForm.contacts.length > 1"
-              >
-                <i class="fa fa-trash"></i>
-              </button>
-              <button
-                type="button"
-                class="btn btn-outline-primary btn-sm ms-2"
-                @click="addContact"
-                v-if="index === clientForm.contacts.length - 1"
-              >
-                <i class="fa fa-plus"></i>
-              </button>
-            </div>
           </FormSection>
-          <div v-if="clientForm.contacts.length === 0" class="text-center p-3">
-            <button type="button" class="btn btn-outline-primary btn-sm" @click="addContact">
-              <i class="fa fa-plus me-1"></i> Add Contact
-            </button>
-          </div>
         </FormCard>
 
         <div class="sticky-footer">
@@ -305,6 +310,7 @@ const clientMetadataEndpoint = 'client-metadata'
 
 const saving = ref(false)
 const metadataLoaded = ref(false)
+const createContactPerson = ref(false)
 
 const countries = ref<any[]>([])
 const nationalities = ref<any[]>([])
@@ -312,7 +318,12 @@ const currencies = ref<any[]>([])
 const categories = ref<any[]>([])
 const classificationCategories = ref<any[]>([])
 const entityTypes = ref<any[]>([])
-const contactTypes = ref<any[]>([])
+
+const contactPersonForm = reactive({
+  full_name: '',
+  email: '',
+  phone: ''
+})
 
 
 const clientForm = reactive<any>({
@@ -333,19 +344,18 @@ const clientForm = reactive<any>({
     incorporation_date: '',
     business_type: '',
     industry_code: '',
-    tax_residency_country_id: null
+    tax_residency_country_id: null,
+    tin: ''
   },
   individual_profile: {
     date_of_birth: '',
     gender: 'MALE',
     nationality_country_id: null,
-    marital_status: null
-  },
-  contacts: [{ type: '', contact: '', contactable: true }] as Array<{
-    type: string
-    contact: string
-    contactable: boolean
-  }>
+    marital_status: null,
+    email: '',
+    phone: '',
+    address: ''
+  }
 })
 
 const clientCategory = reactive<any>({
@@ -365,6 +375,12 @@ const currencyLabel = (option: any) => {
   const name = option.name || option.code || ''
   return option.symbol ? `${name} (${option.symbol})` : name
 }
+
+const setClientType = (val: any) => {
+  clientForm.type = val?.value ?? clientForm.type
+}
+
+const reduceCategory = (cat: any) => cat?.id
 
 const effectiveFromNow = () => {
   const d = new Date()
@@ -463,33 +479,43 @@ const saveClient = async () => {
     return
   }
 
-  const contactErrors: string[] = []
-  clientForm.contacts.forEach((contact: any, index: number) => {
-    if (!contact.type) {
-      contactErrors.push(`Contact ${index + 1}: Type is required`)
-    }
-    if (!contact.contact || contact.contact.trim() === '') {
-      contactErrors.push(`Contact ${index + 1}: Value is required`)
-    }
-    if (contact.type === 'email' && !isValidEmail(contact.contact)) {
-      contactErrors.push(`Contact ${index + 1}: Invalid email format`)
-    }
-    if ((contact.type === 'phone' || contact.type === 'mobile') && !isValidPhone(contact.contact)) {
-      contactErrors.push(`Contact ${index + 1}: Invalid phone format`)
-    }
-  })
 
-  if (contactErrors.length) {
-    Swal.fire({
-      icon: 'warning',
-      title: 'Validation Error',
-      html: contactErrors.join('<br>')
-    })
-    return
+
+  if (createContactPerson.value && clientForm.type !== 'INDIVIDUAL') {
+    if (!contactPersonForm.full_name || contactPersonForm.full_name.trim() === '') {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Validation Error',
+        text: 'Contact person name is required.'
+      })
+      return
+    }
   }
 
   saving.value = true
   try {
+    const contacts: any[] = []
+    
+    // Build contacts from individual profile or contact person
+    if (clientForm.type === 'INDIVIDUAL') {
+      if (clientForm.individual_profile.email) {
+        contacts.push({ type: 'email', contact: clientForm.individual_profile.email, contactable: true })
+      }
+      if (clientForm.individual_profile.phone) {
+        contacts.push({ type: 'phone', contact: clientForm.individual_profile.phone, contactable: true })
+      }
+      if (clientForm.individual_profile.address) {
+        contacts.push({ type: 'address', contact: clientForm.individual_profile.address, contactable: false })
+      }
+    } else if (createContactPerson.value) {
+      if (contactPersonForm.email) {
+        contacts.push({ type: 'email', contact: contactPersonForm.email, contactable: true })
+      }
+      if (contactPersonForm.phone) {
+        contacts.push({ type: 'phone', contact: contactPersonForm.phone, contactable: true })
+      }
+    }
+
     const payload: any = {
       full_name: clientForm.full_name,
       trading_name: clientForm.trading_name || undefined,
@@ -500,7 +526,7 @@ const saveClient = async () => {
       base_currency_id: resolveId(clientForm.base_currency_id),
       notes: clientForm.notes || undefined,
       categories: buildCategoryPayload(),
-      contacts: clientForm.contacts.filter((c: any) => c.contact)
+      contacts: contacts
     }
 
     if (clientForm.type === 'COMPANY') {
@@ -511,9 +537,18 @@ const saveClient = async () => {
     }
 
     if (clientForm.type === 'INDIVIDUAL') {
+      const { email, phone, address, ...individualProfile } = clientForm.individual_profile
       payload.individual_profile = {
-        ...clientForm.individual_profile,
+        ...individualProfile,
         nationality_country_id: resolveId(clientForm.individual_profile.nationality_country_id)
+      }
+    }
+
+    if (createContactPerson.value && clientForm.type !== 'INDIVIDUAL' && contactPersonForm.full_name) {
+      payload.contact_person = {
+        full_name: contactPersonForm.full_name,
+        email: contactPersonForm.email || undefined,
+        phone: contactPersonForm.phone || undefined
       }
     }
 
@@ -552,9 +587,6 @@ const fetchClientMetadata = async () => {
     categories.value = Array.isArray(data.categories) ? data.categories : []
     classificationCategories.value = Array.isArray(data.classification_categories)
       ? data.classification_categories
-      : []
-    contactTypes.value = Array.isArray(data.contact_types) 
-      ? data.contact_types.filter((ct: any) => ct.name !== 'phone_number') 
       : []
     entityTypes.value = Array.isArray(data.entity_types)
       ? data.entity_types
@@ -620,14 +652,6 @@ const fetchCategories = async () => {
 
 const goBack = () => {
   router.push({ name: 'sales-clients' })
-}
-
-const addContact = () => {
-  clientForm.contacts.push({ type: '', contact: '', contactable: true })
-}
-
-const removeContact = (index: number) => {
-  clientForm.contacts.splice(index, 1)
 }
 
 const isValidEmail = (email: string) => {

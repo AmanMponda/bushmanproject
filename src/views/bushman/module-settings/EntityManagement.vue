@@ -11,24 +11,10 @@
     <div class="row bg-white rounded">
       <div class="col-xl-12 col-lg-12 col-sm-12 layout-spacing">
         <div class="panel br-6 p-0">
-          <!-- Tabs Navigation -->
-          <div class="px-3 pt-3">
-            <ul class="nav nav-tabs overflow-auto flex-nowrap compact-tabs compact-tabs-left">
-              <li class="nav-item">
-                <a href="#" class="nav-link" :class="{ active: activeListTab === 'entities' }" @click.prevent="activeListTab = 'entities'">
-                  <i class="fa fa-users me-1"></i>Parties
-                </a>
-              </li>
-              <li class="nav-item">
-                <a href="#" class="nav-link" :class="{ active: activeListTab === 'categories' }" @click.prevent="activeListTab = 'categories'">
-                  <i class="fa fa-tags me-1"></i>Party Categories
-                </a>
-              </li>
-            </ul>
-          </div>
+          <!-- Entities List (single view) -->
 
           <!-- Entities Tab Content -->
-          <div v-if="activeListTab === 'entities'" class="custom-table p-3">
+          <div class="custom-table p-3">
             <div class="d-flex justify-content-between align-items-center mb-3">
             </div>
 
@@ -43,7 +29,7 @@
               :show-date-filters="false"
               :server-side="true"
               :pagination="pagination"
-              :page-size-options="[10, 15, 25, 50]"
+              :page-size-options="[10, 15, 25, 50, 100]"
               :default-page-size="tableFilters.limit"
               @update:filters="handleFiltersUpdate"
               @page-change="handlePageChange"
@@ -92,75 +78,7 @@
             </StandardDataTable>
           </div>
 
-          <!-- Categories Tab Content -->
-          <div v-else class="custom-table p-3">
-            <!-- <div class="mb-3">
-              <h2 class="mb-0">Entity Categories</h2>
-              <p class="text-muted mb-0 small">
-                Create, update, and manage categories used to classify entities.
-              </p>
-            </div> -->
 
-            <StandardDataTable
-              ref="categoryTableRef"
-              :columns="categoryColumns"
-              :data="flattenedCategories"
-              :loading="loadingCategories"
-              :filters="categoryTableFilters"
-              :action-buttons="categoryPageActions"
-              :custom-filters="categoryCustomFilters"
-              :show-date-filters="false"
-              @update:filters="handleCategoryFiltersUpdate"
-            >
-              <template #name="{ row }">
-                <div :style="{ paddingLeft: (row.level || 0) * 24 + 'px' }" class="d-flex align-items-center">
-                  <button 
-                    v-if="row.children_count > 0" 
-                    @click="toggleExpandCategory(row.id)"
-                    class="btn btn-link btn-sm p-0 me-2 text-decoration-none"
-                    style="width: 20px; height: 20px;"
-                    :title="expandedCategories.has(row.id) ? 'Collapse' : 'Expand'"
-                  >
-                    <i class="fa" :class="expandedCategories.has(row.id) ? 'fa-minus-square text-primary' : 'fa-plus-square text-secondary'"></i>
-                  </button>
-                  <span v-else style="width: 20px; display: inline-block;" class="me-2"></span>
-                  
-                  <span v-if="row.level === 0" class="me-2">Root</span>
-                  <span v-else-if="row.level === 1" class="me-2">Level 1</span>
-                  <span v-else class="me-2" style="opacity: 0.6;">Level {{ row.level }}</span>
-                  <span class="fw-semibold">{{ row.name }}</span>
-                </div>
-              </template>
-              <template #parent_name="{ row }">
-                <div>
-                  <span class="fw-medium">{{ row.display_name }}</span>
-                  <div v-if="row.level > 0" class="small text-muted mt-1">
-                    <i class="fa fa-sitemap me-1"></i>Path: {{ getCategoryPath(row) }}
-                  </div>
-                </div>
-              </template>
-              <template #children_count="{ row }">
-                <span v-if="row.children_count > 0">{{ row.children_count }} subcategories</span>
-                <span v-else>--</span>
-              </template>
-              <template #actions="{ row }">
-                <div class="d-flex gap-1">
-                  <button class="btn btn-outline-secondary btn-sm" title="View" @click="openCategoryViewModal(row)">
-                    <i class="fa fa-eye"></i>
-                  </button>
-                  <button class="btn btn-outline-secondary btn-sm" title="Edit" @click="openCategoryEditModal(row)">
-                    <i class="fa fa-edit"></i>
-                  </button>
-                  <button class="btn btn-outline-secondary btn-sm" title="Add Subcategory" @click="openSubcategoryModal(row)">
-                    <i class="fa fa-plus"></i>
-                  </button>
-                  <button class="btn btn-outline-danger btn-sm" title="Delete" @click="confirmDeleteCategory(row)">
-                    <i class="fa fa-trash"></i>
-                  </button>
-                </div>
-              </template>
-            </StandardDataTable>
-          </div>
         </div>
       </div>
     </div>
@@ -1064,7 +982,7 @@ const changingStatus = ref(false)
 const loadingCategories = ref(false)
 const savingCategory = ref(false)
 
-const activeListTab = ref('entities')
+
 
 const entities = ref<Entity[]>([])
 const categories = ref<Category[]>([])
@@ -1085,7 +1003,7 @@ const pagination = ref({
   total: 0,
   current_page: 1,
   last_page: 1,
-  per_page: 15
+  per_page: 100
 })
 
 const tableFilters = ref({
@@ -1093,7 +1011,7 @@ const tableFilters = ref({
   type: '',
   status: '',
   category_id: '',
-  limit: 15
+  limit: 100
 })
 
 const categoryTableFilters = ref({
@@ -1283,7 +1201,7 @@ const hierarchicalParentOptions = computed(() => {
 
 const pageActions = computed(() => [
   {
-    label: 'Add Entity',
+    label: 'Add Party',
     icon: 'fa fa-plus',
     class: 'btn btn-primary',
     method: () => router.push({ name: 'entity-create' })

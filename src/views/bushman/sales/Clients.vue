@@ -15,7 +15,7 @@
 
             <StandardDataTable :columns="columns" :data="clients" :loading="loading" :filters="tableFilters"
               :custom-filters="customFilters" :actionButtons="clientActionButtons" :show-date-filters="false"
-              :server-side="true" :pagination="pagination" :page-size-options="[10, 15, 25, 50]"
+              :server-side="true" :pagination="pagination" :page-size-options="[10, 15, 25, 50, 100]"
               :default-page-size="tableFilters.limit" @update:filters="handleFiltersUpdate"
               @page-change="handlePageChange">
               <template #full_name="{ row }">
@@ -34,14 +34,11 @@
               </template>
               <template #actions="{ row }">
                 <div class="btn-group btn-group-sm">
-                  <button class="btn btn-outline-info btn-sm" @click="openViewModal(row)" title="View Details">
+                  <button class="btn btn-outline-info btn-sm" @click="viewClientPage(row)" title="View Details">
                     <i class="fa fa-eye"></i>
                   </button>
-                  <button class="btn btn-outline-primary btn-sm" @click="openEditModal(row)" title="Edit Client">
+                  <button class="btn btn-outline-primary btn-sm" @click="editClientPage(row)" title="Edit Client">
                     <i class="fa fa-edit"></i>
-                  </button>
-                  <button class="btn btn-outline-danger btn-sm" @click="confirmDelete(row)" title="Delete Client">
-                    <i class="fa fa-trash"></i>
                   </button>
                 </div>
               </template>
@@ -242,30 +239,20 @@
                 </div>
                 <div class="col-md-6">
                   <label class="form-label">Country <span class="text-danger">*</span></label>
-                  <select v-model="clientForm.country_id" class="form-select" required>
-                    <option :value="null" disabled>Select Country</option>
-                    <option v-for="country in countries" :key="country.id" :value="country.id">
-                      {{ country.name }}
-                    </option>
-                  </select>
+                  <Multiselect v-model="clientForm.country_id" :options="countryOptions"
+                    :custom-label="countryLabel" placeholder="Select Country" :searchable="true"
+                    :allow-empty="false" />
                 </div>
                 <div class="col-md-6">
                   <label class="form-label">Nationality <span class="text-danger">*</span></label>
-                  <select v-model="clientForm.nationality_id" class="form-select" required>
-                    <option :value="null" disabled>Select Nationality</option>
-                    <option v-for="nat in nationalities" :key="nat.id" :value="nat.id">
-                      {{ nat.name }}
-                    </option>
-                  </select>
+                  <Multiselect v-model="clientForm.nationality_id" :options="nationalityOptions"
+                    :custom-label="nationalityLabel" placeholder="Select Nationality" :searchable="true"
+                    :allow-empty="false" />
                 </div>
                 <div class="col-md-6">
                   <label class="form-label">Base Currency</label>
-                  <select v-model="clientForm.base_currency_id" class="form-select">
-                    <option :value="null">Select Currency</option>
-                    <option v-for="curr in currencies" :key="curr.id" :value="curr.id">
-                      {{ curr.name }} ({{ curr.symbol }})
-                    </option>
-                  </select>
+                  <Multiselect v-model="clientForm.base_currency_id" :options="currencyOptions"
+                    :custom-label="currencyLabel" placeholder="Select Currency" :searchable="true" />
                 </div>
                 <div class="col-md-12">
                   <label class="form-label">Notes</label>
@@ -329,11 +316,15 @@
 <script setup lang="ts">
 import axios from 'axios'
 import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import Swal from 'sweetalert2'
 import handleErrors from '@/stores/bushman/errorHandler'
 import StandardDataTable from '@/components/bootstrap/StandardDataTable.vue'
 import Datepicker from '@/components/plugins/Datepicker.vue'
+import Multiselect from 'vue-multiselect'
+import 'vue-multiselect/dist/vue-multiselect.min.css'
 
+const router = useRouter()
 const apiBaseUrl = import.meta.env.VITE_APP_BASE_URL
 
 const loading = ref(false)
@@ -341,7 +332,7 @@ const saving = ref(false)
 const metadataLoaded = ref(false)
 
 const clients = ref<any[]>([])
-const pagination = ref<any>({ current_page: 1, per_page: 15, total: 0, last_page: 1 })
+const pagination = ref<any>({ current_page: 1, per_page: 100, total: 0, last_page: 1 })
 
 const countries = ref<any[]>([])
 const nationalities = ref<any[]>([])
@@ -357,7 +348,7 @@ const tableFilters = ref<any>({
   status: '',
   country_id: '',
   type: '',
-  limit: 15,
+  limit: 100,
   page: 1
 })
 
@@ -419,6 +410,27 @@ const identityTypeOptions = computed(() => {
   }))
 })
 
+// Multiselect options and label functions
+const countryOptions = computed(() => countries.value.map((c: any) => c.id))
+const countryLabelMap = computed(() =>
+  Object.fromEntries(countries.value.map((c: any) => [c.id, c.name]))
+)
+const countryLabel = (value: any) => countryLabelMap.value[value] || ''
+
+const nationalityOptions = computed(() => nationalities.value.map((n: any) => n.id))
+const nationalityLabelMap = computed(() =>
+  Object.fromEntries(nationalities.value.map((n: any) => [n.id, n.name]))
+)
+const nationalityLabel = (value: any) => nationalityLabelMap.value[value] || ''
+
+const currencyOptions = computed(() => currencies.value.map((c: any) => c.id))
+const currencyLabelMap = computed(() =>
+  Object.fromEntries(
+    currencies.value.map((c: any) => [c.id, c.symbol ? `${c.name} (${c.symbol})` : c.name])
+  )
+)
+const currencyLabel = (value: any) => currencyLabelMap.value[value] || ''
+
 const statusFilterOptions = computed(() => {
   return [
     { label: 'All Statuses', value: '' },
@@ -451,6 +463,18 @@ const customFilters = computed(() => [
   }
 ])
 
+const openCreateClientPage = () => {
+  router.push({ name: 'sales-clients-create' })
+}
+
+const viewClientPage = (client: any) => {
+  router.push({ name: 'sales-clients-view', params: { id: client.id } })
+}
+
+const editClientPage = (client: any) => {
+  router.push({ name: 'sales-clients-edit', params: { id: client.id } })
+}
+
 const clientActionButtons = [
   {
     label: 'Refresh',
@@ -462,7 +486,7 @@ const clientActionButtons = [
     label: 'Add Client',
     icon: 'fa fa-plus',
     class: 'btn-primary',
-    method: () => openCreateModal()
+    method: () => openCreateClientPage()
   }
 ]
 
@@ -807,8 +831,10 @@ const addContactToForm = () => {
   clientForm.value.contacts.push({ type: fallbackType, contact: '', contactable: true })
 }
 
-const removeFormContact = (index: number) => {
-  clientForm.value.contacts.splice(index, 1)
+const removeFormContact = (index: number | string) => {
+  const idx = typeof index === 'string' ? parseInt(index, 10) : index
+  if (Number.isNaN(idx)) return
+  clientForm.value.contacts.splice(idx, 1)
 }
 
 onMounted(() => {

@@ -178,7 +178,7 @@
               </div>
               <div class="row g-3">
                 <div class="col-md-6">
-                  <label class="form-label required">Email</label>
+                  <label class="form-label">Email</label>
                   <input 
                     v-model="form.email" 
                     type="email" 
@@ -514,7 +514,6 @@ const canProceed = computed(() => {
       form.full_name?.trim() &&
       form.country &&
       form.nationality &&
-      form.email?.trim() &&
       form.phone?.trim() &&
       form.address?.trim()
     )
@@ -651,10 +650,7 @@ const validateForm = () => {
       errors.nationality = 'Nationality is required'
       isValid = false
     }
-    if (!form.email?.trim()) {
-      errors.email = 'Email is required'
-      isValid = false
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+    if (form.email?.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
       errors.email = 'Please enter a valid email address'
       isValid = false
     }

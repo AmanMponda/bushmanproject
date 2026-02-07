@@ -209,8 +209,8 @@
           </FormSection>
 
           <FormSection :columns="1">
-            <FormField label="Notes" required>
-              <textarea v-model="supplierForm.notes" rows="2" placeholder="Additional notes or comments" required></textarea>
+            <FormField label="Notes">
+              <textarea v-model="supplierForm.notes" rows="2" placeholder="Additional notes or comments"></textarea>
             </FormField>
           </FormSection>
         </FormCard>
@@ -485,14 +485,7 @@ const saveSupplier = async () => {
     return
   }
 
-  if (!supplierForm.notes || supplierForm.notes.trim() === '') {
-    Swal.fire({
-      icon: 'warning',
-      title: 'Notes Required',
-      text: 'Please enter notes for the supplier.'
-    })
-    return
-  }
+
 
   saving.value = true
   try {

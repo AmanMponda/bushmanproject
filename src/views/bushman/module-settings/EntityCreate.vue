@@ -3,9 +3,8 @@
     icon="fa fa-users"
     :title="isEditMode ? 'Edit Entity' : 'Create Entity'"
     :breadcrumbs="[
-      { label: 'SYSTEM CONFIGURATION', to: '/module-settings' },
-      { label: 'ENTITY MANAGEMENT', to: '/module-settings/entities' },
-      isEditMode ? 'EDIT' : 'CREATE'
+      { label: 'Parties', to: '/module-settings/entities' },
+      isEditMode ? 'Edit' : 'Create'
     ]"
     layout="single"
   >

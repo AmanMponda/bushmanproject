@@ -270,67 +270,68 @@ export const useAppSidebarMenuStore = defineStore("appSidebarMenu", () => {
         { url: '/module-settings/documents', text: 'Documents', permission: 'CAN_VIEW_MODULE_SETTINGS' },
       ],
     },
-    // {
-    //   url: '/settings/master-data',
-    //   icon: 'fa fa-database',
-    //   text: 'Master Data',
-    //   permission: 'CAN_VIEW_SETTINGS',
-    //   children: [
-    //     // {
-    //     // text: 'Procurement Settings',
-    //     // is_header: false,
-    //     // children: [
-    //     // { url: '/module-settings/supplier-categories', text: 'Supplier Categories', permission: 'CAN_VIEW_MODULE_SETTINGS' },
-    //     //   { url: '/module-settings/purchase-approval-rules', text: 'Purchase Approval Rules', permission: 'CAN_VIEW_MODULE_SETTINGS' },
-    //     //   { url: '/module-settings/reorder-levels', text: 'Reorder Levels', permission: 'CAN_VIEW_MODULE_SETTINGS' },
-    //     //   { url: '/module-settings/procurement-tax-rules', text: 'Procurement Tax Rules', permission: 'CAN_VIEW_MODULE_SETTINGS' },
-    //     // ],
-    //     // },
-    //     {
-    //       text: 'Inventory Settings',
-    //       is_header: false,
-    //       children: [
-    //         { url: '/module-settings/items', text: 'Items', permission: 'CAN_VIEW_MODULE_SETTINGS' },
-    //         { url: '/module-settings/uom', text: 'Unit of Measure (UOM)', permission: 'CAN_VIEW_MODULE_SETTINGS' },
-    //         { url: '/module-settings/warehouses', text: 'Warehouses / Stores', permission: 'CAN_VIEW_MODULE_SETTINGS' },
-    //         { url: '/module-settings/stock-valuation', text: 'Stock Valuation Method', permission: 'CAN_VIEW_MODULE_SETTINGS' },
-    //       ],
-    //     },
-    //     {
-    //       text: 'Asset Management',
-    //       is_header: false,
-    //       children: [
-    //         { url: '/module-settings/asset-categories', text: 'Asset Categories', permission: 'CAN_VIEW_MODULE_SETTINGS' },
-    //         { url: '/module-settings/asset-depreciation', text: 'Asset Depreciation Rules', permission: 'CAN_VIEW_MODULE_SETTINGS' },
-    //         { url: '/module-settings/location-master', text: 'Location Master', permission: 'CAN_VIEW_MODULE_SETTINGS' },
-    //         { url: '/module-settings/vehicle-models', text: 'Vehicle Models', permission: 'CAN_VIEW_MODULE_SETTINGS' },
-    //       ],
-    //     },
-    //     {
-    //       text: 'CRM Settings',
-    //       is_header: false,
-    //       children: [
-    //         { url: '/module-settings/customer-categories', text: 'Customer Categories', permission: 'CAN_VIEW_MODULE_SETTINGS' },
-    //         { url: '/module-settings/customer-types', text: 'Customer Types', permission: 'CAN_VIEW_MODULE_SETTINGS' },
-    //       ],
-    //     },
-    //     {
-    //       text: 'Accounting Settings',
-    //       is_header: false,
-    //       children: [
-    //         { url: '/module-settings/account-dimensions', text: 'Account Dimensions', permission: 'CAN_VIEW_MODULE_SETTINGS' },
-    //         { url: '/accounting/chart-of-accounts', text: 'Chart of Accounts', permission: 'CAN_VIEW_ACCOUNTS' },
-    //         { url: '/module-settings/fiscal-years', text: 'Fiscal Years', permission: 'CAN_VIEW_MODULE_SETTINGS' },
-    //         { url: '/module-settings/accounting-periods', text: 'Accounting Periods', permission: 'CAN_VIEW_MODULE_SETTINGS' },
-    //         { url: '/module-settings/tax-types', text: 'Tax Types', permission: 'CAN_VIEW_MODULE_SETTINGS' },
-    //         { url: '/module-settings/payment-methods', text: 'Payment Methods', permission: 'CAN_VIEW_MODULE_SETTINGS' },
-    //         { url: '/module-settings/currency-setup', text: 'Currency Setup', permission: 'CAN_VIEW_MODULE_SETTINGS' },
-    //         { url: '/module-settings/instalment-rules', text: 'Instalment Rules', permission: 'CAN_VIEW_MODULE_SETTINGS' },
-    //         { url: '/module-settings/revenue-recognition', text: 'Revenue Recognition Rules', permission: 'CAN_VIEW_MODULE_SETTINGS' },
-    //       ],
-    //     },
-    //   ],
-    // },
+    {
+      url: '/settings/master-data',
+      icon: 'fa fa-database',
+      text: 'Master Data',
+      permission: 'CAN_VIEW_SETTINGS',
+      children: [
+        {
+          text: 'Procurement Settings',
+          is_header: false,
+          children: [
+            { url: '/module-settings/supplier-categories', text: 'Supplier Categories', permission: 'CAN_VIEW_MODULE_SETTINGS' },
+            { url: '/module-settings/entity-categories', text: 'Party Categories', permission: 'CAN_VIEW_MODULE_SETTINGS' },
+            { url: '/module-settings/purchase-approval-rules', text: 'Purchase Approval Rules', permission: 'CAN_VIEW_MODULE_SETTINGS' },
+            { url: '/module-settings/reorder-levels', text: 'Reorder Levels', permission: 'CAN_VIEW_MODULE_SETTINGS' },
+            { url: '/module-settings/procurement-tax-rules', text: 'Procurement Tax Rules', permission: 'CAN_VIEW_MODULE_SETTINGS' },
+          ],
+        },
+        {
+          text: 'Inventory Settings',
+          is_header: false,
+          children: [
+            { url: '/module-settings/items', text: 'Items', permission: 'CAN_VIEW_MODULE_SETTINGS' },
+            { url: '/module-settings/uom', text: 'Unit of Measure (UOM)', permission: 'CAN_VIEW_MODULE_SETTINGS' },
+            { url: '/module-settings/warehouses', text: 'Warehouses / Stores', permission: 'CAN_VIEW_MODULE_SETTINGS' },
+            { url: '/module-settings/stock-valuation', text: 'Stock Valuation Method', permission: 'CAN_VIEW_MODULE_SETTINGS' },
+          ],
+        },
+        {
+          text: 'Asset Management',
+          is_header: false,
+          children: [
+            { url: '/module-settings/asset-categories', text: 'Asset Categories', permission: 'CAN_VIEW_MODULE_SETTINGS' },
+            { url: '/module-settings/asset-depreciation', text: 'Asset Depreciation Rules', permission: 'CAN_VIEW_MODULE_SETTINGS' },
+            { url: '/module-settings/location-master', text: 'Location Master', permission: 'CAN_VIEW_MODULE_SETTINGS' },
+            { url: '/module-settings/vehicle-models', text: 'Vehicle Models', permission: 'CAN_VIEW_MODULE_SETTINGS' },
+          ],
+        },
+        {
+          text: 'CRM Settings',
+          is_header: false,
+          children: [
+            { url: '/module-settings/customer-categories', text: 'Customer Categories', permission: 'CAN_VIEW_MODULE_SETTINGS' },
+            { url: '/module-settings/customer-types', text: 'Customer Types', permission: 'CAN_VIEW_MODULE_SETTINGS' },
+          ],
+        },
+        {
+          text: 'Accounting Settings',
+          is_header: false,
+          children: [
+            { url: '/module-settings/account-dimensions', text: 'Account Dimensions', permission: 'CAN_VIEW_MODULE_SETTINGS' },
+            { url: '/accounting/chart-of-accounts', text: 'Chart of Accounts', permission: 'CAN_VIEW_ACCOUNTS' },
+            { url: '/module-settings/fiscal-years', text: 'Fiscal Years', permission: 'CAN_VIEW_MODULE_SETTINGS' },
+            { url: '/module-settings/accounting-periods', text: 'Accounting Periods', permission: 'CAN_VIEW_MODULE_SETTINGS' },
+            { url: '/module-settings/tax-types', text: 'Tax Types', permission: 'CAN_VIEW_MODULE_SETTINGS' },
+            { url: '/module-settings/payment-methods', text: 'Payment Methods', permission: 'CAN_VIEW_MODULE_SETTINGS' },
+            { url: '/module-settings/currency-setup', text: 'Currency Setup', permission: 'CAN_VIEW_MODULE_SETTINGS' },
+            { url: '/module-settings/instalment-rules', text: 'Instalment Rules', permission: 'CAN_VIEW_MODULE_SETTINGS' },
+            { url: '/module-settings/revenue-recognition', text: 'Revenue Recognition Rules', permission: 'CAN_VIEW_MODULE_SETTINGS' },
+          ],
+        },
+      ],
+    },
     // {
     //   url: '/settings/operations',
     //   icon: 'fa fa-tasks',
@@ -396,56 +397,35 @@ export const useAppSidebarMenuStore = defineStore("appSidebarMenu", () => {
     menuItems.value;
   });
 
-  // Action to set the active service
-  // const setActiveService = (serviceId: number | null) => {
-  //   activeServiceId.value = serviceId;
-  //   if (serviceId !== null) {
-  //     // Save to localStorage when setting
-  //     const savedService = localStorage.getItem('selectedService');
-  //     if (savedService) {
-  //       try {
-  //         const service: Service = JSON.parse(savedService);
-  //         if (service.service_id !== serviceId) {
-  //           // Update if different
-  //           localStorage.setItem('selectedService', JSON.stringify({ service_id: serviceId }));
-  //         }
-  //       } catch (e) {
-  //         // If parsing fails, just set new value
-  //         localStorage.setItem('selectedService', JSON.stringify({ service_id: serviceId }));
-  //       }
-  //     } else {
-  //       localStorage.setItem('selectedService', JSON.stringify({ service_id: serviceId }));
-  //     }
-  //   } else {
-  //     localStorage.removeItem('selectedService');
-  //   }
-  // };
-
-  // Get the current active service (lazy load from localStorage if not set)
-  // const getActiveService = () => {
-  //   if (activeServiceId.value === null) {
-  //     // Lazy load from localStorage only when needed
-  //     const savedService = localStorage.getItem('selectedService');
-  //     if (savedService) {
-  //       try {
-  //         const service: Service = JSON.parse(savedService);
-  //         activeServiceId.value = service.service_id;
-  //       } catch (e) {
-  //         // Silently handle error, remove corrupted data
-  //         localStorage.removeItem('selectedService');
-  //       }
-  //     }
-  //   }
-  //   return activeServiceId.value;
-  // };
-
-  // Action to set the active service
-  const setActiveService = (serviceId: number) => {
+  // Action to set the active service (persist selection to localStorage)
+  const setActiveService = (serviceId: number | null) => {
     activeServiceId.value = serviceId;
+
+    if (serviceId !== null && serviceId !== undefined) {
+      try {
+        localStorage.setItem('selectedService', JSON.stringify({ service_id: serviceId }));
+      } catch (e) {
+        console.error('Failed to persist selected service to localStorage', e);
+      }
+    } else {
+      localStorage.removeItem('selectedService');
+    }
   };
 
-  // Get the current active service
+  // Get the current active service (lazy load from localStorage if not set)
   const getActiveService = () => {
+    if (activeServiceId.value === null) {
+      const savedService = localStorage.getItem('selectedService');
+      if (savedService) {
+        try {
+          const service: Service = JSON.parse(savedService);
+          activeServiceId.value = service.service_id;
+        } catch (e) {
+          // Remove corrupted entry
+          localStorage.removeItem('selectedService');
+        }
+      }
+    }
     return activeServiceId.value;
   };
 

@@ -72,6 +72,7 @@ const Suppliers = () => import('@/views/bushman/procurement/Suppliers.vue');
 const SupplierCreate = () => import('@/views/bushman/procurement/SupplierCreate.vue');
 const SupplierView = () => import('@/views/bushman/procurement/SupplierView.vue');
 const Clients = () => import('@/views/bushman/sales/Clients.vue');
+const ClientCreate = () => import('@/views/bushman/sales/ClientCreate.vue');
 
 // Location Master routes
 const LocationMasterIndex = () => import('@/views/bushman/locationMaster/index.vue');
@@ -259,6 +260,26 @@ const router = createRouter({
       name: "sales-clients",
       component: Clients,
       meta: { requiresAuth: true }
+    },
+    {
+      path: "/sales/clients/create",
+      name: "sales-clients-create",
+      component: ClientCreate,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/sales/clients/:id",
+      name: "sales-clients-view",
+      component: ClientCreate,
+      meta: { requiresAuth: true },
+      props: (route) => ({ id: Number(route.params.id), mode: 'view' })
+    },
+    {
+      path: "/sales/clients/:id/edit",
+      name: "sales-clients-edit",
+      component: ClientCreate,
+      meta: { requiresAuth: true },
+      props: (route) => ({ id: Number(route.params.id) })
     },
 
     {

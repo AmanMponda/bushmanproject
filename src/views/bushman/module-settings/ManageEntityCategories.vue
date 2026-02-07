@@ -3,8 +3,8 @@
     <div class="d-flex align-items-center mb-3">
       <div>
         <ul class="breadcrumb">
-          <li class="breadcrumb-item"><a href="#">System Configuration</a></li>
-          <li class="breadcrumb-item active">Entity Categories</li>
+          <li class="breadcrumb-item"><a href="/module-settings/supplier-categories">Procurement Settings</a></li>
+          <li class="breadcrumb-item active">Party Categories</li>
         </ul>
       </div>
     </div>
