@@ -103,7 +103,7 @@ export const useAppSidebarMenuStore = defineStore("appSidebarMenu", () => {
         { url: '/sales/sales-pipeline', icon: 'fa fa-project-diagram', text: 'Sales Pipeline', permission: 'CAN_VIEW_SALES_PIPELINE' },
         { url: '/sales/price-list', icon: 'fa fa-tags', text: 'Price Lists', permission: 'CAN_VIEW_PRICE_LISTS' },
         { url: '/sales/charter-prices', icon: 'fa fa-dollar-sign', text: 'Charter Prices', permission: 'CAN_VIEW_PRICE_LISTS' },
-        { url: '/sales/sales-inquiry', icon: 'fa fa-search-dollar', text: 'Sales Quotations', permission: 'CAN_VIEW_SALES_INQUIRY' },
+        { url: '/sales/sales-inquiry', icon: 'fa fa-search-dollar', text: 'Sales Enquiries', permission: 'CAN_VIEW_SALES_INQUIRY' },
         { url: '/orders', icon: 'fa fa-shopping-cart', text: 'Sales Orders', permission: 'CAN_VIEW_SALES_CONFIRMATIONS' },
         { url: '/contracts', icon: 'fa fa-file-contract', text: 'Sales Contracts', permission: 'CAN_VIEW_SALES_CONTRACTS' },
       ],
@@ -146,12 +146,17 @@ export const useAppSidebarMenuStore = defineStore("appSidebarMenu", () => {
       ]
     },
     {
+      url: '/sales/requisitions',
+      icon: 'fa fa-file-alt',
+      text: 'Requisitions',
+      permission: 'CAN_VIEW_SALES',
+    },
+    {
       url: '/accounting',
       icon: 'fa fa-calculator',
       text: 'Accounts',
       permission: 'CAN_VIEW_ACCOUNTS',
       children: [
-        { url: '/sales/requisitions', icon: 'fa fa-file-alt', text: 'Requisitions', permission: 'CAN_VIEW_SALES' },
         { url: '/accounting/journal-vouchers', icon: 'fa fa-receipt', text: 'Payment Vouchers', permission: 'CAN_VIEW_ACCOUNTS' },
         { 
           url: '/accounting/payments/payment-advice/create', 

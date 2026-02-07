@@ -1058,7 +1058,6 @@ const props = defineProps<{
 
 
 // Emits - send events to parent
-// Emits - send events to parent
 const emit = defineEmits<{
   (e: 'back'): void
   (e: 'refresh'): void
@@ -1070,8 +1069,9 @@ const emit = defineEmits<{
   (e: 'view-document', doc: any): void
   (e: 'open-image-preview', doc: any): void
   (e: 'open-documents'): void
-  (e: 'openSeatMap'): void
+  (e: 'open-seat-map', data?: any): void
   (e: 'downloadDocument', id: number): void
+  (e: 'download-document', doc: any): void
   (e: 'fetch-seat-map', seatMapId?: string | number): void
   (e: 'update-vehicle', data: any): void
   (e: 'fetch-form-data'): void
