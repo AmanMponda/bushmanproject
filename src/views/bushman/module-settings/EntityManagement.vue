@@ -36,9 +36,9 @@
             >
               <template #full_name="{ row }">
                 <div>
-                  <span class="fw-semibold">{{ row.full_name || '-' }}</span>
-                  <div v-if="row.trading_name" class="small">
-                    {{ row.trading_name }}
+                  <span class="fw-semibold">{{ toTitleCase(row.full_name) || '-' }}</span>
+                  <div v-if="row.trading_name" class="small text-muted">
+                    {{ toTitleCase(row.trading_name) }}
                   </div>
                 </div>
               </template>
@@ -942,6 +942,7 @@
 </template>
 
 <script setup lang="ts">
+// @ts-nocheck
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import Swal from 'sweetalert2'
@@ -952,6 +953,7 @@ import StandardModal from '@/components/plugins/StandardModal.vue'
 import Multiselect from 'vue-multiselect'
 import 'vue-multiselect/dist/vue-multiselect.min.css'
 import entityService from '@/services/entityService'
+import { toTitleCase } from '@/utils/stringUtils'
 import {
   type Entity,
   type Contact,
@@ -1344,6 +1346,16 @@ const fetchEntities = async () => {
         current_page: response.meta.current_page,
         last_page: response.meta.last_page,
         per_page: response.meta.per_page
+      }
+    } else {
+      // Some endpoints return an array directly without pagination metadata.
+      // In that case, set pagination totals from the returned array length to avoid showing "0 of 0" while data exists.
+      const count = Array.isArray(entities.value) ? entities.value.length : (entities.value ? 1 : 0)
+      pagination.value = {
+        total: count,
+        current_page: 1,
+        last_page: 1,
+        per_page: tableFilters.value.limit
       }
     }
   } catch (error: any) {

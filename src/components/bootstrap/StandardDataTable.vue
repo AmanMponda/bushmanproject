@@ -647,13 +647,13 @@ defineExpose({ toggleFilters })
       <div v-if="!props.disablePagination" class="d-md-flex align-items-center mt-3">
         <div class="me-md-auto text-md-left text-center mb-2 mb-md-0">
           <template v-if="props.serverSide && props.pagination">
-            Showing {{ (props.pagination.current_page - 1) * props.pagination.per_page + 1 }} to
-            {{ Math.min(props.pagination.current_page * props.pagination.per_page, props.pagination.total) }} of
+            Showing {{ props.pagination.total === 0 ? 0 : (props.pagination.current_page - 1) * props.pagination.per_page + 1 }} to
+            {{ props.pagination.total === 0 ? 0 : Math.min(props.pagination.current_page * props.pagination.per_page, props.pagination.total) }} of
             {{ props.pagination.total }} entries
           </template>
           <template v-else>
-            Showing {{ (currentPage - 1) * pageSize + 1 }} to
-            {{ Math.min(currentPage * pageSize, sortedData.length) }} of {{ sortedData.length }} entries
+            Showing {{ sortedData.length === 0 ? 0 : (currentPage - 1) * pageSize + 1 }} to
+            {{ sortedData.length === 0 ? 0 : Math.min(currentPage * pageSize, sortedData.length) }} of {{ sortedData.length }} entries
           </template>
         </div>
 

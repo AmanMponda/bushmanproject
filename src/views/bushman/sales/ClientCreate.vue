@@ -18,92 +18,12 @@
 
     <template #center>
       <form @submit.prevent="saveClient">
-        <FormCard title="Basic Information" icon="fa fa-info-circle" icon-variant="info" variant="bordered">
+        <FormCard title="Client Information" icon="fa fa-user" icon-variant="info" variant="bordered">
           <FormSection :columns="3">
-            <FormField label="Client Type" required>
-              <Multiselect
-                :model-value="entityTypes.find((t) => t.value === clientForm.type)"
-                :options="entityTypes"
-                label="label"
-                track-by="value"
-                :searchable="false"
-                :allow-empty="false"
-                placeholder="Select type"
-                @update:model-value="setClientType"
-              />
-            </FormField>
             <FormField label="Full Name" required>
               <input v-model="clientForm.full_name" type="text" placeholder="Enter full legal name" required />
             </FormField>
-            <FormField label="Trading Name" optional>
-              <input v-model="clientForm.trading_name" type="text" placeholder="Enter trading name" />
-            </FormField>
-          </FormSection>
-
-          <FormSection :columns="1">
-            <FormField
-              label="Classification Category"
-              required
-              hint="Choose a classification category for the client."
-            >
-              <Multiselect
-                v-model="clientCategory.additional_category_id"
-                :options="flatClassificationCategories"
-                :multiple="false"
-                :close-on-select="true"
-                label="display_name"
-                track-by="id"
-                :reduce="reduceCategory"
-                placeholder="Select classification category"
-              />
-            </FormField>
-          </FormSection>
-
-          <FormSection v-if="clientForm.type !== 'INDIVIDUAL'" :columns="1">
-            <FormField label="Contact Person">
-              <div class="form-check">
-                <input
-                  class="form-check-input"
-                  type="checkbox"
-                  id="createContactPerson"
-                  v-model="createContactPerson"
-                />
-                <label class="form-check-label" for="createContactPerson">
-                  Create Contact Person for this Client
-                </label>
-              </div>
-            </FormField>
-          </FormSection>
-
-          <FormSection v-if="createContactPerson && clientForm.type !== 'INDIVIDUAL'" :columns="3">
-            <FormField label="Contact Person Name" required>
-              <input
-                v-model="contactPersonForm.full_name"
-                type="text"
-                placeholder="Enter contact person name"
-                required
-              />
-            </FormField>
-            <FormField label="Contact Person Email" optional>
-              <input
-                v-model="contactPersonForm.email"
-                type="email"
-                placeholder="Enter email address"
-              />
-            </FormField>
-            <FormField label="Contact Person Phone" optional>
-              <input
-                v-model="contactPersonForm.phone"
-                type="tel"
-                placeholder="Enter phone number"
-              />
-            </FormField>
-          </FormSection>
-        </FormCard>
-
-        <FormCard title="Location & Currency" icon="fa fa-globe" icon-variant="info" variant="bordered">
-          <FormSection :columns="3">
-            <FormField label="Country">
+            <FormField label="Country" required>
               <Multiselect
                 v-model="clientForm.country_id"
                 :options="countries"
@@ -112,7 +32,7 @@
                 placeholder="Select country"
               />
             </FormField>
-            <FormField label="Nationality">
+            <FormField label="Nationality" required>
               <Multiselect
                 v-model="clientForm.nationality_id"
                 :options="nationalities"
@@ -121,32 +41,8 @@
                 placeholder="Select nationality"
               />
             </FormField>
-            <FormField label="Base Currency">
-              <Multiselect
-                v-model="clientForm.base_currency_id"
-                :options="currencies"
-                label="name"
-                track-by="id"
-                :custom-label="currencyLabel"
-                placeholder="Select currency"
-              />
-            </FormField>
           </FormSection>
 
-          <FormSection :columns="1">
-            <FormField label="Notes">
-              <textarea v-model="clientForm.notes" rows="2" placeholder="Additional notes or comments"></textarea>
-            </FormField>
-          </FormSection>
-        </FormCard>
-
-        <FormCard
-          v-if="clientForm.type === 'INDIVIDUAL'"
-          title="Individual Profile"
-          icon="fa fa-user"
-          icon-variant="info"
-          variant="bordered"
-        >
           <FormSection :columns="2">
             <FormField label="Date of Birth" required>
               <div class="vueform-date-wrapper">
@@ -170,15 +66,6 @@
                 placeholder="Select gender"
               />
             </FormField>
-            <FormField label="Nationality Country" required>
-              <Multiselect
-                v-model="clientForm.individual_profile.nationality_country_id"
-                :options="countries"
-                label="name"
-                track-by="id"
-                placeholder="Select country"
-              />
-            </FormField>
             <FormField label="Marital Status" optional>
               <Multiselect
                 v-model="clientForm.individual_profile.marital_status"
@@ -187,90 +74,18 @@
               />
             </FormField>
             <FormField label="Email" optional>
-              <input
-                v-model="clientForm.individual_profile.email"
-                type="email"
-                placeholder="Enter email address"
-              />
+              <input v-model="clientForm.individual_profile.email" type="email" placeholder="Enter email address" />
             </FormField>
             <FormField label="Phone" optional>
-              <input
-                v-model="clientForm.individual_profile.phone"
-                type="tel"
-                placeholder="Enter phone number"
-              />
+              <input v-model="clientForm.individual_profile.phone" type="tel" placeholder="Enter phone number" />
             </FormField>
             <FormField label="Address" optional>
-              <input
-                v-model="clientForm.individual_profile.address"
-                type="text"
-                placeholder="Enter address"
-              />
+              <input v-model="clientForm.individual_profile.address" type="text" placeholder="Enter address" />
             </FormField>
           </FormSection>
         </FormCard>
 
-        <FormCard
-          v-if="clientForm.type === 'COMPANY'"
-          title="Company Profile"
-          icon="fa fa-building"
-          icon-variant="info"
-          variant="bordered"
-        >
-          <FormSection :columns="2">
-            <FormField label="Legal Name" optional>
-              <input v-model="clientForm.company_profile.legal_name" type="text" />
-            </FormField>
-            <FormField label="Trading Name" optional>
-              <input v-model="clientForm.company_profile.trading_name" type="text" />
-            </FormField>
-            <FormField label="Registration Number" optional>
-              <input v-model="clientForm.company_profile.registration_no" type="text" />
-            </FormField>
-            <FormField label="Registration Country" optional>
-              <Multiselect
-                v-model="clientForm.company_profile.registration_country_id"
-                :options="countries"
-                label="name"
-                track-by="id"
-                placeholder="Select country"
-              />
-            </FormField>
-            <FormField label="Incorporation Date" optional>
-              <div class="vueform-date-wrapper">
-                <Vueform size="sm" :display-errors="false" :endpoint="false">
-                  <DateElement
-                    name="incorporation_date"
-                    v-model="clientForm.company_profile.incorporation_date"
-                    @change="clientForm.company_profile.incorporation_date = $event"
-                    :display-format="'MMM D, YYYY'"
-                    :value-format="'YYYY-MM-DD'"
-                    placeholder="Select incorporation date..."
-                    :add-class="{ DateElement: { input: 'form-control' } }"
-                  />
-                </Vueform>
-              </div>
-            </FormField>
-            <FormField label="Business Type" optional>
-              <input v-model="clientForm.company_profile.business_type" type="text" placeholder="e.g., Limited" />
-            </FormField>
-            <FormField label="Industry Code" optional>
-              <input v-model="clientForm.company_profile.industry_code" type="text" placeholder="ISIC/NAICS code" />
-            </FormField>
-            <FormField label="Tax Residency Country" optional>
-              <Multiselect
-                v-model="clientForm.company_profile.tax_residency_country_id"
-                :options="countries"
-                label="name"
-                track-by="id"
-                placeholder="Select country"
-              />
-            </FormField>
-            <FormField v-if="clientForm.company_profile.tax_residency_country_id" label="TIN" optional>
-              <input v-model="clientForm.company_profile.tin" type="text" placeholder="Tax Identification Number" />
-            </FormField>
-          </FormSection>
-        </FormCard>
+
 
         <div class="sticky-footer">
           <FormActions
@@ -310,47 +125,26 @@ const clientMetadataEndpoint = 'client-metadata'
 
 const saving = ref(false)
 const metadataLoaded = ref(false)
-const createContactPerson = ref(false)
 
-const countries = ref<any[]>([])
+const countries = ref<any[]>([]) 
 const nationalities = ref<any[]>([])
 const currencies = ref<any[]>([])
 const categories = ref<any[]>([])
 const classificationCategories = ref<any[]>([])
-const entityTypes = ref<any[]>([])
 
-const contactPersonForm = reactive({
-  full_name: '',
-  email: '',
-  phone: ''
-})
+
 
 
 const clientForm = reactive<any>({
   full_name: '',
-  trading_name: '',
   code: '',
-  type: 'COMPANY',
+  type: 'INDIVIDUAL',
   status: 'ACTIVE',
   country_id: null,
   nationality_id: null,
-  base_currency_id: null,
-  notes: '',
-  company_profile: {
-    legal_name: '',
-    trading_name: '',
-    registration_no: '',
-    registration_country_id: '',
-    incorporation_date: '',
-    business_type: '',
-    industry_code: '',
-    tax_residency_country_id: null,
-    tin: ''
-  },
   individual_profile: {
     date_of_birth: '',
     gender: 'MALE',
-    nationality_country_id: null,
     marital_status: null,
     email: '',
     phone: '',
@@ -376,11 +170,7 @@ const currencyLabel = (option: any) => {
   return option.symbol ? `${name} (${option.symbol})` : name
 }
 
-const setClientType = (val: any) => {
-  clientForm.type = val?.value ?? clientForm.type
-}
 
-const reduceCategory = (cat: any) => cat?.id
 
 const effectiveFromNow = () => {
   const d = new Date()
@@ -470,87 +260,48 @@ const buildCategoryPayload = () => {
 }
 
 const saveClient = async () => {
-  if (classificationCategories.value.length && !clientCategory.additional_category_id) {
-    Swal.fire({
-      icon: 'warning',
-      title: 'Classification Required',
-      text: 'Please select a classification category.'
-    })
-    return
-  }
 
 
 
-  if (createContactPerson.value && clientForm.type !== 'INDIVIDUAL') {
-    if (!contactPersonForm.full_name || contactPersonForm.full_name.trim() === '') {
-      Swal.fire({
-        icon: 'warning',
-        title: 'Validation Error',
-        text: 'Contact person name is required.'
-      })
-      return
-    }
-  }
+
+
 
   saving.value = true
   try {
     const contacts: any[] = []
     
     // Build contacts from individual profile or contact person
-    if (clientForm.type === 'INDIVIDUAL') {
-      if (clientForm.individual_profile.email) {
-        contacts.push({ type: 'email', contact: clientForm.individual_profile.email, contactable: true })
-      }
-      if (clientForm.individual_profile.phone) {
-        contacts.push({ type: 'phone', contact: clientForm.individual_profile.phone, contactable: true })
-      }
-      if (clientForm.individual_profile.address) {
-        contacts.push({ type: 'address', contact: clientForm.individual_profile.address, contactable: false })
-      }
-    } else if (createContactPerson.value) {
-      if (contactPersonForm.email) {
-        contacts.push({ type: 'email', contact: contactPersonForm.email, contactable: true })
-      }
-      if (contactPersonForm.phone) {
-        contacts.push({ type: 'phone', contact: contactPersonForm.phone, contactable: true })
-      }
+    if (clientForm.individual_profile.email) {
+      contacts.push({ type: 'email', contact: clientForm.individual_profile.email, contactable: true })
+    }
+    if (clientForm.individual_profile.phone) {
+      contacts.push({ type: 'phone', contact: clientForm.individual_profile.phone, contactable: true })
+    }
+    if (clientForm.individual_profile.address) {
+      contacts.push({ type: 'address', contact: clientForm.individual_profile.address, contactable: false })
     }
 
     const payload: any = {
       full_name: clientForm.full_name,
-      trading_name: clientForm.trading_name || undefined,
-      type: clientForm.type || 'COMPANY',
+      type: 'INDIVIDUAL',
       status: 'ACTIVE',
       country_id: resolveId(clientForm.country_id),
       nationality_id: resolveId(clientForm.nationality_id),
-      base_currency_id: resolveId(clientForm.base_currency_id),
-      notes: clientForm.notes || undefined,
-      categories: buildCategoryPayload(),
       contacts: contacts
     }
 
-    if (clientForm.type === 'COMPANY') {
-      payload.company_profile = {
-        ...clientForm.company_profile,
-        tax_residency_country_id: resolveId(clientForm.company_profile.tax_residency_country_id)
-      }
-    }
-
-    if (clientForm.type === 'INDIVIDUAL') {
-      const { email, phone, address, ...individualProfile } = clientForm.individual_profile
+    // Add individual profile if present
+    const { email, phone, address, ...individualProfile } = clientForm.individual_profile
+    if (Object.keys(individualProfile).length || email || phone || address) {
       payload.individual_profile = {
         ...individualProfile,
-        nationality_country_id: resolveId(clientForm.individual_profile.nationality_country_id)
+        email: email || undefined,
+        phone: phone || undefined,
+        address: address || undefined
       }
     }
 
-    if (createContactPerson.value && clientForm.type !== 'INDIVIDUAL' && contactPersonForm.full_name) {
-      payload.contact_person = {
-        full_name: contactPersonForm.full_name,
-        email: contactPersonForm.email || undefined,
-        phone: contactPersonForm.phone || undefined
-      }
-    }
+
 
     await axios.post(`${apiBaseUrl}company-entities`, payload, {
       headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }
@@ -588,15 +339,7 @@ const fetchClientMetadata = async () => {
     classificationCategories.value = Array.isArray(data.classification_categories)
       ? data.classification_categories
       : []
-    entityTypes.value = Array.isArray(data.entity_types)
-      ? data.entity_types
-      : [
-          { value: 'INDIVIDUAL', label: 'Individual' },
-          { value: 'COMPANY', label: 'Company' },
-          { value: 'ESTATE', label: 'Estate' },
-          { value: 'GOVERNMENT', label: 'Government' },
-          { value: 'NGO', label: 'NGO' }
-        ]
+
   } catch (error: any) {
     console.error('Failed to load client metadata', error)
   } finally {
@@ -738,6 +481,62 @@ onMounted(() => {
   margin-bottom: 0 !important;
   padding: 0 !important;
   min-height: auto !important;
+}
+
+/* Improved multiselect dropdown styling */
+:deep(.multiselect) {
+  position: relative !important;
+  width: 100% !important;
+  font-size: 14px !important;
+}
+
+:deep(.multiselect__single) {
+  padding: 8px 44px 8px 12px !important;
+  font-size: 14px !important;
+  line-height: 1.2 !important;
+  min-height: 40px !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+:deep(.multiselect__placeholder) {
+  color: #6c757d !important;
+  font-size: 14px !important;
+}
+
+:deep(.multiselect__content) {
+  width: 100% !important;
+  min-width: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.12) !important;
+  border-radius: 8px !important;
+  max-height: 260px !important;
+  overflow: auto !important;
+  z-index: 9999 !important;
+  padding: 4px 0 !important;
+}
+
+:deep(.multiselect__option) {
+  padding: 10px 12px !important;
+  font-size: 14px !important;
+}
+
+:deep(.multiselect__option--highlight) {
+  background-color: var(--bs-primary, #0d6efd) !important;
+  color: #fff !important;
+}
+
+:deep(.multiselect__select) {
+  right: 8px !important;
+  width: 36px !important;
+  height: 36px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+}
+
+:deep(.multiselect__select::before) {
+  border-color: #999 transparent transparent transparent !important;
 }
 
 .sticky-footer {

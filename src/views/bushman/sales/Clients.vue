@@ -20,8 +20,8 @@
               @page-change="handlePageChange">
               <template #full_name="{ row }">
                 <div>
-                  <span class="fw-semibold">{{ row.full_name || row.trading_name || '-' }}</span>
-                  <div v-if="row.nick_name" class="small text-muted">{{ row.nick_name }}</div>
+                  <span class="fw-semibold">{{ toTitleCase(row.full_name) || toTitleCase(row.trading_name) || '-' }}</span>
+                  <div v-if="row.nick_name" class="small text-muted">{{ toTitleCase(row.nick_name) }}</div>
                 </div>
               </template>
               <template #country="{ row }">
@@ -323,6 +323,7 @@ import StandardDataTable from '@/components/bootstrap/StandardDataTable.vue'
 import Datepicker from '@/components/plugins/Datepicker.vue'
 import Multiselect from 'vue-multiselect'
 import 'vue-multiselect/dist/vue-multiselect.min.css'
+import { toTitleCase } from '@/utils/stringUtils'
 
 const router = useRouter()
 const apiBaseUrl = import.meta.env.VITE_APP_BASE_URL
