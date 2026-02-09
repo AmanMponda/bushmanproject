@@ -1,25 +1,29 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount } from "vue";
+import { useAppOptionStore } from "@/stores/app-option";
+import { useNotification } from "@/composables/notification";
+import { AUTH_API_URL } from '@/config/config.js';
+import { useAuthStore } from "@/stores/auth";
 import { useRouter } from "vue-router";
 import axios from "axios";
-import { useAuthStore } from "@/stores/auth";
-import { useAppOptionStore } from "@/stores/app-option";
 import CompanyLogo from '@/components/icons/MacargoLogo.vue';
-import { BASE_URL } from '@/config/config.js';
-import { AUTH_API_URL } from '@/config/config.js';
 import DeviceUUID from 'device-uuid';
 import MD5 from 'crypto-js/md5';
-import Card from "@/components/bootstrap/Card.vue";
-import CardBody from "@/components/bootstrap/CardBody.vue";
 
+// Import Initialization
 const router = useRouter();
 const authStore = useAuthStore();
 const appOption = useAppOptionStore();
+const { showAlert } = useNotification();
 
 // Form state
 const name = ref("");
-const password = ref("");
 const error = ref("");
+const password = ref("");
+const showPassword = ref(false);
+
+// Loading State
+const loading_spinner = ref(false);
 
 const deviceId = ref('');
 
@@ -57,9 +61,6 @@ const loadDeviceId = () => {
   }
 };
 
-// Loading State
-const loading_spinner = ref(false);
-
 const axiosInstance = axios.create({
   baseURL: AUTH_API_URL,
   headers: {
@@ -68,17 +69,26 @@ const axiosInstance = axios.create({
 })
 
 // Toggle password visibility state
-const showPassword = ref(false);
 const togglePassword = () => {
   showPassword.value = !showPassword.value;
 };
 
+const validateForm = () => {
+  if (!name.value) {
+    showAlert("warning", "Please enter your username.");
+    return false;
+  }
+
+  if (!password.value) {
+    showAlert("warning", "Please enter your password.");
+    return false;
+  }
+  return true;
+};
+
 // Submit logic
 const submitForm = async () => {
-  error.value = "";
-
-  if (!name.value || !password.value) {
-    error.value = "Please enter both username and password.";
+  if (!validateForm()) {
     return;
   }
 
@@ -114,9 +124,9 @@ const submitForm = async () => {
       router.push("/companies-dashboard");
     }, 360);
 
-  } catch (err) {
-    error.value = "Invalid username or password.";
-    console.error('Login error:', err);
+  } catch (error) {
+    console.error('Login error:', error);
+    showAlert("error", error.response?.data?.message || error.message || "An error occurred during login.");
   } finally {
     loading_spinner.value = false;
   }
@@ -148,25 +158,20 @@ onBeforeUnmount(() => {
             class="auth-form rounded-3 shadow-sm p-4 position-relative overflow-hidden">
             <!-- Top accent bar -->
             <div class="position-absolute top-0 start-0 w-100" style="height: 4px; background: linear-gradient(135deg,
-  #ff0000 0%,      /* Red */
-  #0055ff 30%,     /* Blue */
-  #00c8d7 60%,     /* Blue-bahari */
-  #ffdd00 100%)"></div>
+            #ff0000 0%,      /* Red */
+            #0055ff 30%,     /* Blue */
+            #00c8d7 60%,     /* Blue-bahari */
+            #ffdd00 100%)">
+            </div>
 
             <!-- Form header -->
             <div class="auth-header text-center mb-4">
               <div class="logo-container">
-                <img src="/assets/img/abs3.png" alt="Abood Group Logo" class="login-logo" />
+                <img src="/assets/img/Bushman Logo.png" alt="Abood Group Logo" class="login-logo" />
               </div>
               <!-- <p class="auth-subtitle text-muted mb-2">
                 For your protection, please verify your identity.
               </p> -->
-            </div>
-
-            <!-- Alerts -->
-            <div v-if="error" class="alert alert-danger alert-dismissible fade show rounded-2 mb-3 py-2" role="alert">
-              {{ error }}
-              <button type="button" class="btn-close" @click="error = ''" aria-label="Close"></button>
             </div>
 
             <!-- Username -->

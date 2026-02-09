@@ -43,14 +43,10 @@ const journalVouchers = ref([]);
 // Loading States
 const isSaving = ref(false);
 const isLoading = ref(false);
-const loadingParties = ref(false);
-const loadingItems = ref(false);
 
 // Form Data
 const paymentForm = ref({
-    company_id: '',
     user_id: userId.value,
-    advice_no: '',
     date: '',
     transaction_type: '',
     status: 'DRAFT',
@@ -63,8 +59,8 @@ const paymentForm = ref({
         {
             role: 'PAYER',
             accountable_type: 'ENTITY',
-            accountable_id: '',
-            account_id: '',
+            accountable_id: '', // This will store the model ID (Entity ID, Employee ID, etc.)
+            account_id: '', // This is for bank/account reference (optional)
             payee_name: '',
             cheque_number: '',
             control_number: '',
@@ -73,8 +69,8 @@ const paymentForm = ref({
         {
             role: 'PAYEE',
             accountable_type: 'ENTITY',
-            accountable_id: '',
-            account_id: '',
+            accountable_id: '', // This will store the model ID
+            account_id: '', // This is for bank/account reference (optional)
             payee_name: '',
             cheque_number: '',
             control_number: '',
@@ -110,16 +106,6 @@ const getToday = () => {
     return `${year}-${month}-${day}`;
 };
 
-// Generate advice number
-const generateAdviceNo = () => {
-    const prefix = 'PAY-';
-    const date = new Date();
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-    return `${prefix}${year}${month}-${random}`;
-};
-
 // Fetch Form Options
 const fetchFormData = async () => {
     try {
@@ -138,36 +124,38 @@ const fetchAllData = async () => {
     try {
         const endpoints = [
             `${BASE_URL}/settings/currencies`,
-            `${BASE_URL}/companies`,
-            `${BASE_URL}/accounts`,
-            `${BASE_URL}/entities`,
-            `${BASE_URL}/employees`,
-            `${BASE_URL}/subcontractors`,
-            `${BASE_URL}/invoices/unpaid`,
+            // `${BASE_URL}/companies`,
+            // `${BASE_URL}/accounts`,
+            `${BASE_URL}/entities/drop-downs`,
+            // `${BASE_URL}/employees`,
+            // `${BASE_URL}/subcontractors`,
+            // `${BASE_URL}/invoices/unpaid`,
             `${BASE_URL}/requisitions/pending`,
-            `${BASE_URL}/orders/pending`,
-            `${BASE_URL}/contracts/active`,
-            `${BASE_URL}/journal-vouchers/open`
+            // `${BASE_URL}/orders/pending`,
+            // `${BASE_URL}/contracts/active`,
+            // `${BASE_URL}/journal-vouchers/open`
         ];
 
         const responses = await Promise.all(endpoints.map(url => axios.get(url)));
 
-        currencies.value = responses[0].data || [];
-        companies.value = responses[1].data || [];
-        accounts.value = responses[2].data || [];
+        currencies.value = responses[0].data.map(currency => ({
+            id: currency.id,
+            name: currency.name || currency.currency_name || `${currency.symbol} (${currency.code})`,
+            symbol: currency.symbol,
+            code: currency.code || currency.name
+        })) || [];
+        // companies.value = responses[1].data || [];
+        // accounts.value = responses[2].data || [];
         entities.value = responses[3].data || [];
-        employees.value = responses[4].data || [];
-        subcontractors.value = responses[5].data || [];
-        invoices.value = responses[6].data || [];
+        // employees.value = responses[4].data || [];
+        // subcontractors.value = responses[5].data || [];
+        // invoices.value = responses[6].data || [];
         requisitions.value = responses[7].data || [];
-        orders.value = responses[8].data || [];
-        contracts.value = responses[9].data || [];
-        journalVouchers.value = responses[10].data || [];
+        // orders.value = responses[8].data || [];
+        // contracts.value = responses[9].data || [];
+        // journalVouchers.value = responses[10].data || [];
 
         // Set initial values
-        if (companies.value.length > 0) {
-            paymentForm.value.company_id = companies.value[0].id;
-        }
         if (currencies.value.length > 0) {
             paymentForm.value.currency_id = currencies.value[0].id;
             // Set currency for items
@@ -175,8 +163,6 @@ const fetchAllData = async () => {
                 item.currency_id = currencies.value[0].id;
             });
         }
-
-        paymentForm.value.advice_no = generateAdviceNo();
 
     } catch (error) {
         console.error("Error fetching data:", error);
@@ -189,8 +175,8 @@ const addParty = () => {
     paymentForm.value.parties.unshift({
         role: 'PAYEE',
         accountable_type: 'ENTITY',
-        accountable_id: '',
-        account_id: '',
+        accountable_id: '', // Model ID
+        account_id: '', // Bank/account reference
         payee_name: '',
         cheque_number: '',
         control_number: '',
@@ -257,6 +243,7 @@ const getAccountableOptions = (type) => {
         case 'ENTITY': return entities.value;
         case 'EMPLOYEE': return employees.value;
         case 'SUBCONTRACTOR': return subcontractors.value;
+        case 'OTHER': return []; // For OTHER type, we don't have predefined options
         default: return [];
     }
 };
@@ -296,6 +283,37 @@ const onAccountableSelected = (party, selectedAccountable) => {
     }
 };
 
+// Handle OTHER accountable type
+const handleOtherAccountable = (party) => {
+    if (party.accountable_type === 'OTHER') {
+        // For OTHER type, allow free text input for accountable_id
+        party.accountable_id = party.accountable_id || ''; // Can be string or null
+    }
+};
+
+// Get placeholder for payee name
+const getPayeeNamePlaceholder = (party) => {
+    if (party.role === 'PAYEE') return 'Payee name';
+    if (party.role === 'PAYER') return 'Payer name';
+    if (party.role === 'BENEFICIARY') return 'Beneficiary name';
+    if (party.role === 'REPLENISHMENT') return 'Replenishment name';
+    return 'Name';
+};
+
+const handleAccountableTypeChange = (party, index) => {
+    // Clear accountable_id when type changes
+    party.accountable_id = '';
+    party.payee_name = '';
+    party.account_id = '';
+};
+
+// Handle when account is selected (for ACCOUNT type)
+const onAccountSelected = (party, selectedAccount) => {
+    if (selectedAccount && !party.payee_name) {
+        party.payee_name = selectedAccount.account_name || selectedAccount.name || '';
+    }
+};
+
 // Submit form
 const submitForm = async () => {
     if (!canCreatePaymentAdvice.value) {
@@ -304,38 +322,54 @@ const submitForm = async () => {
     }
 
     // Validate required fields
-    if (!paymentForm.value.company_id) {
-        showAlert('error', 'Please select a company');
-        return;
-    }
-
     if (!paymentForm.value.currency_id) {
         showAlert('error', 'Please select a currency');
         return;
     }
 
-    // Validate at least one payer and one payee
-    const hasPayer = paymentForm.value.parties.some(p => p.role === 'PAYER');
-    const hasPayee = paymentForm.value.parties.some(p => p.role === 'PAYEE');
-
-    if (!hasPayer) {
-        showAlert('error', 'At least one PAYER is required');
+    // Validate transaction type
+    if (!paymentForm.value.transaction_type) {
+        showAlert('error', 'Please select a transaction type');
         return;
     }
 
-    if (!hasPayee) {
-        showAlert('error', 'At least one PAYEE is required');
-        return;
+    // Validate at least one payer and one payee for applicable transaction types
+    if (paymentForm.value.transaction_type !== 'CASH_REPLENISHMENT') {
+        const hasPayer = paymentForm.value.parties.some(p => p.role === 'PAYER');
+        if (!hasPayer) {
+            showAlert('error', 'At least one PAYER is required');
+            return;
+        }
+
+        if (paymentForm.value.transaction_type !== 'STAFF_ADVANCE') {
+            const hasPayee = paymentForm.value.parties.some(p => p.role === 'PAYEE');
+            if (!hasPayee) {
+                showAlert('error', 'At least one PAYEE is required');
+                return;
+            }
+        }
+    }
+
+    // Validate parties
+    for (const [index, party] of paymentForm.value.parties.entries()) {
+        if (party.accountable_type !== 'OTHER' && !party.accountable_id) {
+            showAlert('error', `Please select an accountable for party ${index + 1}`);
+            return;
+        }
     }
 
     // Validate items
-    for (const item of paymentForm.value.items) {
+    for (const [index, item] of paymentForm.value.items.entries()) {
         if (!item.itemable_id) {
-            showAlert('error', 'Please select an item for all payment items');
+            showAlert('error', `Please select an item for payment item ${index + 1}`);
             return;
         }
         if (item.amount <= 0) {
-            showAlert('error', 'Amount must be greater than 0');
+            showAlert('error', `Amount must be greater than 0 for item ${index + 1}`);
+            return;
+        }
+        if (!item.currency_id) {
+            showAlert('error', `Please select a currency for item ${index + 1}`);
             return;
         }
     }
@@ -345,11 +379,13 @@ const submitForm = async () => {
         ...paymentForm.value,
         user_id: userId.value,
         date: paymentForm.value.date || getToday(),
+        // Filter out empty accountable_id for OTHER type
         parties: paymentForm.value.parties.filter(party =>
-            party.accountable_id && party.role
+            party.role &&
+            (party.accountable_type === 'OTHER' || party.accountable_id)
         ),
         items: paymentForm.value.items.filter(item =>
-            item.itemable_id && item.amount > 0
+            item.itemable_id && item.amount > 0 && item.currency_id
         )
     };
 
@@ -361,54 +397,12 @@ const submitForm = async () => {
             showAlert('success', 'Payment advice created successfully');
 
             // Reset form
-            paymentForm.value = {
-                company_id: companies.value[0]?.id || '',
-                user_id: userId.value,
-                advice_no: generateAdviceNo(),
-                date: getToday(),
-                transaction_type: '',
-                status: 'DRAFT',
-                currency_id: currencies.value[0]?.id || '',
-                exchange_rate: 1,
-                remarks: '',
-                parties: [
-                    {
-                        role: 'PAYER',
-                        accountable_type: 'ENTITY',
-                        accountable_id: '',
-                        account_id: '',
-                        payee_name: '',
-                        cheque_number: '',
-                        control_number: '',
-                        narration: ''
-                    },
-                    {
-                        role: 'PAYEE',
-                        accountable_type: 'ENTITY',
-                        accountable_id: '',
-                        account_id: '',
-                        payee_name: '',
-                        cheque_number: '',
-                        control_number: '',
-                        narration: ''
-                    }
-                ],
-                items: [
-                    {
-                        itemable_type: 'INVOICE',
-                        itemable_id: '',
-                        description: '',
-                        currency_id: currencies.value[0]?.id || '',
-                        amount: 0
-                    }
-                ],
-                journal_vouchers: []
-            };
+            resetForm();
 
             // Redirect to payment advice list or view
-            setTimeout(() => {
-                router.push('/accounts/payment-advices');
-            }, 1500);
+            // setTimeout(() => {
+            //     router.push('/accounts/payment-advices');
+            // }, 2000);
         } else {
             showAlert('error', response.data.message || 'Failed to create payment advice');
         }
@@ -423,6 +417,51 @@ const submitForm = async () => {
     } finally {
         isSaving.value = false;
     }
+};
+
+// Reset form
+const resetForm = () => {
+    paymentForm.value = {
+        user_id: userId.value,
+        date: getToday(),
+        transaction_type: '',
+        status: 'DRAFT',
+        currency_id: currencies.value[0]?.id || '',
+        exchange_rate: 1,
+        remarks: '',
+        parties: [
+            {
+                role: 'PAYER',
+                accountable_type: 'ENTITY',
+                accountable_id: '',
+                account_id: '',
+                payee_name: '',
+                cheque_number: '',
+                control_number: '',
+                narration: ''
+            },
+            {
+                role: 'PAYEE',
+                accountable_type: 'ENTITY',
+                accountable_id: '',
+                account_id: '',
+                payee_name: '',
+                cheque_number: '',
+                control_number: '',
+                narration: ''
+            }
+        ],
+        items: [
+            {
+                itemable_type: 'INVOICE',
+                itemable_id: '',
+                description: '',
+                currency_id: currencies.value[0]?.id || '',
+                amount: 0
+            }
+        ],
+        journal_vouchers: []
+    };
 };
 
 // Watch transaction type to adjust form
@@ -503,6 +542,16 @@ watch(() => paymentForm.value.transaction_type, (newType) => {
     }
 });
 
+// Watch accountable_type changes
+watch(() => paymentForm.value.parties, (newParties) => {
+    newParties.forEach(party => {
+        if (party.accountable_type === 'OTHER') {
+            // Clear accountable_id dropdown for OTHER type
+            party.accountable_id = '';
+        }
+    });
+}, { deep: true });
+
 // Initialize
 onMounted(async () => {
     paymentForm.value.date = getToday();
@@ -557,51 +606,32 @@ onMounted(async () => {
                 <form @submit.prevent="submitForm">
                     <!-- Main Details Section -->
                     <div class="row mb-4">
-                        <div class="col-md-12">
+                        <!-- <div class="col-md-12">
                             <h5 class="text-primary mb-3">
                                 <i class="fas fa-info-circle me-2"></i>
                                 Main Details
                             </h5>
-                        </div>
+                        </div> -->
 
                         <div class="col-md-3">
-                            <label class="form-label">
-                                <i class="fas fa-building text-muted me-1"></i>
-                                Company 
-                            </label>
-                            <StandardVueSelect v-model="paymentForm.company_id" :options="companies" labelKey="name"
-                                valueKey="id" placeholder="Select Company" :required="true" />
-                        </div>
-
-                        <div class="col-md-3">
-                            <label class="form-label">
-                                <i class="fas fa-hashtag text-muted me-1"></i>
-                                Advice Number 
-                            </label>
-                            <input type="text" v-model="paymentForm.advice_no" class="form-control"
-                                placeholder="Auto-generated" required readonly />
-                            <small class="form-text text-muted">Auto-generated</small>
-                        </div>
-
-                        <div class="col-md-3">
-                            <label class="form-label">
+                            <label class="form-label required">
                                 <i class="fas fa-calendar text-muted me-1"></i>
-                                Date 
+                                Date
                             </label>
                             <Datepicker v-model="paymentForm.date" :required="true" />
                         </div>
 
                         <div class="col-md-3">
-                            <label class="form-label">
+                            <label class="form-label required">
                                 <i class="fas fa-exchange-alt text-muted me-1"></i>
-                                Transaction Type 
+                                Transaction Type
                             </label>
                             <StandardVueSelect v-model="paymentForm.transaction_type"
                                 :options="formData.transaction_types || []" placeholder="Select Transaction Type"
                                 :required="true" />
                         </div>
 
-                        <div class="col-md-3 mt-3">
+                        <div class="col-md-3">
                             <label class="form-label">
                                 <i class="fas fa-tag text-muted me-1"></i>
                                 Status
@@ -610,13 +640,13 @@ onMounted(async () => {
                                 placeholder="Select Status" />
                         </div>
 
-                        <div class="col-md-3 mt-3">
-                            <label class="form-label">
+                        <div class="col-md-3">
+                            <label class="form-label required">
                                 <i class="fas fa-money-bill-wave text-muted me-1"></i>
-                                Currency 
+                                Currency
                             </label>
-                            <StandardVueSelect v-model="paymentForm.currency_id" :options="currencies" label="name"
-                                placeholder="Select Currency..." :required="true" />
+                            <StandardVueSelect v-model="paymentForm.currency_id" :options="currencies" labelKey="name"
+                                valueKey="id" placeholder="Select Currency" :required="true" />
                         </div>
 
                         <div class="col-md-3 mt-3">
@@ -630,7 +660,7 @@ onMounted(async () => {
                         </div>
 
                         <div class="col-md-12 mt-3">
-                            <label class="form-label">
+                            <label class="form-label required">
                                 <i class="fas fa-sticky-note text-muted me-1"></i>
                                 Remarks
                             </label>
@@ -656,10 +686,10 @@ onMounted(async () => {
                                 <table class="table table-bordered table-hover">
                                     <thead class="table-light">
                                         <tr>
-                                            <th width="15%">Role </th>
-                                            <th width="15%">Type </th>
-                                            <th width="20%">Accountable </th>
-                                            <th width="15%">Account</th>
+                                            <th width="15%">Role *</th>
+                                            <th width="15%">Type *</th>
+                                            <th width="25%">Accountable *</th>
+                                            <!-- <th width="15%">Bank Account (Optional)</th> -->
                                             <th width="15%">Payee Name</th>
                                             <th width="10%">Cheque No.</th>
                                             <th width="5%">Actions</th>
@@ -674,23 +704,43 @@ onMounted(async () => {
                                             <td>
                                                 <StandardVueSelect v-model="party.accountable_type"
                                                     :options="formData.accountable_types || []"
-                                                    placeholder="Select Type" :required="true" />
+                                                    placeholder="Select Type" :required="true"
+                                                    @change="handleAccountableTypeChange(party, index)" />
                                             </td>
                                             <td>
-                                                <StandardVueSelect v-model="party.accountable_id"
+                                                <!-- For ENTITY, EMPLOYEE, SUBCONTRACTOR: Show dropdown -->
+                                                <StandardVueSelect
+                                                    v-if="['ENTITY', 'EMPLOYEE', 'SUBCONTRACTOR'].includes(party.accountable_type)"
+                                                    v-model="party.accountable_id"
                                                     :options="getAccountableOptions(party.accountable_type)"
                                                     labelKey="name" valueKey="id"
                                                     :placeholder="`Select ${party.accountable_type}`" :required="true"
                                                     @option-selected="(opt) => onAccountableSelected(party, opt)" />
+
+                                                <!-- For OTHER: Show text input -->
+                                                <input v-else-if="party.accountable_type === 'OTHER'" type="text"
+                                                    v-model="party.accountable_id" class="form-control"
+                                                    placeholder="Enter description (e.g., 'Cash Payment', 'Miscellaneous')"
+                                                    :required="true" />
+
+                                                <!-- For ACCOUNT: Show accounts dropdown -->
+                                                <StandardVueSelect v-else-if="party.accountable_type === 'ACCOUNT'"
+                                                    v-model="party.accountable_id" :options="accounts"
+                                                    labelKey="account_name" valueKey="id" placeholder="Select Account"
+                                                    :required="true"
+                                                    @option-selected="(opt) => onAccountSelected(party, opt)" />
                                             </td>
-                                            <td>
+                                            <!-- <td>
                                                 <StandardVueSelect v-model="party.account_id"
                                                     :options="getFilteredAccounts(party)" labelKey="account_name"
-                                                    valueKey="id" placeholder="Select Account" />
-                                            </td>
+                                                    valueKey="id" placeholder="Select Bank Account" :clearable="true" />
+                                                <small class="form-text text-muted">
+                                                    Optional: For bank account reference
+                                                </small>
+                                            </td> -->
                                             <td>
                                                 <input type="text" v-model="party.payee_name" class="form-control"
-                                                    :placeholder="party.role === 'PAYEE' ? 'Payee name' : 'Name'" />
+                                                    :placeholder="getPayeeNamePlaceholder(party)" />
                                             </td>
                                             <td>
                                                 <input type="text" v-model="party.cheque_number" class="form-control"
@@ -731,11 +781,11 @@ onMounted(async () => {
                                 <table class="table table-bordered table-hover">
                                     <thead class="table-light">
                                         <tr>
-                                            <th width="15%">Item Type </th>
-                                            <th width="25%">Item </th>
+                                            <th width="15%">Item Type *</th>
+                                            <th width="25%">Item *</th>
                                             <th width="25%">Description</th>
-                                            <th width="15%">Currency </th>
-                                            <th width="15%">Amount </th>
+                                            <th width="15%">Currency *</th>
+                                            <th width="15%">Amount *</th>
                                             <th width="5%">Actions</th>
                                         </tr>
                                     </thead>
@@ -757,6 +807,7 @@ onMounted(async () => {
                                                 <input type="text" v-model="item.description" class="form-control"
                                                     placeholder="Item description" />
                                             </td>
+
                                             <td>
                                                 <StandardVueSelect v-model="item.currency_id" :options="currencies"
                                                     labelKey="name" valueKey="id" placeholder="Select Currency"
@@ -764,7 +815,7 @@ onMounted(async () => {
                                             </td>
                                             <td>
                                                 <input type="number" v-model="item.amount" class="form-control text-end"
-                                                    placeholder="0.00" step="0.01" min="0" required />
+                                                    placeholder="0.00" step="0.01" min="0.01" required />
                                             </td>
                                             <td class="text-center">
                                                 <button v-if="paymentForm.items.length > 1" type="button"
@@ -874,5 +925,15 @@ onMounted(async () => {
 
 .card-header h6 {
     font-size: 1rem;
+}
+
+/* Style for OTHER type input */
+input[type="text"].form-control {
+    min-height: 38px;
+}
+
+.form-label.required:after {
+    content: " *";
+    color: #dc3545;
 }
 </style>
