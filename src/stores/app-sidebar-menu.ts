@@ -255,6 +255,7 @@ export const useAppSidebarMenuStore = defineStore("appSidebarMenu", () => {
         { url: '/module-settings/seasons', text: 'Seasons', permission: 'CAN_VIEW_SETTINGS' },
         // { url: '/module-settings/installment-setups', text: 'Installment Setups', permission: 'CAN_VIEW_MODULE_SETTINGS' },
         { url: '/module-settings/sales-package', text: 'Sales Package', permission: 'CAN_VIEW_SALES_PACKAGE' },
+        
       ],
     },
     {
