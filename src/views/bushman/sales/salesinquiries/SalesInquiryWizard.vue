@@ -337,19 +337,40 @@
                       <small class="text-muted ms-2" v-if="extra.description">{{ extra.description }}</small>
                     </div>
                     <div class="item-actions d-flex align-items-center">
-                      <div class="quantity-controls me-2 d-flex align-items-center">
-                        <button type="button" class="btn btn-sm btn-outline-secondary" :disabled="extra.quantity <= 1"
-                          @click="extra.quantity = Math.max(1, Number(extra.quantity || 1) - 1)">-
-                        </button>
-                        <span class="qty-badge mx-2">{{ extra.quantity || 1 }}</span>
-                        <button type="button" class="btn btn-sm btn-outline-secondary"
-                          @click="extra.quantity = Number(extra.quantity || 0) + 1">+
-                        </button>
+                      <div class="quantity-controls me-2 d-flex flex-column align-items-center">
+                        <div class="d-flex align-items-center">
+                          <button type="button" class="btn btn-sm btn-outline-secondary" :disabled="extra.quantity <= 1"
+                            @click="updateSafariExtraQuantity(extra, -1)">-
+                          </button>
+                          <span class="qty-badge mx-2">{{ extra.quantity || 1 }}</span>
+                          <button type="button" class="btn btn-sm btn-outline-secondary"
+                            @click="updateSafariExtraQuantity(extra, 1)">+
+                          </button>
+                        </div>
+                        <small v-if="safariExtraErrors[Number(extra.id)]?.quantity" class="text-danger mt-1">{{ safariExtraErrors[Number(extra.id)].quantity }}</small>
                       </div>
+
+                      <!-- Duration (days) input for safari extras (only for duration-relevant items) -->
+                      <div v-if="isDurationRelevant(extra)" class="duration-controls me-2 d-flex flex-column align-items-start">
+                        <div class="d-flex align-items-center">
+                          <input type="number" step="1" min="1" class="form-control form-control-sm text-center" :value="extra.item_durations"
+                            @input="handleDurationInput($event, extra)" placeholder="Duration (days)" style="width:120px" title="Leave blank to inherit hunting length">
+                          <i class="fa fa-info-circle ms-2 text-muted" :title="'Leave blank to inherit hunting length'"></i>
+                        </div>
+                        <small class="text-muted mt-1">
+                          <span v-if="extra.item_durations">Stored: {{ extra.item_durations }} day<span v-if="extra.item_durations>1">s</span></span>
+                          <span v-else>Inherits hunting length: {{ form.no_of_days || 'N/A' }} days</span>
+                        </small>
+                        <small v-if="safariExtraErrors[Number(extra.id)]?.item_durations" class="text-danger mt-1">{{ safariExtraErrors[Number(extra.id)].item_durations }}</small>
+                      </div>
+                      <div v-else class="duration-controls me-2 d-flex flex-column align-items-start">
+                        <small class="text-muted">Duration not applicable for this item</small>
+                      </div> 
+
                       <button type="button" class="btn btn-sm btn-outline-danger ms-2"
                         @click="removeSafariExtra(index)">
                         <i class="fa fa-trash"></i>
-                      </button>
+                      </button> 
                     </div>
                   </div>
                 </div>
@@ -543,7 +564,7 @@ const props = defineProps<{
   editRow?: any | null
   customerData?: any | null
 }>()
-const emit = defineEmits<{ (e: 'cancel'): void; (e: 'saved'): void }>()
+const emit = defineEmits<{ (e: 'cancel'): void; (e: 'saved'): void; (e: 'pricing-changed', payload?: any): void }>()
 
 const vueformRef = ref<any>(null)
 const { init } = useToast()
@@ -638,6 +659,7 @@ const isEditMode = ref(false)
 const editingInquiryId = ref<number | null>(null)
 
 const selectedSafariExtras = ref<any[]>([])
+const safariExtraErrors = ref<Record<string, {quantity?: string, item_durations?: string}>>({})
 const safariExtrasOptions = ref<any[]>([])
 const selectedSafariExtraId = ref<number | null>(null)
 const trophyFees = ref<any[]>([])
@@ -1504,8 +1526,14 @@ const addSafariExtra = () => {
       name: item.name,
       description: item.description,
       priority: 'NICE_TO_HAVE',
+      quantity: 1,
+      item_durations: null,
+      notes: null,
       fromPackage: false
     })
+    // initialize per-extra error holder
+    const _key = Number(item.id)
+    safariExtraErrors.value[_key] = safariExtraErrors.value[_key] || {}
     init({ message: `Added "${item.name}" to safari extras`, color: 'success' })
     selectedSafariExtraId.value = null
   }
@@ -1523,10 +1551,18 @@ const submit = async () => {
   // Sync form data from Vueform
   syncFormData()
 
-  if (!form.full_name || !form.country || !form.nationality || !form.email) {
-    init({ message: 'Please fill in all required fields (Name, Country, Nationality, Email).', color: 'warning' })
-    saving.value = false
-    return
+  // Validate per-item durations (when provided and applicable)
+  for (const extra of selectedSafariExtras.value) {
+    if (isDurationRelevant(extra)) {
+      if (extra.item_durations != null && (!Number.isInteger(Number(extra.item_durations)) || Number(extra.item_durations) < 1)) {
+        init({ message: `Duration for "${extra.name}" must be an integer ≥ 1`, color: 'warning' })
+        saving.value = false
+        return
+      }
+    } else {
+      // Ensure non-duration items do not carry a duration value
+      extra.item_durations = null
+    }
   }
 
   if (speciesObjects.value.length === 0) {
@@ -1583,22 +1619,26 @@ const submit = async () => {
       return areaOption ? [{ location_id: areaOption.value }] : []
     })() : [],
 
-    // Item preferences (including safari extras) - both stored in same table
+    // Item preferences (species only) - safari extras are sent in a dedicated `safari_extras` array below
     item_preferences: [
       ...speciesObjects.value.map((item: any) => ({
         item_id: item.species_id || item.item_id || item.id,
         desired_quantity: item.quantity || 1,
         priority: item.priority || 'NICE_TO_HAVE',
         notes: item.notes || null,
-      })),
-      ...selectedSafariExtras.value.map((extra: any) => ({
-        item_id: extra.id,
-        desired_quantity: Number(extra.quantity || 1),
-        priority: extra.priority || 'NICE_TO_HAVE',
-        notes: extra.notes || null,
       }))
     ],
-    // Note: safari_extras intentionally merged into item_preferences to match backend table format
+
+    // Safari extras - persistent preferences (send item_durations only when explicitly set)
+    safari_extras: selectedSafariExtras.value.map((extra: any) => ({
+      item_id: extra.id,
+      desired_quantity: Number(extra.quantity || 1),
+      priority: extra.priority || 'NICE_TO_HAVE',
+      notes: extra.notes || null,
+      ...(extra.item_durations != null ? { item_durations: Number(extra.item_durations) } : {})
+    })),
+
+    // Note: Safari extras are intentionally sent as `safari_extras[]` to persist per-item duration preferences on the server.
 
 
     // Preference - backend uses no_of_participants
@@ -1668,6 +1708,25 @@ const submit = async () => {
   } catch (error: any) {
     console.error('Error saving sales inquiry:', error)
     if (error.response) {
+      // Map validation errors to inline fields where possible
+      const data = error.response.data || {}
+      if (error.response.status === 422 && data && typeof data === 'object') {
+        for (const key in data) {
+          // look for safari_extras.0.item_durations or safari_extras[0].item_durations
+          const m = key.match(/safari_extras(?:\.|\[)(\d+)(?:\]|\.)?(.*)?/)
+          if (m) {
+            const idx = Number(m[1])
+            const field = m[2] ? m[2].replace(/^\./, '') : ''
+            const extra = selectedSafariExtras.value[idx]
+            if (extra) {
+              const _k = Number(extra.id)
+              safariExtraErrors.value[_k] = safariExtraErrors.value[_k] || {}
+              safariExtraErrors.value[_k][field || 'item_durations'] = Array.isArray(data[key]) ? data[key].join(', ') : String(data[key])
+            }
+          }
+        }
+      }
+
       const errors = handleErrors(error.response)
       init({ message: '\n' + errors.map((e: any, i: number) => `${i + 1}. ${e}`).join('\n'), color: 'danger' })
     } else if (error.request) {
@@ -1678,7 +1737,53 @@ const submit = async () => {
   } finally {
     saving.value = false
   }
+} 
+
+// Handle duration input safely (allow blank to mean inherit)
+let pricingChangeTimeout: any = null
+const isDurationRelevant = (item: any) => {
+  const name = item?.name || item?.item_name || item?.description || ''
+  if (!name) return false
+  const n = String(name).toLowerCase()
+  if (n.includes('additional gun permit') || n.includes('gun permit') || n.includes('ammo')) return false
+  if (n.includes('firearm') || n.includes('baiting') || n.includes('photographic') || n.includes('camera') || n.includes('cameraman') || n.includes('observer')) return true
+  return false
 }
+
+const scheduleEmitPricingChanged = () => {
+  if (pricingChangeTimeout) clearTimeout(pricingChangeTimeout)
+  pricingChangeTimeout = setTimeout(() => {
+    const items = selectedSafariExtras.value.map((extra: any) => ({
+      item_type: 'EXTRA',
+      item_id: extra.id,
+      quantity: Number(extra.quantity || 1),
+      ...(isDurationRelevant(extra) && extra.item_durations != null ? { item_durations: Number(extra.item_durations) } : {})
+    }))
+    emit('pricing-changed', { items })
+  }, 350)
+}
+
+const updateSafariExtraQuantity = (extra: any, delta: number) => {
+  extra.quantity = Math.max(1, Number(extra.quantity || 1) + delta)
+  // clear quantity errors if present
+  const _k = Number(extra.id)
+  if (safariExtraErrors.value[_k]) safariExtraErrors.value[_k].quantity = undefined
+  scheduleEmitPricingChanged()
+}
+
+const handleDurationInput = (e: any, extra: any) => {
+  const v = e.target.value
+  if (v === '' || v === null) {
+    extra.item_durations = null
+  } else {
+    const n = Math.floor(Number(v) || 0)
+    extra.item_durations = n >= 1 ? n : 1
+  }
+  // clear duration errors
+  const _k = Number(extra.id)
+  if (safariExtraErrors.value[_k]) safariExtraErrors.value[_k].item_durations = undefined
+  scheduleEmitPricingChanged()
+} 
 
 const getSpeciesNameById = (speciesId: number): string | null => {
   if (!speciesId) return null
@@ -1805,6 +1910,33 @@ const loadInquiryForEdit = (rowData: any) => {
   selectedSafariExtras.value = []
 
 
+
+  // Populate saved safari extras preferences - prefer explicit `item.safari_extras` when available
+  let safariPrefs: any[] = []
+  if (Array.isArray(item.safari_extras) && item.safari_extras.length) {
+    safariPrefs = item.safari_extras
+  } else {
+    safariPrefs = itemPreferences.filter((p: any) => {
+      return safariExtrasOptions.value.some((se: any) => String(se.id) === String(p.item_id) || String(se.safari_extra_id) === String(p.item_id))
+    }) || []
+  }
+
+  safariPrefs.forEach((pref: any) => {
+    const safariOpt = safariExtrasOptions.value.find((se: any) => String(se.id) === String(pref.item_id) || String(se.safari_extra_id) === String(pref.item_id))
+    selectedSafariExtras.value.push({
+      id: pref.item_id,
+      name: pref.item_name || safariOpt?.name || 'Extra',
+      description: pref.notes || safariOpt?.description || '',
+      priority: pref.priority || 'NICE_TO_HAVE',
+      quantity: pref.desired_quantity || 1,
+      item_durations: pref.item_durations ?? null,
+      notes: pref.notes || null,
+      fromPackage: false,
+    })
+    // ensure error holder exists for loaded extras
+    const _key = Number(pref.item_id)
+    safariExtraErrors.value[_key] = safariExtraErrors.value[_key] || {}
+  })
 
   // Update Vueform with loaded values
   if (vueformRef.value) {

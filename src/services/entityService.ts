@@ -283,11 +283,12 @@ export const entityService = {
   /**
    * Get all currencies
    */
-  async getCurrencies(): Promise<{ data: Currency[] }> {
+  async getCurrencies(): Promise<any> {
     const response = await axios.get(`${apiBaseUrl}settings/currencies`, {
       headers: getAuthHeaders()
     })
-    return response.data.data
+    // Return the raw response payload; callers can read `data` or use the array directly
+    return response.data
   },
 
   /**

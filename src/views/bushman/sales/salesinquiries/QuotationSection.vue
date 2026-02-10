@@ -240,14 +240,14 @@
                         <td class="text-center">
                           <input v-if="selectedItems[`${category.category}_${item.id}`]" type="number"
                             class="form-control form-control-sm text-center"
-                            v-model.number="itemPrices[`${category.category}_${item.id}`].quantity" min="1"
+                            v-model.number="ensureItemPrice(category.category, item).quantity" min="1"
                             @input="updateItemTotal(category.category, item.id)">
                           <span v-else class="text-muted">{{ item.quantity }}</span>
                         </td>
                         <td>
                           <input v-if="selectedItems[`${category.category}_${item.id}`]" type="number"
                             class="form-control form-control-sm text-end"
-                            v-model.number="itemPrices[`${category.category}_${item.id}`].unit_amount" step="0.01"
+                            v-model.number="ensureItemPrice(category.category, item).unit_amount" step="0.01"
                             min="0" @input="updateItemTotal(category.category, item.id)">
                           <span v-else class="text-muted text-end d-block">{{ formatCurrency(item.suggested_price)
                             }}</span>
@@ -262,7 +262,7 @@
                         <td class="text-center">
                           <input v-if="selectedItems[`${category.category}_${item.id}`]" type="checkbox"
                             class="form-check-input"
-                            v-model="itemPrices[`${category.category}_${item.id}`].is_optional">
+                            v-model="ensureItemPrice(category.category, item).is_optional">
                           <span v-else class="text-muted">-</span>
                         </td>
                       </tr>
@@ -671,7 +671,15 @@ const availablePriceableItems = computed(() => {
           return !name.includes('observer') && !code.includes('observer')
         })
         .map((extra: any) => {
-          const qty = getPerDayQuantity(extra.pricing_unit, 1)
+          // Prefer per-enquiry overrides when present (desired_quantity, item_durations)
+          const enquiryExtra = enquirySafariExtras.value.find((e: any) => String(e.item_id) === String(extra.item_id || extra.id))
+          const baseQuantity = enquiryExtra?.desired_quantity ?? 1
+          const effective = (enquiryExtra && enquiryExtra.item_durations != null)
+            ? enquiryExtra.item_durations
+            : (extra.effective_duration ?? extra.item_durations ?? previewDays.value ?? 1)
+          // Determine whether to multiply by duration (respect explicit mapping or pricing_unit)
+          const shouldMultiply = isDurationRelevant(extra) || (enquiryExtra ? isDurationRelevant(enquiryExtra) : false)
+          const qty = shouldMultiply ? baseQuantity * (effective ?? 1) : baseQuantity
           return {
             id: extra.item_id || extra.id,
             name: cleanItemName(extra.item_name || 'Extra'),
@@ -679,19 +687,29 @@ const availablePriceableItems = computed(() => {
             quantity: qty,
             type: 'EXTRA',
             suggested_price: parseFloat(extra.amount) || 0,
+            effective_duration: effective,
+            // for debugging / display purposes we may want to expose the underlying values
+            _enquiry_quantity: enquiryExtra?.desired_quantity ?? null,
+            _enquiry_item_durations: enquiryExtra?.item_durations ?? null,
+            _duration_applied: shouldMultiply,
           }
         })
     : enquirySafariExtras.value.map((extra: any) => {
         const safariExtra = pricePreviewData.value?.safari_extras?.find(
           (se: any) => se.id === extra.item_id || se.item_id === extra.item_id
         )
+        const effective = extra.item_durations ?? safariExtra?.effective_duration ?? previewDays.value ?? 1
+        const shouldMultiply = isDurationRelevant(safariExtra) || isDurationRelevant(extra)
+        const qty = shouldMultiply ? (extra.desired_quantity || 1) * (effective ?? 1) : (extra.desired_quantity || 1)
         return {
           id: extra.item_id,
           name: cleanItemName(extra.item_name || 'Extra'),
           code: '',
-          quantity: extra.desired_quantity || 1,
+          quantity: qty,
           type: 'EXTRA',
           suggested_price: parseFloat(safariExtra?.amount) || 0,
+          effective_duration: effective,
+          _duration_applied: shouldMultiply,
         }
       })
 
@@ -714,7 +732,7 @@ const availablePriceableItems = computed(() => {
         } else if (part.type === 'OBSERVER') {
           const observerExtra = getObserverExtra()
           cost = parseFloat(observerExtra?.amount) || 0
-          quantity = getPerDayQuantity(observerExtra?.pricing_unit, part.count)
+          quantity = getPerDayQuantity(observerExtra?.pricing_unit, part.count, observerExtra?.effective_duration ?? observerExtra?.item_durations)
         } else {
           cost = getCompanionCostAmount()
         }
@@ -854,14 +872,39 @@ const formatPriority = (priority: string) => {
   return priorities[priority] || priority
 }
 
-const getPerDayQuantity = (pricingUnit: string | undefined, baseQuantity: number) => {
+const getPerDayQuantity = (pricingUnit: string | undefined, baseQuantity: number, daysOverride?: number) => {
   if (!pricingUnit) return baseQuantity
   if (pricingUnit.toLowerCase().includes('per_day')) {
-    const days = previewDays.value || 1
+    const days = daysOverride ?? previewDays.value ?? 1
     return baseQuantity * days
   }
   return baseQuantity
 }
+
+// Determine if an item should apply duration when calculating quantity (based on name or pricing unit)
+const durationRelevantByName = (name: string | undefined) => {
+  if (!name) return false
+  const n = name.toLowerCase()
+  // Explicit NO-duration items
+  if (n.includes('additional gun permit') || n.includes('gun permit') || n.includes('ammo')) return false
+  // Explicit duration-relevant items
+  if (
+    n.includes('firearm') ||
+    n.includes('baiting') ||
+    n.includes('photographic') ||
+    n.includes('camera') ||
+    n.includes('cameraman') ||
+    n.includes('observer')
+  ) return true
+  return false
+}
+
+const isDurationRelevant = (item: any) => {
+  const name = item?.item_name || item?.name || item?.description || ''
+  if (durationRelevantByName(name)) return true
+  if (item?.pricing_unit && String(item.pricing_unit).toLowerCase().includes('per_day')) return true
+  return false
+} 
 
 const getCompanionCostAmount = () => {
   const costs = pricePreviewData.value?.companion_costs || []
@@ -1122,6 +1165,28 @@ const closeAddPricingModal = () => {
   itemPrices.value = {}
 }
 
+const ensureItemPrice = (category: string, item: any) => {
+  const key = `${category}_${item.id}`
+  if (!itemPrices.value[key]) {
+    const unitAmount = Number(item.suggested_price) || 0
+    const quantity = Number(item.quantity) || 1
+    itemPrices.value[key] = {
+      item_type: item.type,
+      item_id: typeof item.id === 'string' ? null : item.id,
+      linked_species_item_id: item.type === 'TROPHY' ? item.id : null,
+      description: item.name,
+      quantity,
+      unit_amount: unitAmount,
+      total_amount: quantity * unitAmount,
+      rate_direction: 'INCREASE',
+      amount_source: 'SYSTEM',
+      is_estimate: false,
+      is_optional: false,
+    }
+  }
+  return itemPrices.value[key]
+}
+
 const initializeItemPrice = (category: string, item: any) => {
   const key = `${category}_${item.id}`
   if (selectedItems.value[key]) {
@@ -1200,11 +1265,49 @@ const savePricingWithItems = async () => {
   savingPricing.value = true
   try {
     // Prepare items array
-    const items = []
+    const items: any[] = []
+    const missingDescriptions: string[] = []
+
     for (const key in selectedItems.value) {
-      if (selectedItems.value[key] && itemPrices.value[key]) {
-        items.push(itemPrices.value[key])
+      if (!selectedItems.value[key]) continue
+
+      // Ensure we have a backing price object for the selected item.
+      let price = itemPrices.value[key]
+      if (!price) {
+        // Try to reconstruct from available priceable items using the key (category_id)
+        const parts = key.split('_')
+        const categoryName = parts.slice(0, parts.length - 1).join('_')
+        const id = parts[parts.length - 1]
+        const cat = availablePriceableItems.value.find((c: any) => c.category === categoryName)
+        const srcItem = cat?.items?.find((it: any) => String(it.id) === String(id))
+        price = ensureItemPrice(categoryName, srcItem || { id, name: '', quantity: 1, suggested_price: 0, type: 'ADJUSTMENT' })
       }
+
+      // Ensure description is present; try to populate from preview/original item if missing
+      if (!price.description || String(price.description).trim() === '') {
+        const parts = key.split('_')
+        const categoryName = parts.slice(0, parts.length - 1).join('_')
+        const id = parts[parts.length - 1]
+        const cat = availablePriceableItems.value.find((c: any) => c.category === categoryName)
+        const srcItem = cat?.items?.find((it: any) => String(it.id) === String(id))
+        price.description = (srcItem?.name && String(srcItem.name).trim()) || `${price.item_type || 'Item'}`
+      }
+
+      if (!price.description || String(price.description).trim() === '') {
+        missingDescriptions.push(key)
+      }
+
+      items.push(price)
+    }
+
+    if (missingDescriptions.length > 0) {
+      Swal.fire({
+        title: 'Validation Error',
+        text: 'Some selected items do not have descriptions. Please ensure each item has a description before creating the quotation.',
+        icon: 'warning',
+      })
+      savingPricing.value = false
+      return
     }
 
     const payload = {

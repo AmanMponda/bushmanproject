@@ -232,6 +232,7 @@
                         <th style="width: 40px;"></th>
                         <th>Item</th>
                         <th style="width: 100px;" class="text-center">Qty</th>
+                        <th style="width: 110px;" class="text-center">Dur (days)</th>
                         <th style="width: 140px;" class="text-end">Unit Price</th>
                         <th style="width: 140px;" class="text-end">Total</th>
                         <th style="width: 80px;" class="text-center">Optional</th>
@@ -259,18 +260,31 @@
                             v-if="selectedItems[`${category.category}_${item.id}`]"
                             type="number" 
                             class="form-control form-control-sm text-center"
-                            v-model.number="itemPrices[`${category.category}_${item.id}`].quantity"
+                            v-model.number="ensureItemPrice(category.category, item).quantity"
                             min="1"
                             @input="updateItemTotal(category.category, item.id)"
                           >
                           <span v-else class="text-muted">{{ item.quantity }}</span>
                         </td>
-                        <td>
+                        <td class="text-center">
+                          <input
+                            v-if="selectedItems[`${category.category}_${item.id}`]"
+                            type="number"
+                            class="form-control form-control-sm text-center"
+                            :value="ensureItemPrice(category.category, item).item_durations"
+                            @input="handleInitItemDuration($event, category.category, item.id)"
+                            min="1"
+                            placeholder=""
+                            title="Leave blank to inherit hunting length"
+                            style="width: 110px"
+                          />
+                          <span v-else class="text-muted">-</span>
+                        </td>                        <td>
                           <input 
                             v-if="selectedItems[`${category.category}_${item.id}`]"
                             type="number" 
                             class="form-control form-control-sm text-end"
-                            v-model.number="itemPrices[`${category.category}_${item.id}`].unit_amount"
+                            v-model.number="ensureItemPrice(category.category, item).unit_amount"
                             step="0.01"
                             min="0"
                             @input="updateItemTotal(category.category, item.id)"
@@ -288,7 +302,7 @@
                             v-if="selectedItems[`${category.category}_${item.id}`]"
                             type="checkbox" 
                             class="form-check-input"
-                            v-model="itemPrices[`${category.category}_${item.id}`].is_optional"
+                            v-model="ensureItemPrice(category.category, item).is_optional"
                           >
                           <span v-else class="text-muted">-</span>
                         </td>
@@ -373,7 +387,7 @@
  * - LOGISTICS: Logistics costs (participants)
  * - ADJUSTMENT: Discounts or surcharges
  */
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useSalesInquiriesStore } from '@/stores/bushman/sales-store'
 import { salesEnquiryService } from '@/stores/bushman/salesEnquiryService'
@@ -569,6 +583,7 @@ const availablePriceableItems = computed(() => {
           quantity: extra.desired_quantity || 1,
           type: 'EXTRA',
           suggested_price: parseFloat(safariExtra?.amount) || 0,
+          item_durations: extra.item_durations ?? null,
         }
       })
     })
@@ -706,22 +721,42 @@ const formatPriority = (priority: string) => {
   return priorities[priority] || priority
 }
 
-const initializeItemPrice = (category: string, item: any) => {
+const ensureItemPrice = (category: string, item: any) => {
   const key = `${category}_${item.id}`
-  if (selectedItems.value[key]) {
+  if (!itemPrices.value[key]) {
+    const unitAmount = Number(item?.suggested_price) || 0
+    const quantity = Number(item?.quantity) || 1
     itemPrices.value[key] = {
-      item_type: item.type,
-      item_id: typeof item.id === 'string' ? null : item.id,
-      description: item.name,
-      quantity: item.quantity || 1,
-      unit_amount: item.suggested_price || 0,
-      total_amount: (item.quantity || 1) * (item.suggested_price || 0),
+      item_type: item?.type || 'ADJUSTMENT',
+      item_id: typeof (item?.id) === 'string' ? null : item?.id,
+      description: item?.name || '',
+      quantity,
+      unit_amount: unitAmount,
+      total_amount: quantity * unitAmount,
       rate_direction: 'INCREASE',
       amount_source: 'SYSTEM',
       is_estimate: false,
       is_optional: false,
+      item_durations: item?.item_durations ?? null,
     }
   }
+  return itemPrices.value[key]
+}
+
+const initializeItemPrice = (category: string, item: any) => {
+  const key = `${category}_${item.id}`
+  if (selectedItems.value[key]) {
+    // ensure it exists (keeps previous behaviour but uses ensure helper)
+    ensureItemPrice(category, item)
+  }
+}
+
+const durationRelevantByNameLocal = (name: string | undefined) => {
+  if (!name) return false
+  const n = name.toLowerCase()
+  if (n.includes('additional gun permit') || n.includes('gun permit') || n.includes('ammo')) return false
+  if (n.includes('firearm') || n.includes('baiting') || n.includes('photographic') || n.includes('camera') || n.includes('cameraman') || n.includes('observer')) return true
+  return false
 }
 
 const updateItemTotal = (category: string, itemId: any) => {
@@ -729,9 +764,72 @@ const updateItemTotal = (category: string, itemId: any) => {
   if (itemPrices.value[key]) {
     const qty = itemPrices.value[key].quantity || 1
     const unit = itemPrices.value[key].unit_amount || 0
-    itemPrices.value[key].total_amount = qty * unit
+    // If this is an EXTRA, consider duration override for client-side total preview
+    if (itemPrices.value[key].item_type === 'EXTRA') {
+      const desc = itemPrices.value[key].description || ''
+      const pricingUnit = itemPrices.value[key].pricing_unit || ''
+      const shouldMultiply = durationRelevantByNameLocal(desc) || (String(pricingUnit).toLowerCase().includes('per_day'))
+      const days = shouldMultiply ? (itemPrices.value[key].item_durations ?? enquiryDays.value ?? 1) : 1
+      itemPrices.value[key].total_amount = (unit || 0) * qty * days
+    } else {
+      itemPrices.value[key].total_amount = qty * unit
+    }
   }
 }
+
+// Handle duration input for add-items table
+const handleInitItemDuration = (e: any, category: string, itemId: any) => {
+  const key = `${category}_${itemId}`
+  if (!itemPrices.value[key]) return
+  const v = e.target.value
+  if (v === '' || v === null) {
+    itemPrices.value[key].item_durations = null
+  } else {
+    const n = Math.floor(Number(v) || 0)
+    itemPrices.value[key].item_durations = n >= 1 ? n : 1
+  }
+  updateItemTotal(category, itemId)
+}
+
+// Debounced server-side pricing recalculation when item overrides or hunt length change
+let pricingRecalcTimeout: any = null
+const schedulePricingRecalc = () => {
+  if (pricingRecalcTimeout) clearTimeout(pricingRecalcTimeout)
+  pricingRecalcTimeout = setTimeout(async () => {
+    if (!existingPricing.value || !existingPricing.value.id) return
+    try {
+      const items: any[] = []
+      for (const key in itemPrices.value) {
+        const p = itemPrices.value[key]
+        items.push({
+          item_type: p.item_type,
+          item_id: p.item_id,
+          quantity: p.quantity,
+          unit_amount: p.unit_amount,
+          ...(p.item_durations != null ? { item_durations: p.item_durations } : {})
+        })
+      }
+      const payload = { items }
+      const response = await salesEnquiryService.updatePricing(existingPricing.value.id, payload)
+      if (response?.success && response.data) {
+        existingPricing.value = response.data
+        // reload the fresh pricing data
+        await loadPricing()
+      }
+    } catch (err) {
+      console.error('Error recalculating pricing:', err)
+    }
+  }, 600)
+}
+
+// Watch item price overrides and enquiry days to trigger server recalculation
+watch(itemPrices, () => {
+  schedulePricingRecalc()
+}, { deep: true })
+
+watch(() => enquiryDays.value, () => {
+  schedulePricingRecalc()
+})
 
 const toggleCategorySelection = (category: any) => {
   const isSelected = isCategorySelected(category)
@@ -896,12 +994,49 @@ const saveQuotation = async () => {
 
   saving.value = true
   try {
-    // Collect items to add
-    const items = []
+    // Collect items to add, ensuring we have backing price objects and descriptions
+    const items: any[] = []
+    const missingDescriptions: string[] = []
+
     for (const key in selectedItems.value) {
-      if (selectedItems.value[key] && itemPrices.value[key]) {
-        items.push(itemPrices.value[key])
+      if (!selectedItems.value[key]) continue
+
+      let price = itemPrices.value[key]
+      if (!price) {
+        // Reconstruct from available priceable items
+        const parts = key.split('_')
+        const categoryName = parts.slice(0, parts.length - 1).join('_')
+        const id = parts[parts.length - 1]
+        const cat = availablePriceableItems.value.find((c: any) => c.category === categoryName)
+        const srcItem = cat?.items?.find((it: any) => String(it.id) === String(id))
+        price = ensureItemPrice(categoryName, srcItem || { id, name: '', quantity: 1, suggested_price: 0, type: 'ADJUSTMENT' })
       }
+
+      // Ensure description exists
+      if (!price.description || String(price.description).trim() === '') {
+        const parts = key.split('_')
+        const categoryName = parts.slice(0, parts.length - 1).join('_')
+        const id = parts[parts.length - 1]
+        const cat = availablePriceableItems.value.find((c: any) => c.category === categoryName)
+        const srcItem = cat?.items?.find((it: any) => String(it.id) === String(id))
+        price.description = (srcItem?.name && String(srcItem.name).trim()) || `${price.item_type || 'Item'}`
+      }
+
+      if (!price.description || String(price.description).trim() === '') {
+        missingDescriptions.push(key)
+      }
+
+      items.push(price)
+    }
+
+    if (missingDescriptions.length > 0) {
+      Swal.fire({
+        title: 'Validation Error',
+        text: 'Some selected items are missing descriptions. Please ensure each item has a description before adding to the quotation.',
+        icon: 'warning',
+      })
+      saving.value = false
+      return
     }
 
     // Add each item individually to the existing pricing record

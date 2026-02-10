@@ -136,14 +136,19 @@ export const useSettingsStore = defineStore('settings-store', {
       }
       const response = await axios.request(config)
       if (response.status === 200) {
-        this.currencies = response.data.map((item: any) => {
-          return {
-            value: item.id,
-            text: item.name,
-            currency: item.currency,
-            price: item.price,
-          }
-        })
+        // Normalize response shape: API may return an array directly or an object with a `data` array
+        const data = response?.data?.data ?? response?.data ?? []
+        const items = Array.isArray(data) ? data : []
+        const mapped = items.map((item: any) => ({
+          value: item.id,
+          text: item.name,
+          currency: item.currency,
+          price: item.price,
+          raw: item,
+        }))
+        this.currencies = mapped
+        // Ensure callers receive the normalized array in `response.data`
+        response.data = mapped
       }
       return response
     },
