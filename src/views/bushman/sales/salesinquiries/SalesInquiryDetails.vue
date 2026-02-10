@@ -19,145 +19,93 @@
 
     <!-- TAB CONTENT -->
     <div class="tab-content p-4">
-      <!-- Overview Tab -->
+      <!-- Overview Tab (Simplified) -->
       <div id="overview" class="tab-pane fade" :class="{ 'show active': activeTab === 'overview' }">
-        <!-- Key Information Cards -->
-        <div class="row g-3 mb-4">
-          <div class="col-md-3">
-            <div class="card border-primary">
-              <div class="card-body text-center">
-                <i class="fa fa-calendar fa-2x text-primary mb-2"></i>
-                <div class="h4 mb-0">{{ item?.preference?.no_of_days || 'N/A' }}</div>
-                <small class="text-muted">Days Duration</small>
+        <div class="card mb-4 overview-summary-card">
+          <div class="card-body">
+            <!-- Compact stat row -->
+            <div class="d-flex align-items-center justify-content-between mb-3 stats-row">
+              <div class="stat text-center">
+                <div class="stat-icon mb-1"><i class="fa fa-calendar text-primary"></i></div>
+                <div class="stat-value h5 mb-0">{{ item?.preference?.no_of_days || 'N/A' }}</div>
+                <small class="text-muted">Days</small>
               </div>
-            </div>
-          </div>
-          <div class="col-md-3">
-            <div class="card border-success">
-              <div class="card-body text-center">
-                <i class="fa fa-user fa-2x text-success mb-2"></i>
-                <div class="h4 mb-0">{{ item?.preference?.no_of_participants || 0 }}</div>
+              <div class="stat text-center">
+                <div class="stat-icon mb-1"><i class="fa fa-user text-success"></i></div>
+                <div class="stat-value h5 mb-0">{{ item?.preference?.no_of_participants || 0 }}</div>
                 <small class="text-muted">Participants</small>
               </div>
-            </div>
-          </div>
-          <div class="col-md-3">
-            <div class="card border-warning">
-              <div class="card-body text-center">
-                <i class="fa fa-dollar-sign fa-2x text-warning mb-2"></i>
-                <div class="h4 mb-0">{{ item?.preference?.budget_min ? formatCurrency(item.preference.budget_min) : 'N/A' }}</div>
+              <div class="stat text-center">
+                <div class="stat-icon mb-1"><i class="fa fa-dollar-sign text-warning"></i></div>
+                <div class="stat-value h5 mb-0">{{ item?.preference?.budget_min ? formatCurrency(item.preference.budget_min) : 'N/A' }}</div>
                 <small class="text-muted">Budget Min</small>
               </div>
-            </div>
-          </div>
-          <div class="col-md-3">
-            <div class="card border-info">
-              <div class="card-body text-center">
-                <i class="fa fa-dollar-sign fa-2x text-info mb-2"></i>
-                <div class="h4 mb-0">{{ item?.preference?.budget_max ? formatCurrency(item.preference.budget_max) : 'N/A' }}</div>
+              <div class="stat text-center">
+                <div class="stat-icon mb-1"><i class="fa fa-dollar-sign text-info"></i></div>
+                <div class="stat-value h5 mb-0">{{ item?.preference?.budget_max ? formatCurrency(item.preference.budget_max) : 'N/A' }}</div>
                 <small class="text-muted">Budget Max</small>
               </div>
             </div>
-          </div>
-        </div>
 
-        <!-- Client Information -->
-        <div class="card mb-4">
-          <div class="card-header bg-white">
-            <h6 class="mb-0">
-              <i class="fa fa-user me-2 text-primary"></i>
-              Client Information
-            </h6>
-          </div>
-          <div class="card-body">
-            <div class="row mb-3">
-              <div class="col-md-4">
-                <strong>Full Name:</strong>
-                <div>{{ safeString(item?.entity?.full_name) }}</div>
-              </div>
-              <div class="col-md-4">
-                <strong>Nationality:</strong>
-                <div>{{ safeString(item?.entity?.nationality) }}</div>
-              </div>
-              <div class="col-md-4">
-                <strong>Country:</strong>
-                <div>{{ safeString(item?.entity?.country) }}</div>
-              </div>
-            </div>
-            <div v-if="safeArray(item?.entity?.contacts).length > 0" class="mt-3">
-              <strong>Contacts:</strong>
-              <div class="row g-2 mt-2">
-                <div v-for="(contact, index) in safeArray(item?.entity?.contacts)" :key="index" class="col-md-4">
-                  <div class="card bg-light">
-                    <div class="card-body p-2">
-                      <i :class="'fa fa-' + getContactIcon(contact.type || contact.contact_type_id)" class="me-2"></i>
-                      <span>{{ contact.contact }}</span>
+            <hr />
+
+            <!-- Condensed details grid -->
+            <div class="details-grid">
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <div class="d-flex mb-2 align-items-start"><strong class="me-2 label">Full Name:</strong><div class="value">{{ safeString(item?.entity?.full_name) }}</div></div>
+                  <div class="d-flex mb-2 align-items-start"><strong class="me-2 label">Contacts:</strong>
+                    <div class="value">
+                      <div v-for="(contact, index) in safeArray(item?.entity?.contacts)" :key="index" class="contact-line">
+                        <i :class="'fa fa-' + getContactIcon(contact.type || contact.contact_type_id)" class="me-2"></i>
+                        <span>{{ contact.contact }}</span>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            </div>
-          </div>
-        </div>
 
-        <!-- Hunting Preferences -->
-        <div class="card mb-4">
-          <div class="card-header bg-white">
-            <h6 class="mb-0">
-              <i class="fa fa-calendar-alt me-2 text-primary"></i>
-              Hunting Preferences
-            </h6>
-          </div>
-          <div class="card-body">
-            <div class="row">
-              <div class="col-md-3 mb-3">
-                <strong>Preferred Date:</strong>
-                <div>{{ formatDate(item?.preference?.preferred_start_date) }}</div>
-              </div>
-              <div class="col-md-3 mb-3">
-                <strong>Duration:</strong>
-                <div>{{ item?.preference?.no_of_days || 'N/A' }} days</div>
-              </div>
-              <div class="col-md-3 mb-3">
-                <strong>Budget Range:</strong>
-                <div>
-                  {{ item?.preference?.budget_min ? formatCurrency(item.preference.budget_min) : 'N/A' }} - 
-                  {{ item?.preference?.budget_max ? formatCurrency(item.preference.budget_max) : 'N/A' }}
+                <div class="col-md-6">
+                  <div class="d-flex mb-2 align-items-start"><strong class="me-2 label">Nationality:</strong><div class="value">{{ safeString(item?.entity?.nationality) }}</div></div>
+                  <div class="d-flex mb-2 align-items-start"><strong class="me-2 label">Country:</strong><div class="value">{{ safeString(item?.entity?.country) }}</div></div>
+                </div>
+
+                <div class="col-md-6">
+                  <div class="d-flex mb-2 align-items-start"><strong class="me-2 label">Preferred Date:</strong><div class="value">{{ formatDate(item?.preference?.preferred_start_date) }}</div></div>
+                  <div class="d-flex mb-2 align-items-start"><strong class="me-2 label">Duration:</strong><div class="value">{{ item?.preference?.no_of_days || 'N/A' }} days</div></div>
+                </div>
+
+                <div class="col-md-6">
+                  <div class="d-flex mb-2 align-items-start"><strong class="me-2 label">Budget Range:</strong><div class="value">{{ item?.preference?.budget_min ? formatCurrency(item.preference.budget_min) : 'N/A' }} - {{ item?.preference?.budget_max ? formatCurrency(item.preference.budget_max) : 'N/A' }}</div></div>
+                  <div class="d-flex mb-2 align-items-start"><strong class="me-2 label">Previous Experience:</strong><div class="value">{{ item?.preference?.prev_experience || 'N/A' }}</div></div>
                 </div>
               </div>
-              <div class="col-md-3 mb-3">
-                <strong>Previous Experience:</strong>
-                <div>{{ item?.preference?.prev_experience || 'N/A' }}</div>
-              </div>
-            </div>
-            <div v-if="item?.preference?.special_requests" class="row mt-3">
-              <div class="col-12">
-                <strong>Special Requests:</strong>
-                <p class="text-muted mt-2">{{ item.preference.special_requests }}</p>
-              </div>
-            </div>
-          </div>
-        </div>
 
-        <!-- Important Information -->
-        <div class="card mb-4">
-          <div class="card-body">
-            <h6 class="card-title">Important Information</h6>
-            <p class="text-muted small mb-0">
-              Status:
-              <span class="badge" :class="{
-                'bg-success': item?.status === 'NEW',
-                'bg-primary': item?.status === 'IN_PROGRESS',
-                'bg-info': item?.status === 'QUOTED',
-                'bg-secondary': item?.status === 'CLOSED'
-              }">
-                {{ item?.status || 'N/A' }}
-              </span>
-              <span class="badge bg-primary ms-2">Season: {{ item?.season?.name || 'N/A' }}</span>
-              <span v-if="item?.user" class="badge bg-secondary ms-2">Agent: {{ item.user.full_name }}</span>
-            </p>
-            <p class="text-muted small mt-2 mb-0">Created: {{ formatDate(item?.created_at) }}</p>
-            <p v-if="item?.remarks" class="text-muted small mt-2 mb-0">Remarks: {{ item.remarks }}</p>
+              <div class="mt-3 d-flex align-items-center justify-content-between">
+                <div>
+                  <span class="badge" :class="{
+                    'bg-success': item?.status === 'NEW',
+                    'bg-primary': item?.status === 'IN_PROGRESS',
+                    'bg-info': item?.status === 'QUOTED',
+                    'bg-secondary': item?.status === 'CLOSED'
+                  }">
+                    {{ item?.status || 'N/A' }}
+                  </span>
+                  <span class="badge bg-primary ms-2">Season: {{ item?.season?.name || 'N/A' }}</span>
+                  <span v-if="item?.user" class="badge bg-secondary ms-2">Agent: {{ item.user.full_name }}</span>
+                </div>
+                <div class="text-muted small">Created: {{ formatDate(item?.created_at) }}</div>
+              </div>
+
+              <div v-if="item?.preference?.special_requests" class="mt-3">
+                <strong>Special Requests:</strong>
+                <p class="text-muted mt-1 mb-0">{{ item.preference.special_requests }}</p>
+              </div>
+
+              <div v-if="item?.remarks" class="mt-2">
+                <strong>Remarks:</strong>
+                <p class="text-muted mt-1 mb-0">{{ item.remarks }}</p>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -795,5 +743,96 @@ onMounted(async () => {
 
 .card:hover {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Simplified overview styling */
+.overview-summary-card {
+  border-radius: 0.85rem;
+  padding: 0.5rem;
+  border: 1px solid rgba(13,110,253,0.06);
+  background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+}
+
+.overview-summary-card .stats-meta {
+  align-items: center;
+}
+
+.overview-summary-card .stats-row {
+  gap: 1.25rem;
+  display: flex;
+  align-items: center;
+}
+
+.overview-summary-card .stat {
+  flex: 1 1 0;
+  min-width: 90px;
+}
+
+.overview-summary-card .stat .circle {
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 1rem;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+}
+
+.overview-summary-card .stat .circle.primary { background: #e8f0ff; color: #0d6efd; }
+.overview-summary-card .stat .circle.success { background: #e7f7ed; color: #198754; }
+.overview-summary-card .stat .circle.warning { background: #fff7e6; color: #ff9f1a; }
+.overview-summary-card .stat .circle.info { background: #e6f6ff; color: #0dcaf0; }
+
+.overview-summary-card .stat .stat-value {
+  font-weight: 700;
+}
+
+.details-grid .label {
+  min-width: 120px;
+  color: #374151;
+}
+
+.details-grid .value {
+  flex: 1 1 auto;
+}
+
+.contacts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.contact-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #f8fafc;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid #eef2f6;
+  font-size: 0.95rem;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 6px 10px;
+  border-radius: 999px;
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.8rem;
+}
+.status-new { background: #16a34a; }
+.status-progress { background: #0d6efd; }
+.status-quoted { background: #0dcaf0; color: #002b36; }
+.status-closed { background: #6c757d; }
+
+@media (max-width: 767px) {
+  .overview-summary-card .stats-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .overview-summary-card .meta { text-align: left; margin-top: 8px; }
 }
 </style>

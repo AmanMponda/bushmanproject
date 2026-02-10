@@ -8,10 +8,6 @@
         <button class="btn btn-outline-theme" @click="openAddPricingModal" :disabled="!canAddPricing">
           <i class="fa fa-magic fa-fw me-1"></i> Generate from Package
         </button>
-        <button class="btn btn-theme" @click="createBlankQuotation" :disabled="!canAddPricing || creatingBlank">
-          <span v-if="creatingBlank" class="spinner-border spinner-border-sm me-1"></span>
-          <i v-else class="fa fa-plus-circle fa-fw me-1"></i> Blank Quotation
-        </button>
       </div>
     </div>
 
@@ -96,10 +92,6 @@
             <div class="d-flex justify-content-center flex-wrap gap-2">
               <button class="btn btn-outline-theme" @click="openAddPricingModal" :disabled="!canAddPricing">
                 <i class="fa fa-magic fa-fw me-1"></i> Generate from Package
-              </button>
-              <button class="btn btn-theme" @click="createBlankQuotation" :disabled="!canAddPricing || creatingBlank">
-                <span v-if="creatingBlank" class="spinner-border spinner-border-sm me-1"></span>
-                <i v-else class="fa fa-plus-circle fa-fw me-1"></i> Blank Quotation
               </button>
             </div>
           </div>
@@ -490,7 +482,6 @@ const showAddPricingModal = ref(false)
 const showItemModal = ref(false)
 const savingPricing = ref(false)
 const savingItem = ref(false)
-const creatingBlank = ref(false)
 const duplicatingPricingId = ref<number | null>(null)
 const editingPricing = ref<Pricing | null>(null)
 const editingItem = ref<PricingItem | null>(null)
@@ -957,53 +948,7 @@ const navigateToEditQuotation = (pricing: Pricing) => {
   router.push(`/sales/enquiries/${props.enquiryId}/quotation/${pricing.id}`)
 }
 
-const createBlankQuotation = async () => {
-  if (!enquiryPriceStructureDetailId.value || !enquiryHuntingTypeId.value || !enquiryCurrencyId.value) {
-    Swal.fire({
-      title: 'Missing Pricing Data',
-      text: 'Package, hunting type, or currency information is missing for this enquiry.',
-      icon: 'warning',
-    })
-    return
-  }
 
-  creatingBlank.value = true
-  try {
-    const payload = {
-      price_structure_detail_id: Number(enquiryPriceStructureDetailId.value),
-      hunting_type_id: Number(enquiryHuntingTypeId.value),
-      currency_id: Number(enquiryCurrencyId.value),
-      status: 'DRAFT',
-    }
-
-    const response = await salesStore.addPricing(props.enquiryId, payload)
-
-    if (response.status === 200 || response.status === 201) {
-      Swal.fire({
-        title: 'Quotation Created',
-        text: 'A blank quotation has been created. You can now add line items.',
-        icon: 'success',
-        timer: 2000,
-      })
-      await loadPricings()
-      emit('update')
-
-      const newPricingId = response.data?.data?.id || response.data?.id
-      if (newPricingId) {
-        router.push(`/sales/enquiries/${props.enquiryId}/quotation/${newPricingId}`)
-      }
-    }
-  } catch (error: any) {
-    console.error('Error creating blank quotation:', error)
-    Swal.fire({
-      title: 'Error',
-      text: error.response?.data?.message || 'Failed to create quotation',
-      icon: 'error',
-    })
-  } finally {
-    creatingBlank.value = false
-  }
-}
 
 const duplicatePricing = async (pricing: Pricing) => {
   const result = await Swal.fire({
