@@ -287,7 +287,7 @@ export const entityService = {
     const response = await axios.get(`${apiBaseUrl}settings/currencies`, {
       headers: getAuthHeaders()
     })
-    return response.data
+    return response.data.data
   },
 
   /**
