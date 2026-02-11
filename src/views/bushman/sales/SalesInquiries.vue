@@ -116,6 +116,16 @@
 
                   <div class="ms-auto d-flex align-items-center gap-2">
                     <button
+                      class="btn btn-outline-info text-nowrap btn-sm px-3 rounded-pill"
+                      :disabled="!selectedInquiryItem || downloadingSinglePdf"
+                      @click="downloadSingleInquiryPdf"
+                      title="Download PDF"
+                    >
+                      <span v-if="downloadingSinglePdf" class="spinner-border spinner-border-sm me-1"></span>
+                      <i v-else class="fa fa-file-pdf me-1"></i> Download PDF
+                    </button>
+
+                    <button
                       class="btn btn-outline-secondary text-nowrap btn-sm px-3 rounded-pill"
                       @click="handleGoBack"
                     >
@@ -147,6 +157,7 @@ import SalesInquiryWizard from './salesinquiries/SalesInquiryWizard.vue'
 import CustomerSelectionModal from './salesinquiries/CustomerSelectionModal.vue'
 import StandardDataTable from '@/components/bootstrap/StandardDataTable.vue'
 import Swal from 'sweetalert2'
+import { downloadPdfFromBase64 } from '@/services/pdfService'
 
 
 const { init } = useToast()
@@ -424,6 +435,8 @@ const getSeasonList = async () => {
   }
 }
 
+const downloadingSinglePdf = ref(false)
+
 const downloadAllInquiriesPdf = async () => {
   try {
     const response = await axios.get(`${import.meta.env.VITE_APP_BASE_URL}sales-enquiries/pdf`, {
@@ -456,6 +469,30 @@ const downloadAllInquiriesPdf = async () => {
   } catch (error) {
     console.error('Error downloading PDF:', error)
     init({ message: 'Error downloading PDF', color: 'danger' })
+  }
+}
+
+const downloadSingleInquiryPdf = async () => {
+  if (!selectedInquiryItem.value?.id) return
+  downloadingSinglePdf.value = true
+  try {
+    const id = selectedInquiryItem.value.id
+    const response = await axios.get(`${import.meta.env.VITE_APP_BASE_URL}sales-enquiries/${id}/pdf`, {
+      headers: { 'Content-Type': 'application/json' },
+    })
+
+    if (response.data.success && response.data.pdf) {
+      const filename = `sales-inquiry-${selectedInquiryItem.value.code || id}.pdf`
+      downloadPdfFromBase64(response.data.pdf, filename)
+      init({ message: `PDF downloaded: ${filename}`, color: 'success' })
+    } else {
+      init({ message: 'Failed to generate PDF for the enquiry', color: 'danger' })
+    }
+  } catch (error) {
+    console.error('Error downloading single enquiry PDF:', error)
+    init({ message: 'Error downloading enquiry PDF', color: 'danger' })
+  } finally {
+    downloadingSinglePdf.value = false
   }
 }
 

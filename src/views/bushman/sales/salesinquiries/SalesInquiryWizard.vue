@@ -1707,13 +1707,16 @@ const submit = async () => {
     ],
 
     // Safari extras - persistent preferences (send item_durations only when explicitly set)
-    safari_extras: selectedSafariExtras.value.map((extra: any) => ({
-      item_id: extra.id,
-      desired_quantity: Number(extra.quantity || 1),
-      priority: extra.priority || 'NICE_TO_HAVE',
-      notes: extra.notes || null,
-      ...(extra.item_durations != null ? { item_durations: Number(extra.item_durations) } : {})
-    })),
+    safari_extras: selectedSafariExtras.value.map((extra: any) => {
+      const duration = computeEffectiveDuration(extra)
+      return {
+        item_id: extra.id,
+        desired_quantity: Number(extra.quantity || 1),
+        priority: extra.priority || 'NICE_TO_HAVE',
+        notes: extra.notes || null,
+        ...(duration != null ? { item_durations: Number(duration) } : {})
+      }
+    }),
 
     // Note: Safari extras are intentionally sent as `safari_extras[]` to persist per-item duration preferences on the server.
 
@@ -1826,19 +1829,42 @@ const isDurationRelevant = (item: any) => {
   if (!name) return false
   const n = String(name).toLowerCase()
   if (n.includes('additional gun permit') || n.includes('gun permit') || n.includes('ammo')) return false
+  if (n.includes('per day') || n.includes('perday')) return true
   if (n.includes('firearm') || n.includes('baiting') || n.includes('photographic') || n.includes('camera') || n.includes('cameraman') || n.includes('observer')) return true
   return false
+}
+
+const computeEffectiveDuration = (extra: any) => {
+  // Prefer explicit duration if present and > 0
+  const raw = extra.item_durations
+  const n = (raw != null && Number(raw) > 0) ? Number(raw) : null
+  if (n != null) return n
+
+  // Use user-entered number of days if present
+  const userDays = Number(form.no_of_days) > 0 ? Number(form.no_of_days) : null
+  if (isDurationRelevant(extra)) {
+    if (userDays != null) return userDays
+
+    // Fall back to selected package's hunt length if available
+    const pkgDays = (currentSalesPackage.value && (currentSalesPackage.value.hunt_length_days || currentSalesPackage.value.no_of_days)) || null
+    if (pkgDays != null && Number(pkgDays) > 0) return Number(pkgDays)
+  }
+
+  return null
 }
 
 const scheduleEmitPricingChanged = () => {
   if (pricingChangeTimeout) clearTimeout(pricingChangeTimeout)
   pricingChangeTimeout = setTimeout(() => {
-    const items = selectedSafariExtras.value.map((extra: any) => ({
-      item_type: 'EXTRA',
-      item_id: extra.id,
-      quantity: Number(extra.quantity || 1),
-      ...(isDurationRelevant(extra) && extra.item_durations != null ? { item_durations: Number(extra.item_durations) } : {})
-    }))
+    const items = selectedSafariExtras.value.map((extra: any) => {
+      const duration = computeEffectiveDuration(extra)
+      return {
+        item_type: 'EXTRA',
+        item_id: extra.id,
+        quantity: Number(extra.quantity || 1),
+        ...(duration != null ? { item_durations: Number(duration) } : {})
+      }
+    })
     emit('pricing-changed', { items })
   }, 350)
 }

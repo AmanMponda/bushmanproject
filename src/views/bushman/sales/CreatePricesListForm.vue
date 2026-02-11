@@ -23,9 +23,12 @@
           <button class="btn secondary" type="button" @click="saveDraft" :disabled="saving">
             <span class="btn-icon">💾</span> Save Draft
           </button>
-          <button class="btn primary" type="button" @click="submit" :disabled="saving || !canSubmit">
+          <button class="btn primary" type="button" @click="submit" :disabled="saving || !canSubmit" :title="canSubmit ? 'Save & Activate' : 'Complete required fields to enable activation'">
             <span class="btn-icon">✓</span> Save &amp; Activate
           </button>
+          <div v-if="!canSubmit && !saving" class="mt-2">
+            <small class="text-muted">Complete required fields to activate: <strong>{{ missingFields.join(', ') }}</strong></small>
+          </div>
         </div>
       </div>
 
@@ -641,6 +644,18 @@ const canSubmit = computed(() => {
   return hasName && hasArea && hasDates && hasCurrency
 })
 
+// Provide a human-readable list of missing required fields for UX hints
+const missingFields = computed(() => {
+  const fields: string[] = []
+  if (!form.name || !form.name.trim()) fields.push('Name')
+  if (!form.areaId) fields.push('Area')
+  if (!form.startDate) fields.push('Start Date')
+  if (!form.endDate) fields.push('End Date')
+  if (form.startDate && form.endDate && !hasValidDates.value) fields.push('Valid date range')
+  if (!form.currencyId) fields.push('Currency')
+  return fields
+})
+
 function getItemMetaById(itemId: number | null) {
   if (!itemId) {
     return { code: '', name: '' }
@@ -1015,12 +1030,21 @@ async function fetchCurrencies() {
   loadingCurrencies.value = true
   try {
     const response = await settingsStore.getCurrencies()
-    const data = response.data || []
-    lookups.currencies = data.map((item: any) => ({
-      id: item.id,
-      code: item.code || item.name,
-      name: item.name,
-    }))
+    const raw = response.data || []
+
+    // Normalize possible shapes from the settings store / API
+    const items = Array.isArray(raw) ? raw : []
+
+    lookups.currencies = items
+      .map((item: any) => {
+        // settingsStore.getCurrencies() may return { value, text, currency, raw }
+        // or API may return { id, code, name }. Be resilient.
+        const id = item.id ?? item.value ?? item.raw?.id ?? null
+        const code = item.code ?? item.text ?? item.currency ?? item.raw?.currency ?? item.name ?? ''
+        const name = item.name ?? item.text ?? item.currency ?? item.raw?.name ?? ''
+        return { id, code, name }
+      })
+      .filter((c: any) => c.id != null)
   } catch (e) {
     console.error('Error fetching currencies:', e)
   } finally {
