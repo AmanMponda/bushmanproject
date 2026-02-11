@@ -28,9 +28,12 @@ const canCreatePaymentAdvice = computed(() =>
 
 // Reactive Variables
 const formData = ref({});
+const transactionTypes = ref([]);
+const statusOptions = ref([]);
+const partyRoles = ref([]);
+const itemableTypes = ref([]);
+const accountableTypes = ref([]);
 const currencies = ref([]);
-const companies = ref([]);
-const accounts = ref([]);
 const entities = ref([]);
 const employees = ref([]);
 const subcontractors = ref([]);
@@ -44,52 +47,41 @@ const searchTerm = ref('');
 // Loading States
 const isSaving = ref(false);
 const isLoading = ref(false);
+const isLoadingItems = ref(false);
 
 // Form Data
 const paymentForm = ref({
     user_id: userId.value,
     date: '',
-    transaction_type: '',
-    status: 'DRAFT',
-    currency_id: '',
+    transaction_type: null,
+    status: null,
+    currency: null,
     exchange_rate: 1,
     remarks: '',
 
     // Parties array
     parties: [
-        {
-            role: 'PAYER',
-            accountable_type: 'ENTITY',
-            account_id: '', // This is for bank/account reference (optional)
-            payee_name: '',
-            cheque_number: '',
-            control_number: '',
-            narration: ''
-        },
-        {
-            role: 'PAYEE',
-            accountable_type: 'ENTITY',
-            account_id: '', // This is for bank/account reference (optional)
-            payee_name: '',
-            cheque_number: '',
-            control_number: '',
-            narration: ''
+        { 
+            role: null, 
+            accountable_type: null, 
+            account_id: '', 
+            payee_name: '', 
+            cheque_number: '', 
+            control_number: '', 
+            narration: '' 
         }
     ],
 
     // Items array
     items: [
         {
-            itemable_type: 'REQUISITION',
-            itemable_id: '',
-            description: '',
-            currency_id: '',
+            itemable_type: '', 
+            itemable_id: '', 
+            description: '', 
+            currency: '', 
             amount: 0
         }
     ],
-
-    // Journal vouchers (optional)
-    journal_vouchers: []
 });
 
 // Helper Functions
@@ -121,6 +113,11 @@ const fetchFormData = async () => {
         const response = await axios.get(`${BASE_URL}/payment-advices/form-data`);
         if (response.data && response.data.success === true) {
             formData.value = response.data.form_data || {};
+            transactionTypes.value = response.data.form_data?.transaction_types || [];
+            statusOptions.value = response.data.form_data?.status_options || [];
+            partyRoles.value = response.data.form_data?.roles || [];
+            itemableTypes.value = response.data.form_data?.itemable_types || [];
+            accountableTypes.value = response.data.form_data?.accountable_types || [];
         }
     } catch (error) {
         console.error("Error fetching Form Options:", error);
@@ -136,10 +133,10 @@ const fetchCurrencies = async () => {
 
         // Set initial values
         // if (currencies.value.length > 0) {
-        //     paymentForm.value.currency_id = currencies.value[0].id;
+        //     paymentForm.value.currency = currencies.value[0].id;
         //     // Set currency for items
         //     paymentForm.value.items.forEach(item => {
-        //         item.currency_id = currencies.value[0].id;
+        //         item.currency = currencies.value[0].id;
         //     });
         // }
     } catch (error) {
@@ -168,21 +165,25 @@ const fetchRequisitions = async (searchTerm) => {
         q: searchTerm || 'APPROVED',
         limit: 500,
     };
+
+    isLoadingItems.value = true;
     try {
         const response = await axios.get(`${BASE_URL}/requisitions/search`, { params });
         requisitions.value = response.data.data || [];
     } catch (error) {
         console.error("Error fetching requisitions:", error);
         showAlert("error", error.response?.data?.message || error.message || "Error fetching requisitions");
+    } finally {
+        isLoadingItems.value = false;
     }
 };
 
 // Add party row
 const addParty = () => {
     paymentForm.value.parties.unshift({
-        role: 'PAYEE',
-        accountable_type: 'ENTITY',
-        account_id: '', // Bank/account reference
+        role: '',
+        accountable_type: '',
+        accountable: '',
         payee_name: '',
         cheque_number: '',
         control_number: '',
@@ -200,10 +201,10 @@ const removeParty = (index) => {
 // Add item row
 const addItem = () => {
     paymentForm.value.items.unshift({
-        itemable_type: 'REQUISITION',
+        itemable_type: '',
         itemable_id: '',
         description: '',
-        currency_id: paymentForm.value.currency_id,
+        currency: paymentForm.value.currency,
         amount: 0
     });
 };
@@ -262,27 +263,30 @@ const getItemableOptions = (type) => {
 // Handle Search for items
 const handleItemSearch = async (item, searchTerm) => {
     if (!item.itemable_type) {
-        showAlert('error', 'Please select an item type first');
+        showAlert('warning', 'Please select an item type first');
         return;
     }
 
-    // For simplicity, we will just fetch all options for the selected type and filter client-side
-    // In a real application, you might want to implement server-side search with the search term as a parameter
-    switch (item.itemable_type) {
+    if (!searchTerm) {
+        showAlert('warning', 'Please enter a search term');
+        return;
+    }
+
+    switch (item.itemable_type?.value) {
         case 'INVOICE':
-            // Implement invoice search if needed
+            showAlert('info', 'Fetching Invoices...');
             break;
         case 'REQUISITION':
             await fetchRequisitions(searchTerm);
             break;
         case 'ORDER':
-            // Implement order search if needed
+            showAlert('info', 'Fetching Orders...');
             break;
         case 'CONTRACT':
-            // Implement contract search if needed
+            showAlert('info', 'Fetching Contacts...');
             break;
         case 'JOURNAL_VOUCHER':
-            // Implement journal voucher search if needed
+            showAlert('info', 'Fetching Journal Vouchers...');
             break;
         default:
             break;
@@ -301,16 +305,16 @@ const onAccountableSelected = (party, selectedAccountable) => {
 
 // Get placeholder for payee name
 const getPayeeNamePlaceholder = (party) => {
-    if (party.role === 'PAYEE') return 'Payee name';
-    if (party.role === 'PAYER') return 'Payer name';
-    if (party.role === 'BENEFICIARY') return 'Beneficiary name';
-    if (party.role === 'REPLENISHMENT') return 'Replenishment name';
+    if (party.role?.value === 'PAYEE') return 'Payee name';
+    if (party.role?.value === 'PAYER') return 'Payer name';
+    if (party.role?.value === 'BENEFICIARY') return 'Beneficiary name';
+    if (party.role?.value === 'REPLENISHMENT') return 'Replenishment name';
     return 'Name';
 };
 
 const handleAccountableTypeChange = (party, index) => {
     party.payee_name = '';
-    party.account_id = '';
+    party.accountable = '';
 };
 
 // Submit form
@@ -321,7 +325,7 @@ const submitForm = async () => {
     }
 
     // Validate required fields
-    if (!paymentForm.value.currency_id) {
+    if (!paymentForm.value.currency) {
         showAlert('error', 'Please select a currency');
         return;
     }
@@ -333,15 +337,15 @@ const submitForm = async () => {
     }
 
     // Validate at least one payer and one payee for applicable transaction types
-    if (paymentForm.value.transaction_type !== 'CASH_REPLENISHMENT') {
-        const hasPayer = paymentForm.value.parties.some(p => p.role === 'PAYER');
+    if (paymentForm.value.transaction_type?.value !== 'CASH_REPLENISHMENT') {
+        const hasPayer = paymentForm.value.parties.some(p => p.role.value === 'PAYER');
         if (!hasPayer) {
             showAlert('error', 'At least one PAYER is required');
             return;
         }
 
-        if (paymentForm.value.transaction_type !== 'STAFF_ADVANCE') {
-            const hasPayee = paymentForm.value.parties.some(p => p.role === 'PAYEE');
+        if (paymentForm.value.transaction_type?.value !== 'STAFF_ADVANCE') {
+            const hasPayee = paymentForm.value.parties.some(p => p.role.value === 'PAYEE');
             if (!hasPayee) {
                 showAlert('error', 'At least one PAYEE is required');
                 return;
@@ -351,7 +355,7 @@ const submitForm = async () => {
 
     // Validate parties
     for (const [index, party] of paymentForm.value.parties.entries()) {
-        if (party.accountable_type !== 'OTHER' && !party.account_id) {
+        if (party.accountable_type !== 'OTHER' && !party.accountable) {
             showAlert('error', `Please select an accountable for party ${index + 1}`);
             return;
         }
@@ -367,7 +371,7 @@ const submitForm = async () => {
             showAlert('error', `Amount must be greater than 0 for item ${index + 1}`);
             return;
         }
-        if (!item.currency_id) {
+        if (!item.currency) {
             showAlert('error', `Please select a currency for item ${index + 1}`);
             return;
         }
@@ -375,17 +379,37 @@ const submitForm = async () => {
 
     // Prepare data for submission
     const submitData = {
-        ...paymentForm.value,
         user_id: userId.value,
-        date: paymentForm.value.date || getToday(),
-        // Filter out empty account_id for OTHER type
-        parties: paymentForm.value.parties.filter(party =>
-            party.role &&
-            (party.accountable_type === 'OTHER' || party.account_id)
-        ),
-        items: paymentForm.value.items.filter(item =>
-            item.itemable_id && item.amount > 0 && item.currency_id
-        )
+        date: paymentForm.value.date,
+
+        transaction_type: paymentForm.value.transaction_type?.value,
+        status: paymentForm.value.status?.value,
+
+        currency_id: paymentForm.value.currency?.id,
+        exchange_rate: paymentForm.value.exchange_rate,
+        remarks: paymentForm.value.remarks,
+
+        parties: paymentForm.value.parties?.map(p => ({
+            role: p.role.value,
+            accountable_type: p.accountable_type.value,
+            account_id:
+                p.accountable_type.value === 'OTHER'
+                    ? null
+                    : p.accountable.id,
+            other_accountable: p.other_accountable || null,
+            payee_name: p.payee_name,
+            cheque_number: p.cheque_number,
+            control_number: p.control_number,
+            narration: p.narration,
+        })),
+
+        items: paymentForm.value.items?.map(i => ({
+            itemable_type: i.itemable_type.value,
+            itemable_id: i.itemable.id,
+            currency_id: i.currency.id,
+            amount: i.amount,
+            description: i.description,
+        })),
     };
 
     try {
@@ -425,14 +449,14 @@ const resetForm = () => {
         date: getToday(),
         transaction_type: '',
         status: 'DRAFT',
-        currency_id: currencies.value[0]?.id || '',
+        currency: currencies.value[0]?.id || '',
         exchange_rate: 1,
         remarks: '',
         parties: [
             {
                 role: 'PAYER',
                 accountable_type: 'ENTITY',
-                account_id: '',
+                accountable: '',
                 payee_name: '',
                 cheque_number: '',
                 control_number: '',
@@ -441,7 +465,7 @@ const resetForm = () => {
             {
                 role: 'PAYEE',
                 accountable_type: 'ENTITY',
-                account_id: '',
+                accountable: '',
                 payee_name: '',
                 cheque_number: '',
                 control_number: '',
@@ -453,11 +477,10 @@ const resetForm = () => {
                 itemable_type: 'REQUISITION',
                 itemable_id: '',
                 description: '',
-                currency_id: currencies.value[0]?.id || '',
+                currency: currencies.value[0]?.id || '',
                 amount: 0
             }
         ],
-        journal_vouchers: []
     };
 };
 
@@ -469,7 +492,7 @@ watch(() => paymentForm.value.transaction_type, (newType) => {
             {
                 role: 'REPLENISHMENT',
                 accountable_type: 'ENTITY',
-                account_id: '',
+                accountable: '',
                 payee_name: '',
                 cheque_number: '',
                 control_number: '',
@@ -481,7 +504,7 @@ watch(() => paymentForm.value.transaction_type, (newType) => {
             {
                 role: 'PAYER',
                 accountable_type: 'ENTITY',
-                account_id: '',
+                accountable: '',
                 payee_name: '',
                 cheque_number: '',
                 control_number: '',
@@ -490,7 +513,7 @@ watch(() => paymentForm.value.transaction_type, (newType) => {
             {
                 role: 'PAYEE',
                 accountable_type: 'EMPLOYEE',
-                account_id: '',
+                accountable: '',
                 payee_name: '',
                 cheque_number: '',
                 control_number: '',
@@ -502,7 +525,7 @@ watch(() => paymentForm.value.transaction_type, (newType) => {
             {
                 role: 'PAYER',
                 accountable_type: 'ENTITY',
-                account_id: '',
+                accountable: '',
                 payee_name: '',
                 cheque_number: '',
                 control_number: '',
@@ -511,7 +534,7 @@ watch(() => paymentForm.value.transaction_type, (newType) => {
             {
                 role: 'PAYEE',
                 accountable_type: 'ENTITY',
-                account_id: '',
+                accountable: '',
                 payee_name: '',
                 cheque_number: '',
                 control_number: '',
@@ -527,7 +550,7 @@ watch(() => paymentForm.value.transaction_type, (newType) => {
                 itemable_type: 'JOURNAL_VOUCHER',
                 itemable_id: '',
                 description: '',
-                currency_id: paymentForm.value.currency_id,
+                currency: paymentForm.value.currency,
                 amount: 0
             }
         ];
@@ -538,8 +561,8 @@ watch(() => paymentForm.value.transaction_type, (newType) => {
 watch(() => paymentForm.value.parties, (newParties) => {
     newParties.forEach(party => {
         if (party.accountable_type === 'OTHER') {
-            // Clear account_id dropdown for OTHER type
-            party.account_id = '';
+            // Clear accountable dropdown for OTHER type
+            party.accountable = '';
         }
     });
 }, { deep: true });
@@ -585,7 +608,7 @@ onMounted(async () => {
     <NormalCard>
         <CardHeader>
             <h4 class="text-primary mb-0">
-                <i class="fas fa-file-invoice-dollar text-primary me-2"></i>
+                <i class="fas fa-file-invoice-dollar text-primary me-1"></i>
                 Create Payment Advice
             </h4>
         </CardHeader>
@@ -608,7 +631,7 @@ onMounted(async () => {
 
                         <div class="col-md-3">
                             <label class="form-label required">
-                                <i class="fas fa-calendar text-muted me-1"></i>
+                                <i class="fas fa-calendar-day text-primary me-1"></i>
                                 Date
                             </label>
                             <Datepicker v-model="paymentForm.date" :required="true" />
@@ -616,35 +639,34 @@ onMounted(async () => {
 
                         <div class="col-md-3">
                             <label class="form-label required">
-                                <i class="fas fa-exchange-alt text-muted me-1"></i>
+                                <i class="fas fa-exchange-alt text-purple me-1"></i>
                                 Transaction Type
                             </label>
-                            <StandardVueSelect v-model="paymentForm.transaction_type"
-                                :options="formData.transaction_types || []" placeholder="Select Transaction Type"
-                                :required="true" />
+                            <StandardVueSelect v-model="paymentForm.transaction_type" :options="transactionTypes || []"
+                                placeholder="Select Transaction Type" :required="true" />
                         </div>
 
                         <div class="col-md-3">
                             <label class="form-label">
-                                <i class="fas fa-tag text-muted me-1"></i>
+                                <i class="fas fa-tag text-warning me-1"></i>
                                 Status
                             </label>
-                            <StandardVueSelect v-model="paymentForm.status" :options="formData.status_options || []"
+                            <StandardVueSelect v-model="paymentForm.status" :options="statusOptions || []"
                                 placeholder="Select Status" />
                         </div>
 
                         <div class="col-md-3">
                             <label class="form-label required">
-                                <i class="fas fa-money-bill-wave text-muted me-1"></i>
+                                <i class="fas fa-money-bill-wave text-success me-1"></i>
                                 Currency
                             </label>
-                            <StandardVueSelect v-model="paymentForm.currency_id" :options="currencies" label="name"
+                            <StandardVueSelect v-model="paymentForm.currency" :options="currencies" label="name"
                                 placeholder="Select Currency" :required="true" />
                         </div>
 
                         <div class="col-md-3 mt-3">
                             <label class="form-label">
-                                <i class="fas fa-percentage text-muted me-1"></i>
+                                <i class="fas fa-percentage text-danger me-1"></i>
                                 Exchange Rate
                             </label>
                             <input type="number" v-model="paymentForm.exchange_rate" class="form-control"
@@ -663,78 +685,83 @@ onMounted(async () => {
                     </div>
 
                     <!-- Parties Section -->
-                    <div class="row mb-4">
-                        <div class="col-md-12 d-flex justify-content-between align-items-center mb-3">
+                    <div class="row mb-2">
+                        <div class="col-md-12 d-flex justify-content-between align-items-center mb-2">
                             <h5 class="text-primary mb-0">
-                                <i class="fas fa-users me-2"></i>
+                                <i class="fas fa-users me-1"></i>
                                 Parties Involved
                             </h5>
                             <button type="button" @click="addParty" class="btn btn-sm btn-outline-primary">
-                                <i class="fas fa-plus me-1"></i> Add Party
+                                <i class="fas fa-user-plus me-1"></i> Add Party
                             </button>
                         </div>
 
                         <div class="col-md-12">
-                            <div v-for="(party, index) in paymentForm.parties" :key="index" class="card mb-3 border-left-info">
-                                <div class="card-header bg-light d-flex justify-content-between align-items-center">
-                                    <span class="text-muted">
-                                        <i class="fas fa-user me-2"></i>
-                                        Party #{{ index + 1 }}
-                                        <span v-if="party.role" class="badge bg-info ms-2">{{ party.role }}</span>
-                                    </span>
-                                    <button v-if="paymentForm.parties.length > 1" type="button" @click="removeParty(index)" 
-                                        class="btn btn-sm btn-outline-danger" title="Remove party">
+                            <div v-for="(party, index) in paymentForm.parties" :key="index"
+                                class="card mb-3 border-left-info">
+                                <CardHeader
+                                    class="card-header bg-light d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <span class="text-muted">
+                                            <i class="fas fa-user me-1"></i>
+                                            Party #{{ index + 1 }}
+                                        </span>
+                                    </div>
+
+                                    <button v-if="paymentForm.parties.length > 1" type="button"
+                                        @click="removeParty(index)" class="btn btn-sm btn-outline-danger"
+                                        title="Remove party">
                                         <i class="fas fa-trash me-1"></i> Remove
                                     </button>
-                                </div>
-                                <div class="card-body">
-                                    <div class="row">
+                                </CardHeader>
+                                <CardBody>
+                                    <div class="row mb-0">
                                         <!-- Role -->
-                                        <div class="col-md-6 mb-3">
+                                        <div class="col-md-4 mb-2">
                                             <label class="form-label required">
                                                 <i class="fas fa-id-badge text-muted me-1"></i>
                                                 Role
                                             </label>
-                                            <StandardVueSelect v-model="party.role" :options="formData.roles || []"
-                                                placeholder="Select Role" :required="true" />
+                                            <StandardVueSelect v-model="party.role" :options="partyRoles || []"
+                                                placeholder="Select Role" :required="true" label="label" />
                                         </div>
 
                                         <!-- Type -->
-                                        <div class="col-md-6 mb-3">
+                                        <div class="col-md-4 mb-2">
                                             <label class="form-label required">
                                                 <i class="fas fa-cube text-muted me-1"></i>
                                                 Type
                                             </label>
                                             <StandardVueSelect v-model="party.accountable_type"
-                                                :options="formData.accountable_types || []"
-                                                placeholder="Select Type" :required="true"
+                                                :options="accountableTypes || []" placeholder="Select Type"
+                                                label="label" :required="true"
                                                 @change="handleAccountableTypeChange(party, index)" />
                                         </div>
 
                                         <!-- Accountable -->
-                                        <div class="col-md-6 mb-3">
+                                        <div class="col-md-4 mb-2">
                                             <label class="form-label required">
-                                                <i class="fas fa-building text-muted me-1"></i>
+                                                <i class="fas fa-user text-muted me-1"></i>
                                                 Accountable
                                             </label>
                                             <!-- For ENTITY, EMPLOYEE, SUBCONTRACTOR: Show dropdown -->
                                             <StandardVueSelect
-                                                v-if="['ENTITY', 'EMPLOYEE', 'SUBCONTRACTOR'].includes(party.accountable_type)"
-                                                v-model="party.account_id"
-                                                :options="getAccountableOptions(party.accountable_type)"
-                                                label="name" :placeholder="`Select ${party.accountable_type}`"
+                                                v-if="['ENTITY', 'EMPLOYEE', 'SUBCONTRACTOR'].includes(party.accountable_type?.value)"
+                                                v-model="party.accountable"
+                                                :options="getAccountableOptions(party.accountable_type?.value)"
+                                                label="name" :placeholder="`Select ${party.accountable_type?.label}`"
                                                 :required="true"
                                                 @option-selected="(opt) => onAccountableSelected(party, opt)" />
 
                                             <!-- For OTHER: Show text input -->
-                                            <input v-else-if="party.accountable_type === 'OTHER'" type="text"
-                                                v-model="party.account_id" class="form-control"
+                                            <input v-else-if="party.accountable_type?.value === 'OTHER'" type="text"
+                                                v-model="party.accountable" class="form-control"
                                                 placeholder="Enter description (e.g., 'Cash Payment', 'Miscellaneous')"
                                                 :required="true" />
                                         </div>
 
                                         <!-- Payee Name -->
-                                        <div class="col-md-6 mb-3">
+                                        <div class="col-md-4 mb-2">
                                             <label class="form-label">
                                                 <i class="fas fa-user-tie text-muted me-1"></i>
                                                 {{ getPayeeNamePlaceholder(party) }}
@@ -744,7 +771,7 @@ onMounted(async () => {
                                         </div>
 
                                         <!-- Cheque Number -->
-                                        <div class="col-md-6 mb-3">
+                                        <div class="col-md-4 mb-2">
                                             <label class="form-label">
                                                 <i class="fas fa-file-check text-muted me-1"></i>
                                                 Cheque #
@@ -754,7 +781,7 @@ onMounted(async () => {
                                         </div>
 
                                         <!-- Control Number -->
-                                        <div class="col-md-6 mb-3">
+                                        <div class="col-md-4 mb-2">
                                             <label class="form-label">
                                                 <i class="fas fa-barcode text-muted me-1"></i>
                                                 Control Number
@@ -764,7 +791,7 @@ onMounted(async () => {
                                         </div>
 
                                         <!-- Narration -->
-                                        <div class="col-md-12 mb-3">
+                                        <div class="col-md-12 mb-0">
                                             <label class="form-label">
                                                 <i class="fas fa-align-left text-muted me-1"></i>
                                                 Narration
@@ -774,27 +801,29 @@ onMounted(async () => {
                                         </div>
 
                                         <!-- Party Summary -->
-                                        <div class="col-md-12">
+                                        <!-- <div class="col-md-12">
                                             <div class="alert alert-info mb-0">
                                                 <small>
                                                     <strong>Summary:</strong>
-                                                    {{ party.role || 'No role' }} | 
-                                                    {{ party.accountable_type || 'No type' }} | 
-                                                    <strong>{{ party.payee_name || party.account_id || 'Not selected' }}</strong>
+                                                    {{ party.role.value || 'No role' }} |
+                                                    {{ party.accountable_type || 'No type' }} |
+                                                    <strong>
+                                                        {{ party.payee_name || party.accountable || 'Not selected' }}
+                                                    </strong>
                                                 </small>
                                             </div>
-                                        </div>
+                                        </div> -->
                                     </div>
-                                </div>
+                                </CardBody>
                             </div>
                         </div>
                     </div>
 
                     <!-- Items Section -->
-                    <div class="row mb-4">
-                        <div class="col-md-12 d-flex justify-content-between align-items-center mb-3">
+                    <div class="row mb-2">
+                        <div class="col-md-12 d-flex justify-content-between align-items-center mb-2">
                             <h5 class="text-primary mb-0">
-                                <i class="fas fa-list-alt me-2"></i>
+                                <i class="fas fa-list-alt me-1"></i>
                                 Payment Items
                                 <span class="badge bg-primary ms-2">
                                     Total: {{ formatAmount(totalAmount) }}
@@ -807,38 +836,48 @@ onMounted(async () => {
                         </div>
 
                         <div class="col-md-12">
-                            <div v-for="(item, index) in paymentForm.items" :key="index" class="card mb-3 border-left-primary">
-                                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                            <div v-for="(item, index) in paymentForm.items" :key="index"
+                                class="card mb-3 border-left-primary">
+                                <CardHeader
+                                    class="card-header bg-light d-flex justify-content-between align-items-center">
                                     <span class="text-muted">Item #{{ index + 1 }}</span>
-                                    <button v-if="paymentForm.items.length > 1" type="button" @click="removeItem(index)" 
+                                    <button v-if="paymentForm.items.length > 1" type="button" @click="removeItem(index)"
                                         class="btn btn-sm btn-outline-danger" title="Remove item">
                                         <i class="fas fa-trash me-1"></i> Remove
                                     </button>
-                                </div>
-                                <div class="card-body">
+                                </CardHeader>
+                                <CardBody class="mb-0">
                                     <div class="row">
                                         <!-- Item Type -->
-                                        <div class="col-md-6 mb-3">
+                                        <div class="col-md-6 mb-2">
                                             <label class="form-label required">
                                                 <i class="fas fa-cube text-muted me-1"></i>
                                                 Item Type
                                             </label>
                                             <StandardVueSelect v-model="item.itemable_type"
-                                                :options="formData.itemable_types || []" placeholder="Select Type"
+                                                :options="itemableTypes || []" placeholder="Select Type"
                                                 :required="true" @change="updateItemOptions(item)" />
                                         </div>
 
                                         <!-- Item Search -->
-                                        <div class="col-md-6 mb-3">
+                                        <div class="col-md-6 mb-2">
                                             <label class="form-label required">
-                                                <i class="fas fa-search text-muted me-1"></i>
-                                                Search Item
+                                                <i class="fas fa-search text-info me-1"></i>
+                                                Search {{ item.itemable_type.label || 'Item' }}
                                             </label>
                                             <div class="input-group">
-                                                <input type="text" class="form-control" v-model="searchTerm" placeholder="Search by reference, number, or description..."
+                                                <input type="text" class="form-control" v-model="searchTerm"
+                                                    placeholder="Search by reference, number, or description..."
                                                     @keydown.enter="handleItemSearch(item, searchTerm)" />
-                                                <button class="btn btn-outline-secondary" type="button" @click="handleItemSearch(item, searchTerm)">
-                                                    <i class="fas fa-search"></i>
+                                                <button class="btn btn-outline-secondary" type="button"
+                                                    @click="handleItemSearch(item, searchTerm)"
+                                                    :disabled="isLoadingItems">
+                                                    <span v-if="isLoadingItems">
+                                                        <i class="fas fa-spinner fa-spin me-0" aria-hidden="true"></i>
+                                                    </span>
+                                                    <span v-else>
+                                                        <i class="fas fa-search"></i>
+                                                    </span>
                                                 </button>
                                             </div>
                                             <small class="form-text text-muted d-block mt-1">
@@ -847,22 +886,27 @@ onMounted(async () => {
                                         </div>
 
                                         <!-- Selected Item Display -->
-                                        <div class="col-md-6 mb-3">
+                                        <div class="col-md-12 mb-2">
                                             <label class="form-label required">
-                                                <i class="fas fa-check-circle text-muted me-1"></i>
+                                                <i class="fas fa-check-circle text-success me-1"></i>
                                                 Selected Item
                                             </label>
-                                            <div class="form-control-static p-2 bg-light rounded border" style="min-height: 38px;">
+                                            <div class="form-control-static p-2 bg-light rounded border"
+                                                style="min-height: 38px;">
                                                 <span v-if="item.itemable_id">
-                                                    <strong>{{ getItemableOptions(item.itemable_type).find(o => o.id === item.itemable_id)?.name || 'Loading...' }}</strong>
+                                                    <strong>{{getItemableOptions(item.itemable_type).find(o => o.id ===
+                                                        item.itemable_id)?.name || 'Loading...'}}</strong>
                                                     <small class="text-muted d-block">ID: {{ item.itemable_id }}</small>
                                                 </span>
-                                                <span v-else class="text-muted fst-italic">No item selected</span>
+                                                <span v-else class="text-muted fst-italic">
+                                                    <i class="fas fa-exclamation-triangle text-warning me-1"></i>
+                                                    No item selected
+                                                </span>
                                             </div>
                                         </div>
 
                                         <!-- Description -->
-                                        <div class="col-md-6 mb-3">
+                                        <div class="col-md-4 mb-2">
                                             <label class="form-label">
                                                 <i class="fas fa-align-left text-muted me-1"></i>
                                                 Description
@@ -872,19 +916,19 @@ onMounted(async () => {
                                         </div>
 
                                         <!-- Currency -->
-                                        <div class="col-md-6 mb-3">
+                                        <div class="col-md-4 mb-2">
                                             <label class="form-label required">
-                                                <i class="fas fa-money-bill-wave text-muted me-1"></i>
+                                                <i class="fas fa-money-bill-wave text-success me-1"></i>
                                                 Currency
                                             </label>
-                                            <StandardVueSelect v-model="item.currency_id" :options="currencies"
+                                            <StandardVueSelect v-model="item.currency" :options="currencies"
                                                 label="name" placeholder="Select Currency" :required="true" />
                                         </div>
 
                                         <!-- Amount -->
-                                        <div class="col-md-6 mb-3">
+                                        <div class="col-md-4 mb-2">
                                             <label class="form-label required">
-                                                <i class="fas fa-calculator text-muted me-1"></i>
+                                                <i class="fas fa-calculator text-danger me-1"></i>
                                                 Amount
                                             </label>
                                             <input type="number" v-model="item.amount" class="form-control"
@@ -896,13 +940,16 @@ onMounted(async () => {
                                             <div class="alert alert-info mb-0">
                                                 <small>
                                                     <strong>Summary:</strong>
-                                                    Amount in {{ currencies.find(c => c.id === item.currency_id)?.name || 'currency' }}: 
-                                                    <strong class="text-success">{{ formatAmount(item.amount) }}</strong>
+                                                    Amount in {{currencies.find(c => c.id === item.currency.id)?.name
+                                                        || 'currency'}}:
+                                                    <strong class="text-success">
+                                                        {{ formatAmount(item.amount) }}
+                                                    </strong>
                                                 </small>
                                             </div>
                                         </div>
                                     </div>
-                                </div>
+                                </CardBody>
                             </div>
                         </div>
                     </div>
@@ -913,7 +960,7 @@ onMounted(async () => {
                             <Card class="card border-primary">
                                 <CardHeader class="bg-primary bg-opacity-10">
                                     <h6 class="mb-0 text-primary">
-                                        <i class="fas fa-calculator me-2"></i>
+                                        <i class="fas fa-calculator me-1"></i>
                                         Payment Summary
                                     </h6>
                                 </CardHeader>
@@ -941,7 +988,8 @@ onMounted(async () => {
                                         <div class="col-md-3">
                                             <div class="d-flex justify-content-between mb-2">
                                                 <span>Base Amount:</span>
-                                                <strong class="text-success">{{ formatAmount(totalBaseAmount) }}</strong>
+                                                <strong class="text-success">{{ formatAmount(totalBaseAmount)
+                                                    }}</strong>
                                             </div>
                                         </div>
                                     </div>
@@ -953,18 +1001,18 @@ onMounted(async () => {
                     <!-- Form Actions -->
                     <CardFooter class="sticky-bottom">
                         <div class="d-flex justify-content-between">
-                            <button type="button" @click="goBack" class="btn btn-secondary px-4">
-                                <i class="fas fa-times me-2"></i>
+                            <button type="button" @click="goBack" class="btn btn-danger px-4">
+                                <i class="fas fa-times me-1"></i>
                                 Cancel
                             </button>
                             <button type="submit" class="btn btn-success px-4"
                                 :disabled="isSaving || !canCreatePaymentAdvice">
                                 <span v-if="isSaving" class="">
-                                    <i class="fas fa-spinner fa-spin me-2"></i>
+                                    <i class="fas fa-spinner fa-spin me-1"></i>
                                     Saving...
                                 </span>
                                 <span v-else>
-                                    <i class="fas fa-save me-2"></i>
+                                    <i class="fas fa-save me-1"></i>
                                     Save Payment Advice
                                 </span>
                             </button>
@@ -980,28 +1028,6 @@ onMounted(async () => {
 .form-label {
     font-weight: 500;
     margin-bottom: 0.5rem;
-}
-
-.table th {
-    font-weight: 600;
-    font-size: 0.875rem;
-}
-
-.table td {
-    vertical-align: middle;
-}
-
-.text-end {
-    text-align: end !important;
-}
-
-.badge {
-    font-size: 0.75rem;
-    font-weight: 500;
-}
-
-.card-header h6 {
-    font-size: 1rem;
 }
 
 /* Style for OTHER type input */
@@ -1033,21 +1059,9 @@ input[type="text"].form-control {
     box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
 }
 
-.card-header.bg-light {
-    background-color: #f8f9fa !important;
-}
-
 .form-control-static {
     display: block;
     padding: 0.5rem 0.75rem;
     color: #212529;
-}
-
-.input-group .form-control {
-    border-right: none;
-}
-
-.input-group .btn-outline-secondary {
-    border-left: none;
 }
 </style>

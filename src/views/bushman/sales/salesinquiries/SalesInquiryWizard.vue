@@ -204,13 +204,40 @@
               <!-- Species List -->
               <div class="items-list">
                 <div class="list-header">
-                  <strong>Selected Species ({{ speciesObjects.length }})</strong>
-                  <small class="text-muted">Click priority badge to toggle</small>
+                  <div class="d-flex align-items-center gap-2">
+                    <input
+                      v-if="speciesObjects.length > 0"
+                      type="checkbox"
+                      class="species-checkbox"
+                      :checked="selectedSpeciesIndices.size === speciesObjects.length && speciesObjects.length > 0"
+                      :indeterminate="selectedSpeciesIndices.size > 0 && selectedSpeciesIndices.size < speciesObjects.length"
+                      @change="toggleSelectAllSpecies"
+                      title="Select All"
+                    />
+                    <strong>Selected Species ({{ speciesObjects.length }})</strong>
+                  </div>
+                  <div class="d-flex align-items-center gap-2">
+                    <button
+                      v-if="selectedSpeciesIndices.size > 0"
+                      type="button"
+                      class="btn btn-sm btn-outline-danger"
+                      @click="deleteSelectedSpecies"
+                    >
+                      <i class="fa fa-trash me-1"></i> Delete Selected ({{ selectedSpeciesIndices.size }})
+                    </button>
+                    <small class="text-muted">Click priority badge to toggle</small>
+                  </div>
                 </div>
 
                 <div v-if="speciesObjects.length > 0" class="list-items">
-                  <div v-for="(s, index) in speciesObjects" :key="index" class="list-item">
+                  <div v-for="(s, index) in speciesObjects" :key="index" class="list-item" :class="{ 'list-item-selected': selectedSpeciesIndices.has(index) }">
                     <div class="item-info">
+                      <input
+                        type="checkbox"
+                        class="species-checkbox"
+                        :checked="selectedSpeciesIndices.has(index)"
+                        @change="toggleSpeciesSelection(index)"
+                      />
                       <strong>{{ s.name }}</strong>
                       <span v-if="s.fromPackage" class="badge bg-info ms-2">from Package</span>
                       <span class="badge ms-2 cursor-pointer"
@@ -325,8 +352,8 @@
                 </div>
 
                 <div v-if="selectedSafariExtras.length > 0" class="list-items">
-                  <div v-for="(extra, index) in selectedSafariExtras" :key="index" class="list-item">
-                    <div class="item-info">
+                  <div v-for="(extra, index) in selectedSafariExtras" :key="index" class="list-item" style="flex-wrap: wrap;">
+                    <div class="item-info" style="flex: 1; min-width: 200px;">
                       <strong>{{ extra.name }}</strong>
                       <span v-if="extra.fromPackage" class="badge bg-info ms-2">from Package</span>
                       <span class="badge ms-2 cursor-pointer"
@@ -336,41 +363,43 @@
                       </span>
                       <small class="text-muted ms-2" v-if="extra.description">{{ extra.description }}</small>
                     </div>
-                    <div class="item-actions d-flex align-items-center">
-                      <div class="quantity-controls me-2 d-flex flex-column align-items-center">
-                        <div class="d-flex align-items-center">
-                          <button type="button" class="btn btn-sm btn-outline-secondary" :disabled="extra.quantity <= 1"
-                            @click="updateSafariExtraQuantity(extra, -1)">-
-                          </button>
-                          <span class="qty-badge mx-2">{{ extra.quantity || 1 }}</span>
-                          <button type="button" class="btn btn-sm btn-outline-secondary"
-                            @click="updateSafariExtraQuantity(extra, 1)">+
-                          </button>
-                        </div>
-                        <small v-if="safariExtraErrors[Number(extra.id)]?.quantity" class="text-danger mt-1">{{ safariExtraErrors[Number(extra.id)].quantity }}</small>
+                    <div class="item-actions" style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                      <!-- Quantity controls -->
+                      <div style="display:flex; align-items:center; gap:4px;">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" :disabled="extra.quantity <= 1"
+                          @click="updateSafariExtraQuantity(extra, -1)">-
+                        </button>
+                        <span class="qty-badge mx-1">{{ extra.quantity || 1 }}</span>
+                        <button type="button" class="btn btn-sm btn-outline-secondary"
+                          @click="updateSafariExtraQuantity(extra, 1)">+
+                        </button>
                       </div>
 
-                      <!-- Duration (days) input for safari extras (only for duration-relevant items) -->
-                      <div v-if="isDurationRelevant(extra)" class="duration-controls me-2 d-flex flex-column align-items-start">
-                        <div class="d-flex align-items-center">
-                          <input type="number" step="1" min="1" class="form-control form-control-sm text-center" :value="extra.item_durations"
-                            @input="handleDurationInput($event, extra)" placeholder="Duration (days)" style="width:120px" title="Leave blank to inherit hunting length">
-                          <i class="fa fa-info-circle ms-2 text-muted" :title="'Leave blank to inherit hunting length'"></i>
-                        </div>
-                        <small class="text-muted mt-1">
-                          <span v-if="extra.item_durations">Stored: {{ extra.item_durations }} day<span v-if="extra.item_durations>1">s</span></span>
-                          <span v-else>Inherits hunting length: {{ form.no_of_days || 'N/A' }} days</span>
-                        </small>
-                        <small v-if="safariExtraErrors[Number(extra.id)]?.item_durations" class="text-danger mt-1">{{ safariExtraErrors[Number(extra.id)].item_durations }}</small>
+                      <!-- Duration input (same row, same level) -->
+                      <div v-if="isDurationRelevant(extra)" style="display:flex; align-items:center; gap:6px;">
+                        <input type="number" step="1" min="1" class="form-control form-control-sm text-center" :value="extra.item_durations"
+                          @input="handleDurationInput($event, extra)" placeholder="Days" style="width:80px; height:34px;" title="Leave blank to inherit hunting length">
+                        <i class="fa fa-info-circle text-muted" style="font-size:14px;" :title="'Leave blank to inherit hunting length'"></i>
                       </div>
-                      <div v-else class="duration-controls me-2 d-flex flex-column align-items-start">
-                        <small class="text-muted">Duration not applicable for this item</small>
-                      </div> 
+                      <div v-else style="display:flex; align-items:center;">
+                        <small class="text-muted">N/A</small>
+                      </div>
 
-                      <button type="button" class="btn btn-sm btn-outline-danger ms-2"
+                      <!-- Delete button -->
+                      <button type="button" class="btn btn-sm btn-outline-danger"
                         @click="removeSafariExtra(index)">
                         <i class="fa fa-trash"></i>
-                      </button> 
+                      </button>
+                    </div>
+                    <!-- Second row: helper texts (errors + duration hint) -->
+                    <div v-if="safariExtraErrors[Number(extra.id)]?.quantity || safariExtraErrors[Number(extra.id)]?.item_durations || isDurationRelevant(extra)" 
+                      style="width:100%; display:flex; justify-content:flex-end; gap:16px; padding-top:4px;">
+                      <small v-if="safariExtraErrors[Number(extra.id)]?.quantity" class="text-danger">{{ safariExtraErrors[Number(extra.id)].quantity }}</small>
+                      <small v-if="isDurationRelevant(extra)" class="text-muted">
+                        <span v-if="extra.item_durations">Duration: {{ extra.item_durations }} day<span v-if="extra.item_durations>1">s</span></span>
+                        <span v-else>Inherits hunting length: {{ form.no_of_days || 'N/A' }} days</span>
+                      </small>
+                      <small v-if="safariExtraErrors[Number(extra.id)]?.item_durations" class="text-danger">{{ safariExtraErrors[Number(extra.id)].item_durations }}</small>
                     </div>
                   </div>
                 </div>
@@ -610,6 +639,7 @@ const speciesOptions = ref<any[]>([])
 const selectedAreaSpecies = ref<any[]>([])
 const areaSpeciesLoaded = ref(false)
 const speciesObjects = ref<any[]>([])
+const selectedSpeciesIndices = ref<Set<number>>(new Set())
 const areasOptions = ref<any[]>([])
 const seasonsOptions = ref<any[]>([])
 const packagesOptions = ref<any[]>([])
@@ -1468,6 +1498,53 @@ const populateFormFromPackage = async () => {
 
 const deleteFromStorage = (index: number) => {
   speciesObjects.value.splice(index, 1)
+  // Re-build the selected indices set after removal
+  const newSet = new Set<number>()
+  selectedSpeciesIndices.value.forEach(i => {
+    if (i < index) newSet.add(i)
+    else if (i > index) newSet.add(i - 1)
+  })
+  selectedSpeciesIndices.value = newSet
+}
+
+const toggleSpeciesSelection = (index: number) => {
+  const newSet = new Set(selectedSpeciesIndices.value)
+  if (newSet.has(index)) {
+    newSet.delete(index)
+  } else {
+    newSet.add(index)
+  }
+  selectedSpeciesIndices.value = newSet
+}
+
+const toggleSelectAllSpecies = () => {
+  if (selectedSpeciesIndices.value.size === speciesObjects.value.length) {
+    selectedSpeciesIndices.value = new Set()
+  } else {
+    selectedSpeciesIndices.value = new Set(speciesObjects.value.map((_, i) => i))
+  }
+}
+
+const deleteSelectedSpecies = async () => {
+  if (selectedSpeciesIndices.value.size === 0) return
+  const count = selectedSpeciesIndices.value.size
+  const result = await Swal.fire({
+    title: 'Delete Selected Species?',
+    html: `Are you sure you want to remove <strong>${count}</strong> selected species?`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#ef4444',
+    cancelButtonColor: '#6b7280',
+    confirmButtonText: `Yes, delete ${count} species`,
+    cancelButtonText: 'Cancel'
+  })
+  if (!result.isConfirmed) return
+
+  // Remove from highest index to lowest so indices stay valid
+  const sortedIndices = [...selectedSpeciesIndices.value].sort((a, b) => b - a)
+  sortedIndices.forEach(i => speciesObjects.value.splice(i, 1))
+  selectedSpeciesIndices.value = new Set()
+  init({ message: `${count} species removed`, color: 'success' })
 }
 
 const incrementQuantity = (index: number) => {
@@ -1716,12 +1793,15 @@ const submit = async () => {
           const m = key.match(/safari_extras(?:\.|\[)(\d+)(?:\]|\.)?(.*)?/)
           if (m) {
             const idx = Number(m[1])
-            const field = m[2] ? m[2].replace(/^\./, '') : ''
+            const fieldRaw = m[2] ? m[2].replace(/^\./, '') : ''
             const extra = selectedSafariExtras.value[idx]
             if (extra) {
               const _k = Number(extra.id)
               safariExtraErrors.value[_k] = safariExtraErrors.value[_k] || {}
-              safariExtraErrors.value[_k][field || 'item_durations'] = Array.isArray(data[key]) ? data[key].join(', ') : String(data[key])
+              // Only allow known keys to be used for indexing so TS can validate the access
+              type SafariExtraErrorKey = 'quantity' | 'item_durations'
+              const allowedField: SafariExtraErrorKey = (fieldRaw === 'quantity' || fieldRaw === 'item_durations') ? (fieldRaw as SafariExtraErrorKey) : 'item_durations'
+              safariExtraErrors.value[_k][allowedField] = Array.isArray(data[key]) ? data[key].join(', ') : String(data[key])
             }
           }
         }
@@ -2593,8 +2673,8 @@ onUnmounted(() => {
 }
 
 .qty-btn {
-  width: 24px;
-  height: 24px;
+  width: 34px;
+  height: 34px;
   border: 1px solid var(--border);
   background: #ffffff;
   border-radius: 6px;
@@ -2605,6 +2685,7 @@ onUnmounted(() => {
   color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.15s ease;
+  box-sizing: border-box;
 }
 
 .qty-btn:hover {
@@ -3231,6 +3312,19 @@ onUnmounted(() => {
   border-color: var(--primary);
 }
 
+.list-item-selected {
+  background: #eff6ff !important;
+  border-color: #93c5fd !important;
+}
+
+.species-checkbox {
+  width: 16px;
+  height: 16px;
+  accent-color: #3b82f6;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
 .item-info {
   display: flex;
   align-items: center;
@@ -3255,13 +3349,14 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   min-width: 32px;
-  height: 28px;
-  padding: 0 8px;
+  height: 34px;
+  padding: 0 10px;
   background: #dbeafe;
   color: #1e40af;
   border-radius: 8px;
   font-weight: 700;
   font-size: 13px;
+  box-sizing: border-box;
 }
 
 .btn-sm {
@@ -3274,6 +3369,44 @@ onUnmounted(() => {
   border: 2px solid #2563eb;
   background: #ffffff;
   color: #2563eb;
+}
+
+/* Make duration input align vertically with quantity controls */
+.duration-controls {
+  display: flex;
+  flex-direction: column;
+  align-items: center; /* center horizontally and allow helper text under input */
+  gap: 6px;
+}
+
+.duration-controls > .d-flex {
+  display: flex;
+  align-items: center; /* first row aligns items horizontally */
+  gap: 8px;
+  min-height: 34px; /* same as buttons */
+}
+
+.duration-controls .form-control-sm {
+  width: 90px;
+  height: 34px; /* match the qty-button/badge height */
+  padding: 6px 10px;
+  border-radius: 8px;
+  text-align: center;
+  box-sizing: border-box;
+  font-size: 13px;
+  line-height: 1;
+}
+
+/* Helper text for duration should sit under the input with no excessive margin */
+.duration-controls .text-muted {
+  margin: 0;
+  font-size: 12px;
+}
+
+/* When duration is not applicable, keep the same alignment */
+.duration-controls:not(:has(.form-control-sm)) {
+  min-height: 28px;
+  align-items: center;
 }
 
 .btn-outline-primary:hover {

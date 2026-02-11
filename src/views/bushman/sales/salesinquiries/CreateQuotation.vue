@@ -409,6 +409,10 @@ const pricePreviewData = ref<any>(null)
 const loadingPreview = ref(false)
 const printingPdf = ref(false)
 
+// Ensure we don't trigger pricing recalculation while the component is initializing.
+// Only allow server-side updates after we have loaded the existing pricing data.
+const initialLoadComplete = ref(false)
+
 const selectedItems = ref<Record<string, boolean>>({})
 const itemPrices = ref<Record<string, any>>({})
 
@@ -793,34 +797,51 @@ const handleInitItemDuration = (e: any, category: string, itemId: any) => {
 
 // Debounced server-side pricing recalculation when item overrides or hunt length change
 let pricingRecalcTimeout: any = null
-const schedulePricingRecalc = () => {
-  if (pricingRecalcTimeout) clearTimeout(pricingRecalcTimeout)
-  pricingRecalcTimeout = setTimeout(async () => {
-    if (!existingPricing.value || !existingPricing.value.id) return
-    try {
-      const items: any[] = []
-      for (const key in itemPrices.value) {
-        const p = itemPrices.value[key]
-        items.push({
-          item_type: p.item_type,
-          item_id: p.item_id,
-          quantity: p.quantity,
-          unit_amount: p.unit_amount,
-          ...(p.item_durations != null ? { item_durations: p.item_durations } : {})
-        })
-      }
-      const payload = { items }
-      const response = await salesEnquiryService.updatePricing(existingPricing.value.id, payload)
-      if (response?.success && response.data) {
-        existingPricing.value = response.data
-        // reload the fresh pricing data
-        await loadPricing()
-      }
-    } catch (err) {
-      console.error('Error recalculating pricing:', err)
+
+// Helper to perform the actual pricing update to the server.
+// If replaceItems is true we will send an empty items array (intentional user action) and
+// include the `replace_items: true` flag so the backend can differentiate intent.
+const performPricingRecalc = async (replaceItems = false) => {
+  if (!existingPricing.value || !existingPricing.value.id) return
+  try {
+    const items: any[] = []
+    for (const key in itemPrices.value) {
+      const p = itemPrices.value[key]
+      items.push({
+        item_type: p.item_type,
+        item_id: p.item_id,
+        quantity: p.quantity,
+        unit_amount: p.unit_amount,
+        ...(p.item_durations != null ? { item_durations: p.item_durations } : {})
+      })
     }
-  }, 600)
+
+    const payload: any = { items }
+    if (replaceItems) payload.replace_items = true
+
+    const response = await salesEnquiryService.updatePricing(existingPricing.value.id, payload)
+    if (response?.success && response.data) {
+      existingPricing.value = response.data
+      // reload the fresh pricing data
+      await loadPricing()
+    }
+  } catch (err) {
+    console.error('Error recalculating pricing:', err)
+  }
 }
+
+const schedulePricingRecalc = (force = false) => {
+  if (pricingRecalcTimeout) clearTimeout(pricingRecalcTimeout)
+
+  // Do not trigger recalculation during initial load unless forced explicitly.
+  if (!initialLoadComplete.value && !force) return
+
+  // If there are no item overrides present, do not trigger a server-side recalculation.
+  // This prevents accidental clearing of an existing quotation when the component first loads
+  if (Object.keys(itemPrices.value).length === 0) return
+
+  pricingRecalcTimeout = setTimeout(() => performPricingRecalc(false), 600)
+} 
 
 // Watch item price overrides and enquiry days to trigger server recalculation
 watch(itemPrices, () => {
@@ -861,10 +882,26 @@ const selectAllSystemItems = () => {
   })
 }
 
-const clearSelection = () => {
+const clearSelection = async () => {
+  // Confirm with the user before performing a destructive server-side clear of overrides
+  const result = await Swal.fire({
+    title: 'Clear Overrides?',
+    text: 'This will clear all item price overrides in the UI. Do you also want to replace the server-side pricing items with an empty set? (This action cannot be undone)',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'Clear on server',
+    cancelButtonText: 'Only clear locally',
+  })
+
+  // Always clear locally
   selectedItems.value = {}
   itemPrices.value = {}
-}
+
+  if (result.isConfirmed) {
+    // Send explicit replace request to backend so it knows this was an intentional user action
+    await performPricingRecalc(true)
+  }
+} 
 
 const removeItem = async (item: any) => {
   const result = await Swal.fire({
@@ -926,6 +963,8 @@ const loadPricePreview = async (priceStructureDetailId: number) => {
 
 const loadPricing = async () => {
   loadingEnquiry.value = true
+  // Mark as not-yet-ready for recalculations
+  initialLoadComplete.value = false
   try {
     if (!pricingIdFromRoute.value) {
       console.warn('⚠️ No pricing ID in route')
@@ -956,6 +995,9 @@ const loadPricing = async () => {
       if (previewId) {
         await loadPricePreview(Number(previewId))
       }
+
+      // Mark load complete; now user-driven changes can trigger server recalculation
+      initialLoadComplete.value = true
     } else {
       throw new Error('Failed to load pricing data')
     }

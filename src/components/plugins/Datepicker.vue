@@ -30,14 +30,6 @@ const effectiveView = computed(() => isMonthYear.value ? 'month' : 'day')
 </script>
 
 <template>
-  <Datepicker
-    v-model="modelValue"
-    :model-type="effectiveFormat"
-    :format="effectiveFormat"
-    :view="effectiveView"
-    :placeholder="props.placeholder"
-    :enable-time-picker="false"
-    :auto-apply="true"
-    :close-on-auto-apply="true"
-  />
+  <Datepicker v-model="modelValue" :model-type="effectiveFormat" :format="effectiveFormat" :view="effectiveView"
+    :placeholder="props.placeholder" :enable-time-picker="false" :auto-apply="true" :close-on-auto-apply="true" />
 </template>
