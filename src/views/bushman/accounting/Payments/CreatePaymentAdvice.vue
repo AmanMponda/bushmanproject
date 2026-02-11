@@ -61,24 +61,24 @@ const paymentForm = ref({
 
     // Parties array
     parties: [
-        { 
-            role: null, 
-            accountable_type: null, 
-            account_id: '', 
-            payee_name: '', 
-            cheque_number: '', 
-            control_number: '', 
-            narration: '' 
+        {
+            role: null,
+            accountable_type: null,
+            account_id: '',
+            payee_name: '',
+            cheque_number: '',
+            control_number: '',
+            narration: ''
         }
     ],
 
     // Items array
     items: [
         {
-            itemable_type: '', 
-            itemable_id: '', 
-            description: '', 
-            currency: '', 
+            itemable_type: '',
+            itemable_id: '',
+            description: '',
+            currency: '',
             amount: 0
         }
     ],
@@ -863,7 +863,7 @@ onMounted(async () => {
                                         <div class="col-md-6 mb-2">
                                             <label class="form-label required">
                                                 <i class="fas fa-search text-info me-1"></i>
-                                                Search {{ item.itemable_type.label || 'Item' }}
+                                                Search {{ item.itemable_type?.label || 'Item' }}
                                             </label>
                                             <div class="input-group">
                                                 <input type="text" class="form-control" v-model="searchTerm"
@@ -989,7 +989,7 @@ onMounted(async () => {
                                             <div class="d-flex justify-content-between mb-2">
                                                 <span>Base Amount:</span>
                                                 <strong class="text-success">{{ formatAmount(totalBaseAmount)
-                                                    }}</strong>
+                                                }}</strong>
                                             </div>
                                         </div>
                                     </div>
@@ -997,28 +997,28 @@ onMounted(async () => {
                             </Card>
                         </div>
                     </div>
-
-                    <!-- Form Actions -->
-                    <CardFooter class="sticky-bottom">
-                        <div class="d-flex justify-content-between">
-                            <button type="button" @click="goBack" class="btn btn-danger px-4">
-                                <i class="fas fa-times me-1"></i>
-                                Cancel
-                            </button>
-                            <button type="submit" class="btn btn-success px-4"
-                                :disabled="isSaving || !canCreatePaymentAdvice">
-                                <span v-if="isSaving" class="">
-                                    <i class="fas fa-spinner fa-spin me-1"></i>
-                                    Saving...
-                                </span>
-                                <span v-else>
-                                    <i class="fas fa-save me-1"></i>
-                                    Save Payment Advice
-                                </span>
-                            </button>
-                        </div>
-                    </CardFooter>
                 </form>
+
+                <!-- Form Actions -->
+                <CardFooter class="sticky-bottom">
+                    <div class="d-flex justify-content-between">
+                        <button type="button" @click="goBack" class="btn btn-danger px-4">
+                            <i class="fas fa-times me-1"></i>
+                            Cancel
+                        </button>
+                        <button type="submit" class="btn btn-success px-4"
+                            :disabled="isSaving || !canCreatePaymentAdvice">
+                            <span v-if="isSaving" class="">
+                                <i class="fas fa-spinner fa-spin me-1"></i>
+                                Saving...
+                            </span>
+                            <span v-else>
+                                <i class="fas fa-save me-1"></i>
+                                Save Payment Advice
+                            </span>
+                        </button>
+                    </div>
+                </CardFooter>
             </div>
         </CardBody>
     </NormalCard>
