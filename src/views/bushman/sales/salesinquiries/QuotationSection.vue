@@ -104,12 +104,12 @@
       :style="{ display: showAddPricingModal ? 'block' : 'none' }" tabindex="-1">
       <div class="modal-dialog modal-xl">
         <div class="modal-content">
-          <div class="modal-header bg-primary text-white">
+          <div class="modal-header bg-secondary text-dark">
             <h5 class="modal-title">
               <i class="fa fa-file-invoice-dollar me-2"></i>
               {{ editingPricing ? 'Edit Quotation' : 'Generate Quotation' }}
             </h5>
-            <button type="button" class="btn-close btn-close-white" @click="closeAddPricingModal"></button>
+            <button type="button" class="btn-close" @click="closeAddPricingModal" aria-label="Close"></button>
           </div>
           <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
             <!-- Enquiry Info Summary -->
@@ -216,6 +216,7 @@
                         </th>
                         <th>Item</th>
                         <th style="width: 100px;" class="text-center">Qty</th>
+                        <th v-if="category.category === 'Safari Extras'" style="width: 110px;" class="text-center">Dur (days)</th>
                         <th style="width: 150px;" class="text-end">Unit Price</th>
                         <th style="width: 150px;" class="text-end">Total</th>
                         <th style="width: 100px;" class="text-center">Optional</th>
@@ -242,7 +243,25 @@
                             class="form-control form-control-sm text-center"
                             v-model.number="ensureItemPrice(category.category, item).quantity" min="1"
                             @input="updateItemTotal(category.category, item.id)">
-                          <span v-else class="text-muted">{{ item.quantity }}</span>
+                          <span v-else class="text-muted">{{ item._base_quantity ?? item.quantity }}</span>
+                        </td>
+                        <td class="text-center" v-if="category.category === 'Safari Extras'">
+                          <div v-if="item._duration_applied">
+                            <input v-if="selectedItems[`${category.category}_${item.id}`]" type="number"
+                              class="form-control form-control-sm text-center"
+                              :value="ensureItemPrice(category.category, item).item_durations"
+                              @input="handleInitItemDuration($event, category.category, item.id)"
+                              min="1"
+                              placeholder=""
+                              title="Leave blank to inherit hunting length"
+                              style="width: 110px" />
+                            <span v-else class="text-muted">
+                              {{ item.effective_duration ?? '-' }}
+                            </span>
+                          </div>
+                          <div v-else>
+                            <span class="text-muted">-</span>
+                          </div>
                         </td>
                         <td>
                           <input v-if="selectedItems[`${category.category}_${item.id}`]" type="number"
@@ -256,7 +275,7 @@
                           <strong v-if="selectedItems[`${category.category}_${item.id}`]" class="text-success">
                             {{ formatCurrency(itemPrices[`${category.category}_${item.id}`]?.total_amount || 0) }}
                           </strong>
-                          <span v-else class="text-muted">{{ formatCurrency(item.quantity * item.suggested_price)
+                          <span v-else class="text-muted">{{ formatCurrency((item.quantity * item.suggested_price) * (item._duration_applied ? (item.effective_duration ?? 1) : 1))
                             }}</span>
                         </td>
                         <td class="text-center">
@@ -684,7 +703,10 @@ const availablePriceableItems = computed(() => {
             id: extra.item_id || extra.id,
             name: cleanItemName(extra.item_name || 'Extra'),
             code: extra.item_code || '',
-            quantity: qty,
+            // keep base quantity separate from calculated (qty) used for totals
+            quantity: baseQuantity,
+            _calc_quantity: qty,
+            _base_quantity: baseQuantity,
             type: 'EXTRA',
             suggested_price: parseFloat(extra.amount) || 0,
             effective_duration: effective,
@@ -705,7 +727,9 @@ const availablePriceableItems = computed(() => {
           id: extra.item_id,
           name: cleanItemName(extra.item_name || 'Extra'),
           code: '',
-          quantity: qty,
+          quantity: (extra.desired_quantity || 1),
+          _calc_quantity: qty,
+          _base_quantity: (extra.desired_quantity || 1),
           type: 'EXTRA',
           suggested_price: parseFloat(safariExtra?.amount) || 0,
           effective_duration: effective,
@@ -1192,6 +1216,9 @@ const initializeItemPrice = (category: string, item: any) => {
   if (selectedItems.value[key]) {
     const unitAmount = Number(item.suggested_price) || 0
     const quantity = Number(item.quantity) || 1
+    const duration = (item._enquiry_item_durations != null) ? item._enquiry_item_durations : (item.effective_duration != null && item._duration_applied ? item.effective_duration : null)
+    const daysMultiplier = (item._duration_applied && duration != null) ? duration : 1
+
     itemPrices.value[key] = {
       item_type: item.type,
       item_id: typeof item.id === 'string' ? null : item.id,
@@ -1199,11 +1226,12 @@ const initializeItemPrice = (category: string, item: any) => {
       description: item.name,
       quantity: quantity,
       unit_amount: unitAmount,
-      total_amount: quantity * unitAmount,
+      total_amount: quantity * unitAmount * daysMultiplier,
       rate_direction: 'INCREASE',
       amount_source: 'SYSTEM',
       is_estimate: false,
       is_optional: false,
+      item_durations: duration,
     }
   }
 }
@@ -1213,7 +1241,16 @@ const updateItemTotal = (category: string, itemId: any) => {
   if (itemPrices.value[key]) {
     const qty = itemPrices.value[key].quantity || 1
     const unit = itemPrices.value[key].unit_amount || 0
-    itemPrices.value[key].total_amount = qty * unit
+    // Determine days multiplier: prefer explicit itemPrices value, otherwise inspect original item
+    let days = 1
+    if (itemPrices.value[key].item_durations != null) {
+      days = itemPrices.value[key].item_durations
+    } else {
+      const cat = availablePriceableItems.value.find((c: any) => c.category === category)
+      const srcItem = cat?.items?.find((it: any) => String(it.id) === String(itemId))
+      if (srcItem && srcItem._duration_applied) days = srcItem.effective_duration ?? 1
+    }
+    itemPrices.value[key].total_amount = qty * unit * days
   }
 }
 

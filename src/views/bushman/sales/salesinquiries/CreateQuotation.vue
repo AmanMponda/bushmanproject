@@ -66,7 +66,7 @@
             </div>
             <div class="col-md-3">
               <small class="text-muted d-block">Duration</small>
-              <strong>{{ enquiryDays }} days</strong>
+              <strong>{{ enquiryDaysDisplay }}</strong>
             </div>
           </div>
         </div>
@@ -129,6 +129,7 @@
                   <tr>
                     <th class="border-top-0 pt-0 pb-2">Item</th>
                     <th class="border-top-0 pt-0 pb-2 text-center" style="width: 100px;">Qty</th>
+                    <th v-if="itemType === 'EXTRA'" class="border-top-0 pt-0 pb-2 text-center" style="width: 110px;">Duration (days)</th>
                     <th class="border-top-0 pt-0 pb-2 text-end" style="width: 150px;">Unit Price</th>
                     <th class="border-top-0 pt-0 pb-2 text-end" style="width: 150px;">Total</th>
                     <th class="border-top-0 pt-0 pb-2 text-center" style="width: 100px;">Optional</th>
@@ -145,6 +146,14 @@
                       <small class="text-muted">{{ item.description }}</small>
                     </td>
                     <td class="text-center align-middle">{{ item.quantity }}</td>
+                    <td v-if="itemType === 'EXTRA'" class="text-center align-middle">
+                      <div v-if="isDurationRelevantForItem(item)">
+                        {{ computeEffectiveDuration(item) ?? '-' }}
+                      </div>
+                      <div v-else>
+                        <span class="text-muted">-</span>
+                      </div>
+                    </td>
                     <td class="text-end align-middle">{{ formatCurrency(item.unit_amount) }}</td>
                     <td class="text-end align-middle">
                       <strong class="text-success">{{ formatCurrency(item.total_amount) }}</strong>
@@ -232,7 +241,7 @@
                         <th style="width: 40px;"></th>
                         <th>Item</th>
                         <th style="width: 100px;" class="text-center">Qty</th>
-                        <th style="width: 110px;" class="text-center">Dur (days)</th>
+                        <th v-if="category.category === 'Safari Extras'" style="width: 110px;" class="text-center">Duration (days)</th>
                         <th style="width: 140px;" class="text-end">Unit Price</th>
                         <th style="width: 140px;" class="text-end">Total</th>
                         <th style="width: 80px;" class="text-center">Optional</th>
@@ -266,19 +275,26 @@
                           >
                           <span v-else class="text-muted">{{ item.quantity }}</span>
                         </td>
-                        <td class="text-center">
-                          <input
-                            v-if="selectedItems[`${category.category}_${item.id}`]"
-                            type="number"
-                            class="form-control form-control-sm text-center"
-                            :value="ensureItemPrice(category.category, item).item_durations"
-                            @input="handleInitItemDuration($event, category.category, item.id)"
-                            min="1"
-                            placeholder=""
-                            title="Leave blank to inherit hunting length"
-                            style="width: 110px"
-                          />
-                          <span v-else class="text-muted">-</span>
+                        <td class="text-center" v-if="category.category === 'Safari Extras'">
+                          <div v-if="isDurationRelevantForItem(item)">
+                            <input
+                              v-if="selectedItems[`${category.category}_${item.id}`]"
+                              type="number"
+                              class="form-control form-control-sm text-center"
+                              :value="ensureItemPrice(category.category, item).item_durations"
+                              @input="handleInitItemDuration($event, category.category, item.id)"
+                              min="1"
+                              placeholder=""
+                              title="Leave blank to inherit hunting length"
+                              style="width: 110px"
+                            />
+                            <span v-else class="text-muted">
+                              {{ computeEffectiveDuration(item) ?? '-' }}
+                            </span>
+                          </div>
+                          <div v-else>
+                            <span class="text-muted">-</span>
+                          </div>
                         </td>                        <td>
                           <input 
                             v-if="selectedItems[`${category.category}_${item.id}`]"
@@ -295,7 +311,7 @@
                           <strong v-if="selectedItems[`${category.category}_${item.id}`]" class="text-success">
                             {{ formatCurrency(itemPrices[`${category.category}_${item.id}`]?.total_amount || 0) }}
                           </strong>
-                          <span v-else class="text-muted">{{ formatCurrency(item.quantity * item.suggested_price) }}</span>
+                          <span v-else class="text-muted">{{ formatCurrency(item.quantity * item.suggested_price * (category.category === 'Safari Extras' && item.item_durations ? item.item_durations : 1)) }}</span>
                         </td>
                         <td class="text-center">
                           <input 
@@ -324,7 +340,8 @@
                     </div>
                     <div class="col-md-4 text-center">
                       <h5 class="mb-0 text-success">
-                        {{ formatCurrency(quotationTotal) }}
+                        <span v-if="previewPricing">Preview: {{ formatCurrency(previewPricing.total_amount) }}</span>
+                        <span v-else>{{ formatCurrency(quotationTotal) }}</span>
                       </h5>
                     </div>
                     <div class="col-md-4 text-end">
@@ -407,6 +424,7 @@ const removingItem = ref<number | null>(null)
 const existingPricing = ref<any>(null) // The pricing record with all data
 const pricePreviewData = ref<any>(null)
 const loadingPreview = ref(false)
+const previewPricing = ref<any | null>(null)
 const printingPdf = ref(false)
 
 // Ensure we don't trigger pricing recalculation while the component is initializing.
@@ -529,6 +547,15 @@ const needsHuntingDays = computed(() => {
   return !hasHuntingDays
 })
 
+const durationRelevantByNameLocal = (name: string | undefined) => {
+  if (!name) return false
+  const n = name.toLowerCase()
+  if (n.includes('additional gun permit') || n.includes('gun permit') || n.includes('ammo')) return false
+  if (n.includes('per day') || n.includes('perday')) return true
+  if (n.includes('firearm') || n.includes('baiting') || n.includes('photographic') || n.includes('camera') || n.includes('cameraman') || n.includes('observer')) return true
+  return false
+}
+
 const availablePriceableItems = computed(() => {
   const items = []
 
@@ -580,14 +607,29 @@ const availablePriceableItems = computed(() => {
         const safariExtra = pricePreviewData.value?.safari_extras?.find(
           (se: any) => se.id === extra.item_id || se.item_id === extra.item_id || se.safari_extra_id === extra.item_id
         )
+        const itemName = cleanItemName(extra.item_name || 'Extra')
+
+        // Default duration to enquiry hunting length for per-day items when not explicitly set
+        const rawDuration = extra.item_durations
+        let duration = (rawDuration != null && Number(rawDuration) > 0) ? Number(rawDuration) : null
+        if (duration == null) {
+          const isByDay = durationRelevantByNameLocal(itemName)
+            || String(safariExtra?.pricing_unit || '').toLowerCase().includes('per_day')
+            || itemName.toLowerCase().includes('per day')
+            || itemName.toLowerCase().includes('perday')
+          if (isByDay && enquiryDays.value) {
+            duration = enquiryDays.value
+          }
+        }
+
         return {
           id: extra.item_id,
-          name: cleanItemName(extra.item_name || 'Extra'),
+          name: itemName,
           code: '',
           quantity: extra.desired_quantity || 1,
           type: 'EXTRA',
           suggested_price: parseFloat(safariExtra?.amount) || 0,
-          item_durations: extra.item_durations ?? null,
+          item_durations: duration,
         }
       })
     })
@@ -642,8 +684,18 @@ const currencySymbol = computed(() => {
 })
 
 const enquiryDays = computed(() => {
-  return enquiryData.value?.hunter_preferences?.no_of_days || 
-         enquiryData.value?.preference?.no_of_days || 'N/A'
+  const packageDetail = pricePreviewData.value?.price_structure_detail || existingPricing.value?.price_structure_detail
+  const hunterPref = enquiryData.value?.hunter_preferences || enquiryData.value?.preference
+  const days = packageDetail?.hunt_length_days
+    || hunterPref?.no_of_days
+    || packageDetail?.no_of_days
+    || null
+  return typeof days === 'number' && days > 0 ? days : (Number(days) > 0 ? Number(days) : null)
+})
+
+// Display-only version for the UI
+const enquiryDaysDisplay = computed(() => {
+  return enquiryDays.value != null ? `${enquiryDays.value} days` : 'N/A'
 })
 
 const selectedItemsCount = computed(() => {
@@ -730,21 +782,54 @@ const ensureItemPrice = (category: string, item: any) => {
   if (!itemPrices.value[key]) {
     const unitAmount = Number(item?.suggested_price) || 0
     const quantity = Number(item?.quantity) || 1
+    const duration = item?.item_durations ?? null
+
+    // Calculate initial total (factor in duration for Safari Extras)
+    const daysMultiplier = (category === 'Safari Extras' && duration != null) ? duration : 1
+    
     itemPrices.value[key] = {
       item_type: item?.type || 'ADJUSTMENT',
       item_id: typeof (item?.id) === 'string' ? null : item?.id,
       description: item?.name || '',
       quantity,
       unit_amount: unitAmount,
-      total_amount: quantity * unitAmount,
+      total_amount: quantity * unitAmount * daysMultiplier,
       rate_direction: 'INCREASE',
       amount_source: 'SYSTEM',
       is_estimate: false,
       is_optional: false,
-      item_durations: item?.item_durations ?? null,
+      item_durations: duration,
     }
   }
   return itemPrices.value[key]
+}
+
+// Compute the effective duration to display for an item (explicit or inherited)
+const computeEffectiveDuration = (item: any) => {
+  if (!item) return null
+  if (!isDurationRelevantForItem(item)) return null
+  const raw = item?.item_durations
+  const n = (raw != null && Number(raw) > 0) ? Number(raw) : null
+  if (n != null) return n
+  // Fallback to enquiry days when available
+  return enquiryDays.value ?? null
+}
+
+// Returns true when an item should have a duration (per day/per person style)
+const isDurationRelevantForItem = (item: any) => {
+  if (!item) return false
+  const name = String(item?.name || item?.description || '').toLowerCase()
+  const pricingUnit = String(item?.pricing_unit || '').toLowerCase()
+  if (name.includes('additional gun permit') || name.includes('gun permit') || name.includes('ammo')) return false
+  if (name.includes('per day') || name.includes('perday')) return true
+  if (pricingUnit.includes('per_day')) return true
+  if (name.includes('firearm') || name.includes('baiting') || name.includes('photographic') || name.includes('camera') || name.includes('cameraman') || name.includes('observer')) return true
+  return false
+}
+
+const categoryHasDuration = (category: any) => {
+  if (!category || !Array.isArray(category.items)) return false
+  return category.items.some((it: any) => isDurationRelevantForItem(it))
 }
 
 const initializeItemPrice = (category: string, item: any) => {
@@ -753,14 +838,6 @@ const initializeItemPrice = (category: string, item: any) => {
     // ensure it exists (keeps previous behaviour but uses ensure helper)
     ensureItemPrice(category, item)
   }
-}
-
-const durationRelevantByNameLocal = (name: string | undefined) => {
-  if (!name) return false
-  const n = name.toLowerCase()
-  if (n.includes('additional gun permit') || n.includes('gun permit') || n.includes('ammo')) return false
-  if (n.includes('firearm') || n.includes('baiting') || n.includes('photographic') || n.includes('camera') || n.includes('cameraman') || n.includes('observer')) return true
-  return false
 }
 
 const updateItemTotal = (category: string, itemId: any) => {
@@ -798,18 +875,55 @@ const handleInitItemDuration = (e: any, category: string, itemId: any) => {
 // Debounced server-side pricing recalculation when item overrides or hunt length change
 let pricingRecalcTimeout: any = null
 
-// Helper to perform the actual pricing update to the server.
+// Compute a client-side preview for pricing changes (non-destructive)
+const computeLocalPricingPreview = (overrides: any[]) => {
+  // Return a summary object: { total, items: [{...}] }
+  const preview = { total_amount: 0, items: [] as any[] }
+  overrides.forEach((p: any) => {
+    const qty = Number(p.quantity) || 1
+    const unit = Number(p.unit_amount) || 0
+    // Determine days multiplier (if an EXTRA)
+    let days = 1
+    if (p.item_durations != null && p.item_durations !== '') days = Number(p.item_durations)
+    else {
+      // try to find the source item to infer effective duration
+      const srcCat = availablePriceableItems.value.find((c: any) => c.category === p.description?.category)
+      // p may not carry the category; best-effort: no change
+    }
+    const itemTotal = (p.item_type === 'EXTRA') ? unit * qty * days : unit * qty
+    preview.items.push({ ...p, item_total: itemTotal })
+    preview.total_amount += itemTotal
+  })
+  return preview
+}
+
+// Helper to perform the actual pricing update to the server (used only for persistent updates).
 // If replaceItems is true we will send an empty items array (intentional user action) and
 // include the `replace_items: true` flag so the backend can differentiate intent.
-const performPricingRecalc = async (replaceItems = false) => {
+const performPricingRecalc = async (replaceItems = false, persist = true) => {
   if (!existingPricing.value || !existingPricing.value.id) return
+
   try {
     const items: any[] = []
     for (const key in itemPrices.value) {
       const p = itemPrices.value[key]
+
+      // Ensure we always send a non-empty description (backend requires it)
+      let description = p.description && String(p.description).trim() ? p.description : null
+      if (!description) {
+        // Try to find a friendly name from the available items list
+        const parts = key.split('_')
+        const categoryName = parts.slice(0, parts.length - 1).join('_')
+        const id = parts[parts.length - 1]
+        const cat = availablePriceableItems.value.find((c: any) => c.category === categoryName)
+        const srcItem = cat?.items?.find((it: any) => String(it.id) === String(id))
+        description = (srcItem?.name && String(srcItem.name).trim()) || `${p.item_type || 'Item'}`
+      }
+
       items.push({
         item_type: p.item_type,
         item_id: p.item_id,
+        description,
         quantity: p.quantity,
         unit_amount: p.unit_amount,
         ...(p.item_durations != null ? { item_durations: p.item_durations } : {})
@@ -819,11 +933,30 @@ const performPricingRecalc = async (replaceItems = false) => {
     const payload: any = { items }
     if (replaceItems) payload.replace_items = true
 
+    if (!persist) {
+      // Non-persistent preview: compute locally and set preview object
+      const preview = computeLocalPricingPreview(items)
+      previewPricing.value = preview
+      // Also set a temporary client-side itemPrices totals so UI shows updated totals while previewing
+      preview.items.forEach((pi: any) => {
+        // find matching key in itemPrices and update total_amount if present
+        for (const key in itemPrices.value) {
+          const p = itemPrices.value[key]
+          if (p.item_id === pi.item_id && p.item_type === pi.item_type) {
+            p.total_amount = pi.item_total
+          }
+        }
+      })
+      return preview
+    }
+
+    // Persisting: update server and reload
     const response = await salesEnquiryService.updatePricing(existingPricing.value.id, payload)
     if (response?.success && response.data) {
       existingPricing.value = response.data
       // reload the fresh pricing data
       await loadPricing()
+      previewPricing.value = null
     }
   } catch (err) {
     console.error('Error recalculating pricing:', err)
@@ -840,11 +973,13 @@ const schedulePricingRecalc = (force = false) => {
   // This prevents accidental clearing of an existing quotation when the component first loads
   if (Object.keys(itemPrices.value).length === 0) return
 
-  pricingRecalcTimeout = setTimeout(() => performPricingRecalc(false), 600)
+  // Compute a non-destructive preview (client-side) to avoid replacing existing pricing while the user is selecting items
+  pricingRecalcTimeout = setTimeout(() => performPricingRecalc(false, false), 600)
 } 
 
 // Watch item price overrides and enquiry days to trigger server recalculation
 watch(itemPrices, () => {
+  // When the user is making changes to item overrides, compute a non-destructive preview rather than persisting immediately
   schedulePricingRecalc()
 }, { deep: true })
 
