@@ -222,11 +222,11 @@ onUnmounted(() => {
                                     {{ title }}
                                 </h2>
                                 <div v-if="showCloseButton" class="standard-offcanvas__close">
-                                    <button type="button" class="standard-offcanvas__close-button" @click="close"
+                                    <button type="button" class="standard-offcanvas__close-button btn-close" @click="close"
                                         aria-label="Close">
-                                        <slot name="close-icon">
+                                        <!-- <slot name="close-icon">
                                             <span class="standard-offcanvas__close-icon">×</span>
-                                        </slot>
+                                        </slot> -->
                                     </button>
                                 </div>
                             </div>
@@ -337,7 +337,7 @@ onUnmounted(() => {
     font-weight: 500;
 }
 
-.standard-offcanvas__close-button {
+/* .standard-offcanvas__close-button {
     background: none;
     border: none;
     font-size: 1.5rem;
@@ -346,11 +346,11 @@ onUnmounted(() => {
     padding: 0.25rem;
     color: #6c757d;
     transition: color 0.2s ease;
-}
+} */
 
-.standard-offcanvas__close-button:hover {
+/* .standard-offcanvas__close-button:hover {
     color: #343a40;
-}
+} */
 
 /* Body & Footer */
 .standard-offcanvas__body {

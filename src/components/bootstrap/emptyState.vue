@@ -18,7 +18,7 @@ defineProps({
     },
     icon: {
         type: String,
-        default: "fa fa-exclamation-triangle",
+        default: "fa fa-exclamation-triangle", // default icon
     },
     colorClass: {
         type: String,
@@ -33,8 +33,8 @@ defineEmits(["click"]);
     <div class="text-muted">
         <i :class="['fa', icon, colorClass, 'fa-3x', 'mb-3']"></i>
         <h4 v-if="title">{{ title }}</h4>
-        <p v-if="subtitle">{{ subtitle }}</p>
-        <button v-if="showButton" class="btn btn-outline-primary mt-2" @click="$emit('click')">
+        <p v-if="subtitle" class="fst-italic">{{ subtitle }}</p>
+        <button v-if="showButton" class="btn btn-outline-primary rounded-pill mt-2" @click="$emit('click')">
             <i class="fa fa-sync-alt me-1"></i> {{ buttonTitle }}
         </button>
     </div>

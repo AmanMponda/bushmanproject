@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, computed, watch } from 'vue';
+import { ref, onMounted, computed, watch, nextTick } from 'vue';
 import { BASE_URL } from '@/config/config';
 import { useNotification } from '@/composables/notification.js';
 import { useAuthStore } from "@/stores/auth";
@@ -12,6 +12,8 @@ import CardHeader from '@/components/bootstrap/CardHeader.vue';
 import CardBody from '@/components/bootstrap/CardBody.vue';
 import CardFooter from '@/components/bootstrap/CardFooter.vue';
 import Loading from '@/components/bootstrap/Loading.vue';
+import StandardOffcanvas from '@/components/plugins/StandardOffcanvas.vue';
+import EmptyState from '@/components/bootstrap/emptyState.vue';
 
 // imports Initializations
 const { showAlert } = useNotification();
@@ -25,6 +27,10 @@ const permissions = computed(() => authStore.permissions);
 const canCreatePaymentAdvice = computed(() =>
     permissions.value.includes("CAN_CREATE_PAYMENT_ADVICE")
 );
+
+// Offcanvas Initalizations
+const previewRequisition = ref(false);
+const currentItemIndex = ref(null);
 
 // Reactive Variables
 const formData = ref({});
@@ -42,7 +48,7 @@ const requisitions = ref([]);
 const orders = ref([]);
 const contracts = ref([]);
 const journalVouchers = ref([]);
-const searchTerm = ref('');
+const selectedRequisition = ref(null);
 
 // Loading States
 const isSaving = ref(false);
@@ -54,7 +60,12 @@ const paymentForm = ref({
     user_id: userId.value,
     date: '',
     transaction_type: null,
-    status: null,
+    status: [
+        {
+            value: 'DRAFT',
+            label: 'Draft',
+        }
+    ],
     currency: null,
     exchange_rate: 1,
     remarks: '',
@@ -76,10 +87,13 @@ const paymentForm = ref({
     items: [
         {
             itemable_type: '',
-            itemable_id: '',
+            itemable: null,
             description: '',
-            currency: '',
-            amount: 0
+            currency: null,
+            search: '',
+            amount: 0,
+            selected_item: null,
+            preview_data: null
         }
     ],
 });
@@ -159,25 +173,6 @@ const fetchEntities = async () => {
     }
 }
 
-// Fetch Requisitions
-const fetchRequisitions = async (searchTerm) => {
-    const params = {
-        q: searchTerm || 'APPROVED',
-        limit: 500,
-    };
-
-    isLoadingItems.value = true;
-    try {
-        const response = await axios.get(`${BASE_URL}/requisitions/search`, { params });
-        requisitions.value = response.data.data || [];
-    } catch (error) {
-        console.error("Error fetching requisitions:", error);
-        showAlert("error", error.response?.data?.message || error.message || "Error fetching requisitions");
-    } finally {
-        isLoadingItems.value = false;
-    }
-};
-
 // Add party row
 const addParty = () => {
     paymentForm.value.parties.unshift({
@@ -200,13 +195,24 @@ const removeParty = (index) => {
 
 // Add item row
 const addItem = () => {
+    // Clear all items' preview data for fresh start
+    paymentForm.value.items.forEach(item => {
+        item.selected_item = null;
+        item.preview_data = null;
+    });
+    
     paymentForm.value.items.unshift({
         itemable_type: '',
-        itemable_id: '',
+        itemable: '',
         description: '',
         currency: paymentForm.value.currency,
-        amount: 0
+        amount: 0,
+        selected_item: null,
+        preview_data: null,
+        search: ''
     });
+    // Clear requisitions for fresh start
+    requisitions.value = [];
 };
 
 // Remove item row
@@ -218,9 +224,13 @@ const removeItem = (index) => {
 
 // Update item when itemable type changes
 const updateItemOptions = (item) => {
-    item.itemable_id = '';
+    item.itemable = '';
+    item.selected_item = null;
+    item.preview_data = null;
     item.description = '';
     item.amount = 0;
+    // Clear requisitions when type changes
+    requisitions.value = [];
 };
 
 // Calculate total amount
@@ -293,6 +303,116 @@ const handleItemSearch = async (item, searchTerm) => {
     }
 };
 
+// Fetch Requisitions
+const fetchRequisitions = async (searchTerm) => {
+    const params = {
+        q: searchTerm || 'APPROVED',
+        limit: 500,
+    };
+
+    isLoadingItems.value = true;
+    try {
+        const response = await axios.get(`${BASE_URL}/requisitions/search`, { params });
+        if (response.data.success) {
+            requisitions.value = response.data.data || [];
+            showAlert("success", `Fetched ${response.data.count} requisition${response.data.count !== 1 ? 's' : ''}`);
+        }
+    } catch (error) {
+        console.error("Error fetching requisitions:", error);
+        showAlert("error", error.response?.data?.message || error.message || "Error fetching requisitions");
+    } finally {
+        isLoadingItems.value = false;
+    }
+};
+
+const requisitionTotal = computed(() => {
+    if (!selectedRequisition.value) return 0;
+
+    return selectedRequisition.value.items.reduce((sum, reqItem) => {
+        const materialsTotal = reqItem.materials.reduce((mSum, m) => {
+            return mSum + (Number(m.quantity) * Number(m.rate));
+        }, 0);
+        return sum + materialsTotal;
+    }, 0);
+});
+
+// Offcanvas Functions
+const openPreview = async (item, itemIndex) => {
+    switch (item.itemable_type?.value) {
+        case 'INVOICE':
+            showAlert('info', 'Previewing Invoices...');
+            break;
+        case 'REQUISITION':
+            {
+                if (!item.search) {
+                    showAlert('warning', 'Please enter a search term first');
+                    return;
+                }
+
+                // Perform fresh search
+                await fetchRequisitions(item.search);
+
+                const idToFind = item.selected_item?.id || item.itemable || item.itemable_id;
+                // try to find by id (loose equality to allow string/number mismatch)
+                let req = idToFind !== undefined && idToFind !== null
+                    ? requisitions.value.find(r => r.id == idToFind)
+                    : null;
+
+                // If not found but search returned exactly one result, use that
+                if (!req && requisitions.value && requisitions.value.length === 1) {
+                    req = requisitions.value[0];
+                }
+
+                if (req) {
+                    item.selected_item = req;
+                    item.preview_data = req;
+                    currentItemIndex.value = itemIndex;
+                    previewRequisition.value = true;
+                } else {
+                    showAlert('warning', 'Requisition not found. Try re-searching or select the requisition first.');
+                }
+            }
+            break;
+        case 'ORDER':
+            showAlert('info', 'Previewing Orders...');
+            break;
+        case 'CONTRACT':
+            showAlert('info', 'Previewing Contacts...');
+            break;
+        case 'JOURNAL_VOUCHER':
+            showAlert('info', 'Previewing Journal Vouchers...');
+            break;
+        default:
+            break;
+    }
+};
+
+const closePreview = (item) => {
+    switch (item.itemable_type?.value) {
+        case 'INVOICE':
+            showAlert('info', 'Previewing Invoices...');
+            break;
+        case 'REQUISITION':
+            previewRequisition.value = false;
+            currentItemIndex.value = null;
+            break;
+        case 'ORDER':
+            showAlert('info', 'Previewing Orders...');
+            break;
+        case 'CONTRACT':
+            showAlert('info', 'Previewing Contacts...');
+            break;
+        case 'JOURNAL_VOUCHER':
+            showAlert('info', 'Previewing Journal Vouchers...');
+            break;
+        default:
+            break;
+    }
+};
+
+const getAvailableCount = (item) =>
+    getItemableOptions(item.itemable_type?.value).length;
+
 // Auto-fill payee name when accountable is selected
 const onAccountableSelected = (party, selectedAccountable) => {
     if (selectedAccountable && !party.payee_name) {
@@ -317,38 +437,33 @@ const handleAccountableTypeChange = (party, index) => {
     party.accountable = '';
 };
 
-// Submit form
-const submitForm = async () => {
-    if (!canCreatePaymentAdvice.value) {
-        showAlert('error', 'You do not have permission to create payment advice');
-        return;
-    }
-
+// Validate form
+const validateForm = () => {
     // Validate required fields
     if (!paymentForm.value.currency) {
-        showAlert('error', 'Please select a currency');
-        return;
+        showAlert('warning', 'Please select a currency');
+        return false;
     }
 
     // Validate transaction type
     if (!paymentForm.value.transaction_type) {
-        showAlert('error', 'Please select a transaction type');
-        return;
+        showAlert('warning', 'Please select a transaction type');
+        return false;
     }
 
     // Validate at least one payer and one payee for applicable transaction types
     if (paymentForm.value.transaction_type?.value !== 'CASH_REPLENISHMENT') {
         const hasPayer = paymentForm.value.parties.some(p => p.role.value === 'PAYER');
         if (!hasPayer) {
-            showAlert('error', 'At least one PAYER is required');
-            return;
+            showAlert('warning', 'At least one PAYER is required');
+            return false;
         }
 
         if (paymentForm.value.transaction_type?.value !== 'STAFF_ADVANCE') {
             const hasPayee = paymentForm.value.parties.some(p => p.role.value === 'PAYEE');
             if (!hasPayee) {
-                showAlert('error', 'At least one PAYEE is required');
-                return;
+                showAlert('warning', 'At least one PAYEE is required');
+                return false;
             }
         }
     }
@@ -356,25 +471,40 @@ const submitForm = async () => {
     // Validate parties
     for (const [index, party] of paymentForm.value.parties.entries()) {
         if (party.accountable_type !== 'OTHER' && !party.accountable) {
-            showAlert('error', `Please select an accountable for party ${index + 1}`);
-            return;
+            showAlert('warning', `Please select an accountable for party ${index + 1}`);
+            return false;
         }
     }
 
     // Validate items
     for (const [index, item] of paymentForm.value.items.entries()) {
-        if (!item.itemable_id) {
-            showAlert('error', `Please select an item for payment item ${index + 1}`);
-            return;
+        if (!item.selected_item && !item.itemable) {
+            showAlert('warning', `Please select an item for payment item ${index + 1}`);
+            return false;
         }
         if (item.amount <= 0) {
-            showAlert('error', `Amount must be greater than 0 for item ${index + 1}`);
-            return;
+            showAlert('warning', `Amount must be greater than 0 for item ${index + 1}`);
+            return false;
         }
         if (!item.currency) {
-            showAlert('error', `Please select a currency for item ${index + 1}`);
-            return;
+            showAlert('warning', `Please select a currency for item ${index + 1}`);
+            return false;
         }
+    }
+    // Additional validations can be added here
+    return true;
+};
+
+// Submit form
+const submitForm = async () => {
+    if (!canCreatePaymentAdvice.value) {
+        showAlert('error', 'You do not have permission to create payment advice');
+        return;
+    }
+
+    // Validate form before submission
+    if (!validateForm()) {
+        return;
     }
 
     // Prepare data for submission
@@ -396,7 +526,7 @@ const submitForm = async () => {
                 p.accountable_type.value === 'OTHER'
                     ? null
                     : p.accountable.id,
-            other_accountable: p.other_accountable || null,
+            // other_accountable: p.other_accountable || null,
             payee_name: p.payee_name,
             cheque_number: p.cheque_number,
             control_number: p.control_number,
@@ -405,8 +535,8 @@ const submitForm = async () => {
 
         items: paymentForm.value.items?.map(i => ({
             itemable_type: i.itemable_type.value,
-            itemable_id: i.itemable.id,
-            currency_id: i.currency.id,
+            itemable_id: i.selected_item?.id || (i.itemable?.id || i.itemable),
+            currency_id: i.currency?.id || i.currency,
             amount: i.amount,
             description: i.description,
         })),
@@ -448,36 +578,35 @@ const resetForm = () => {
         user_id: userId.value,
         date: getToday(),
         transaction_type: '',
-        status: 'DRAFT',
+        status: [
+            {
+                value: 'DRAFT',
+                label: 'Draft',
+            }
+        ],
         currency: currencies.value[0]?.id || '',
         exchange_rate: 1,
         remarks: '',
         parties: [
             {
-                role: 'PAYER',
-                accountable_type: 'ENTITY',
+                role: partyRoles.value.find(r => r.value === 'PAYER') || null,
+                accountable_type: accountableTypes.value.find(a => a.value === 'ENTITY') || null,
                 accountable: '',
                 payee_name: '',
                 cheque_number: '',
                 control_number: '',
                 narration: ''
             },
-            {
-                role: 'PAYEE',
-                accountable_type: 'ENTITY',
-                accountable: '',
-                payee_name: '',
-                cheque_number: '',
-                control_number: '',
-                narration: ''
-            }
         ],
         items: [
             {
-                itemable_type: 'REQUISITION',
-                itemable_id: '',
+                itemable_type: itemableTypes.value.find(i => i.value === 'REQUISITION') || null,
+                itemable: null,
+                selected_item: null,
+                preview_data: null,
+                search: '',
                 description: '',
-                currency: currencies.value[0]?.id || '',
+                currency: currencies.value[0] || null,
                 amount: 0
             }
         ],
@@ -485,13 +614,13 @@ const resetForm = () => {
 };
 
 // Watch transaction type to adjust form
-watch(() => paymentForm.value.transaction_type, (newType) => {
+watch(() => paymentForm.value.transaction_type?.value, (newType) => {
     // Reset parties based on transaction type
     if (newType === 'CASH_REPLENISHMENT') {
         paymentForm.value.parties = [
             {
-                role: 'REPLENISHMENT',
-                accountable_type: 'ENTITY',
+                role: partyRoles.value.find(r => r.value === 'REPLENISHMENT'),
+                accountable_type: accountableTypes.value.find(a => a.value === 'ENTITY'),
                 accountable: '',
                 payee_name: '',
                 cheque_number: '',
@@ -502,8 +631,8 @@ watch(() => paymentForm.value.transaction_type, (newType) => {
     } else if (newType === 'STAFF_ADVANCE') {
         paymentForm.value.parties = [
             {
-                role: 'PAYER',
-                accountable_type: 'ENTITY',
+                role: partyRoles.value.find(r => r.value === 'PAYER'),
+                accountable_type: accountableTypes.value.find(a => a.value === 'ENTITY'),
                 accountable: '',
                 payee_name: '',
                 cheque_number: '',
@@ -511,8 +640,8 @@ watch(() => paymentForm.value.transaction_type, (newType) => {
                 narration: ''
             },
             {
-                role: 'PAYEE',
-                accountable_type: 'EMPLOYEE',
+                role: partyRoles.value.find(r => r.value === 'PAYEE'),
+                accountable_type: accountableTypes.value.find(a => a.value === 'EMPLOYEE'),
                 accountable: '',
                 payee_name: '',
                 cheque_number: '',
@@ -523,8 +652,8 @@ watch(() => paymentForm.value.transaction_type, (newType) => {
     } else {
         paymentForm.value.parties = [
             {
-                role: 'PAYER',
-                accountable_type: 'ENTITY',
+                role: partyRoles.value.find(r => r.value === 'PAYER'),
+                accountable_type: accountableTypes.value.find(a => a.value === 'ENTITY'),
                 accountable: '',
                 payee_name: '',
                 cheque_number: '',
@@ -532,8 +661,8 @@ watch(() => paymentForm.value.transaction_type, (newType) => {
                 narration: ''
             },
             {
-                role: 'PAYEE',
-                accountable_type: 'ENTITY',
+                role: partyRoles.value.find(r => r.value === 'PAYEE'),
+                accountable_type: accountableTypes.value.find(a => a.value === 'ENTITY'),
                 accountable: '',
                 payee_name: '',
                 cheque_number: '',
@@ -547,8 +676,10 @@ watch(() => paymentForm.value.transaction_type, (newType) => {
     if (newType === 'STAFF_ADVANCE') {
         paymentForm.value.items = [
             {
-                itemable_type: 'JOURNAL_VOUCHER',
-                itemable_id: '',
+                itemable_type: itemableTypes.value.find(i => i.value === 'JOURNAL_VOUCHER'),
+                itemable: '',
+                selected_item: null,
+                preview_data: null,
                 description: '',
                 currency: paymentForm.value.currency,
                 amount: 0
@@ -560,7 +691,7 @@ watch(() => paymentForm.value.transaction_type, (newType) => {
 // Watch accountable_type changes
 watch(() => paymentForm.value.parties, (newParties) => {
     newParties.forEach(party => {
-        if (party.accountable_type === 'OTHER') {
+        if (party.accountable_type.value === 'OTHER') {
             // Clear accountable dropdown for OTHER type
             party.accountable = '';
         }
@@ -729,7 +860,7 @@ onMounted(async () => {
                                         <!-- Type -->
                                         <div class="col-md-4 mb-2">
                                             <label class="form-label required">
-                                                <i class="fas fa-cube text-muted me-1"></i>
+                                                <i class="fas fa-cube text-lime me-1"></i>
                                                 Type
                                             </label>
                                             <StandardVueSelect v-model="party.accountable_type"
@@ -774,7 +905,8 @@ onMounted(async () => {
                                         <div class="col-md-4 mb-2">
                                             <label class="form-label">
                                                 <i class="fas fa-file-check text-muted me-1"></i>
-                                                Cheque #
+                                                Cheque
+                                                <i class="fas fa-hashtag text-indigo me-1"></i>
                                             </label>
                                             <input type="text" v-model="party.cheque_number" class="form-control"
                                                 placeholder="Enter cheque number" />
@@ -797,7 +929,8 @@ onMounted(async () => {
                                                 Narration
                                             </label>
                                             <textarea v-model="party.narration" class="form-control" rows="2"
-                                                placeholder="Enter any additional notes or remarks..."></textarea>
+                                                placeholder="Enter any additional notes or remarks...">
+                                            </textarea>
                                         </div>
 
                                         <!-- Party Summary -->
@@ -848,59 +981,84 @@ onMounted(async () => {
                                 </CardHeader>
                                 <CardBody class="mb-0">
                                     <div class="row">
-                                        <!-- Item Type -->
-                                        <div class="col-md-6 mb-2">
-                                            <label class="form-label required">
-                                                <i class="fas fa-cube text-muted me-1"></i>
-                                                Item Type
-                                            </label>
-                                            <StandardVueSelect v-model="item.itemable_type"
-                                                :options="itemableTypes || []" placeholder="Select Type"
-                                                :required="true" @change="updateItemOptions(item)" />
-                                        </div>
+                                        <div class="row">
 
-                                        <!-- Item Search -->
-                                        <div class="col-md-6 mb-2">
-                                            <label class="form-label required">
-                                                <i class="fas fa-search text-info me-1"></i>
-                                                Search {{ item.itemable_type?.label || 'Item' }}
-                                            </label>
-                                            <div class="input-group">
-                                                <input type="text" class="form-control" v-model="searchTerm"
-                                                    placeholder="Search by reference, number, or description..."
-                                                    @keydown.enter="handleItemSearch(item, searchTerm)" />
-                                                <button class="btn btn-outline-secondary" type="button"
-                                                    @click="handleItemSearch(item, searchTerm)"
-                                                    :disabled="isLoadingItems">
-                                                    <span v-if="isLoadingItems">
-                                                        <i class="fas fa-spinner fa-spin me-0" aria-hidden="true"></i>
-                                                    </span>
-                                                    <span v-else>
-                                                        <i class="fas fa-search"></i>
-                                                    </span>
+                                            <!-- Item Type -->
+                                            <div :class="[
+                                                'mb-2',
+                                                getAvailableCount(item) >= 1 ? 'col-md-5' : 'col-md-6'
+                                            ]">
+                                                <label class="form-label required">
+                                                    <i class="fas fa-cube text-muted me-1"></i>
+                                                    Item Type
+                                                </label>
+                                                <StandardVueSelect v-model="item.itemable_type"
+                                                    :options="itemableTypes || []" placeholder="Select Type"
+                                                    :required="true" @change="updateItemOptions(item)" />
+                                            </div>
+
+                                            <!-- Item Search -->
+                                            <div :class="[
+                                                'mb-2',
+                                                getAvailableCount(item) >= 1 ? 'col-md-5' : 'col-md-6'
+                                            ]">
+                                                <label class="form-label required">
+                                                    <i class="fas fa-search text-info me-1"></i>
+                                                    Search {{ item.itemable_type?.label || 'Item' }}
+                                                </label>
+
+                                                <div class="input-group">
+                                                    <input type="text" class="form-control" v-model="item.search"
+                                                        :placeholder="`Enter ${item.itemable_type?.label || 'Item'} ID...`"
+                                                        @keydown.enter="handleItemSearch(item, item.search)" />
+
+                                                    <button class="btn btn-outline-secondary" type="button"
+                                                        @click="handleItemSearch(item, item.search)"
+                                                        :disabled="isLoadingItems">
+                                                        <span v-if="isLoadingItems">
+                                                            <i class="fas fa-spinner fa-spin"></i>
+                                                        </span>
+                                                        <span v-else>
+                                                            <i class="fas fa-search"></i>
+                                                        </span>
+                                                    </button>
+                                                </div>
+
+                                                <small class="form-text text-muted d-block mt-1">
+                                                    Available items: {{ getAvailableCount(item) }}
+                                                </small>
+                                            </div>
+
+                                            <!-- Preview Button -->
+                                            <div v-if="getAvailableCount(item) >= 1"
+                                                class="col-md-2 mb-auto mt-auto d-flex align-items-end">
+                                                <button type="button" class="btn btn-outline-primary w-100"
+                                                    @click="openPreview(item, index)">
+                                                    <i class="fas fa-eye me-1"></i>
+                                                    Preview
                                                 </button>
                                             </div>
-                                            <small class="form-text text-muted d-block mt-1">
-                                                Available items: {{ getItemableOptions(item.itemable_type).length }}
-                                            </small>
                                         </div>
 
                                         <!-- Selected Item Display -->
                                         <div class="col-md-12 mb-2">
                                             <label class="form-label required">
                                                 <i class="fas fa-check-circle text-success me-1"></i>
-                                                Selected Item
+                                                Selected {{ item.itemable_type?.label || 'Item' }}
                                             </label>
                                             <div class="form-control-static p-2 bg-light rounded border"
                                                 style="min-height: 38px;">
-                                                <span v-if="item.itemable_id">
-                                                    <strong>{{getItemableOptions(item.itemable_type).find(o => o.id ===
-                                                        item.itemable_id)?.name || 'Loading...'}}</strong>
-                                                    <small class="text-muted d-block">ID: {{ item.itemable_id }}</small>
+                                                <span v-if="item.selected_item">
+                                                    <strong>{{ item.selected_item?.name || item.selected_item?.requisition_reference || 'Selected' }}</strong>
+                                                    <small class="text-muted d-block">ID: {{ item.selected_item?.id }}</small>
+                                                </span>
+                                                <span v-else-if="item.itemable">
+                                                    <strong>{{ getItemableOptions(item.itemable_type).find(o => o.id === item.itemable)?.name || 'Loading...' }}</strong>
+                                                    <small class="text-muted d-block">ID: {{ item.itemable }}</small>
                                                 </span>
                                                 <span v-else class="text-muted fst-italic">
                                                     <i class="fas fa-exclamation-triangle text-warning me-1"></i>
-                                                    No item selected
+                                                    No {{ item.itemable_type?.label || 'Item' }} selected
                                                 </span>
                                             </div>
                                         </div>
@@ -940,7 +1098,7 @@ onMounted(async () => {
                                             <div class="alert alert-info mb-0">
                                                 <small>
                                                     <strong>Summary:</strong>
-                                                    Amount in {{currencies.find(c => c.id === item.currency.id)?.name
+                                                    Amount in {{currencies.find(c => c.id === item.currency?.id)?.name
                                                         || 'currency'}}:
                                                     <strong class="text-success">
                                                         {{ formatAmount(item.amount) }}
@@ -982,14 +1140,14 @@ onMounted(async () => {
                                             <div class="d-flex justify-content-between mb-2">
                                                 <span>Exchange Rate:</span>
                                                 <strong>{{ formatAmount(paymentForm.exchange_rate) }}</strong>
-                                                <!-- <strong>{{ paymentForm.exchange_rate.toFixed(6) }}</strong> -->
                                             </div>
                                         </div>
                                         <div class="col-md-3">
                                             <div class="d-flex justify-content-between mb-2">
                                                 <span>Base Amount:</span>
-                                                <strong class="text-success">{{ formatAmount(totalBaseAmount)
-                                                }}</strong>
+                                                <strong class="text-success">
+                                                    {{ formatAmount(totalBaseAmount) }}
+                                                </strong>
                                             </div>
                                         </div>
                                     </div>
@@ -1000,13 +1158,13 @@ onMounted(async () => {
                 </form>
 
                 <!-- Form Actions -->
-                <CardFooter class="sticky-bottom">
+                <CardFooter class="sticky-xl-bottom">
                     <div class="d-flex justify-content-between">
-                        <button type="button" @click="goBack" class="btn btn-danger px-4">
+                        <button type="button" @click="goBack" class="btn btn-danger px-4 me-2">
                             <i class="fas fa-times me-1"></i>
                             Cancel
                         </button>
-                        <button type="submit" class="btn btn-success px-4"
+                        <button type="submit" class="btn btn-success px-4" @click="submitForm"
                             :disabled="isSaving || !canCreatePaymentAdvice">
                             <span v-if="isSaving" class="">
                                 <i class="fas fa-spinner fa-spin me-1"></i>
@@ -1022,6 +1180,107 @@ onMounted(async () => {
             </div>
         </CardBody>
     </NormalCard>
+
+    <!-- BEGIN Offcanvas -->
+    <StandardOffcanvas v-model="previewRequisition" position="right" width="420px" title="Requisition Preview">
+        <div v-if="paymentForm.items[currentItemIndex]?.preview_data" class="row g-3">
+
+            <!-- Header Info -->
+            <div class="col-12">
+                <div class="border rounded p-3 bg-light">
+                    <div class="fw-bold text-primary mb-1">
+                        {{ paymentForm.items[currentItemIndex].preview_data?.requisition_type?.name }}
+                    </div>
+
+                    <small class="text-muted d-block">
+                        Requisition ID: #{{ paymentForm.items[currentItemIndex].preview_data?.id }}
+                    </small>
+
+                    <span class="badge bg-warning text-dark mt-2">
+                        {{ paymentForm.items[currentItemIndex].preview_data?.status_label }}
+                    </span>
+                </div>
+            </div>
+
+            <!-- Meta -->
+            <div class="col-12">
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item px-0">
+                        <strong>Requested By:</strong>
+                        {{ paymentForm.items[currentItemIndex].preview_data?.user?.first_name }}
+                        {{ paymentForm.items[currentItemIndex].preview_data?.user?.last_name }}
+                    </li>
+
+                    <li class="list-group-item px-0">
+                        <strong>Required Date:</strong>
+                        {{ new Date(paymentForm.items[currentItemIndex].preview_data?.required_date).toLocaleDateString() }}
+                    </li>
+
+                    <li class="list-group-item px-0">
+                        <strong>Fund Direction:</strong>
+                        <span class="badge bg-info">
+                            {{ paymentForm.items[currentItemIndex].preview_data?.fund_direction }}
+                        </span>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Items -->
+            <div class="col-12">
+                <h6 class="text-primary">
+                    <i class="fas fa-boxes me-1"></i>
+                    Items
+                </h6>
+
+                <div v-for="(reqItem, i) in paymentForm.items[currentItemIndex].preview_data?.items" :key="i" class="border rounded p-2 mb-2">
+                    <div v-for="(mat, m) in reqItem.materials" :key="m" class="mb-2">
+                        <div class="fw-semibold">
+                            {{ mat.item?.name }}
+                        </div>
+
+                        <small class="text-muted d-block">
+                            {{ mat.quantity }} × {{ formatAmount(mat.rate) }}
+                            {{ reqItem.currency?.symbol }}
+                        </small>
+
+                        <div class="text-success fw-bold">
+                            {{ formatAmount(mat.quantity * mat.rate) }}
+                            {{ reqItem.currency?.symbol }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Total -->
+            <div class="col-12">
+                <div class="alert alert-success mb-0">
+                    <div class="d-flex justify-content-between">
+                        <span><strong>Total Amount</strong></span>
+                        <strong>{{ formatAmount(paymentForm.items[currentItemIndex].preview_data?.items?.reduce((sum, reqItem) => {
+                            const materialsTotal = reqItem.materials.reduce((mSum, m) => {
+                                return mSum + (Number(m.quantity) * Number(m.rate));
+                            }, 0);
+                            return sum + materialsTotal;
+                        }, 0) || 0) }}</strong>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <div v-else class="text-muted text-center p-3">
+            <EmptyState :title="'No requisition selected!'"
+                :subtitle="'Try to re-search Requisition or re-select Requisition.'"
+                :icon="'fa-solid fa-exclamation-triangle'" :colorClass="'text-warning'" :showButton="false" />
+        </div>
+
+        <template #footer>
+            <button class="btn btn-outline-danger w-100" @click="previewRequisition = false">
+                <i class="fas fa-times me-1"></i> Close
+            </button>
+        </template>
+    </StandardOffcanvas>
+
 </template>
 
 <style scoped>
