@@ -1040,29 +1040,6 @@ onMounted(async () => {
                                             </div>
                                         </div>
 
-                                        <!-- Selected Item Display -->
-                                        <div class="col-md-12 mb-2">
-                                            <label class="form-label required">
-                                                <i class="fas fa-check-circle text-success me-1"></i>
-                                                Selected {{ item.itemable_type?.label || 'Item' }}
-                                            </label>
-                                            <div class="form-control-static p-2 bg-light rounded border"
-                                                style="min-height: 38px;">
-                                                <span v-if="item.selected_item">
-                                                    <strong>{{ item.selected_item?.name || item.selected_item?.requisition_reference || 'Selected' }}</strong>
-                                                    <small class="text-muted d-block">ID: {{ item.selected_item?.id }}</small>
-                                                </span>
-                                                <span v-else-if="item.itemable">
-                                                    <strong>{{ getItemableOptions(item.itemable_type).find(o => o.id === item.itemable)?.name || 'Loading...' }}</strong>
-                                                    <small class="text-muted d-block">ID: {{ item.itemable }}</small>
-                                                </span>
-                                                <span v-else class="text-muted fst-italic">
-                                                    <i class="fas fa-exclamation-triangle text-warning me-1"></i>
-                                                    No {{ item.itemable_type?.label || 'Item' }} selected
-                                                </span>
-                                            </div>
-                                        </div>
-
                                         <!-- Description -->
                                         <div class="col-md-4 mb-2">
                                             <label class="form-label">
@@ -1091,6 +1068,29 @@ onMounted(async () => {
                                             </label>
                                             <input type="number" v-model="item.amount" class="form-control"
                                                 placeholder="0.00" step="0.01" min="0.01" required />
+                                        </div>
+
+                                        <!-- Selected Item Display -->
+                                        <div class="col-md-12 mb-2">
+                                            <label class="form-label required">
+                                                <i class="fas fa-check-circle text-success me-1"></i>
+                                                Selected {{ item.itemable_type?.label || 'Item' }}
+                                            </label>
+                                            <div class="form-control-static p-2 bg-light rounded border"
+                                                style="min-height: 38px;">
+                                                <span v-if="item.selected_item">
+                                                    <strong>{{ item.selected_item?.name || item.selected_item?.requisition_reference || 'Selected' }}</strong>
+                                                    <small class="text-muted d-block">ID: {{ item.selected_item?.id }}</small>
+                                                </span>
+                                                <span v-else-if="item.itemable">
+                                                    <strong>{{ getItemableOptions(item.itemable_type).find(o => o.id === item.itemable)?.name || 'Loading...' }}</strong>
+                                                    <small class="text-muted d-block">ID: {{ item.itemable }}</small>
+                                                </span>
+                                                <span v-else class="text-muted fst-italic">
+                                                    <i class="fas fa-exclamation-triangle text-warning me-1"></i>
+                                                    No {{ item.itemable_type?.label || 'Item' }} selected
+                                                </span>
+                                            </div>
                                         </div>
 
                                         <!-- Item Summary -->
