@@ -526,7 +526,6 @@ const submitForm = async () => {
                 p.accountable_type.value === 'OTHER'
                     ? null
                     : p.accountable.id,
-            // other_accountable: p.other_accountable || null,
             payee_name: p.payee_name,
             cheque_number: p.cheque_number,
             control_number: p.control_number,
