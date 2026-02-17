@@ -21,10 +21,10 @@ type Props = {
   accounts: any[]
   sourceAccounts: any[]
   replenishAccounts: any[]
-  users: any[] 
-  locations: any[] 
-  entities: any[] 
-  dimensionTypes: any[] 
+  users: any[]
+  locations: any[]
+  entities: any[]
+  dimensionTypes: any[]
   dimensionValues: any[]
   vatOptions: any[]
   grandTotal: number
@@ -68,26 +68,26 @@ const sourceSelection = computed<any>({
   get() {
     const source = form.value?.source
     if (!source?.sourceType) return null
-    
+
     let valueString: string | null = null
     if (source.sourceType === 'CASH' && source.accountId) {
       valueString = `CASH:${source.accountId}`
     } else if ((source.sourceType === 'STORE' || source.sourceType === 'PARTIES') && source.sourceId) {
       valueString = `${source.sourceType}:${source.sourceId}`
     }
-    
+
     if (!valueString) return null
-    
+
     // Find and return the full option object from sourceOptions
     return sourceOptions.value.find((opt: any) => opt.value === valueString) || null
   },
   set(selected: any) {
     const source = form.value?.source
     if (!source) return
-    
+
     // selected is now the full option object from vue-multiselect
     const value = selected?.value || null
-    
+
     if (!value) {
       source.sourceType = null
       source.sourceId = null
@@ -271,7 +271,7 @@ const getItemTotal = (item: any) => {
 // Returns options with parent headers (non-selectable) and child accounts (selectable)
 const flattenAccountsWithGroups = (accountList: any[]): any[] => {
   const options: any[] = []
-  
+
   accountList.forEach((acc: any) => {
     if (acc.children && acc.children.length > 0) {
       // This is a parent account - add as header, then add children
@@ -308,7 +308,7 @@ const flattenAccountsWithGroups = (accountList: any[]): any[] => {
       })
     }
   })
-  
+
   return options
 }
 
@@ -326,7 +326,7 @@ const flatAccounts = computed(() => {
       acc.children.forEach((child: any) => flatten(child))
     }
   }
-  ;(accounts.value || []).forEach(flatten)
+    ; (accounts.value || []).forEach(flatten)
   return flattened
 })
 
@@ -338,7 +338,7 @@ const flatSourceAccounts = computed(() => {
       acc.children.forEach((child: any) => flatten(child))
     }
   }
-  ;(sourceAccounts.value || []).forEach(flatten)
+    ; (sourceAccounts.value || []).forEach(flatten)
   return flattened
 })
 
@@ -405,7 +405,7 @@ const costCenterOptions = computed(() => {
     for (const val of values) {
       options.push({
         label: val.name,
-        value: val.id, 
+        value: val.id,
         groupKey: `TYPE:${type.id}`,
         icon: 'fa fa-dot-circle-o',
         searchText: `${type.name} ${val.name}`,
@@ -649,17 +649,17 @@ const attachmentReferenceOptions = computed(() => {
       }))
   }
   if (attachmentType.value === 'Line Item') {
-     const centers = form.value?.costCenters || []
-     const rows: any[] = []
-     centers.forEach((cc: any, ccIndex: number) => {
-       ;(cc.items || []).forEach((item: any, itemIndex: number) => {
-         rows.push({
-           label: `${resolveLineItemLabel(item)} (CC ${ccIndex + 1}, Item ${itemIndex + 1})`,
-           value: item._key || `${cc._key}:${itemIndex}`,
-         })
-       })
-     })
-     return rows
+    const centers = form.value?.costCenters || []
+    const rows: any[] = []
+    centers.forEach((cc: any, ccIndex: number) => {
+      ; (cc.items || []).forEach((item: any, itemIndex: number) => {
+        rows.push({
+          label: `${resolveLineItemLabel(item)} (CC ${ccIndex + 1}, Item ${itemIndex + 1})`,
+          value: item._key || `${cc._key}:${itemIndex}`,
+        })
+      })
+    })
+    return rows
   }
   return []
 })
@@ -919,9 +919,9 @@ const getItemAccountSelection = (line: any) => {
   let val: string | null = null
   if (line?.itemId) val = `ITEM:${line.itemId}`
   else if (line?.accountId) val = `ACCOUNT:${line.accountId}`
-  
+
   if (!val) return null
-  
+
   return itemAccountOptions.value.find((opt: any) => opt.value === val) || null
 }
 
@@ -952,7 +952,7 @@ const onItemAccountSelect = (line: any, value: any, multiselectRef?: any) => {
     line.itemId = null
     line.unitId = null
   }
-  
+
   // Close the dropdown
   nextTick(() => {
     if (multiselectRef?.deactivate) {
@@ -973,7 +973,8 @@ const onItemAccountSelect = (line: any, value: any, multiselectRef?: any) => {
             REQUISITION / <span>REQUISITIONS FORM</span>
           </div>
           <h1 class="form-page-title">{{ isEditMode ? 'Edit Requisition' : 'Create Requisition' }}</h1>
-          <p class="form-page-subtitle">Fill in the requisition details and add line items for materials or expenses.</p>
+          <p class="form-page-subtitle">Fill in the requisition details and add line items for materials or expenses.
+          </p>
         </div>
 
         <div class="form-page-actions">
@@ -1155,19 +1156,16 @@ const onItemAccountSelect = (line: any, value: any, multiselectRef?: any) => {
                     </span>
                     <span class="form-group-index">#{{ ccIndex + 1 }}</span>
                     <Multiselect :ref="(el) => { if (el) cc._multiselectRef = el }"
-                      :model-value="getCostCenterSelection(cc)" 
+                      :model-value="getCostCenterSelection(cc)"
                       @update:model-value="(val) => setCostCenterSelection(cc, val, cc._multiselectRef)"
-                      class="v-select-field v-select-grouped cost-center-select"
-                      :options="costCenterOptions" label="label" track-by="value"
-                      :allow-empty="true" :append-to-body="true" :multiple="false"
-                      :close-on-select="true" :group-select="false"
-                      :option-height="28" :max-height="300"
-                      :selectable="(option) => !option.isHeader && !option.$isDisabled"
-                      :searchable="true" :options-limit="300"
-                      placeholder="Search cost center..." 
-                      @click.stop>
+                      class="v-select-field v-select-grouped cost-center-select" :options="costCenterOptions"
+                      label="label" track-by="value" :allow-empty="true" :append-to-body="true" :multiple="false"
+                      :close-on-select="true" :group-select="false" :option-height="28" :max-height="300"
+                      :selectable="(option) => !option.isHeader && !option.$isDisabled" :searchable="true"
+                      :options-limit="300" placeholder="Search cost center..." @click.stop>
                       <template #option="{ option }">
-                        <div :class="{ 'cost-center-header-option': option.isHeader, 'cost-center-option': !option.isHeader }">
+                        <div
+                          :class="{ 'cost-center-header-option': option.isHeader, 'cost-center-option': !option.isHeader }">
                           {{ option.label }}
                         </div>
                       </template>
@@ -1207,21 +1205,22 @@ const onItemAccountSelect = (line: any, value: any, multiselectRef?: any) => {
                           <td class="text-center">{{ itemIndex + 1 }}</td>
 
                           <td>
-                            <Multiselect :ref="(el) => { if (el) item._multiselectRef = el }" 
+                            <Multiselect :ref="(el) => { if (el) item._multiselectRef = el }"
                               class="v-select-sm v-select-grouped" :modelValue="getItemAccountSelection(item)"
-                              :options="itemAccountOptions" label="label" track-by="value" :custom-label="(opt) => opt.label"
-                              :allow-empty="true" :multiple="false" :close-on-select="true" :group-select="false"
-                              :option-height="28" :max-height="300"
+                              :options="itemAccountOptions" label="label" track-by="value"
+                              :custom-label="(opt) => opt.label" :allow-empty="true" :multiple="false"
+                              :close-on-select="true" :group-select="false" :option-height="28" :max-height="300"
                               :selectable="(option) => !option.isHeader && !option.isParentHeader && !option.$isDisabled"
                               placeholder="Search..."
                               @update:modelValue="(value) => onItemAccountSelect(item, value, item._multiselectRef)">
                               <template #option="{ option }">
-                                <div :class="{ 
-                                  'item-header': option.isHeader || option.isParentHeader, 
+                                <div :class="{
+                                  'item-header': option.isHeader || option.isParentHeader,
                                   'item-option': !option.isHeader && !option.isParentHeader,
-                                  'ps-3': option.isChild 
+                                  'ps-3': option.isChild
                                 }">
-                                  <span class="item-name">{{ option && option.name ? option.name : option.label }}</span>
+                                  <span class="item-name">{{ option && option.name ? option.name : option.label
+                                    }}</span>
                                   <span v-if="option && option.code" class="item-code">{{ option.code }}</span>
                                 </div>
                               </template>
@@ -1242,11 +1241,7 @@ const onItemAccountSelect = (line: any, value: any, multiselectRef?: any) => {
                           </td>
 
                           <td>
-                            <CurrencyInput
-                              v-model="item.rate"
-                              class="form-control-sm text-end"
-                              placeholder="0.00"
-                            />
+                            <CurrencyInput v-model="item.rate" class="form-control-sm text-end" placeholder="0.00" />
                           </td>
 
                           <td class="text-end">
@@ -1311,7 +1306,7 @@ const onItemAccountSelect = (line: any, value: any, multiselectRef?: any) => {
           </div>
           <div class="form-body p-4" v-if="activeFormTab === 'sources'">
             <div class="form-section">
-              <h4 class="form-section-title mb-3" >
+              <h4 class="form-section-title mb-3">
                 {{ form.fundDirection === 'DIRECT_PAYMENT' ? 'Direct Payment' : 'Withdraw Funds' }}
               </h4>
 
@@ -1320,13 +1315,9 @@ const onItemAccountSelect = (line: any, value: any, multiselectRef?: any) => {
                   <span class="form-label">Payment Mode</span>
                   <div class="form-input-wrapper has-v-select">
                     <span class="form-input-icon"><i class="fa fa-credit-card"></i></span>
-                    <v-select ref="modeOfPaymentRef" v-model="modeOfPaymentSelection" class="v-select-field" 
-                      :options="paymentModeOptions"
-                      label="label" 
-                      :reduce="(option: any) => option"
-                      :clearable="false"
-                      :append-to-body="true"
-                      placeholder="Select payment mode...">
+                    <v-select ref="modeOfPaymentRef" v-model="modeOfPaymentSelection" class="v-select-field"
+                      :options="paymentModeOptions" label="label" :reduce="(option: any) => option" :clearable="false"
+                      :append-to-body="true" placeholder="Select payment mode...">
                     </v-select>
                   </div>
                 </label>
@@ -1337,17 +1328,15 @@ const onItemAccountSelect = (line: any, value: any, multiselectRef?: any) => {
                     <div class="form-input-wrapper has-v-select">
                       <span class="form-input-icon"><i class="fa fa-bank"></i></span>
                       <v-select ref="sourceAccountSelect" v-model="sourceSelection"
-                        class="v-select-field v-select-grouped" :options="sourceOptions"
-                        label="label" :reduce="(option: any) => option" :clearable="true"
+                        class="v-select-field v-select-grouped" :options="sourceOptions" label="label"
+                        :reduce="(option: any) => option" :clearable="true"
                         :selectable="(option: any) => !option.isHeader && !option.isParentHeader && !option.$isDisabled"
-                        placeholder="Search or select source..."
-                        :append-to-body="true"
-                        :filterable="true">
+                        placeholder="Search or select source..." :append-to-body="true" :filterable="true">
                         <template #option="option">
-                          <div :class="{ 
-                            'source-header': option.isHeader || option.isParentHeader, 
+                          <div :class="{
+                            'source-header': option.isHeader || option.isParentHeader,
                             'source-option': !option.isHeader && !option.isParentHeader,
-                            'ps-3': option.isChild 
+                            'ps-3': option.isChild
                           }">
                             {{ option.label }}
                           </div>
@@ -1392,13 +1381,9 @@ const onItemAccountSelect = (line: any, value: any, multiselectRef?: any) => {
                         <span class="form-label">Bank Transfer</span>
                         <div class="form-input-wrapper has-v-select">
                           <span class="form-input-icon"><i class="fa fa-bank"></i></span>
-                          <v-select ref="paymentMethodRef" v-model="paymentMethodSelection" class="v-select-field" 
-                            :options="paymentModeOptions"
-                            label="label" 
-                            :reduce="(option: any) => option"
-                            :clearable="false"
-                            :append-to-body="true"
-                            placeholder="Select payment method...">
+                          <v-select ref="paymentMethodRef" v-model="paymentMethodSelection" class="v-select-field"
+                            :options="paymentModeOptions" label="label" :reduce="(option: any) => option"
+                            :clearable="false" :append-to-body="true" placeholder="Select payment method...">
                           </v-select>
                         </div>
                       </label>
@@ -1408,17 +1393,15 @@ const onItemAccountSelect = (line: any, value: any, multiselectRef?: any) => {
                         <div class="form-input-wrapper has-v-select">
                           <span class="form-input-icon"><i class="fa fa-credit-card"></i></span>
                           <v-select ref="sourceAccountSelect" v-model="sourceSelection"
-                            class="v-select-field v-select-grouped" :options="sourceOptions"
-                            label="label" :reduce="(option: any) => option" :clearable="true"
+                            class="v-select-field v-select-grouped" :options="sourceOptions" label="label"
+                            :reduce="(option: any) => option" :clearable="true"
                             :selectable="(option: any) => !option.isHeader && !option.isParentHeader && !option.$isDisabled"
-                            placeholder="Select source account..."
-                            :append-to-body="true"
-                            :filterable="true">
+                            placeholder="Select source account..." :append-to-body="true" :filterable="true">
                             <template #option="option">
-                              <div :class="{ 
-                                'source-header': option.isHeader || option.isParentHeader, 
+                              <div :class="{
+                                'source-header': option.isHeader || option.isParentHeader,
                                 'source-option': !option.isHeader && !option.isParentHeader,
-                                'ps-3': option.isChild 
+                                'ps-3': option.isChild
                               }">
                                 {{ option.label }}
                               </div>
@@ -1451,20 +1434,16 @@ const onItemAccountSelect = (line: any, value: any, multiselectRef?: any) => {
                         <span class="form-label">Receiving Account <span class="form-required">*</span></span>
                         <div class="form-input-wrapper has-v-select">
                           <span class="form-input-icon"><i class="fa fa-bank"></i></span>
-                          <v-select ref="receivingAccountRef" v-model="receivingAccountSelection" class="v-select-field" 
-                            :options="groupedReplenishAccountOptions"
-                            label="label" 
-                            :reduce="(option: any) => option"
+                          <v-select ref="receivingAccountRef" v-model="receivingAccountSelection" class="v-select-field"
+                            :options="groupedReplenishAccountOptions" label="label" :reduce="(option: any) => option"
                             :clearable="true"
                             :selectable="(option: any) => !option.isHeader && !option.isParentHeader && !option.$isDisabled"
-                            placeholder="Select receiving account..."
-                            :append-to-body="true"
-                            :filterable="true">
+                            placeholder="Select receiving account..." :append-to-body="true" :filterable="true">
                             <template #option="option">
-                              <div :class="{ 
-                                'source-header': option.isParentHeader, 
+                              <div :class="{
+                                'source-header': option.isParentHeader,
                                 'source-option': !option.isHeader,
-                                'ps-3': option.isChild 
+                                'ps-3': option.isChild
                               }">
                                 {{ option.label }}
                               </div>
@@ -1478,13 +1457,10 @@ const onItemAccountSelect = (line: any, value: any, multiselectRef?: any) => {
                         <span class="form-label">Custodian / Holder <span class="form-required">*</span></span>
                         <div class="form-input-wrapper has-v-select">
                           <span class="form-input-icon"><i class="fa fa-user"></i></span>
-                          <v-select ref="custodianRef" v-model="custodianSelection" class="v-select-field" :options="usersOptions"
-                            :reduce="(option: any) => option"
-                            :get-option-label="getUserDisplayName"
-                            :clearable="false"
-                            :append-to-body="true"
-                            :filterable="true"
-                            placeholder="Select custodian...">
+                          <v-select ref="custodianRef" v-model="custodianSelection" class="v-select-field"
+                            :options="usersOptions" :reduce="(option: any) => option"
+                            :get-option-label="getUserDisplayName" :clearable="false" :append-to-body="true"
+                            :filterable="true" placeholder="Select custodian...">
                           </v-select>
                         </div>
                       </label>
@@ -1514,18 +1490,16 @@ const onItemAccountSelect = (line: any, value: any, multiselectRef?: any) => {
                     <div class="form-files-title d-flex align-items-center gap-2">
                       <i class="fa fa-paperclip"></i>
                       <span>Link Attachment To:</span>
-                      <Multiselect
-                        v-model="attachmentType"
-                        :options="attachmentTypeOptions"
-                        :allow-empty="false" :multiple="false"
-                        :searchable="false"
-                        class="type-select"
-                        style="min-width: 180px; display: inline-block;"
-                      ></Multiselect>
+                      <Multiselect v-model="attachmentType" :options="attachmentTypeOptions" :allow-empty="false"
+                        :multiple="false" :searchable="false" class="type-select"
+                        style="min-width: 180px; display: inline-block;"></Multiselect>
                     </div>
                     <div class="form-files-actions">
-                      <button type="button" class="btn btn-sm btn-primary" @click="saveAttachment" :disabled="!selectedAttachmentFile || (attachmentType !== 'General' && !attachmentReference)">Save Attachment</button>
-                      <button type="button" class="btn btn-sm btn-outline-secondary" @click="cancelAttachment">Cancel</button>
+                      <button type="button" class="btn btn-sm btn-primary" @click="saveAttachment"
+                        :disabled="!selectedAttachmentFile || (attachmentType !== 'General' && !attachmentReference)">Save
+                        Attachment</button>
+                      <button type="button" class="btn btn-sm btn-outline-secondary"
+                        @click="cancelAttachment">Cancel</button>
                     </div>
                   </div>
 
@@ -1534,8 +1508,9 @@ const onItemAccountSelect = (line: any, value: any, multiselectRef?: any) => {
                       <span class="form-label">Select {{ attachmentType }}</span>
                       <div class="form-input-wrapper has-v-select">
                         <span class="form-input-icon"><i class="fa fa-bank"></i></span>
-                        <Multiselect class="v-select-field" v-model="attachmentReference" :options="attachmentReferenceOptions"
-                          label="label" track-by="value" :allow-empty="false" :multiple="false" :custom-label="(opt) => opt.label"
+                        <Multiselect class="v-select-field" v-model="attachmentReference"
+                          :options="attachmentReferenceOptions" label="label" track-by="value" :allow-empty="false"
+                          :multiple="false" :custom-label="(opt) => opt.label"
                           :placeholder="'Select ' + attachmentType">
                           <template #option="{ option }">
                             <div :class="{ 'source-header': option.isHeader, 'source-option': !option.isHeader }">
@@ -1550,12 +1525,8 @@ const onItemAccountSelect = (line: any, value: any, multiselectRef?: any) => {
                     <label class="form-field compact-field">
                       <span class="form-label">File</span>
                       <div class="form-input-wrapper">
-                        <input
-                          ref="attachmentInputRef"
-                          type="file"
-                          class="form-control"
-                          @change="onAttachmentFileChange"
-                        />
+                        <input ref="attachmentInputRef" type="file" class="form-control"
+                          @change="onAttachmentFileChange" />
                       </div>
                       <small v-if="selectedAttachmentFile" class="text-muted">
                         Selected: {{ selectedAttachmentFile.name }}
@@ -1564,11 +1535,16 @@ const onItemAccountSelect = (line: any, value: any, multiselectRef?: any) => {
                   </div>
 
                   <div class="form-files-tabs">
-                    <button type="button" class="tab" :class="{ active: currentAttachmentTab === 'All' }" @click="currentAttachmentTab = 'All'"><i class="fa fa-list"></i> All</button>
-                    <button type="button" class="tab" :class="{ active: currentAttachmentTab === 'General' }" @click="currentAttachmentTab = 'General'"><i class="fa fa-folder-open"></i> General</button>
-                    <button type="button" class="tab" :class="{ active: currentAttachmentTab === 'Funding' }" @click="currentAttachmentTab = 'Funding'"><i class="fa fa-credit-card"></i> Funding</button>
-                    <button type="button" class="tab" :class="{ active: currentAttachmentTab === 'Cost Center' }" @click="currentAttachmentTab = 'Cost Center'"><i class="fa fa-sitemap"></i> Cost Center</button>
-                    <button type="button" class="tab" :class="{ active: currentAttachmentTab === 'Line Item' }" @click="currentAttachmentTab = 'Line Item'"><i class="fa fa-list-alt"></i> Line Item</button>
+                    <button type="button" class="tab" :class="{ active: currentAttachmentTab === 'All' }"
+                      @click="currentAttachmentTab = 'All'"><i class="fa fa-list"></i> All</button>
+                    <button type="button" class="tab" :class="{ active: currentAttachmentTab === 'General' }"
+                      @click="currentAttachmentTab = 'General'"><i class="fa fa-folder-open"></i> General</button>
+                    <button type="button" class="tab" :class="{ active: currentAttachmentTab === 'Funding' }"
+                      @click="currentAttachmentTab = 'Funding'"><i class="fa fa-credit-card"></i> Funding</button>
+                    <button type="button" class="tab" :class="{ active: currentAttachmentTab === 'Cost Center' }"
+                      @click="currentAttachmentTab = 'Cost Center'"><i class="fa fa-sitemap"></i> Cost Center</button>
+                    <button type="button" class="tab" :class="{ active: currentAttachmentTab === 'Line Item' }"
+                      @click="currentAttachmentTab = 'Line Item'"><i class="fa fa-list-alt"></i> Line Item</button>
                   </div>
 
                   <div class="form-files-table">
@@ -1590,24 +1566,23 @@ const onItemAccountSelect = (line: any, value: any, multiselectRef?: any) => {
                         {{ file.name }}
                       </div>
                       <div>{{ file.type }}</div>
-                      <div><span class="form-tag" :class="file.linkedTo.toLowerCase().replace(' ', '-')">{{ file.linkedTo }}</span></div>
+                      <div><span class="form-tag" :class="file.linkedTo.toLowerCase().replace(' ', '-')">{{
+                          file.linkedTo
+                          }}</span></div>
                       <div>{{ file.reference }}</div>
                       <div>{{ file.uploadedBy }}</div>
                       <div>{{ file.date }}</div>
-                        <div class="d-flex gap-1" style="justify-content: flex-end;">
-                            <button
-                              type="button"
-                              class="btn btn-xs btn-outline-primary"
-                              :disabled="!file.url"
-                              @click="openAttachment(file)"
-                            >
-                              View
-                            </button>
-                          <button type="button" class="btn btn-xs btn-outline-danger" @click="deleteAttachment(index)"><i class="fa fa-trash"></i></button>
+                      <div class="d-flex gap-1" style="justify-content: flex-end;">
+                        <button type="button" class="btn btn-xs btn-outline-primary" :disabled="!file.url"
+                          @click="openAttachment(file)">
+                          View
+                        </button>
+                        <button type="button" class="btn btn-xs btn-outline-danger" @click="deleteAttachment(index)"><i
+                            class="fa fa-trash"></i></button>
                       </div>
                     </div>
                     <div v-if="filteredAttachments.length === 0" class="form-files-row">
-                        <div class="text-center w-100 text-muted small py-3">No attachments found</div>
+                      <div class="text-center w-100 text-muted small py-3">No attachments found</div>
                     </div>
                   </div>
                 </div>
@@ -1617,7 +1592,7 @@ const onItemAccountSelect = (line: any, value: any, multiselectRef?: any) => {
 
           <!-- Common Actions Footer -->
           <div class="d-flex justify-content-end gap-2 p-3 bg-white border-top mt-auto">
-          <button class="btn btn-outline-secondary d-flex align-items-center gap-2 px-4" type="button"
+            <button class="btn btn-outline-secondary d-flex align-items-center gap-2 px-4" type="button"
               @click="saveDraft" :disabled="savingForm">
               <i class="fa fa-bars"></i> Save Draft
             </button>
