@@ -550,7 +550,7 @@ const fetchClients = async () => {
   loading.value = true
   try {
     const params: any = { ...tableFilters.value }
-    const response = await axios.get(`${apiBaseUrl}entities/individuals`, {
+    const response = await axios.get(`${apiBaseUrl}clients`, {
       params,
       headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }
     })

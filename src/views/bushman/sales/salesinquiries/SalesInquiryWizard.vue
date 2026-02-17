@@ -32,7 +32,7 @@
           <div class="panel-header">
             <div class="panel-icon"><i class="fa fa-user"></i></div>
             <div class="panel-title-text">
-              <h3>Sales Enquiry for {{ form.full_name || 'Customer' }}</h3>
+              <h3>Enquiry Preview for {{ form.full_name || 'Customer' }}</h3>
               <p>Hunt details and configuration</p>
             </div>
           </div>
@@ -56,7 +56,7 @@
               </label>
 
               <label class="field">
-                <span class="lbl">Start Date</span>
+                <span class="lbl">Preferred Date</span>
                 <div class="input-wrapper">
                   <Datepicker v-model="form.start_date" mode="date" :placeholder="'Select start date...'"
                     @update:modelValue="onStartDateChange" />
@@ -104,12 +104,13 @@
                 </div>
               </label>
 
-              <label class="field">
-                <span class="lbl">Number of Hunters <span class="req">*</span></span>
+              <div class="field">
+                <span class="lbl">Number of Hunters</span>
                 <div class="input-wrapper">
-                  <input type="number" v-model.number="form.no_of_hunters" min="1" placeholder="e.g., 2" />
+                  <div class="readonly-value">{{ participants.length || 1 }}</div>
                 </div>
-              </label>
+                <small class="text-muted">Auto-calculated from participants list</small>
+              </div>
             </div>
           </div>
         </aside>
@@ -162,8 +163,12 @@
               </div>
 
               <!-- Species Selection -->
-              <div class="section-divider">
-                <span><i class="fa fa-paw me-2"></i>Species Selection</span>
+              <div class="section-divider d-flex align-items-center justify-content-between">
+                <span><i class="fa fa-paw me-2"></i>Main Species Selection</span>
+                <button type="button" class="btn btn-sm btn-outline-success rounded-pill" @click="showNormalSpeciesModal = true">
+                  <i class="fa fa-leaf me-1"></i> Normal Species
+                  <span v-if="normalSpeciesObjects.length > 0" class="badge bg-success ms-1">{{ normalSpeciesObjects.length }}</span>
+                </button>
               </div>
 
 
@@ -205,37 +210,30 @@
               <div class="items-list">
                 <div class="list-header">
                   <div class="d-flex align-items-center gap-2">
-                    <input
-                      v-if="speciesObjects.length > 0"
-                      type="checkbox"
-                      class="species-checkbox"
-                      :checked="selectedSpeciesIndices.size === speciesObjects.length && speciesObjects.length > 0"
-                      :indeterminate="selectedSpeciesIndices.size > 0 && selectedSpeciesIndices.size < speciesObjects.length"
-                      @change="toggleSelectAllSpecies"
-                      title="Select All"
-                    />
-                    <strong>Selected Species ({{ speciesObjects.length }})</strong>
+                    <strong>Main Species ({{ speciesObjects.length }})</strong>
+                    <span v-if="normalSpeciesObjects.length > 0" class="badge bg-success" style="font-size: 10px;">+ {{ normalSpeciesObjects.length }} Normal</span>
                   </div>
                   <div class="d-flex align-items-center gap-2">
                     <button
                       v-if="selectedSpeciesIndices.size > 0"
                       type="button"
-                      class="btn btn-sm btn-outline-danger"
+                      class="btn btn-sm btn-danger"
                       @click="deleteSelectedSpecies"
                     >
-                      <i class="fa fa-trash me-1"></i> Delete Selected ({{ selectedSpeciesIndices.size }})
+                      <i class="fa fa-trash me-1"></i> Remove ({{ selectedSpeciesIndices.size }})
                     </button>
                     <small class="text-muted">Click priority badge to toggle</small>
                   </div>
                 </div>
 
                 <div v-if="speciesObjects.length > 0" class="list-items">
-                  <div v-for="(s, index) in speciesObjects" :key="index" class="list-item" :class="{ 'list-item-selected': selectedSpeciesIndices.has(index) }">
+                  <!-- Main Species -->
+                  <div v-for="(s, index) in speciesObjects" :key="'main-' + (s.species_id || s.id || index)" class="list-item" :class="{ 'list-item-selected': selectedSpeciesIndices.has(s.species_id ?? s.id ?? index) }">
                     <div class="item-info">
                       <input
                         type="checkbox"
-                        class="species-checkbox"
-                        :checked="selectedSpeciesIndices.has(index)"
+                        class="form-check-input me-1"
+                        :checked="selectedSpeciesIndices.has(s.species_id ?? s.id ?? index)"
                         @change="toggleSpeciesSelection(index)"
                       />
                       <strong>{{ s.name }}</strong>
@@ -292,6 +290,305 @@
                   </div>
                 </div>
               </div>
+
+              <!-- Normal Species Modal -->
+              <Teleport to="body">
+                <div v-if="showNormalSpeciesModal" class="normal-species-modal-overlay" @click.self="showNormalSpeciesModal = false">
+                  <div class="normal-species-modal">
+                    <div class="normal-species-modal-header">
+                      <h5 class="mb-0"><i class="fa fa-leaf me-2 text-success"></i>Normal Species (Optional)</h5>
+                      <button type="button" class="btn-close" @click="showNormalSpeciesModal = false"></button>
+                    </div>
+                    <div class="normal-species-modal-body">
+                      <!-- Add Normal Species Form -->
+                      <div class="add-item-row">
+                        <Multiselect
+                          :model-value="getNormalSpeciesSelection()" @update:model-value="setNormalSpeciesSelection"
+                          class="v-select-field v-select-grouped species-select" :options="groupedNormalSpeciesOptions" label="label"
+                          track-by="value" :allow-empty="true" :multiple="false" :close-on-select="true"
+                          :group-select="false" :option-height="28" :max-height="300"
+                          :selectable="(option: any) => !option.isHeader && !option.isCategoryHeader && !option.$isDisabled"
+                          :searchable="true" :options-limit="500"
+                          :disabled="!currentSalesPackage"
+                          placeholder="Search species by name...">
+                          <template #option="{ option }">
+                            <div :class="{
+                              'species-category-header': option.isHeader || option.isCategoryHeader,
+                              'species-option': !option.isHeader && !option.isCategoryHeader,
+                              'ps-3': option.isChild
+                            }">
+                              <span class="species-name">{{ option.name || option.label }}</span>
+                              <span v-if="option.scientificName" class="species-scientific text-muted ms-2">
+                                <em>{{ option.scientificName }}</em>
+                              </span>
+                              <span v-if="option.regulatoryQty > 0 && !option.isHeader" class="badge bg-secondary ms-2">
+                                Qty: {{ option.regulatoryQty }}
+                              </span>
+                            </div>
+                          </template>
+                        </Multiselect>
+                        <input type="number" v-model.number="normalSpeciesQuantity" min="1" placeholder="Qty" class="qty-input" />
+                        <button type="button" class="btn btn-success" @click="addNormalSpeciesToList">
+                          <i class="fa fa-plus me-1"></i> Add
+                        </button>
+                      </div>
+
+                      <!-- Normal Species List -->
+                      <div class="items-list mt-3">
+                        <div class="list-header">
+                          <div class="d-flex align-items-center gap-2">
+                            <input
+                              v-if="normalSpeciesObjects.length > 0"
+                              type="checkbox"
+                              class="species-checkbox"
+                              :checked="selectedNormalSpeciesIndices.size === normalSpeciesObjects.length && normalSpeciesObjects.length > 0"
+                              :indeterminate="selectedNormalSpeciesIndices.size > 0 && selectedNormalSpeciesIndices.size < normalSpeciesObjects.length"
+                              @change="toggleSelectAllNormalSpecies"
+                              title="Select All"
+                            />
+                            <strong>Normal Species ({{ normalSpeciesObjects.length }})</strong>
+                          </div>
+                          <div class="d-flex align-items-center gap-2">
+                            <button
+                              v-if="selectedNormalSpeciesIndices.size > 0"
+                              type="button"
+                              class="btn btn-sm btn-outline-danger"
+                              @click="showNormalDeleteConfirm = true"
+                            >
+                              <i class="fa fa-trash me-1"></i> Delete ({{ selectedNormalSpeciesIndices.size }})
+                            </button>
+                          </div>
+                        </div>
+
+                        <!-- Inline delete confirmation -->
+                        <div v-if="showNormalDeleteConfirm" class="alert alert-warning d-flex align-items-center justify-content-between py-2 px-3 mb-2 mt-2 rounded">
+                          <div>
+                            <i class="fa fa-exclamation-triangle me-2 text-warning"></i>
+                            Remove <strong>{{ selectedNormalSpeciesIndices.size }}</strong> selected normal species?
+                          </div>
+                          <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-sm btn-danger" @click="confirmDeleteNormalSpecies">
+                              <i class="fa fa-trash me-1"></i> Yes, delete
+                            </button>
+                            <button type="button" class="btn btn-sm btn-secondary" @click="showNormalDeleteConfirm = false">
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+
+                        <div v-if="normalSpeciesObjects.length > 0" class="list-items" style="max-height: 350px; overflow-y: auto;">
+                          <div v-for="(s, index) in normalSpeciesObjects" :key="s.species_id || s.id || index" class="list-item normal-species-item" :class="{ 'list-item-selected': selectedNormalSpeciesIndices.has(s.species_id ?? s.id ?? index) }">
+                            <div class="item-info">
+                              <input
+                                type="checkbox"
+                                class="species-checkbox"
+                                :checked="selectedNormalSpeciesIndices.has(s.species_id ?? s.id ?? index)"
+                                @change="toggleNormalSpeciesSelection(index)"
+                              />
+                              <strong>{{ s.name }}</strong>
+                              <span v-if="s.fromPackage" class="badge bg-info ms-2">from Package</span>
+                              <span class="badge bg-success ms-2">Normal</span>
+                              <span v-if="s.regulatoryQty && s.regulatoryQty > 0" class="badge bg-light text-dark ms-2">
+                                <i class="fa fa-balance-scale me-1"></i> Regulatory: {{ s.regulatoryQty }}
+                              </span>
+                              <span v-if="s.regulatoryQty && s.quantity > s.regulatoryQty"
+                                class="badge bg-warning text-dark ms-2"
+                                title="Requested quantity exceeds regulatory quantity">
+                                <i class="fa fa-exclamation-triangle me-1"></i> Exceeds Limit
+                              </span>
+                              <span class="badge ms-2 cursor-pointer"
+                                :class="s.priority === 'MUST_HAVE' ? 'bg-danger' : 'bg-secondary'"
+                                @click="toggleNormalPriority(index)" style="cursor: pointer;">
+                                {{ s.priority === 'MUST_HAVE' ? 'MUST HAVE' : 'NICE TO HAVE' }}
+                              </span>
+                            </div>
+                            <div class="item-actions">
+                              <button type="button" class="btn btn-sm btn-outline-primary" :disabled="s.quantity <= 1"
+                                @click="decrementNormalQuantity(index)">
+                                <i class="fa fa-minus"></i>
+                              </button>
+                              <span class="qty-badge">{{ s.quantity }}</span>
+                              <button type="button" class="btn btn-sm btn-outline-primary" @click="incrementNormalQuantity(index)">
+                                <i class="fa fa-plus"></i>
+                              </button>
+                              <button type="button" class="btn btn-sm btn-outline-danger ms-2"
+                                @click="deleteNormalSpecies(index)">
+                                <i class="fa fa-trash"></i>
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                        <div v-else class="empty-list">
+                          <i class="fa fa-leaf fa-2x text-muted mb-2"></i>
+                          <p>No normal species added yet. Use the search above to find and add species.</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="normal-species-modal-footer">
+                      <span class="text-muted">{{ normalSpeciesObjects.length }} species added</span>
+                      <button type="button" class="btn btn-success px-4" style="background-color: #28a745; border-color: #28a745; color: #fff; font-weight: 600;" @click="showNormalSpeciesModal = false">
+                        <i class="fa fa-check me-1"></i> Done
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </Teleport>
+            </div>
+          </div>
+
+          <!-- Tab Content: Participants -->
+          <div v-show="activeTab === 'participants'" class="inner-card content-card">
+            <div class="content-body">
+              <!-- Hunting Type Info Banner -->
+              <div v-if="expectedHunterCount != null" class="alert d-flex align-items-center gap-2 py-2 px-3 mb-3"
+                :class="participantCountMismatch ? 'alert-warning' : 'alert-info'">
+                <i class="fa" :class="participantCountMismatch ? 'fa-exclamation-triangle' : 'fa-info-circle'"></i>
+                <div>
+                  <strong>Hunting Type: {{ packageHuntingType }}</strong> —
+                  Package expects <strong>{{ expectedHunterCount }}</strong> hunter{{ expectedHunterCount > 1 ? 's' : '' }}.
+                  <span v-if="participantCountMismatch" class="text-danger ms-1">
+                    Currently {{ participants.length }} participant{{ participants.length !== 1 ? 's' : '' }}.
+                  </span>
+                  <span v-else class="text-success ms-1">
+                    <i class="fa fa-check-circle"></i> Match
+                  </span>
+                </div>
+              </div>
+
+              <!-- Add Hunter Button -->
+              <div class="add-item-row">
+                <small class="text-muted">Add hunters/participants for this enquiry. Primary hunter is required.</small>
+                <div>
+                  <button type="button" class="btn btn-outline-primary btn-sm" @click="addParticipant">
+                    <i class="fa fa-plus me-1"></i> Add Hunter
+                  </button>
+                </div>
+              </div>
+
+              <!-- Hunters Table -->
+              <div class="items-list">
+                <div class="list-header">
+                  <strong>Hunters ({{ participants.length }})</strong>
+                </div>
+
+                <!-- Table Header -->
+                <div v-if="participants.length > 0" class="participant-table-header">
+                  <div class="ptbl-col-num">#</div>
+                  <div class="ptbl-col-entity">Entity</div>
+                  <div class="ptbl-col-share">Share %</div>
+                  <div class="ptbl-col-indep">Independent</div>
+                  <div class="ptbl-col-dep">Dependent On</div>
+                  <div class="ptbl-col-notes">Notes</div>
+                  <div class="ptbl-col-action"></div>
+                </div>
+
+                <div v-if="participants.length > 0" class="list-items">
+                  <!-- Primary Hunter Row -->
+                  <div v-if="primaryParticipant" class="participant-table-row primary-row">
+                    <div class="ptbl-col-num">
+                      <span class="participant-badge primary"><i class="fa fa-star"></i></span>
+                    </div>
+                    <div class="ptbl-col-entity">
+                      <input type="text" class="form-control form-control-sm bg-light" :value="primaryParticipant.entity_name || form.full_name || 'Not set'" disabled readonly />
+                    </div>
+                    <div class="ptbl-col-share">
+                      <input type="number" class="form-control form-control-sm text-center" v-model.number="primaryParticipant.share_percentage" min="0" max="100" step="0.01" :disabled="!primaryParticipant.is_independent" :class="{ 'bg-light': !primaryParticipant.is_independent }" />
+                    </div>
+                    <div class="ptbl-col-indep">
+                      <div class="d-flex align-items-center gap-2">
+                        <input type="checkbox" v-model="primaryParticipant.is_independent" class="form-check-input m-0" @change="redistributeShares()" />
+                        <span class="toggle-label">{{ primaryParticipant.is_independent ? 'Yes' : 'No' }}</span>
+                      </div>
+                    </div>
+                    <div class="ptbl-col-dep">
+                      <span class="text-muted">—</span>
+                    </div>
+                    <div class="ptbl-col-notes">
+                      <span class="text-muted">—</span>
+                    </div>
+                    <div class="ptbl-col-action">
+                      <!-- Primary cannot be removed -->
+                    </div>
+                  </div>
+
+                  <!-- Additional Hunter Rows -->
+                  <div v-for="(p, idx) in additionalParticipants" :key="p._uid" class="participant-table-row">
+                    <div class="ptbl-col-num">
+                      <span class="participant-badge additional">{{ idx + 2 }}</span>
+                    </div>
+                    <div class="ptbl-col-entity">
+                      <select v-model="p.entity_id" class="form-select form-select-sm" @change="onParticipantEntityChange(p)">
+                        <option :value="null">Select Hunter...</option>
+                        <option v-for="e in getAvailableEntityOptions(p)" :key="e.value" :value="e.value">{{ e.label }}</option>
+                      </select>
+                    </div>
+                    <div class="ptbl-col-share">
+                      <input type="number" class="form-control form-control-sm text-center" v-model.number="p.share_percentage" min="0" max="100" step="0.01" :disabled="!p.is_independent" :class="{ 'bg-light': !p.is_independent }" />
+                    </div>
+                    <div class="ptbl-col-indep">
+                      <div class="d-flex align-items-center gap-2">
+                        <input type="checkbox" v-model="p.is_independent" class="form-check-input m-0" @change="redistributeShares()" />
+                        <span class="toggle-label">{{ p.is_independent ? 'Yes' : 'No' }}</span>
+                      </div>
+                    </div>
+                    <div class="ptbl-col-dep">
+                      <select v-if="!p.is_independent" v-model="p.dependent_on_participant_id" class="form-select form-select-sm">
+                        <option :value="null">Select...</option>
+                        <option v-for="dep in getDependencyOptions(p)" :key="dep.value" :value="dep.value">{{ dep.label }}</option>
+                      </select>
+                      <span v-else class="text-muted">—</span>
+                    </div>
+                    <div class="ptbl-col-notes">
+                      <input type="text" class="form-control form-control-sm" v-model="p.notes" placeholder="Optional notes..." />
+                    </div>
+                    <div class="ptbl-col-action">
+                      <button type="button" class="btn btn-sm btn-outline-danger" @click="removeParticipant(idx)" title="Remove">
+                        <i class="fa fa-times"></i>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div v-else class="empty-list">
+                  <i class="fa fa-users fa-2x text-muted mb-2"></i>
+                  <p>No hunters added yet. Click "Add Hunter" to get started.</p>
+                </div>
+              </div>
+
+              <!-- Validation Summary -->
+              <div v-if="participantValidationErrors.length > 0" class="participant-validation-errors mt-3">
+                <div class="alert alert-danger">
+                  <strong><i class="fa fa-exclamation-triangle me-1"></i> Validation Issues:</strong>
+                  <ul class="mb-0 mt-1">
+                    <li v-for="(err, i) in participantValidationErrors" :key="i">{{ err }}</li>
+                  </ul>
+                </div>
+              </div>
+
+              <!-- Share Summary -->
+              <div class="share-summary mt-3">
+                <div class="share-bar">
+                  <div class="share-bar-label">
+                    <strong>Total Share:</strong>
+                    <span :class="totalSharePercentage === expectedTotalShare ? 'text-success' : 'text-danger'">
+                      {{ totalSharePercentage.toFixed(2) }}%
+                    </span>
+                    <span v-if="totalSharePercentage !== expectedTotalShare" class="text-danger ms-2">
+                      <i class="fa fa-exclamation-circle"></i> Must equal {{ expectedTotalShare }}%
+                      <small class="text-muted">({{ expectedHunterCount || 1 }} hunter{{ (expectedHunterCount || 1) > 1 ? 's' : '' }} × 100%)</small>
+                    </span>
+                    <span v-else class="text-success ms-2">
+                      <i class="fa fa-check-circle"></i> Valid
+                    </span>
+                  </div>
+                  <div class="progress" style="height: 8px;">
+                    <div
+                      class="progress-bar"
+                      :class="totalSharePercentage === expectedTotalShare ? 'bg-success' : totalSharePercentage > expectedTotalShare ? 'bg-danger' : 'bg-warning'"
+                      :style="{ width: Math.min((totalSharePercentage / expectedTotalShare) * 100, 100) + '%' }"
+                    ></div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -331,75 +628,63 @@
                 <span><i class="fa fa-compass me-2"></i>Safari Extras ({{ selectedSafariExtras.length }})</span>
               </div>
 
-              <!-- Add Safari Extra Form -->
+              <!-- Add Safari Extra: dynamic rows (allows duplicates) -->
               <div class="add-item-row">
-                <select v-model="selectedSafariExtraId" class="form-select">
-                  <option :value="null">Select Safari Extra...</option>
-                  <option v-for="item in safariExtrasItems" :key="item.value" :value="item.value">{{ item.label }}
-                  </option>
-                </select>
-                <button type="button" class="btn btn-primary" style="background-color: #3b82f6; border-color: #3b82f6;"
-                  @click="addSafariExtra">
-                  <i class="fa fa-plus me-1"></i> Add
-                </button>
+                <small class="text-muted">Add multiple rows; select the same extra multiple times and set duration per row.</small>
+                <div>
+                  <button type="button" class="btn btn-outline-primary btn-sm" @click="addSafariExtra" title="Add a new safari extra row">
+                    <i class="fa fa-plus me-1"></i> Add Extra
+                  </button>
+                </div>
               </div>
 
               <!-- Safari Extras List -->
               <div class="items-list">
                 <div class="list-header">
                   <strong>Selected Safari Extras ({{ selectedSafariExtras.length }})</strong>
-                  <small class="text-muted">Click priority badge to toggle</small>
                 </div>
 
                 <div v-if="selectedSafariExtras.length > 0" class="list-items">
-                  <div v-for="(extra, index) in selectedSafariExtras" :key="index" class="list-item" style="flex-wrap: wrap;">
-                    <div class="item-info" style="flex: 1; min-width: 200px;">
-                      <strong>{{ extra.name }}</strong>
-                      <span v-if="extra.fromPackage" class="badge bg-info ms-2">from Package</span>
-                      <span class="badge ms-2 cursor-pointer"
-                        :class="extra.priority === 'MUST_HAVE' ? 'bg-danger' : 'bg-secondary'"
-                        @click="toggleSafariExtraPriority(index)" style="cursor: pointer;">
-                        {{ extra.priority === 'MUST_HAVE' ? 'MUST HAVE' : 'NICE TO HAVE' }}
-                      </span>
-                      <small class="text-muted ms-2" v-if="extra.description">{{ extra.description }}</small>
+                  <div v-for="(extra, index) in selectedSafariExtras" :key="index" class="extras-row">
+                    <!-- Col 1: Dropdown -->
+                    <div class="extras-col-select">
+                      <select v-model="extra.id" class="form-select form-select-sm" @change="onSafariExtraTypeChange(extra)">
+                        <option :value="null">Select Extra...</option>
+                        <option v-for="opt in safariExtrasItems" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+                      </select>
                     </div>
-                    <div class="item-actions" style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
-                      <!-- Quantity controls -->
-                      <div style="display:flex; align-items:center; gap:4px;">
-                        <button type="button" class="btn btn-sm btn-outline-secondary" :disabled="extra.quantity <= 1"
-                          @click="updateSafariExtraQuantity(extra, -1)">-
-                        </button>
-                        <span class="qty-badge mx-1">{{ extra.quantity || 1 }}</span>
-                        <button type="button" class="btn btn-sm btn-outline-secondary"
-                          @click="updateSafariExtraQuantity(extra, 1)">+
-                        </button>
-                      </div>
 
-                      <!-- Duration input (same row, same level) -->
-                      <div v-if="isDurationRelevant(extra)" style="display:flex; align-items:center; gap:6px;">
+                    <!-- Col 2: Quantity OR Duration (when no qty) -->
+                    <div class="extras-col-qty">
+                      <div v-if="isQuantityRelevant(extra)" style="display:flex; align-items:center; gap:4px;">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" :disabled="extra.quantity <= 1"
+                          @click="updateSafariExtraQuantity(extra, -1)">-</button>
+                        <span class="qty-badge">{{ extra.quantity || 1 }}</span>
+                        <button type="button" class="btn btn-sm btn-outline-secondary"
+                          @click="updateSafariExtraQuantity(extra, 1)">+</button>
+                      </div>
+                      <div v-else-if="isDurationRelevant(extra)" style="display:flex; align-items:center; gap:6px;">
                         <input type="number" step="1" min="1" class="form-control form-control-sm text-center" :value="extra.item_durations"
-                          @input="handleDurationInput($event, extra)" placeholder="Days" style="width:80px; height:34px;" title="Leave blank to inherit hunting length">
+                          @input="handleDurationInput($event, extra)" :placeholder="getDurationPlaceholder(extra)" style="width:80px; height:34px;" title="Leave blank to inherit hunting length">
                         <i class="fa fa-info-circle text-muted" style="font-size:14px;" :title="'Leave blank to inherit hunting length'"></i>
                       </div>
-                      <div v-else style="display:flex; align-items:center;">
-                        <small class="text-muted">N/A</small>
-                      </div>
+                    </div>
 
-                      <!-- Delete button -->
+                    <!-- Col 3: Duration (only when qty is also shown) -->
+                    <div class="extras-col-days">
+                      <div v-if="isQuantityRelevant(extra) && isDurationRelevant(extra)" style="display:flex; align-items:center; gap:6px;">
+                        <input type="number" step="1" min="1" class="form-control form-control-sm text-center" :value="extra.item_durations"
+                          @input="handleDurationInput($event, extra)" :placeholder="getDurationPlaceholder(extra)" style="width:80px; height:34px;" title="Leave blank to inherit hunting length">
+                        <i class="fa fa-info-circle text-muted" style="font-size:14px;" :title="'Leave blank to inherit hunting length'"></i>
+                      </div>
+                    </div>
+
+                    <!-- Col 4: Delete -->
+                    <div class="extras-col-action">
                       <button type="button" class="btn btn-sm btn-outline-danger"
                         @click="removeSafariExtra(index)">
                         <i class="fa fa-trash"></i>
                       </button>
-                    </div>
-                    <!-- Second row: helper texts (errors + duration hint) -->
-                    <div v-if="safariExtraErrors[Number(extra.id)]?.quantity || safariExtraErrors[Number(extra.id)]?.item_durations || isDurationRelevant(extra)" 
-                      style="width:100%; display:flex; justify-content:flex-end; gap:16px; padding-top:4px;">
-                      <small v-if="safariExtraErrors[Number(extra.id)]?.quantity" class="text-danger">{{ safariExtraErrors[Number(extra.id)].quantity }}</small>
-                      <small v-if="isDurationRelevant(extra)" class="text-muted">
-                        <span v-if="extra.item_durations">Duration: {{ extra.item_durations }} day<span v-if="extra.item_durations>1">s</span></span>
-                        <span v-else>Inherits hunting length: {{ form.no_of_days || 'N/A' }} days</span>
-                      </small>
-                      <small v-if="safariExtraErrors[Number(extra.id)]?.item_durations" class="text-danger">{{ safariExtraErrors[Number(extra.id)].item_durations }}</small>
                     </div>
                   </div>
                 </div>
@@ -432,8 +717,18 @@
 
           <!-- Tab Content: More Details -->
           <!-- Tab Content: Review -->
-          <div v-show="activeTab === 'review'" class="inner-card content-card">
+          <div v-show="activeTab === 'review'" class="inner-card content-card" ref="previewRef">
             <div class="content-body">
+              <!-- Download PDF (preview) -->
+              <div style="display:flex; justify-content:flex-end; gap:8px; margin-bottom:12px;">
+                <button type="button" class="btn btn-outline-primary btn-sm" :disabled="generatingPdf"
+                  @click="downloadPreviewPdf">
+                  <span v-if="generatingPdf" class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
+                  <i class="fa fa-download me-1"></i>
+                  Download Preview PDF
+                </button>
+              </div>
+
               <!-- Remarks -->
               <div class="review-section">
                 <div class="review-header">
@@ -444,30 +739,19 @@
                   placeholder="Add any additional remarks or notes for this enquiry (optional)..."></textarea>
               </div>
 
-              <!-- Customer Summary -->
+              <!-- Customer Summary (restored UI - inline review items only) -->
               <div class="review-section">
                 <div class="review-header">
                   <i class="fa fa-user text-primary me-2"></i>
                   <h6>Customer Information</h6>
                 </div>
                 <div class="review-grid">
-                  <div class="review-item"><span class="label">Full Name:</span><span class="value">{{ form.full_name ||
-                      'N/A'
-                      }}</span></div>
-                  <div class="review-item"><span class="label">Country:</span><span class="value">{{
-                    getItemLabel(countryItems,
-                      form.country) }}</span></div>
-                  <div class="review-item"><span class="label">Nationality:</span><span class="value">{{
-                    getItemLabel(nationalityItems, form.nationality) }}</span></div>
-                  <div class="review-item"><span class="label">Email:</span><span class="value">{{ form.email || 'N/A'
-                      }}</span>
-                  </div>
-                  <div class="review-item"><span class="label">Phone:</span><span class="value">{{ form.phone || 'N/A'
-                      }}</span>
-                  </div>
-                  <div class="review-item"><span class="label">Address:</span><span class="value">{{ form.address ||
-                      'N/A'
-                      }}</span></div>
+                  <div class="review-item"><span class="label">Client Name:</span><span class="value">{{ displayOrNotProvided(form.full_name || props.customerData?.full_name) }}</span></div>
+                  <div class="review-item"><span class="label">Phone:</span><span class="value">{{ displayOrNotProvided(form.phone || props.customerData?.phone) }}</span></div>
+                  <div class="review-item"><span class="label">Country:</span><span class="value">{{ displayOrNotProvided(getItemLabel(countryItems, form.country)) }}</span></div>
+                  <div class="review-item"><span class="label">Email:</span><span class="value">{{ displayOrNotProvided(form.email || props.customerData?.email) }}</span></div>
+                  <div class="review-item"><span class="label">Nationality:</span><span class="value">{{ displayOrNotProvided(getItemLabel(nationalityItems, form.nationality)) }}</span></div>
+                  <div class="review-item"><span class="label">Address:</span><span class="value">{{ displayOrNotProvided(form.address || props.customerData?.address) }}</span></div>
                 </div>
               </div>
 
@@ -478,12 +762,10 @@
                   <h6>Season & Package</h6>
                 </div>
                 <div class="review-grid">
-                  <div class="review-item"><span class="label">Season:</span><span class="value">{{
-                    getItemLabel(seasonItems,
-                      form.season) }}</span></div>
-                  <div class="review-item"><span class="label">Package:</span><span class="value">{{
-                    getItemLabel(packageItems,
-                      form.priceListId) || 'No package selected' }}</span></div>
+                  <div class="review-item"><span class="label">Season:</span><span class="value">{{ getItemLabel(seasonItems, form.season) }}</span></div>
+                  <div class="review-item"><span class="label">Hunting Type:</span><span class="value">{{ displayOrNotProvided((currentSalesPackage && currentSalesPackage.hunting_type) || (packagesOptions.find(p => p.value === form.priceListId)?.selfItem?.hunting_type) || 'Not provided') }}</span></div>
+                  <!-- Package spans full width to avoid cramped long package names -->
+                  <div class="review-item full"><span class="label">Package:</span><span class="value">{{ getItemLabel(packageItems, form.priceListId) || 'No package selected' }}</span></div>
                 </div>
               </div>
 
@@ -494,22 +776,37 @@
                   <h6>Schedule & Hunt Party</h6>
                 </div>
                 <div class="review-grid">
-                  <div class="review-item"><span class="label">Start Date:</span><span class="value">{{
-                    formatReviewDate(form.start_date) }}</span></div>
-                  <div class="review-item"><span class="label">Days:</span><span class="value">{{ form.no_of_days ||
-                      'N/A'
-                      }}</span></div>
-                  <div class="review-item"><span class="label">End Date:</span><span class="value text-info">{{
-                    formatReviewDate(calculatedEndDate) }}</span></div>
-                  <div class="review-item"><span class="label">Hunting Area:</span><span class="value">{{ form.area ||
-                      'N/A'
-                      }}</span></div>
-                  <div class="review-item"><span class="label">Participants:</span><span class="value">{{
-                    form.no_of_participants
-                      || 1 }}</span></div>
-                  <div class="review-item"><span class="label">Experience:</span><span class="value">{{
-                    form.prev_experience ||
-                      'N/A' }}</span></div>
+                  <div class="review-item"><span class="label">Preferred Date:</span><span class="value">{{ displayOrNotProvided(formatReviewDate(form.start_date)) }}</span></div>
+                  <div class="review-item"><span class="label">Days:</span><span class="value">{{ displayOrNotProvided(form.no_of_days) }}</span></div>
+                  <div class="review-item"><span class="label">End Date:</span><span class="value text-info">{{ displayOrNotProvided(formatReviewDate(calculatedEndDate)) }}</span></div>
+                  <div class="review-item"><span class="label">Hunting Area:</span><span class="value">{{ displayOrNotProvided(getAreaLabel(form.area)) }}</span></div>
+                  <div class="review-item"><span class="label">Participants:</span><span class="value">{{ participants.length }}</span></div>
+                  <div class="review-item"><span class="label">Experience:</span><span class="value">{{ displayOrNotProvided(form.prev_experience) }}</span></div>
+                </div>
+              </div>
+
+              <!-- Participants Summary -->
+              <div class="review-section">
+                <div class="review-header">
+                  <i class="fa fa-users text-primary me-2"></i>
+                  <h6>Participants ({{ participants.length }})</h6>
+                </div>
+                <div v-if="participants.length > 0" class="participants-review-list">
+                  <div v-for="(p, i) in participants" :key="p._uid" class="participant-review-item">
+                    <div class="d-flex align-items-center justify-content-between">
+                      <div>
+                        <span class="badge me-2" :class="p.participant_type === 'primary' ? 'bg-warning text-dark' : 'bg-secondary'">
+                          {{ p.participant_type === 'primary' ? 'Primary' : `Hunter #${i + 1}` }}
+                        </span>
+                        <strong>{{ p.entity_name || 'Not selected' }}</strong>
+                        <span v-if="!p.is_independent" class="text-muted ms-2">(Dependent)</span>
+                      </div>
+                      <span class="share-badge">{{ p.share_percentage }}%</span>
+                    </div>
+                  </div>
+                  <div class="share-total-review mt-2" :class="totalSharePercentage === expectedTotalShare ? 'text-success' : 'text-danger'">
+                    <strong>Total Share: {{ totalSharePercentage.toFixed(2) }}% / {{ expectedTotalShare }}%</strong>
+                  </div>
                 </div>
               </div>
 
@@ -517,15 +814,32 @@
               <div class="review-section">
                 <div class="review-header">
                   <i class="fa fa-paw text-primary me-2"></i>
-                  <h6>Selected Species ({{ speciesObjects.length }})</h6>
+                  <h6>Main Species ({{ speciesObjects.length }})</h6>
                 </div>
-                <div v-if="speciesObjects.length > 0" class="species-badges">
-                  <span v-for="(s, index) in speciesObjects" :key="index" class="badge"
-                    :class="s.fromPackage ? 'bg-info' : 'bg-primary'">
-                    {{ s.name }} (x{{ s.quantity }})
-                  </span>
+                <div v-if="speciesObjects.length > 0" class="species-list-wrap">
+                  <ul class="species-list">
+                    <li v-for="(s, index) in speciesObjects" :key="s.species_id || s.id || index">
+                      <strong>{{ s.name }}</strong> <span class="text-muted">(x{{ s.quantity }})</span>
+                    </li>
+                  </ul>
                 </div>
-                <span v-else class="text-muted">No species selected</span>
+                <span v-else class="text-muted">No main species selected</span>
+              </div>
+
+              <!-- Normal Species Summary -->
+              <div v-if="normalSpeciesObjects.length > 0" class="review-section">
+                <div class="review-header">
+                  <i class="fa fa-leaf text-success me-2"></i>
+                  <h6>Normal Species ({{ normalSpeciesObjects.length }})</h6>
+                </div>
+                <div class="species-list-wrap">
+                  <ul class="species-list">
+                    <li v-for="(s, index) in normalSpeciesObjects" :key="s.species_id || s.id || index">
+                      <strong>{{ s.name }}</strong> <span class="text-muted">(x{{ s.quantity }})</span>
+                      <span class="badge bg-success ms-1" style="font-size: 10px;">Normal</span>
+                    </li>
+                  </ul>
+                </div>
               </div>
 
               <!-- Safari Extras Summary -->
@@ -534,13 +848,14 @@
                   <i class="fa fa-hiking text-primary me-2"></i>
                   <h6>Safari Extras ({{ selectedSafariExtras.length }})</h6>
                 </div>
-                <div class="extras-badges">
-                  <div v-for="extra in selectedSafariExtras" :key="extra.id" class="extra-badge">
-                    <span class="extra-badge-name">{{ extra.name || 'Safari Extra' }}</span>
-                    <span class="extra-badge-price">{{ extra.currency_code || 'USD' }} {{ parseFloat(extra.amount ||
-                      0).toFixed(2)
-                      }}</span>
-                  </div>
+                <div class="extras-list">
+                  <ul>
+                    <li v-for="extra in selectedSafariExtras" :key="extra.id">
+                      {{ extra.name || 'Safari Extra' }}
+                      <small v-if="extra.quantity && extra.quantity > 1" class="text-muted">(x{{ extra.quantity }})</small>
+                      <small v-if="computeEffectiveDuration(extra) != null" class="text-muted"> — {{ computeEffectiveDuration(extra) }} day<span v-if="(computeEffectiveDuration(extra) ?? 0) > 1">s</span></small>
+                    </li>
+                  </ul>
                 </div>
               </div>
 
@@ -574,7 +889,7 @@
 
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref, watch, nextTick } from 'vue'
 import axios from 'axios'
 import Swal from 'sweetalert2'
 import handleErrors from '@/stores/bushman/errorHandler'
@@ -588,6 +903,13 @@ import CurrencyInput from '@/components/CurrencyInput.vue'
 import Datepicker from '@/components/plugins/Datepicker.vue'
 import Multiselect from 'vue-multiselect'
 import 'vue-multiselect/dist/vue-multiselect.css'
+
+// PDF generation (preview before submitting)
+import { jsPDF } from 'jspdf'
+import autoTable from 'jspdf-autotable'
+
+// NOTE: replaced html2canvas snapshot with server-style jsPDF layout (autotable) to match single-enquiry PDF
+
 
 const props = defineProps<{
   editRow?: any | null
@@ -639,7 +961,14 @@ const speciesOptions = ref<any[]>([])
 const selectedAreaSpecies = ref<any[]>([])
 const areaSpeciesLoaded = ref(false)
 const speciesObjects = ref<any[]>([])
-const selectedSpeciesIndices = ref<Set<number>>(new Set())
+const normalSpeciesObjects = ref<any[]>([])          // Normal/optional species (separate from main)
+// Track selected species by stable identifier (species_id or id) to avoid UI mismatch when array changes
+const selectedSpeciesIndices = ref<Set<string|number>>(new Set())
+const selectedNormalSpeciesIndices = ref<Set<string|number>>(new Set())
+const selectedNormalSpeciesId = ref<number | null>(null)
+const normalSpeciesQuantity = ref(1)
+const showNormalSpeciesModal = ref(false)
+const showNormalDeleteConfirm = ref(false)
 const areasOptions = ref<any[]>([])
 const seasonsOptions = ref<any[]>([])
 const packagesOptions = ref<any[]>([])
@@ -650,6 +979,8 @@ const existingCustomersOptions = ref<any[]>([])
 const regulatoryPackageSpecies = ref<any[]>([])
 const customizedPackageSpecies = ref<any[]>([])
 const currentSalesPackage = ref<any>(null)
+// Full package species fetched from sales-package-sets/{id} endpoint (includes subtype)
+const fullPackageSpecies = ref<any[]>([])
 const speciesMultiselectRef = ref<any>(null)
 const showFullRegulatoryPackage = ref(false)
 
@@ -669,17 +1000,565 @@ const activeTab = ref('species')
 const selectedSpeciesId = ref<number | null>(null)
 const speciesQuantity = ref(1)
 
+// ─── Participants State ───
+let participantUidCounter = 1
+interface Participant {
+  _uid: number
+  entity_id: number | null
+  entity_name: string
+  participant_type: 'primary' | 'additional'
+  is_independent: boolean
+  dependent_on_participant_id: number | null
+  share_percentage: number
+  notes: string
+}
+
+const participants = ref<Participant[]>([
+  {
+    _uid: participantUidCounter++,
+    entity_id: null,
+    entity_name: '',
+    participant_type: 'primary',
+    is_independent: true,
+    dependent_on_participant_id: null,
+    share_percentage: 100,
+    notes: '',
+  }
+])
+const entityOptions = ref<{ value: number; label: string }[]>([])
+const loadingEntities = ref(false)
+
+const primaryParticipant = computed(() => participants.value.find(p => p.participant_type === 'primary') || null)
+const additionalParticipants = computed(() => participants.value.filter(p => p.participant_type === 'additional'))
+
+// ─── Hunting Type → Expected Hunter Count ───
+// Parses hunting_type strings like "1x1", "2x1" etc. First number = expected hunters.
+const packageHuntingType = computed((): string | null => {
+  if (currentSalesPackage.value?.hunting_type) return currentSalesPackage.value.hunting_type
+  const pkg = packagesOptions.value.find((p: any) => p.value === form.priceListId)
+  return pkg?.selfItem?.hunting_type || null
+})
+
+const expectedHunterCount = computed((): number | null => {
+  const ht = packageHuntingType.value
+  if (!ht) return null
+  // Parse patterns like "1x1", "2x1", "3x1" — first number is the hunter count
+  const match = String(ht).match(/^(\d+)\s*x\s*\d+$/i)
+  return match ? Number(match[1]) : null
+})
+
+const participantCountMismatch = computed((): boolean => {
+  const expected = expectedHunterCount.value
+  if (expected == null) return false
+  return participants.value.length !== expected
+})
+
+// Filter out already-selected entities so the same hunter can't be added twice
+const getAvailableEntityOptions = (currentParticipant: any) => {
+  const selectedIds = new Set(
+    participants.value
+      .filter(p => p.entity_id && p !== currentParticipant)
+      .map(p => p.entity_id)
+  )
+  return entityOptions.value.filter(e => !selectedIds.has(e.value))
+}
+
+const totalSharePercentage = computed(() =>
+  participants.value.reduce((sum, p) => sum + (Number(p.share_percentage) || 0), 0)
+)
+
+// Expected total share: each INDEPENDENT hunter pays 100% of the per-person package price.
+// Dependent hunters pay 0% (they don't have their own share).
+// e.g. 2x1 with both independent = 200%, 2x1 with 1 dependent = 100%
+const expectedTotalShare = computed((): number => {
+  const independentCount = participants.value.filter(p => p.is_independent).length
+  return independentCount * 100 || 100
+})
+
+const participantValidationErrors = computed(() => {
+  const errors: string[] = []
+  const primary = primaryParticipant.value
+  if (!primary || !primary.entity_id) {
+    errors.push('Primary hunter must be selected.')
+  }
+  for (let i = 0; i < additionalParticipants.value.length; i++) {
+    const p = additionalParticipants.value[i]
+    // Additional hunters are optional — only validate dependency if entity is already selected
+    if (p.entity_id && !p.is_independent && !p.dependent_on_participant_id) {
+      errors.push(`Hunter #${i + 2} is not independent — "Dependent On" must be selected.`)
+    }
+  }
+  if (Math.abs(totalSharePercentage.value - expectedTotalShare.value) > 0.01) {
+    errors.push(`Total share percentage must equal ${expectedTotalShare.value}% (currently ${totalSharePercentage.value.toFixed(2)}%). Each independent hunter should have 100%.`)
+  }
+  // Hunting type mismatch validation
+  const expected = expectedHunterCount.value
+  if (expected != null && participants.value.length !== expected) {
+    errors.push(`Hunting type ${packageHuntingType.value} expects ${expected} hunter(s), but ${participants.value.length} participant(s) are configured.`)
+  }
+  return errors
+})
+
+const addParticipant = () => {
+  // Warn if adding beyond expected hunting type count
+  const expected = expectedHunterCount.value
+  if (expected != null && participants.value.length >= expected) {
+    init({
+      message: `Package hunting type is ${packageHuntingType.value} (${expected} hunter${expected > 1 ? 's' : ''}). Adding more hunters than expected.`,
+      color: 'warning'
+    })
+  }
+
+  // Each independent hunter gets 100% (package price is per-person)
+  participants.value.push({
+    _uid: participantUidCounter++,
+    entity_id: null,
+    entity_name: '',
+    participant_type: 'additional',
+    is_independent: true,
+    dependent_on_participant_id: null,
+    share_percentage: 100,
+    notes: '',
+  })
+
+  // Redistribute shares
+  redistributeShares()
+}
+
+const removeParticipant = (idx: number) => {
+  const removedId = additionalParticipants.value[idx]?._uid
+  const realIdx = participants.value.findIndex(p => p._uid === removedId)
+  if (realIdx !== -1) {
+    participants.value.splice(realIdx, 1)
+    // Clear any dependent_on references to removed participant
+    for (const p of participants.value) {
+      if (p.dependent_on_participant_id === removedId) {
+        p.dependent_on_participant_id = null
+      }
+    }
+    redistributeShares()
+
+    // Warn if below expected hunting type count
+    const expected = expectedHunterCount.value
+    if (expected != null && participants.value.length < expected) {
+      init({
+        message: `Package hunting type is ${packageHuntingType.value} (${expected} hunter${expected > 1 ? 's' : ''}). Currently ${participants.value.length} — consider adding more.`,
+        color: 'warning'
+      })
+    }
+  }
+}
+
+const redistributeShares = () => {
+  const all = participants.value
+  if (all.length === 0) return
+
+  // Each independent hunter pays 100% of the per-person package price.
+  // The package amount is already priced per hunting type (e.g. 2x1 = per-person rate).
+  // Dependent hunters (companions/kids) pay 0%.
+  const independentParticipants = all.filter(p => p.is_independent)
+  const dependentParticipants = all.filter(p => !p.is_independent)
+
+  for (const p of dependentParticipants) {
+    p.share_percentage = 0
+  }
+  for (const p of independentParticipants) {
+    p.share_percentage = 100
+  }
+}
+
+const onParticipantEntityChange = (p: Participant) => {
+  const entity = entityOptions.value.find(e => e.value === p.entity_id)
+  p.entity_name = entity?.label || ''
+}
+
+const getDependencyOptions = (currentParticipant: Participant) => {
+  // Only independent hunters can be depended on (no chain dependencies)
+  return participants.value
+    .filter(p => p._uid !== currentParticipant._uid && p.entity_id && p.is_independent)
+    .map(p => ({
+      value: p._uid,
+      label: p.entity_name || `Hunter (ID: ${p.entity_id})`,
+    }))
+}
+
+// Auto-set dependent_on when a hunter is not independent and there's only one option,
+// and clear invalid dependency selections (e.g. if the depended-on hunter became non-independent)
+watch(
+  () => participants.value.map(p => ({ uid: p._uid, indep: p.is_independent, dep: p.dependent_on_participant_id, eid: p.entity_id })),
+  () => {
+    for (const p of participants.value) {
+      if (!p.is_independent) {
+        const options = getDependencyOptions(p)
+        const validUids = new Set(options.map(o => o.value))
+        // Clear dependency if currently selected option is no longer valid
+        if (p.dependent_on_participant_id && !validUids.has(p.dependent_on_participant_id)) {
+          p.dependent_on_participant_id = null
+        }
+        // Auto-select if only one option available
+        if (!p.dependent_on_participant_id && options.length === 1) {
+          p.dependent_on_participant_id = options[0].value
+        }
+      }
+    }
+  },
+  { deep: true }
+)
+
+// ─── Species Type Mapping (dynamic from API) ───
+// Uses the `subtype` field from the full package species (sales-package-sets/{id})
+const isMainSpecies = (speciesId: number): boolean => {
+  const sp = fullPackageSpecies.value.find((s: any) => s.species_id === speciesId)
+  return sp?.subtype === 'MAIN_SPECIE'
+}
+const isNormalSpecies = (speciesId: number): boolean => {
+  const sp = fullPackageSpecies.value.find((s: any) => s.species_id === speciesId)
+  return sp?.subtype === 'NORMAL_SPECIE'
+}
+
+// Fetch all system species (for normal species selection)
+const fetchAllSpecies = async () => {
+  try {
+    const response = await axios.get(
+      `${apiBaseUrl}/settings/trophy-fees/species`,
+      { headers: { 'Content-Type': 'application/json' } }
+    )
+    const dataArray = Array.isArray(response.data?.data) ? response.data.data :
+                      Array.isArray(response.data) ? response.data : []
+    speciesOptions.value = dataArray.map((species: any) => ({
+      value: species.id,
+      text: species.name,
+      scientific_name: species.scientific_name || ''
+    }))
+  } catch (error) {
+    console.error('Error fetching species:', error)
+  }
+}
+
+const fetchEntities = async () => {
+  loadingEntities.value = true
+  try {
+    const response = await axios.get(
+      import.meta.env.VITE_APP_BASE_URL + 'entities/creation-metadata',
+      { headers: { 'Content-Type': 'application/json' } }
+    )
+    const payload = response.data?.data || response.data || {}
+    const dataArray = Array.isArray(payload.entities) ? payload.entities :
+                      Array.isArray(response.data) ? response.data : []
+    entityOptions.value = dataArray.map((e: any) => ({
+      value: e.id,
+      label: e.full_name || e.name || `Entity #${e.id}`,
+    }))
+  } catch (error) {
+    console.error('Error fetching entities for participants:', error)
+  } finally {
+    loadingEntities.value = false
+  }
+}
+
 const tabs = [
   { key: 'species', label: 'Species', icon: 'fa fa-paw' },
+  { key: 'participants', label: 'Participants', icon: 'fa fa-users' },
   { key: 'extras', label: 'Extras', icon: 'fa fa-hiking' },
   { key: 'review', label: 'Review', icon: 'fa fa-clipboard-check' }
 ]
+
+// PDF generation state (preview download)
+const previewRef = ref<HTMLElement | null>(null)
+const generatingPdf = ref(false)
+
+const downloadPreviewPdf = async () => {
+  generatingPdf.value = true
+  try {
+    const pdf = new jsPDF({ unit: 'pt', format: 'a4' })
+    const pageWidth = pdf.internal.pageSize.getWidth()
+    const margin = 36
+    let cursorY = 40
+
+    // Header
+    pdf.setFontSize(14)
+    pdf.setFont('helvetica', 'bold')
+    pdf.text('ENQUIRY PREVIEW', pageWidth / 2, cursorY, { align: 'center' })
+    cursorY += 18
+
+    pdf.setDrawColor(0)
+    pdf.setLineWidth(0.5)
+    pdf.line(margin, cursorY, pageWidth - margin, cursorY)
+    cursorY += 12
+
+    // Top meta (preview-only): render as a single-row table with three columns (Date | Created By | Areas)
+    const metaHeader = ['Date', 'Created By', 'Areas']
+    const metaValues = [
+      new Date().toISOString().split('T')[0],
+      form.email || (props.customerData?.email) || 'Not provided',
+      getAreaLabel(form.area) || 'Not provided'
+    ]
+    autoTable(pdf, {
+      startY: cursorY,
+      head: [metaHeader],
+      body: [metaValues],
+      theme: 'grid',
+      styles: { fontSize: 9 },
+      headStyles: { fillColor: [245, 245, 245], textColor: 50, fontStyle: 'bold' },
+      columnStyles: { 0: { cellWidth: 100 }, 1: { cellWidth: 160 }, 2: { cellWidth: pageWidth - margin * 2 - 260 } }
+    })
+    cursorY = (pdf as any).lastAutoTable.finalY + 12
+
+    // Client Information (render as table in preview PDF)
+    pdf.setFontSize(11)
+    pdf.setFont('helvetica', 'bold')
+    pdf.text('Client Information', margin, cursorY)
+    cursorY += 8
+    const clientRows = [
+      ['Client Name:', displayOrNotProvided(form.full_name || props.customerData?.full_name)],
+      ['Phone:', displayOrNotProvided(form.phone || props.customerData?.phone)],
+      ['Country:', displayOrNotProvided(getItemLabel(countryItems.value, form.country))],
+      ['Email:', displayOrNotProvided(form.email || props.customerData?.email)],
+      ['Nationality:', displayOrNotProvided(getItemLabel(nationalityItems.value, form.nationality))],
+      ['Address:', displayOrNotProvided(form.address || props.customerData?.address)]
+    ]
+    autoTable(pdf, {
+      startY: cursorY,
+      head: [['Field', 'Value']],
+      body: clientRows.map(r => ({ k: r[0], v: String(r[1]) })),
+      theme: 'grid',
+      tableWidth: pageWidth - margin * 2,
+      styles: { fontSize: 9 },
+      headStyles: { fillColor: [245, 245, 245], textColor: 50, fontStyle: 'bold' },
+      columns: [{ header: 'Field', dataKey: 'k' }, { header: 'Value', dataKey: 'v' }],
+      columnStyles: { 0: { cellWidth: 160, fontStyle: 'bold' }, 1: { cellWidth: pageWidth - margin * 2 - 160, overflow: 'linebreak' } }
+    })
+    cursorY = (pdf as any).lastAutoTable.finalY + 12
+
+    // Season & Package (show package + hunting type in preview PDF)
+    pdf.setFont('helvetica', 'bold')
+    pdf.text('Season & Package', margin, cursorY)
+    cursorY += 8
+    const packageLabel = getItemLabel(packageItems.value, form.priceListId) || 'No package selected'
+    const huntingTypeLabel = (currentSalesPackage.value && currentSalesPackage.value.hunting_type) || (packagesOptions.value.find((p: any) => p.value === form.priceListId)?.selfItem?.hunting_type) || 'Not provided'
+    const seasonPackageRows = [
+      ['Season:', displayOrNotProvided(getItemLabel(seasonItems.value, form.season))],
+      ['Package:', displayOrNotProvided(packageLabel)],
+      ['Hunting Type:', displayOrNotProvided(huntingTypeLabel)]
+    ]
+    autoTable(pdf, {
+      startY: cursorY,
+      head: [['Field', 'Value']],
+      body: seasonPackageRows.map(r => ({ k: r[0], v: String(r[1]) })),
+      theme: 'grid',
+      tableWidth: pageWidth - margin * 2,
+      styles: { fontSize: 9 },
+      headStyles: { fillColor: [245, 245, 245], textColor: 50, fontStyle: 'bold' },
+      columns: [{ header: 'Field', dataKey: 'k' }, { header: 'Value', dataKey: 'v' }],
+      columnStyles: { 0: { cellWidth: 140, fontStyle: 'bold' }, 1: { cellWidth: pageWidth - margin * 2 - 140, overflow: 'linebreak' } }
+    })
+    cursorY = (pdf as any).lastAutoTable.finalY + 12
+
+    // Schedule & Hunt Party
+    pdf.setFont('helvetica', 'bold')
+    pdf.text('Schedule & Hunt Party', margin, cursorY)
+    cursorY += 8
+    const prefRows = [
+      ['Preferred Date:', displayOrNotProvided(formatReviewDate(form.start_date))],
+      ['Days:', displayOrNotProvided(form.no_of_days)],
+      ['End Date:', displayOrNotProvided(formatReviewDate(calculatedEndDate.value))],
+      ['Hunting Area:', displayOrNotProvided(getAreaLabel(form.area))],
+      ['Participants:', displayOrNotProvided(participants.value.length)],
+      ['Experience:', displayOrNotProvided(form.prev_experience)]
+    ]
+    autoTable(pdf, {
+      startY: cursorY,
+      head: [['Field', 'Value']],
+      body: prefRows.map(r => ({ k: r[0], v: String(r[1]) })),
+      theme: 'grid',
+      tableWidth: pageWidth - margin * 2,
+      styles: { fontSize: 9 },
+      headStyles: { fillColor: [245, 245, 245], textColor: 50, fontStyle: 'bold' },
+      columns: [{ header: 'Field', dataKey: 'k' }, { header: 'Value', dataKey: 'v' }],
+      columnStyles: { 0: { cellWidth: 160, fontStyle: 'bold' }, 1: { cellWidth: pageWidth - margin * 2 - 160, overflow: 'linebreak' } }
+    })
+    cursorY = (pdf as any).lastAutoTable.finalY + 12
+
+    // Participants section
+    pdf.setFont('helvetica', 'bold')
+    pdf.text(`Participants (${participants.value.length})`, margin, cursorY)
+    cursorY += 8
+    if (participants.value.length > 0) {
+      const participantRows = participants.value.map((p: any, i: number) => {
+        const role = p.participant_type === 'primary' ? 'Primary' : `Hunter #${i + 1}`
+        const name = p.entity_name || 'Not selected'
+        const status = p.is_independent ? 'Independent' : 'Dependent'
+        const dependentOn = !p.is_independent && p.dependent_on_participant_id
+          ? (participants.value.find((dp: any) => dp._uid === p.dependent_on_participant_id)?.entity_name || '—')
+          : '—'
+        return [role, name, status, dependentOn, `${p.share_percentage}%`]
+      })
+      autoTable(pdf, {
+        startY: cursorY,
+        head: [['Role', 'Name', 'Status', 'Dependent On', 'Share %']],
+        body: participantRows,
+        theme: 'grid',
+        styles: { fontSize: 9 },
+        headStyles: { fillColor: [245, 245, 245], textColor: 50, fontStyle: 'bold' },
+        columnStyles: {
+          0: { cellWidth: 80, fontStyle: 'bold' },
+          1: { cellWidth: 140 },
+          2: { cellWidth: 80 },
+          3: { cellWidth: 120 },
+          4: { cellWidth: 60, halign: 'right' }
+        }
+      })
+      cursorY = (pdf as any).lastAutoTable.finalY + 4
+      // Total share
+      const totalShare = participants.value.reduce((sum: number, p: any) => sum + (Number(p.share_percentage) || 0), 0)
+      const pdfExpectedTotal = (expectedHunterCount.value != null && expectedHunterCount.value > 1) ? expectedHunterCount.value * 100 : 100
+      pdf.setFontSize(9)
+      pdf.setFont('helvetica', 'bold')
+      pdf.setTextColor(totalShare === pdfExpectedTotal ? 40 : 200, totalShare === pdfExpectedTotal ? 160 : 0, totalShare === pdfExpectedTotal ? 40 : 0)
+      pdf.text(`Total Share: ${totalShare.toFixed(2)}% / ${pdfExpectedTotal}%`, pageWidth - margin, cursorY, { align: 'right' })
+      pdf.setTextColor(0, 0, 0)
+      cursorY += 16
+    } else {
+      pdf.setFontSize(9)
+      pdf.setFont('helvetica', 'normal')
+      pdf.text('No participants added', margin, cursorY)
+      cursorY += 16
+    }
+
+    // Main Species — render as a simple grid table (Item | Qty | Priority)
+    pdf.setFont('helvetica', 'bold')
+    pdf.text(`Main Species (${speciesObjects.value.length})`, margin, cursorY)
+    cursorY += 8
+    const speciesRows = speciesObjects.value.map((s: any) => [
+      s.name || 'Unknown',
+      String(s.quantity || 1),
+      (s.priority === 'MUST_HAVE' ? 'MUST HAVE' : 'NICE TO HAVE')
+    ])
+    if (speciesRows.length > 0) {
+      autoTable(pdf, {
+        startY: cursorY,
+        head: [['Item', 'Qty', 'Priority']],
+        body: speciesRows,
+        theme: 'grid',
+        styles: { fontSize: 9 },
+        headStyles: { fillColor: [245, 245, 245], textColor: 50, fontStyle: 'bold' },
+        columnStyles: { 0: { cellWidth: 240 }, 1: { halign: 'center', cellWidth: 50 }, 2: { cellWidth: pageWidth - margin * 2 - 300 } }
+      })
+      cursorY = (pdf as any).lastAutoTable.finalY + 12
+    } else {
+      pdf.setFontSize(9)
+      pdf.setFont('helvetica', 'normal')
+      pdf.text('No species selected', margin, cursorY)
+      cursorY += 16
+    }
+
+    // Normal Species
+    pdf.setFont('helvetica', 'bold')
+    pdf.setFontSize(11)
+    pdf.text(`Normal Species (${normalSpeciesObjects.value.length})`, margin, cursorY)
+    cursorY += 8
+    const normalSpeciesRows = normalSpeciesObjects.value.map((s: any) => [
+      s.name || 'Unknown',
+      String(s.quantity || 1),
+      (s.priority === 'MUST_HAVE' ? 'MUST HAVE' : 'NICE TO HAVE')
+    ])
+    if (normalSpeciesRows.length > 0) {
+      autoTable(pdf, {
+        startY: cursorY,
+        head: [['Item', 'Qty', 'Priority']],
+        body: normalSpeciesRows,
+        theme: 'grid',
+        styles: { fontSize: 9 },
+        headStyles: { fillColor: [245, 245, 245], textColor: 50, fontStyle: 'bold' },
+        columnStyles: { 0: { cellWidth: 240 }, 1: { halign: 'center', cellWidth: 50 }, 2: { cellWidth: pageWidth - margin * 2 - 300 } }
+      })
+      cursorY = (pdf as any).lastAutoTable.finalY + 12
+    } else {
+      pdf.setFontSize(9)
+      pdf.setFont('helvetica', 'normal')
+      pdf.text('No normal species selected', margin, cursorY)
+      cursorY += 16
+    }
+
+    // Safari Extras — simple grid table (Item | Qty | Duration)
+    pdf.setFont('helvetica', 'bold')
+    pdf.text(`Safari Extras (${selectedSafariExtras.value.length})`, margin, cursorY)
+    cursorY += 8
+
+    const resolveExtraMeta = (e: any) => {
+      const lookup = safariExtrasOptions.value.find((s: any) => String(s.id) === String(e.id) || String(s.safari_extra_id) === String(e.id))
+      return {
+        unit: Number(e.amount ?? lookup?.amount ?? lookup?.price ?? 0),
+        currency_symbol: e.currency_symbol || lookup?.currency_symbol || lookup?.currency?.symbol || '$',
+        pricing_unit: e.pricing_unit || lookup?.pricing_unit || lookup?.unit || ''
+      }
+    }
+
+    const extrasTableBody: any[] = []
+
+    selectedSafariExtras.value.forEach((extra: any) => {
+      const meta = resolveExtraMeta(extra)
+      const baseCount = Number(extra.quantity || 1)
+      const duration = computeEffectiveDuration(extra)
+      const durationDisplay = duration != null ? `${duration} day${duration > 1 ? 's' : ''}` : '-'
+
+      extrasTableBody.push([
+        extra.name || 'Safari Extra',
+        String(baseCount),
+        durationDisplay
+      ])
+    })
+
+    if (extrasTableBody.length > 0) {
+      autoTable(pdf, {
+        startY: cursorY,
+        head: [['Item', 'Qty', 'Duration']],
+        body: extrasTableBody,
+        theme: 'grid',
+        styles: { fontSize: 9 },
+        headStyles: { fillColor: [245, 245, 245], textColor: 50, fontStyle: 'bold' },
+        columnStyles: { 0: { cellWidth: 260 }, 1: { halign: 'center', cellWidth: 50 }, 2: { cellWidth: pageWidth - margin * 2 - 320 } }
+      })
+      cursorY = (pdf as any).lastAutoTable.finalY + 8
+    } else {
+      pdf.setFontSize(9)
+      pdf.setFont('helvetica', 'normal')
+      pdf.text('No safari extras selected', margin, cursorY)
+      cursorY += 16
+    }
+
+    // Pricing is intentionally omitted from the enquiry preview PDF — pricing/ totals are handled at Quotation stage.
+    // (do not render Pricing table or Totals in the preview PDF)
+    cursorY += 4
+
+    // Remarks
+    pdf.setFont('helvetica', 'bold')
+    pdf.text('Remarks', margin, cursorY)
+    cursorY += 12
+    pdf.setFont('helvetica', 'normal')
+    const remarksText = form.remarks || ''
+    pdf.setFontSize(9)
+    pdf.text(remarksText || '—', margin, cursorY, { maxWidth: pageWidth - margin * 2 })
+
+    // Save
+    const filename = `sales-enquiry-${(form.full_name || 'enquiry').toString().replace(/\s+/g, '-')}-${new Date().toISOString().slice(0,10)}.pdf`
+    pdf.save(filename)
+    init({ message: `Preview PDF generated (${filename})`, color: 'success' })
+  } catch (err) {
+    console.error('Error generating server-style preview PDF:', err)
+    init({ message: 'Failed to generate preview PDF', color: 'danger' })
+  } finally {
+    generatingPdf.value = false
+  }
+}
 
 // Get count for tab badge
 const getTabCount = (tabKey: string): number => {
   switch (tabKey) {
     case 'extras':
       return selectedSafariExtras.value.length
+    case 'participants':
+      return participants.value.length
     default:
       return 0
   }
@@ -691,7 +1570,6 @@ const editingInquiryId = ref<number | null>(null)
 const selectedSafariExtras = ref<any[]>([])
 const safariExtraErrors = ref<Record<string, {quantity?: string, item_durations?: string}>>({})
 const safariExtrasOptions = ref<any[]>([])
-const selectedSafariExtraId = ref<number | null>(null)
 const trophyFees = ref<any[]>([])
 const companionCosts = ref<any[]>([])
 const selectedPackageDetail = ref<any>(null)
@@ -760,20 +1638,46 @@ const speciesItems = computed(() => {
 
 // Grouped species options for multiselect (with category headers for display only)
 const groupedSpeciesOptions = computed(() => {
-  console.log('groupedSpeciesOptions - currentSalesPackage:', currentSalesPackage.value)
-  // Always show regulatory package species for search
-  if (currentSalesPackage.value?.regulatory_package?.species_by_category) {
-    const speciesToShow = currentSalesPackage.value.regulatory_package.species_by_category
+  // Show only MAIN_SPECIE species from the full package species
+  if (!fullPackageSpecies.value || fullPackageSpecies.value.length === 0) return []
 
-    console.log('groupedSpeciesOptions - speciesToShow (regulatory_package):', speciesToShow)
-    const flattened = flattenSpeciesWithCategories(speciesToShow)
-    console.log('groupedSpeciesOptions - flattened:', flattened)
-    return flattened
-  }
+  const excludedIds = new Set([
+    ...speciesObjects.value.map((s: any) => s.species_id || s.id),
+  ])
 
-  // No package selected - return empty
-  console.log('groupedSpeciesOptions - returning empty (no package)')
-  return []
+  const mainSpecies = fullPackageSpecies.value.filter((s: any) => s.subtype === 'MAIN_SPECIE' && !excludedIds.has(s.species_id))
+  return mainSpecies.map((s: any) => ({
+    value: s.species_id,
+    label: s.name,
+    name: s.name,
+    scientificName: s.scientific_name || '',
+    isHeader: false,
+    isCategoryHeader: false,
+    regulatoryQty: s.quantity || 0,
+    category: 'Species',
+  }))
+})
+
+// Grouped NORMAL species options – shows NORMAL_SPECIE species from the full package
+// Excludes species already in the normal list
+const groupedNormalSpeciesOptions = computed(() => {
+  if (!fullPackageSpecies.value || fullPackageSpecies.value.length === 0) return []
+
+  const excludedIds = new Set([
+    ...normalSpeciesObjects.value.map((s: any) => s.species_id || s.id),
+  ])
+
+  const normalSpecies = fullPackageSpecies.value.filter((s: any) => s.subtype === 'NORMAL_SPECIE' && !excludedIds.has(s.species_id))
+  return normalSpecies.map((s: any) => ({
+    value: s.species_id,
+    label: s.name,
+    name: s.name,
+    scientificName: s.scientific_name || '',
+    isHeader: false,
+    isCategoryHeader: false,
+    regulatoryQty: s.quantity || 0,
+    category: 'Species',
+  }))
 })
 
 const safariExtrasItems = computed(() =>
@@ -881,13 +1785,40 @@ const setSpeciesSelection = (selected: any) => {
 
 // Get regulatory quantity for a species
 const getRegulatoryQuantity = (speciesId: number): number => {
-  if (!currentSalesPackage.value?.regulatory_package?.species_by_category) return 0
-
-  for (const catGroup of currentSalesPackage.value.regulatory_package.species_by_category) {
-    const species = (catGroup.species || []).find((s: any) => s.id === speciesId)
-    if (species) return species.quantity || 0
+  // First check regulatory_package species_by_category
+  if (currentSalesPackage.value?.regulatory_package?.species_by_category) {
+    for (const catGroup of currentSalesPackage.value.regulatory_package.species_by_category) {
+      const species = (catGroup.species || []).find((s: any) => s.id === speciesId)
+      if (species) return species.quantity || 0
+    }
   }
+
+  // Fallback: check fullPackageSpecies (from sales-package-sets/{id})
+  const fullSpec = fullPackageSpecies.value.find((s: any) => s.species_id === speciesId)
+  if (fullSpec) return fullSpec.quantity || 0
+
   return 0
+}
+
+// Return a readable hunting area label (map numeric IDs to names)
+const getAreaLabel = (area: any): string | null => {
+  if (!area && area !== 0) return null
+  if (typeof area === 'number') {
+    const opt = areasOptions.value.find((a: any) => a.value === area)
+    return opt ? opt.text : String(area)
+  }
+  return String(area)
+}
+
+// Prefer 'Not provided' for optional empty fields (used in template)
+const displayOrNotProvided = (val: any) => {
+  if (val === null || val === undefined) return 'Not provided'
+  if (typeof val === 'string') {
+    const s = val.trim()
+    if (s === '' || s.toUpperCase() === 'N/A') return 'Not provided'
+    return s
+  }
+  return val
 }
 
 
@@ -923,9 +1854,11 @@ const onPackageChange = async (value: any) => {
 
   if (!value) {
     speciesObjects.value = []
+    normalSpeciesObjects.value = []
     currentSalesPackage.value = null
     regulatoryPackageSpecies.value = []
     customizedPackageSpecies.value = []
+    fullPackageSpecies.value = []
     return
   }
 
@@ -942,10 +1875,37 @@ const onPackageChange = async (value: any) => {
     console.log('onPackageChange - SET currentSalesPackage:', currentSalesPackage.value)
     console.log('onPackageChange - regulatory species:', regulatoryPackageSpecies.value)
     console.log('onPackageChange - customized species:', customizedPackageSpecies.value)
+
+    // Fetch FULL package species (with subtypes) from sales-package-sets/{id}
+    const salesPackageSetId = currentSalesPackage.value.id
+    if (salesPackageSetId) {
+      try {
+        const fullPkgResponse = await axios.get(
+          `${import.meta.env.VITE_APP_BASE_URL}settings/sales-package-sets/${salesPackageSetId}`,
+          { headers: { 'Content-Type': 'application/json' } }
+        )
+        const fullPkgData = fullPkgResponse.data?.data || fullPkgResponse.data
+        if (fullPkgData?.species && Array.isArray(fullPkgData.species)) {
+          fullPackageSpecies.value = fullPkgData.species.map((item: any) => ({
+            id: item.id,
+            species_id: item.species?.id || item.species_id,
+            name: item.species?.name || item.name,
+            scientific_name: item.species?.scientific_name || '',
+            subtype: item.species?.subtype || item.subtype || 'MAIN_SPECIE',
+            quantity: item.quantity || 1,
+          }))
+          console.log('onPackageChange - fullPackageSpecies:', fullPackageSpecies.value.length, 'species loaded')
+        }
+      } catch (error) {
+        console.error('Error fetching full package species:', error)
+        fullPackageSpecies.value = []
+      }
+    }
   } else {
     currentSalesPackage.value = null
     regulatoryPackageSpecies.value = []
     customizedPackageSpecies.value = []
+    fullPackageSpecies.value = []
     console.log('onPackageChange - NO sales_package found!')
   }
 
@@ -1000,7 +1960,7 @@ const syncFormData = () => {
   form.start_date = data.start_date || null
   form.no_of_days = Number(data.no_of_days) || 0
   form.area = data.area || null
-  form.no_of_participants = Number(form.no_of_hunters) || Number(data.no_of_participants) || 1
+  form.no_of_participants = participants.value.length || 1
   form.prev_experience = data.prev_experience || ''
   form.special_requests = data.special_requests || ''
 }
@@ -1073,6 +2033,150 @@ const addSpeciesToList = () => {
   }
 }
 
+// ─── Normal Species Functions ───
+
+const getNormalSpeciesSelection = () => {
+  if (!selectedNormalSpeciesId.value) return null
+  const allOptions = groupedNormalSpeciesOptions.value
+  return allOptions.find((opt: any) => opt.value === selectedNormalSpeciesId.value) || null
+}
+
+const setNormalSpeciesSelection = (selected: any) => {
+  selectedNormalSpeciesId.value = selected?.value || null
+}
+
+const addNormalSpeciesToList = () => {
+  if (!currentSalesPackage.value?.regulatory_package) {
+    init({ message: 'Please select a hunting package first to load species.', color: 'warning' })
+    return
+  }
+  if (!selectedNormalSpeciesId.value) {
+    init({ message: 'Please select a normal species.', color: 'warning' })
+    return
+  }
+
+  const quantity = Number(normalSpeciesQuantity.value) || 1
+  if (quantity <= 0) {
+    init({ message: 'Quantity must be greater than zero.', color: 'warning' })
+    return
+  }
+
+  // Check it's not already in normal species (same species CAN be in both main and normal)
+  const existsInNormal = normalSpeciesObjects.value.some((s: any) => s.species_id === selectedNormalSpeciesId.value)
+
+  if (existsInNormal) {
+    init({ message: 'This species is already added to normal species. Update the quantity instead.', color: 'warning' })
+    return
+  }
+
+  const speciesOption = groupedNormalSpeciesOptions.value.find((opt: any) => opt.value === selectedNormalSpeciesId.value && !opt.isHeader)
+  if (!speciesOption) {
+    init({ message: 'Selected species not found in available species list.', color: 'danger' })
+    return
+  }
+
+  // Get regulatory quantity for this species (from package)
+  const regulatoryQty = getRegulatoryQuantity(selectedNormalSpeciesId.value)
+  const speciesName = speciesOption.name || speciesOption.label || 'Unknown'
+
+  normalSpeciesObjects.value.push({
+    species_id: selectedNormalSpeciesId.value,
+    name: speciesName,
+    quantity: quantity,
+    regulatoryQty: regulatoryQty,
+    category: speciesOption.category || 'General',
+    priority: 'NICE_TO_HAVE',
+    notes: '',
+    fromPackage: false,
+    isNormalSpecies: true,
+  })
+
+  selectedNormalSpeciesId.value = null
+  normalSpeciesQuantity.value = 1
+
+  // Show warning if exceeding regulatory quantity
+  if (regulatoryQty > 0 && quantity > regulatoryQty) {
+    init({
+      message: `Added "${speciesName}" to normal species list. Warning: Requested quantity (${quantity}) exceeds regulatory quantity (${regulatoryQty}).`,
+      color: 'warning'
+    })
+  } else {
+    init({ message: `Added "${speciesName}" to normal species list`, color: 'success' })
+  }
+}
+
+const deleteNormalSpecies = (index: number) => {
+  const removed = normalSpeciesObjects.value.splice(index, 1)
+  const removedId = removed?.[0]?.species_id ?? removed?.[0]?.id ?? null
+  const newSet = new Set<string|number>()
+  selectedNormalSpeciesIndices.value.forEach((id) => {
+    if (id !== removedId) newSet.add(id)
+  })
+  selectedNormalSpeciesIndices.value = newSet
+}
+
+const toggleNormalSpeciesSelection = (index: number) => {
+  const item = normalSpeciesObjects.value[index]
+  const idKey = item?.species_id ?? item?.id ?? index
+  const newSet = new Set(selectedNormalSpeciesIndices.value)
+  if (newSet.has(idKey)) newSet.delete(idKey)
+  else newSet.add(idKey)
+  selectedNormalSpeciesIndices.value = newSet
+}
+
+const toggleSelectAllNormalSpecies = () => {
+  if (selectedNormalSpeciesIndices.value.size === normalSpeciesObjects.value.length) {
+    selectedNormalSpeciesIndices.value = new Set()
+    return
+  }
+  const allIds = new Set<string|number>()
+  normalSpeciesObjects.value.forEach((s: any, i: number) => {
+    allIds.add(s.species_id ?? s.id ?? i)
+  })
+  selectedNormalSpeciesIndices.value = allIds
+}
+
+const deleteSelectedNormalSpecies = () => {
+  if (selectedNormalSpeciesIndices.value.size === 0) return
+  showNormalDeleteConfirm.value = true
+}
+
+const confirmDeleteNormalSpecies = () => {
+  const idsToRemove = new Set(selectedNormalSpeciesIndices.value)
+  const count = idsToRemove.size
+  const indicesToRemove: number[] = []
+  normalSpeciesObjects.value.forEach((s: any, idx: number) => {
+    const idKey = s.species_id ?? s.id ?? idx
+    if (idsToRemove.has(idKey)) indicesToRemove.push(idx)
+  })
+
+  indicesToRemove.sort((a, b) => b - a)
+  indicesToRemove.forEach(i => normalSpeciesObjects.value.splice(i, 1))
+
+  selectedNormalSpeciesIndices.value = new Set()
+  showNormalDeleteConfirm.value = false
+  init({ message: `${count} normal species removed`, color: 'success' })
+}
+
+const incrementNormalQuantity = (index: number) => {
+  if (normalSpeciesObjects.value[index]) {
+    normalSpeciesObjects.value[index].quantity++
+  }
+}
+
+const decrementNormalQuantity = (index: number) => {
+  if (normalSpeciesObjects.value[index] && normalSpeciesObjects.value[index].quantity > 1) {
+    normalSpeciesObjects.value[index].quantity--
+  }
+}
+
+const toggleNormalPriority = (index: number) => {
+  const s = normalSpeciesObjects.value[index]
+  if (s) {
+    s.priority = s.priority === 'MUST_HAVE' ? 'NICE_TO_HAVE' : 'MUST_HAVE'
+  }
+}
+
 
 const currentStep = ref(0)
 
@@ -1112,6 +2216,9 @@ const canSubmit = computed(() => {
     hasInput(form.email)
   )
 
+  const participantsValid = participantValidationErrors.value.length === 0
+  const hunterCountValid = !participantCountMismatch.value
+
   return (
     hasCustomerInfo &&
     hasInput(form.season) &&
@@ -1119,7 +2226,9 @@ const canSubmit = computed(() => {
     // (keep existing behavior for now)
     hasInput(form.area) &&
     form.no_of_days > 0 &&
-    speciesObjects.value.length > 0
+    speciesObjects.value.length > 0 &&
+    participantsValid &&
+    hunterCountValid
   )
 })
 
@@ -1453,6 +2562,7 @@ const populateFormFromPackage = async () => {
 
   // Reset all package-related data
   speciesObjects.value = []
+  normalSpeciesObjects.value = []
   trophyFees.value = []
   companionCosts.value = []
   selectedPackageDetail.value = null
@@ -1475,55 +2585,123 @@ const populateFormFromPackage = async () => {
     }
   }
 
-  // Use species data from currentSalesPackage
-  currentSalesPackage.value.customized_species_by_category.forEach((catGroup: any) => {
-    catGroup.species.forEach((s: any) => {
-      const regulatoryQty = getRegulatoryQuantity(s.id)
-
+  // Auto-populate MAIN and NORMAL species from the package
+  fullPackageSpecies.value.forEach((s: any) => {
+    const regulatoryQty = getRegulatoryQuantity(s.species_id)
+    if (s.subtype === 'MAIN_SPECIE') {
       speciesObjects.value.push({
-        species_id: s.id,
+        species_id: s.species_id,
         name: s.name,
-        quantity: s.quantity,
+        quantity: s.quantity || 1,
         regulatoryQty: regulatoryQty,
-        category: catGroup.category,
+        category: 'Species',
         notes: '',
         priority: 'NICE_TO_HAVE',
         fromPackage: true,
       })
-    })
+    } else if (s.subtype === 'NORMAL_SPECIE') {
+      normalSpeciesObjects.value.push({
+        species_id: s.species_id,
+        name: s.name,
+        quantity: s.quantity || 1,
+        regulatoryQty: regulatoryQty,
+        category: 'Species',
+        notes: '',
+        priority: 'NICE_TO_HAVE',
+        fromPackage: true,
+        isNormalSpecies: true,
+      })
+    }
   })
 
-  init({ message: 'Package species loaded', color: 'success' })
+  const mainCount = speciesObjects.value.length
+  const normalCount = normalSpeciesObjects.value.length
+  init({ message: `Package species loaded (${mainCount} main, ${normalCount} normal).`, color: 'success' })
+
+  // ─── Auto-adjust participants based on hunting_type ───
+  const huntingType = pkgData.hunting_type || currentSalesPackage.value?.hunting_type || null
+  if (huntingType) {
+    const htMatch = String(huntingType).match(/^(\d+)\s*x\s*\d+$/i)
+    if (htMatch) {
+      const expectedCount = Number(htMatch[1])
+      const currentCount = participants.value.length
+
+      if (expectedCount > currentCount) {
+        // Add additional participants to reach expected count
+        for (let i = currentCount; i < expectedCount; i++) {
+          participants.value.push({
+            _uid: participantUidCounter++,
+            entity_id: null,
+            entity_name: '',
+            participant_type: 'additional',
+            is_independent: true,
+            dependent_on_participant_id: null,
+            share_percentage: 0,
+            notes: '',
+          })
+        }
+        redistributeShares()
+        init({
+          message: `Hunting type ${huntingType}: auto-added ${expectedCount - currentCount} participant(s) to match ${expectedCount} hunter(s).`,
+          color: 'info'
+        })
+      } else if (expectedCount < currentCount) {
+        // Remove excess additional participants (keep primary + first N-1 additional)
+        const excess = currentCount - expectedCount
+        for (let i = 0; i < excess; i++) {
+          const lastAdditionalIdx = participants.value.length - 1
+          const lastP = participants.value[lastAdditionalIdx]
+          if (lastP && lastP.participant_type === 'additional') {
+            // Clear dependency references
+            for (const p of participants.value) {
+              if (p.dependent_on_participant_id === lastP._uid) {
+                p.dependent_on_participant_id = null
+              }
+            }
+            participants.value.splice(lastAdditionalIdx, 1)
+          }
+        }
+        redistributeShares()
+        init({
+          message: `Hunting type ${huntingType}: adjusted to ${expectedCount} hunter(s). Removed ${excess} extra participant(s).`,
+          color: 'info'
+        })
+      }
+    }
+  }
 }
 
 const deleteFromStorage = (index: number) => {
-  speciesObjects.value.splice(index, 1)
-  // Re-build the selected indices set after removal
-  const newSet = new Set<number>()
-  selectedSpeciesIndices.value.forEach(i => {
-    if (i < index) newSet.add(i)
-    else if (i > index) newSet.add(i - 1)
+  const removed = speciesObjects.value.splice(index, 1)
+  // Rebuild selectedSpeciesIndices using stable ids (remove any removed ids)
+  const removedId = removed?.[0]?.species_id ?? removed?.[0]?.id ?? null
+  const newSet = new Set<string|number>()
+  selectedSpeciesIndices.value.forEach((id) => {
+    if (id !== removedId) newSet.add(id)
   })
   selectedSpeciesIndices.value = newSet
-}
+} 
 
 const toggleSpeciesSelection = (index: number) => {
+  const item = speciesObjects.value[index]
+  const idKey = item?.species_id ?? item?.id ?? index
   const newSet = new Set(selectedSpeciesIndices.value)
-  if (newSet.has(index)) {
-    newSet.delete(index)
-  } else {
-    newSet.add(index)
-  }
+  if (newSet.has(idKey)) newSet.delete(idKey)
+  else newSet.add(idKey)
   selectedSpeciesIndices.value = newSet
-}
+} 
 
 const toggleSelectAllSpecies = () => {
   if (selectedSpeciesIndices.value.size === speciesObjects.value.length) {
     selectedSpeciesIndices.value = new Set()
-  } else {
-    selectedSpeciesIndices.value = new Set(speciesObjects.value.map((_, i) => i))
+    return
   }
-}
+  const allIds = new Set<string|number>()
+  speciesObjects.value.forEach((s: any, i: number) => {
+    allIds.add(s.species_id ?? s.id ?? i)
+  })
+  selectedSpeciesIndices.value = allIds
+} 
 
 const deleteSelectedSpecies = async () => {
   if (selectedSpeciesIndices.value.size === 0) return
@@ -1540,11 +2718,39 @@ const deleteSelectedSpecies = async () => {
   })
   if (!result.isConfirmed) return
 
-  // Remove from highest index to lowest so indices stay valid
-  const sortedIndices = [...selectedSpeciesIndices.value].sort((a, b) => b - a)
-  sortedIndices.forEach(i => speciesObjects.value.splice(i, 1))
+  // Map selected ids back to current indices, sort descending and remove
+  const idsToRemove = new Set(selectedSpeciesIndices.value)
+  const indicesToRemove: number[] = []
+  speciesObjects.value.forEach((s: any, idx: number) => {
+    const idKey = s.species_id ?? s.id ?? idx
+    if (idsToRemove.has(idKey)) indicesToRemove.push(idx)
+  })
+
+  indicesToRemove.sort((a, b) => b - a)
+  indicesToRemove.forEach(i => speciesObjects.value.splice(i, 1))
+
+  // Clear selection
   selectedSpeciesIndices.value = new Set()
   init({ message: `${count} species removed`, color: 'success' })
+} 
+
+const clearAllSpecies = async () => {
+  if (speciesObjects.value.length === 0) return
+  const count = speciesObjects.value.length
+  const result = await Swal.fire({
+    title: 'Clear All Species?',
+    html: `Are you sure you want to remove all <strong>${count}</strong> main species?`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#ef4444',
+    cancelButtonColor: '#6b7280',
+    confirmButtonText: `Yes, clear all`,
+    cancelButtonText: 'Cancel'
+  })
+  if (!result.isConfirmed) return
+  speciesObjects.value = []
+  selectedSpeciesIndices.value = new Set()
+  init({ message: `All ${count} species removed`, color: 'success' })
 }
 
 const incrementQuantity = (index: number) => {
@@ -1583,37 +2789,31 @@ const toggleSafariExtraPriority = (index: number) => {
 }
 
 const addSafariExtra = () => {
-  if (!selectedSafariExtraId.value) {
-    init({ message: 'Please select a safari extra', color: 'warning' })
-    return
-  }
+  // Add an editable empty row at the TOP so the newest row shows above. Duplicates allowed only where allowed.
+  selectedSafariExtras.value.unshift({
+    id: null,
+    name: null,
+    description: null,
+    priority: 'NICE_TO_HAVE',
+    quantity: 1,
+    item_durations: null,
+    notes: null,
+    fromPackage: false,
+    // pricing metadata placeholders (filled when user selects type)
+    amount: 0,
+    currency_code: 'USD',
+    currency_symbol: '',
+    pricing_unit: null,
+  })
 
-  // Check if already added
-  const exists = selectedSafariExtras.value.some((e: any) => e.id === selectedSafariExtraId.value)
-  if (exists) {
-    init({ message: 'This safari extra is already added', color: 'warning' })
-    return
-  }
-
-  const safariExtraOption = safariExtrasItems.value.find((item: any) => item.value === selectedSafariExtraId.value)
-  if (safariExtraOption && safariExtraOption.item) {
-    const item = safariExtraOption.item
-    selectedSafariExtras.value.push({
-      id: item.id,
-      name: item.name,
-      description: item.description,
-      priority: 'NICE_TO_HAVE',
-      quantity: 1,
-      item_durations: null,
-      notes: null,
-      fromPackage: false
-    })
-    // initialize per-extra error holder
-    const _key = Number(item.id)
-    safariExtraErrors.value[_key] = safariExtraErrors.value[_key] || {}
-    init({ message: `Added "${item.name}" to safari extras`, color: 'success' })
-    selectedSafariExtraId.value = null
-  }
+  // Wait for DOM update then focus the new row's select control
+  nextTick(() => {
+    const sel = document.querySelector('.items-list .list-item select') as HTMLSelectElement | null
+    if (sel) {
+      sel.focus()
+      // open native select (some browsers support focus+keydown, leave as-is)
+    }
+  })
 }
 
 const removeSafariExtra = (index: number) => {
@@ -1632,13 +2832,46 @@ const submit = async () => {
   for (const extra of selectedSafariExtras.value) {
     if (isDurationRelevant(extra)) {
       if (extra.item_durations != null && (!Number.isInteger(Number(extra.item_durations)) || Number(extra.item_durations) < 1)) {
-        init({ message: `Duration for "${extra.name}" must be an integer ≥ 1`, color: 'warning' })
+        init({ message: `Duration for "${extra.name || 'unnamed extra'}" must be an integer ≥ 1`, color: 'warning' })
         saving.value = false
         return
       }
     } else {
       // Ensure non-duration items do not carry a duration value
       extra.item_durations = null
+    }
+  }
+
+  // Ensure each added extra has an Extra Type selected and valid quantity
+  // Validate extras and enforce duplicate rules (duplicates allowed only for Observer & Cameraman)
+  for (let i = 0; i < selectedSafariExtras.value.length; i++) {
+    const extra = selectedSafariExtras.value[i]
+    if (!extra.id) {
+      init({ message: `Please select an Extra type for row ${i + 1}`, color: 'warning' })
+      saving.value = false
+      return
+    }
+
+    // Duplicate prevention: only Observer and Cameraman can appear multiple times
+    const nameLower = String(extra.name || extra.description || '').toLowerCase()
+    const duplicate = selectedSafariExtras.value.some((s: any, idx: number) => idx !== i && s.id && extra.id && String(s.id) === String(extra.id))
+    const duplicateAllowed = nameLower.includes('observer') || nameLower.includes('camera') || nameLower.includes('cameraman')
+    if (duplicate && !duplicateAllowed) {
+      init({ message: `"${extra.name || 'This extra'}" cannot be added more than once. Duplicates are allowed only for Observer and Cameraman.`, color: 'warning' })
+      saving.value = false
+      return
+    }
+
+    // Quantity validation only for extras that show quantity
+    if (isQuantityRelevant(extra)) {
+      if (!Number.isInteger(Number(extra.quantity)) || Number(extra.quantity) < 1) {
+        init({ message: `Quantity for "${extra.name || 'unnamed extra'}" must be ≥ 1`, color: 'warning' })
+        saving.value = false
+        return
+      }
+    } else {
+      // ensure non-quantity items always default to 1
+      extra.quantity = 1
     }
   }
 
@@ -1703,6 +2936,14 @@ const submit = async () => {
         desired_quantity: item.quantity || 1,
         priority: item.priority || 'NICE_TO_HAVE',
         notes: item.notes || null,
+        item_subtype: 'MAIN_SPECIE',
+      })),
+      ...normalSpeciesObjects.value.map((item: any) => ({
+        item_id: item.species_id || item.item_id || item.id,
+        desired_quantity: item.quantity || 1,
+        priority: item.priority || 'NICE_TO_HAVE',
+        notes: item.notes || null,
+        item_subtype: 'NORMAL_SPECIE',
       }))
     ],
 
@@ -1724,7 +2965,7 @@ const submit = async () => {
     // Preference - backend uses no_of_participants
     preference: {
       prev_experience: form.prev_experience || null,
-      no_of_participants: form.no_of_hunters || form.no_of_participants || 1,
+      no_of_participants: participants.value.length || 1,
       preferred_start_date: form.start_date || null,
       no_of_days: form.no_of_days || null,
       budget_min: form.budget_min || null,
@@ -1732,6 +2973,16 @@ const submit = async () => {
       payment_method_id: form.payment_method_id || null,
       special_requests: form.special_requests || null,
     },
+
+    // Participants
+    participants: participants.value.map(p => ({
+      entity_id: p.entity_id,
+      participant_type: p.participant_type,
+      is_independent: p.is_independent,
+      dependent_on_participant_id: !p.is_independent ? (p.dependent_on_participant_id || null) : null,
+      share_percentage: p.share_percentage,
+      notes: p.notes || null,
+    })),
   }
 
   // Get entity_id directly from customerData prop (passed from CustomerSelectionModal)
@@ -1824,11 +3075,28 @@ const submit = async () => {
 
 // Handle duration input safely (allow blank to mean inherit)
 let pricingChangeTimeout: any = null
+// Determine whether the `quantity` control should be shown for an extra
+const isQuantityRelevant = (item: any) => {
+  const name = item?.name || item?.item_name || item?.description || ''
+  if (!name) return false
+  const n = String(name).toLowerCase()
+  // Quantity relevant for: observer, cameraman, ammo, gun permit, change of area
+  if (n.includes('observer') || n.includes('camera') || n.includes('cameraman')) return true
+  if (n.includes('ammo') || n.includes('additional gun permit') || n.includes('gun permit') || n.includes('change of area')) return true
+  // Baiting vehicle & firearm hire - quantity not shown (per your table)
+  if (n.includes('baiting vehicle') || n.includes('baiting') || n.includes('firearm') || n.includes('firearm hire')) return false
+  // Default to true (safe) for other items
+  return true
+}
+
+// Determine whether the `duration` input should be shown for an extra
 const isDurationRelevant = (item: any) => {
   const name = item?.name || item?.item_name || item?.description || ''
   if (!name) return false
   const n = String(name).toLowerCase()
-  if (n.includes('additional gun permit') || n.includes('gun permit') || n.includes('ammo')) return false
+  // Items explicitly _not_ duration-based
+  if (n.includes('additional gun permit') || n.includes('gun permit') || n.includes('ammo') || n.includes('change of area')) return false
+  // Per-day items or known duration items
   if (n.includes('per day') || n.includes('perday')) return true
   if (n.includes('firearm') || n.includes('baiting') || n.includes('photographic') || n.includes('camera') || n.includes('cameraman') || n.includes('observer')) return true
   return false
@@ -1851,6 +3119,14 @@ const computeEffectiveDuration = (extra: any) => {
   }
 
   return null
+}
+
+// Return a placeholder text for the duration input — shows inherited length when item_durations is blank
+const getDurationPlaceholder = (extra: any) => {
+  if (!extra) return 'Days'
+  if (extra.item_durations != null && String(extra.item_durations) !== '') return 'Days'
+  const effective = computeEffectiveDuration(extra)
+  return effective != null ? `Inherits: ${effective} day${effective > 1 ? 's' : ''}` : 'Days'
 }
 
 const scheduleEmitPricingChanged = () => {
@@ -1890,6 +3166,58 @@ const handleDurationInput = (e: any, extra: any) => {
   if (safariExtraErrors.value[_k]) safariExtraErrors.value[_k].item_durations = undefined
   scheduleEmitPricingChanged()
 } 
+
+// Called when a per-row Extra Type is selected/changed
+const onSafariExtraTypeChange = (extra: any) => {
+  if (!extra || !extra.id) {
+    // user cleared selection
+    extra.name = null
+    extra.description = null
+    return
+  }
+
+  const opt = safariExtrasItems.value.find((o: any) => o.value === extra.id)
+  if (!opt || !opt.item) return
+  const item = opt.item
+
+  // Prevent duplicates for items other than Observer/Cameraman
+  const index = selectedSafariExtras.value.indexOf(extra)
+  const nameLower = String(item.name || item.description || '').toLowerCase()
+  const duplicate = selectedSafariExtras.value.some((s: any, idx: number) => idx !== index && s.id && String(s.id) === String(extra.id))
+  const duplicateAllowed = nameLower.includes('observer') || nameLower.includes('camera') || nameLower.includes('cameraman')
+  if (duplicate && !duplicateAllowed) {
+    init({ message: `"${item.name || 'This extra'}" may only be added once. Duplicates allowed only for Observer and Cameraman.`, color: 'warning' })
+    // reset selection
+    extra.id = null
+    extra.name = null
+    extra.description = null
+    return
+  }
+
+  extra.name = item.name || opt.label || ''
+  extra.description = item.description || ''
+  // preserve existing quantity if present, otherwise default to 1
+  extra.quantity = extra.quantity || 1
+
+  // For extras that should not expose quantity, force quantity to 1
+  if (!isQuantityRelevant(extra)) extra.quantity = 1
+
+  // set pricing/duration defaults from catalog when available
+  extra.amount = item.amount ?? item.price ?? extra.amount ?? 0
+  extra.currency_code = item.currency_code || item.currency?.code || extra.currency_code || 'USD'
+  extra.currency_symbol = item.currency_symbol || item.currency?.symbol || extra.currency_symbol || ''
+  extra.pricing_unit = item.pricing_unit || item.unit || extra.pricing_unit || null
+
+  // if the item defines a default duration, use it only if the row has no explicit duration
+  if ((extra.item_durations == null || extra.item_durations === '') && (item.item_durations ?? item.effective_duration)) {
+    extra.item_durations = item.item_durations ?? item.effective_duration ?? null
+  }
+
+  // ensure per-item error holder exists (keyed by item id)
+  const _k = Number(extra.id)
+  safariExtraErrors.value[_k] = safariExtraErrors.value[_k] || {}
+  scheduleEmitPricingChanged()
+}
 
 const getSpeciesNameById = (speciesId: number): string | null => {
   if (!speciesId) return null
@@ -1953,8 +3281,6 @@ const loadInquiryForEdit = (rowData: any) => {
 
   // Load preference data - backend uses no_of_participants
   const prefs = item.preference || rowData.preference || {}
-  form.no_of_participants = prefs.no_of_participants || 1
-  form.no_of_hunters = prefs.no_of_participants || 1
   form.no_of_observers = 0
   form.no_of_companions = 0
   form.no_of_days = prefs.no_of_days || 0
@@ -1963,6 +3289,36 @@ const loadInquiryForEdit = (rowData: any) => {
   form.budget_max = prefs.budget_max || null
   form.payment_method_id = prefs.payment_method_id || null
   form.special_requests = prefs.special_requests || ''
+
+  // Load participants from backend (if available)
+  const backendParticipants = item.participants || []
+  if (backendParticipants.length > 0) {
+    participants.value = backendParticipants.map((bp: any) => ({
+      _uid: participantUidCounter++,
+      entity_id: bp.entity_id || null,
+      entity_name: bp.entity?.full_name || entityOptions.value.find((e: any) => e.value === bp.entity_id)?.label || '',
+      participant_type: bp.participant_type || 'additional',
+      is_independent: bp.is_independent !== false,
+      dependent_on_participant_id: bp.dependent_on_participant_id || null,
+      share_percentage: bp.share_percentage ?? 0,
+      notes: bp.notes || '',
+    }))
+  } else {
+    // Fallback: create single primary from no_of_participants
+    const count = prefs.no_of_participants || 1
+    participants.value = [{
+      _uid: participantUidCounter++,
+      entity_id: null,
+      entity_name: '',
+      participant_type: 'primary' as const,
+      is_independent: true,
+      dependent_on_participant_id: null,
+      share_percentage: count === 1 ? 100 : Math.round((100 / count) * 100) / 100,
+      notes: '',
+    }]
+  }
+  form.no_of_hunters = participants.value.length
+  form.no_of_participants = participants.value.length
 
   // Load dates from preference
   if (prefs.preferred_start_date) {
@@ -1998,19 +3354,29 @@ const loadInquiryForEdit = (rowData: any) => {
     null
 
   // Load item_preferences (game preferences) - backend uses item_id
+  // Separate MAIN_SPECIE vs NORMAL_SPECIE based on item_subtype field
   speciesObjects.value = []
+  normalSpeciesObjects.value = []
   const itemPreferences = item.item_preferences || []
   itemPreferences.forEach((pref: any) => {
     const itemId = pref.item_id || pref.species_item_id
     const itemName = pref.item_name || getSpeciesNameById(itemId) || 'Unknown'
-    speciesObjects.value.push({
+    const subtype = (pref.item_subtype || pref.subtype || '').toString().toUpperCase()
+
+    const speciesEntry = {
       species_id: itemId,
       name: itemName,
       quantity: pref.desired_quantity || 1,
       priority: pref.priority || 'NICE_TO_HAVE',
       notes: pref.notes || '',
       fromPackage: false,
-    })
+    }
+
+    if (subtype === 'NORMAL_SPECIE') {
+      normalSpeciesObjects.value.push({ ...speciesEntry, isNormalSpecies: true })
+    } else {
+      speciesObjects.value.push(speciesEntry)
+    }
   })
 
   selectedSafariExtras.value = []
@@ -2085,6 +3451,15 @@ const initializeFromCustomerData = () => {
   form.phone_additional = data.phone_additional || ''
   form.address = data.address || ''
 
+  // Auto-set the client as the primary hunter (the enquiry is for this person)
+  if (data.entity_id) {
+    const primary = participants.value.find(p => p.participant_type === 'primary')
+    if (primary && !primary.entity_id) {
+      primary.entity_id = data.entity_id
+      primary.entity_name = data.full_name || ''
+    }
+  }
+
   // Update Vueform if available
   if (vueformRef.value) {
     vueformRef.value.update({
@@ -2121,12 +3496,22 @@ watch(
   { immediate: true },
 )
 
+// Keep participants count in sync with participants list length
+watch(
+  () => participants.value.length,
+  (len) => {
+    const n = len || 1
+    form.no_of_hunters = n
+    form.no_of_participants = n
+  }
+)
+
 
 onMounted(async () => {
   // Save original sidebar state and collapse it
   originalSidebarState.value = appOptionStore.appSidebarMinified
   appOptionStore.appSidebarMinified = true
-  await fetchCreationMetadata()
+  await Promise.all([fetchCreationMetadata(), fetchEntities(), fetchAllSpecies()])
 })
 
 // Restore sidebar state when leaving the page
@@ -2874,6 +4259,24 @@ onUnmounted(() => {
   color: var(--text);
 }
 
+/* Make certain review items span full width and wrap nicely (used for long package names) */
+.review-item.full {
+  grid-column: 1 / -1;
+  align-items: flex-start;
+  gap: 12px;
+}
+.review-item.full .label {
+  width: 160px;
+  flex-shrink: 0;
+}
+.review-item.full .value {
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  display: block;
+  flex: 1 1 auto;
+}
+
 .review-badges {
   display: flex;
   flex-wrap: wrap;
@@ -2885,6 +4288,28 @@ onUnmounted(() => {
   font-size: 11px;
   padding: 4px 10px;
   border-radius: 6px;
+}
+
+
+
+/* Species list spacing */
+.species-list {
+  list-style: disc inside;
+  padding-left: 12px;
+  margin: 6px 0 0 0;
+}
+.species-list li {
+  margin: 4px 0;
+}
+
+/* Extras list */
+.extras-list ul {
+  list-style: disc inside;
+  padding-left: 12px;
+  margin: 6px 0 0 0;
+}
+.extras-list li {
+  margin: 4px 0;
 }
 
 /* Inner card styles */
@@ -3253,6 +4678,7 @@ onUnmounted(() => {
   display: flex;
   gap: 10px;
   align-items: flex-end;
+  justify-content: space-between;
   margin-bottom: 20px;
 }
 
@@ -3368,6 +4794,57 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+/* Safari Extras grid rows — fixed columns so all rows align */
+.extras-row {
+  display: grid;
+  grid-template-columns: 1fr 140px 120px 44px;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+  background: #fafbfc;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-bottom: 8px;
+  transition: all 0.2s ease;
+}
+
+.extras-row:last-child {
+  margin-bottom: 0;
+}
+
+.extras-row:hover {
+  background: #f8fafc;
+  border-color: var(--primary);
+}
+
+.extras-col-select {
+  min-width: 0;
+}
+
+.extras-col-select .form-select {
+  width: 100%;
+}
+
+.extras-col-qty {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 34px;
+}
+
+.extras-col-days {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 34px;
+}
+
+.extras-col-action {
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 .qty-badge {
@@ -3527,6 +5004,73 @@ onUnmounted(() => {
 /* Upgrade fees section */
 .upgrade-fees-section {
   margin-top: 20px;
+}
+
+.normal-species-item {
+  border-left: 3px solid #059669 !important;
+}
+
+/* ── Normal Species Modal ── */
+.normal-species-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.normal-species-modal {
+  background: #fff;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 1000px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  animation: modalSlideIn 0.2s ease-out;
+}
+
+@keyframes modalSlideIn {
+  from { opacity: 0; transform: translateY(-20px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.normal-species-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.normal-species-modal-header h5 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.normal-species-modal-body {
+  padding: 20px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.normal-species-modal-body .add-item-row {
+  margin-bottom: 0;
+}
+
+.normal-species-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  border-top: 1px solid #e5e7eb;
+  background: #f9fafb;
+  border-radius: 0 0 12px 12px;
 }
 
 .fees-table {
@@ -3860,5 +5404,186 @@ onUnmounted(() => {
   .review-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* ─── Participants Section ─── */
+.readonly-value {
+  padding: 10px 14px;
+  background: #f1f5f9;
+  border: 2px solid #e2e8f0;
+  border-radius: 10px;
+  font-weight: 600;
+  color: #334155;
+  font-size: 14px;
+}
+
+/* Participant table styles */
+.participant-table-header {
+  display: grid;
+  grid-template-columns: 44px 1fr 90px 100px 160px 1fr 44px;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 14px;
+  background: #f1f5f9;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 10px 10px 0 0;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #64748b;
+}
+
+.participant-table-row {
+  display: grid;
+  grid-template-columns: 44px 1fr 90px 100px 160px 1fr 44px;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 14px;
+  background: #fafbfc;
+  border: 1px solid var(--border, #e2e8f0);
+  border-top: none;
+  transition: all 0.2s ease;
+}
+
+.participant-table-row:last-child {
+  border-radius: 0 0 10px 10px;
+}
+
+.participant-table-row:hover {
+  background: #f8fafc;
+  border-color: var(--primary, #3b82f6);
+}
+
+.participant-table-row.primary-row {
+  background: linear-gradient(135deg, #fffbeb 0%, #fff 100%);
+  border-color: #f59e0b;
+  border-top: 1px solid #f59e0b;
+}
+
+.participant-table-row.primary-row:hover {
+  border-color: #d97706;
+}
+
+.ptbl-col-num {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.ptbl-col-entity {
+  min-width: 0;
+}
+
+.ptbl-col-entity .form-select {
+  width: 100%;
+}
+
+.ptbl-col-share {
+  min-width: 0;
+}
+
+.ptbl-col-share input {
+  width: 100%;
+}
+
+.ptbl-col-indep {
+  display: flex;
+  align-items: center;
+}
+
+.ptbl-col-dep {
+  min-width: 0;
+}
+
+.ptbl-col-dep .form-select {
+  width: 100%;
+}
+
+.ptbl-col-notes {
+  min-width: 0;
+}
+
+.ptbl-col-notes input {
+  width: 100%;
+}
+
+.ptbl-col-action {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.participant-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.participant-badge.primary {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.participant-badge.additional {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.toggle-label {
+  font-size: 13px;
+  color: #475569;
+  font-weight: 500;
+}
+
+.share-summary {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 14px;
+  background: #f8fafc;
+}
+
+.share-bar-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+/* Review participants */
+.participants-review-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.participant-review-item {
+  padding: 10px 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.share-badge {
+  font-weight: 700;
+  color: #2563eb;
+  font-size: 14px;
+  background: #eff6ff;
+  padding: 2px 10px;
+  border-radius: 6px;
+}
+
+.share-total-review {
+  text-align: right;
+  font-size: 14px;
 }
 </style>

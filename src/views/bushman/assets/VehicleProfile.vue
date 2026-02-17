@@ -1042,20 +1042,19 @@ const route = useRoute();
 const router = useRouter();
 
 // Props - receive data from parent
-const props = defineProps<{
-  vehicleDetails: VehicleAsset | null;
-  vehicleDocuments?: any[];
-  uploading?: boolean;
-  loading?: boolean;
-  previewMap?: Record<number | string, string>;
-  seatMapData?: any[];
-  seatMapTypes?: any[];
-  vehicleGroups?: any[];
-  sizeGroups?: any[];
-  models?: any[];
-  formDataLoading?: boolean;
-}>()
-
+const props = defineProps < {
+  vehicleDetails: VehicleAsset | null
+  vehicleDocuments: any[]
+  uploading: boolean
+  loading: boolean
+  previewMap: Record < number | string, string>
+  seatMapData ?: any[]
+seatMapTypes ?: any[]
+vehicleGroups ?: any[]
+sizeGroups ?: any[]
+models ?: any[]
+formDataLoading ?: boolean
+}> ()
 
 // Emits - send events to parent
 const emit = defineEmits<{
@@ -1069,9 +1068,8 @@ const emit = defineEmits<{
   (e: 'view-document', doc: any): void
   (e: 'open-image-preview', doc: any): void
   (e: 'open-documents'): void
-  (e: 'open-seat-map', data?: any): void
+  (e: 'openSeatMap'): void
   (e: 'downloadDocument', id: number): void
-  (e: 'download-document', doc: any): void
   (e: 'fetch-seat-map', seatMapId?: string | number): void
   (e: 'update-vehicle', data: any): void
   (e: 'fetch-form-data'): void
@@ -1677,15 +1675,6 @@ async function submitDocument() {
   border: none;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
   border-radius: 8px;
-}
-
-/* Remove border radius from tabs card */
-.tabs-card {
-  border-radius: 0 !important;
-  border-top-left-radius: 0 !important;
-  border-top-right-radius: 0 !important;
-  border-bottom-left-radius: 0 !important;
-  border-bottom-right-radius: 0 !important;
 }
 
 /* Remove border radius from tabs card */

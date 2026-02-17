@@ -5,8 +5,8 @@
         <h5 class="page-header mb-0">Quotations</h5>
       </div>
       <div class="ms-auto d-flex flex-wrap gap-2">
-        <button class="btn btn-outline-theme" @click="openAddPricingModal" :disabled="!canAddPricing">
-          <i class="fa fa-magic fa-fw me-1"></i> Generate from Package
+        <button v-if="canAddPricing" class="btn btn-outline-theme" @click="generateQuotation">
+          <i class="fa fa-magic fa-fw me-1"></i> Generate Quotation
         </button>
       </div>
     </div>
@@ -50,22 +50,22 @@
                     <div>{{ pricing.price_structure_detail?.name || 'N/A' }}</div>
                     <small class="text-muted">{{ pricing.hunting_type || '' }}</small>
                   </td>
-                  <td class="align-middle">{{ pricing.price_structure_detail?.hunt_length?.label || pricing.price_structure_detail?.hunt_length || 'N/A' }}</td>
-                  <td class="align-middle">{{ pricing.currency?.name || pricing.currency || 'USD' }}</td>
+                  <td class="align-middle">{{ (pricing.price_structure_detail?.hunt_length as any)?.label || pricing.price_structure_detail?.hunt_length || 'N/A' }}</td>
+                  <td class="align-middle">{{ typeof pricing.currency === 'string' ? pricing.currency : (pricing.currency as any)?.name || 'USD' }}</td>
                   <td class="text-center align-middle">
                     <span class="badge bg-gray-100 text-black text-opacity-50 px-2 pt-5px pb-5px rounded fs-12px">{{ getItemsCount(pricing) }}</span>
                   </td>
                   <td class="text-end align-middle">
                     <strong class="text-success">
-                      {{ pricing.currency?.symbol || '$' }}{{ formatCurrency(pricing.total_amount || pricing.summary?.subtotal || 0) }}
+                      {{ typeof pricing.currency === 'string' ? '$' : ((pricing.currency as any)?.symbol || '$') }}{{ formatCurrency(pricing.total_amount || (pricing as any).summary?.subtotal || 0) }}
                     </strong>
                   </td>
                   <td class="text-center align-middle">
                     <div class="btn-group btn-group-sm" role="group">
-                      <button class="btn btn-info btn-sm" @click="navigateToEditQuotation(pricing)" title="View and Edit">
+                      <button class="btn btn-info btn-sm me-1" @click="navigateToEditQuotation(pricing)" title="View and Edit">
                         <i class="fa fa-eye"></i>
                       </button>
-                      <button v-if="pricing.status !== 'LOCKED'" class="btn btn-success btn-sm" @click="confirmLockPricing(pricing)" title="Lock">
+                      <button v-if="pricing.status !== 'LOCKED'" class="btn btn-success btn-sm me-1" @click="confirmLockPricing(pricing)" title="Lock">
                         <i class="fa fa-lock"></i>
                       </button>
                       <button v-if="pricing.status !== 'LOCKED'" class="btn btn-danger btn-sm" @click="confirmDeletePricing(pricing)" title="Delete">
@@ -90,8 +90,8 @@
             <h5 class="text-muted">No Quotations Yet</h5>
             <p class="text-muted mb-3">Create a new quotation to get started.</p>
             <div class="d-flex justify-content-center flex-wrap gap-2">
-              <button class="btn btn-outline-theme" @click="openAddPricingModal" :disabled="!canAddPricing">
-                <i class="fa fa-magic fa-fw me-1"></i> Generate from Package
+              <button v-if="canAddPricing" class="btn btn-outline-theme" @click="generateQuotation">
+                <i class="fa fa-magic fa-fw me-1"></i> Generate Quotation
               </button>
             </div>
           </div>
@@ -290,6 +290,17 @@
                 </div>
               </div>
 
+              <!-- Auto‑assign overflow toggle -->
+              <div class="form-check form-switch mb-3 d-flex align-items-start gap-3">
+                <div style="flex:0 0 auto;">
+                  <input class="form-check-input" type="checkbox" id="autoAssignOverflowToggle" v-model="autoAssignOverflow" />
+                </div>
+                <div style="flex:1 1 auto;">
+                  <label class="form-check-label small" for="autoAssignOverflowToggle"><strong>Auto‑assign overflow to other licences</strong></label>
+                  <div class="small text-muted">When selected, quantities that exceed the package licence will be suggested for allocation to other available licences; you will be prompted to confirm per species.</div>
+                </div>
+              </div>
+
               <!-- Summary -->
               <div class="card bg-light mt-4">
                 <div class="card-body">
@@ -394,6 +405,65 @@
                     <option value="LOGISTICS">Accommodation & Transport</option>
                     <option value="ADJUSTMENT">Price Adjustment</option>
                   </select>
+                </div>
+
+                <!-- Overflow allocation modal (prompt user to allocate overflow to other licences) -->
+                <div class="modal fade" :class="{ show: showOverflowAllocationModal }" :style="{ display: showOverflowAllocationModal ? 'block' : 'none' }" tabindex="-1">
+                  <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                      <div class="modal-header">
+                        <h5 class="modal-title"><i class="fa fa-exchange-alt me-2"></i>Allocate overflow to other licences</h5>
+                        <button type="button" class="btn-close" @click="closeOverflowAllocationModal"></button>
+                      </div>
+                      <div class="modal-body" style="max-height:60vh; overflow:auto;">
+                        <p class="small text-muted">Distribute the quantities that exceed the base package licence across other available licences. Suggested allocations are prefilled — adjust as needed.</p>
+
+                        <div v-if="overflowAllocations.length === 0" class="alert alert-warning">No allocation candidates found for the selected overflow items.</div>
+
+                        <div v-for="alloc in overflowAllocations" :key="alloc.speciesId" class="mb-4 border rounded p-2">
+                          <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                              <strong>{{ alloc.name }}</strong>
+                              <div class="small text-muted">Requested: {{ alloc.requestedQty }} · Licence limit: {{ alloc.regLimit }} · Exceeds by: {{ alloc.overflowQty }}</div>
+                            </div>
+                            <div class="text-end">
+                              <button type="button" class="btn btn-sm btn-outline-secondary me-2" @click="() => fillSuggestedAlloc(alloc)">Use suggested</button>
+                              <button type="button" class="btn btn-sm btn-outline-info" @click="() => clearAllocations(alloc)">Clear</button>
+                            </div>
+                          </div>
+
+                          <div class="mt-2">
+                            <table class="table table-sm">
+                              <thead>
+                                <tr>
+                                  <th>Package</th>
+                                  <th class="text-center">Licence Qty</th>
+                                  <th class="text-center">Unit Price</th>
+                                  <th class="text-center">Assign Qty</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                <tr v-for="(c, idx) in alloc.userAllocations" :key="c.packageId">
+                                  <td>{{ c.packageName }}</td>
+                                  <td class="text-center">{{ c.maxQty }}</td>
+                                  <td class="text-center">{{ formatCurrency(c.unitPrice || 0) }}</td>
+                                  <td class="text-center" style="width:120px">
+                                    <input type="number" class="form-control form-control-sm text-center" v-model.number="alloc.userAllocations[idx].allocatedQty" :min="0" :max="c.maxQty" style="width:80px; margin:0 auto;" />
+                                  </td>
+                                </tr>
+                              </tbody>
+                            </table>
+
+                            <div class="text-end small text-muted">Total assigned: {{ allocationAssignedTotal(alloc) }} / {{ alloc.overflowQty }}</div>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @click="closeOverflowAllocationModal">Cancel</button>
+                        <button type="button" class="btn btn-primary" @click="applyAllocationsAndContinue">Apply allocations and continue</button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
                 <div class="col-md-6">
                   <label class="form-label">Linked Species</label>
@@ -502,9 +572,14 @@ const showItemModal = ref(false)
 const savingPricing = ref(false)
 const savingItem = ref(false)
 const duplicatingPricingId = ref<number | null>(null)
+const generatingQuotation = ref(false)
 const editingPricing = ref<Pricing | null>(null)
 const editingItem = ref<PricingItem | null>(null)
 const currentPricingForItem = ref<Pricing | null>(null)
+
+// Pending save state used when allocation modal is shown
+const pendingSaveItems = ref<any[] | null>(null)
+const pendingSaveCallback = ref<Function | null>(null)
 
 // Reference data
 const priceStructures = ref<any[]>([])
@@ -513,6 +588,14 @@ const currencies = ref<any[]>([])
 const speciesList = ref<any[]>([])
 const pricePreviewData = ref<any>(null)
 const loadingPreview = ref(false)
+
+// Overflow auto‑assign toggle + allocation state
+const autoAssignOverflow = ref(true) // default ON for convenience
+const showOverflowAllocationModal = ref(false)
+const overflowAllocations = ref<any[]>([])
+const allPackagesList = ref<any[]>([])
+const packageItemsCache = ref<Record<number, any[]>>({})
+const loadingPackages = ref(false)
 
 // Selection state for quotation items
 const selectedItems = ref<Record<string, boolean>>({})
@@ -542,6 +625,8 @@ const itemForm = ref({
 
 // Computed
 const canAddPricing = computed(() => {
+  // Don't allow generating new quotations if one is already locked
+  if (pricings.value.some(p => p.status === 'LOCKED')) return false
   return props.enquiryId > 0
 })
 
@@ -572,6 +657,273 @@ const previewSummary = computed(() => {
 const previewDays = computed(() => {
   return previewPackageDetail.value?.hunt_length_days || props.enquiryData?.preference?.no_of_days || 0
 })
+
+// Map species → regulatory licence qty from the enquiry's preview (base package)
+const baseSpeciesQtyMap = computed(() => {
+  const map = new Map<number, number>()
+  const pd = pricePreviewData.value || props.enquiryData
+  if (!pd) return map
+
+  // Prefer regulatory_package.species_by_category when present
+  if (pd?.regulatory_package?.species_by_category && Array.isArray(pd.regulatory_package.species_by_category)) {
+    pd.regulatory_package.species_by_category.forEach((catGroup: any) => {
+      ;(catGroup.species || []).forEach((sp: any) => {
+        const id = sp.id || sp.item_id
+        const qty = Number(sp.quantity) || 0
+        if (id && qty > 0) map.set(Number(id), qty)
+      })
+    })
+    if (map.size > 0) return map
+  }
+
+  // Fallback to preview species array
+  if (Array.isArray(pd.species)) {
+    pd.species.forEach((sp: any) => {
+      const id = sp.item_id || sp.id
+      const qty = Number(sp.quantity) || 0
+      if (id && qty > 0) map.set(Number(id), qty)
+    })
+  }
+  return map
+})
+
+// Get all sales packages (creation-metadata) — used to find candidate licences for overflow allocations
+const loadAllPackagesList = async () => {
+  if (allPackagesList.value.length > 0) return
+  loadingPackages.value = true
+  try {
+    const apiBase = String(import.meta.env.VITE_APP_BASE_URL || '').replace(/\/\/+$/, '')
+    const resp = await salesStore.getCreationMetadata ? await salesStore.getCreationMetadata() : await salesStore.loadCreationMetadata?.()
+    // fallback: fetch directly if store helper not available
+    let data = resp?.data || resp
+    if (!data || !data.price_structures) {
+      const r = await fetch(`${apiBase}/sales-enquiries/creation-metadata`)
+      data = (await r.json())?.data || (await r.json())
+    }
+
+    const packages: any[] = []
+    if (Array.isArray(data.price_structures)) {
+      data.price_structures.forEach((ps: any) => {
+        if (Array.isArray(ps.details)) {
+          ps.details.forEach((detail: any) => {
+            const salesPkg = detail.sales_packages && detail.sales_packages.length > 0 ? detail.sales_packages[0] : null
+            packages.push({
+              id: detail.id,
+              name: detail.name || `${ps.name} - ${detail.hunt_length || ''}`,
+              sales_package: salesPkg,
+              regulatory_package: salesPkg?.regulatory_package || null,
+            })
+          })
+        }
+      })
+    }
+    allPackagesList.value = packages
+  } catch (err) {
+    console.error('loadAllPackagesList error:', err)
+  } finally {
+    loadingPackages.value = false
+  }
+}
+
+// Load package items (cached) — same shape as CreateQuotation.vue's helper
+const loadPackageItemsForPackage = async (packageId: number): Promise<any[]> => {
+  if (packageItemsCache.value[packageId]) return packageItemsCache.value[packageId]
+  try {
+    const response = await salesStore.previewPriceItems(packageId)
+    const data = response?.data || response
+    const items: any[] = []
+    const existingTrophyIds = new Set((props.enquiryData?.pricings?.[0]?.items_by_type?.TROPHY || []).map((t: any) => t.item_id))
+
+    // Build species qty map from package regulatory_package (if present)
+    const speciesQtyMap = new Map<number, number>()
+    const pkgEntry = allPackagesList.value.find((p: any) => p.id === packageId)
+    const regPkg = pkgEntry?.regulatory_package
+    if (regPkg?.species_by_category && Array.isArray(regPkg.species_by_category)) {
+      regPkg.species_by_category.forEach((catGroup: any) => {
+        (catGroup.species || []).forEach((sp: any) => {
+          const sid = sp.id || sp.item_id
+          const qty = Number(sp.quantity) || 0
+          if (sid && qty > 0) speciesQtyMap.set(Number(sid), qty)
+        })
+      })
+    }
+
+    if (Array.isArray(data.trophy_fees)) {
+      data.trophy_fees.forEach((tf: any) => {
+        const itemId = tf.item_id || tf.species_id || tf.id
+        const itemName = tf.item_name || tf.species_name || tf.name || 'Unknown'
+        const regulatoryQty = speciesQtyMap.get(Number(itemId)) || 0
+        items.push({ id: itemId, name: itemName, unit_price: parseFloat(tf.amount) || 0, regulatory_qty: regulatoryQty, _alreadyInQuotation: existingTrophyIds.has(itemId) })
+      })
+    }
+
+    packageItemsCache.value[packageId] = items
+    return items
+  } catch (err) {
+    console.error('loadPackageItemsForPackage error:', err)
+    return []
+  }
+}
+
+// Prepare overflow allocation suggestions for selected items (returns array of allocations)
+const prepareOverflowAllocations = async (itemsToCheck: any[]) => {
+  // Ensure packages loaded
+  await loadAllPackagesList()
+
+  const allocations: any[] = []
+  // iterate selected items and detect overflow for TROPHY items
+  for (const priceKey in itemPrices.value) {
+    const price = itemPrices.value[priceKey]
+    if (!price || price.item_type !== 'TROPHY') continue
+    const speciesId = price.item_id
+    if (!speciesId) continue
+    const requestedQty = Number(price.quantity || 1)
+    const regLimit = baseSpeciesQtyMap.value.get(Number(speciesId)) || 0
+    if (regLimit > 0 && requestedQty > regLimit) {
+      const overflowQty = requestedQty - regLimit
+      // find candidate packages (exclude enquiry's base price_structure_detail)
+      const candidates: any[] = []
+      const currentDetailId = props.enquiryData?.price_structure_detail?.id || null
+      for (const pkg of allPackagesList.value) {
+        if (!pkg.regulatory_package) continue
+        if (pkg.id === currentDetailId) continue
+        // find species in regulatory_package
+        for (const cg of pkg.regulatory_package.species_by_category || []) {
+          const sp = (cg.species || []).find((s: any) => Number(s.id) === Number(speciesId))
+          if (sp) {
+            // load package items to get unit price
+            const pkgItems = await loadPackageItemsForPackage(pkg.id)
+            const match = pkgItems.find((it: any) => Number(it.id) === Number(speciesId))
+            candidates.push({ packageId: pkg.id, packageName: pkg.name || '', regQty: Number(sp.quantity) || 0, unitPrice: match?.unit_price ?? 0 })
+            break
+          }
+        }
+      }
+
+      // Suggest allocation: try to fill across candidates in order (by regQty desc)
+      candidates.sort((a: any, b: any) => b.regQty - a.regQty)
+      const suggested: any[] = []
+      let remaining = overflowQty
+      for (const c of candidates) {
+        if (remaining <= 0) break
+        const take = Math.min(remaining, c.regQty || remaining)
+        if (take > 0) {
+          suggested.push({ packageId: c.packageId, packageName: c.packageName, maxQty: c.regQty, unitPrice: c.unitPrice, allocatedQty: take })
+          remaining -= take
+        }
+      }
+
+      allocations.push({ priceKey, speciesId, name: price.description || price.linked_species_item_id || 'Species', requestedQty, regLimit, overflowQty, candidates, suggested })
+    }
+  }
+  return allocations
+}
+
+// Apply allocations (mutates items array to split base + extra items)
+const applyAllocationsToItems = (items: any[], allocationsToApply: any[]) => {
+  // For each allocation entry, reduce the base item qty to regLimit and push new item lines for allocations
+  for (const alloc of allocationsToApply) {
+    const priceKey = alloc.priceKey
+    const originalPrice = itemPrices.value[priceKey]
+    if (!originalPrice) continue
+
+    const speciesId = alloc.speciesId
+    const baseQty = Math.min(Number(originalPrice.quantity || 1), Number(alloc.regLimit || 0))
+    const overflow = alloc.overflowQty
+
+    // Update base item quantity (cap to licence)
+    originalPrice.quantity = baseQty
+    originalPrice.total_amount = (originalPrice.quantity || 1) * (originalPrice.unit_amount || 0) * ((originalPrice.item_durations ?? 1))
+
+    // For each allocation candidate with allocatedQty > 0, append a new price object to items
+    for (const cand of alloc.userAllocations || alloc.suggested || []) {
+      const q = Number(cand.allocatedQty || 0)
+      if (!q || q <= 0) continue
+      const newPrice = {
+        item_type: 'TROPHY',
+        item_id: speciesId,
+        linked_species_item_id: speciesId,
+        description: `${alloc.name} (Licence: ${cand.packageName})`,
+        quantity: q,
+        unit_amount: Number(cand.unitPrice || originalPrice.unit_amount || 0),
+        total_amount: q * Number(cand.unitPrice || originalPrice.unit_amount || 0),
+        rate_direction: 'INCREASE',
+        amount_source: 'SYSTEM',
+        is_estimate: false,
+        is_optional: false,
+      }
+      items.push(newPrice)
+    }
+  }
+}
+
+// Small helper to validate allocations sum == overflow
+const validateAllocations = (alloc: any) => {
+  const sum = (alloc.userAllocations || alloc.suggested || []).reduce((s: number, a: any) => s + Number(a.allocatedQty || 0), 0)
+  return sum === Number(alloc.overflowQty || 0)
+}
+
+// Get available candidate packages for a species (used by UI)
+const getCandidatesForSpecies = (speciesId: number) => {
+  const alloc = overflowAllocations.value.find((a: any) => Number(a.speciesId) === Number(speciesId))
+  return alloc ? alloc.candidates || [] : []
+}
+
+// Show allocation modal and prefill userAllocations from suggested
+const openOverflowAllocationModal = (allocs: any[]) => {
+  overflowAllocations.value = allocs.map((a: any) => {
+    // ensure userAllocations is always present and editable in the modal
+    if (a.suggested && a.suggested.length) {
+      return { ...a, userAllocations: a.suggested.map((s: any) => ({ ...s })) }
+    }
+    // start with candidates (allocatedQty default 0)
+    const fromCandidates = (a.candidates || []).map((c: any) => ({ ...c, allocatedQty: 0 }))
+    return { ...a, userAllocations: fromCandidates }
+  })
+  showOverflowAllocationModal.value = true
+}
+
+// Close allocation modal
+const closeOverflowAllocationModal = () => {
+  showOverflowAllocationModal.value = false
+  overflowAllocations.value = []
+}
+
+// When user confirms allocations, apply to outgoing items and continue save flow
+const confirmAndApplyAllocations = (items: any[], proceedSaveCallback: Function) => {
+  // Validate every allocation
+  for (const alloc of overflowAllocations.value) {
+    if (!validateAllocations(alloc)) {
+      Swal.fire({ title: 'Invalid allocation', text: `Allocated quantities for "${alloc.name}" do not sum to the overflow (${alloc.overflowQty}).`, icon: 'warning' })
+      return
+    }
+  }
+
+  // Apply allocations
+  applyAllocationsToItems(items, overflowAllocations.value)
+  closeOverflowAllocationModal()
+  // Continue save flow
+  proceedSaveCallback()
+}
+
+// Fill suggested allocations for a single allocation entry (used by UI)
+const fillSuggestedAlloc = (alloc: any) => {
+  alloc.userAllocations = (alloc.candidates || []).map((c: any) => ({ ...c, allocatedQty: Math.min(c.maxQty || 0, alloc.overflowQty) }))
+}
+
+const allocationAssignedTotal = (alloc: any) => {
+  const arr = alloc.userAllocations && alloc.userAllocations.length ? alloc.userAllocations : (alloc.suggested && alloc.suggested.length ? alloc.suggested : alloc.candidates || [])
+  return arr.reduce((s: number, a: any) => s + Number(a.allocatedQty || 0), 0)
+}
+
+const applyAllocationsAndContinue = () => {
+  confirmAndApplyAllocations(pendingSaveItems.value || [], pendingSaveCallback.value || (() => {}))
+}
+
+const clearAllocations = (alloc: any) => {
+  alloc.userAllocations = (alloc.candidates || []).map((c: any) => ({ ...c, allocatedQty: 0 }))
+}
+// Get available priceable items (existing code continues...)
 
 // Get enquiry items (species, extras, participants)
 const enquirySpecies = computed(() => {
@@ -639,37 +991,25 @@ const availablePriceableItems = computed(() => {
     })
   }
 
-  // Add species (prefer preview data, fallback to enquiry preferences)
+  // Add species — only the ones the client chose in the enquiry, with prices from preview data
   const previewSpecies = pricePreviewData.value?.species || []
-  const speciesItems = previewSpecies.length > 0
-    ? previewSpecies.map((sp: any) => {
-        const trophyFee = pricePreviewData.value?.trophy_fees?.find(
-          (tf: any) => tf.item_id === sp.item_id || tf.species_id === sp.item_id
-        )
-        return {
-          id: sp.item_id,
-          name: cleanItemName(sp.item_name || sp.species_name || 'Unknown Species'),
-          code: sp.item_code || '',
-          quantity: sp.quantity || 1,
-          type: 'TROPHY',
-          suggested_price: parseFloat(trophyFee?.amount) || 0,
-          priority: sp.priority || 'NICE_TO_HAVE',
-        }
-      })
-    : enquirySpecies.value.map((sp: any) => {
-        const trophyFee = pricePreviewData.value?.trophy_fees?.find(
-          (tf: any) => tf.item_id === sp.item_id || tf.species_id === sp.item_id
-        )
-        return {
-          id: sp.item_id,
-          name: cleanItemName(sp.item_name || sp.species_name || 'Unknown Species'),
-          code: '',
-          quantity: sp.desired_quantity || 1,
-          type: 'TROPHY',
-          suggested_price: parseFloat(trophyFee?.amount) || 0,
-          priority: sp.priority || 'NICE_TO_HAVE',
-        }
-      })
+  const enquirySpeciesIds = new Set(enquirySpecies.value.map((sp: any) => String(sp.item_id)))
+  const speciesItems = enquirySpecies.value.map((sp: any) => {
+    // Look up pricing from preview data
+    const previewMatch = previewSpecies.find((ps: any) => String(ps.item_id) === String(sp.item_id))
+    const trophyFee = pricePreviewData.value?.trophy_fees?.find(
+      (tf: any) => String(tf.item_id) === String(sp.item_id) || String(tf.species_id) === String(sp.item_id)
+    )
+    return {
+      id: sp.item_id,
+      name: cleanItemName(previewMatch?.item_name || sp.item_name || sp.species_name || 'Unknown Species'),
+      code: previewMatch?.item_code || '',
+      quantity: sp.desired_quantity || previewMatch?.quantity || 1,
+      type: 'TROPHY',
+      suggested_price: parseFloat(trophyFee?.amount) || 0,
+      priority: sp.priority || 'NICE_TO_HAVE',
+    }
+  })
 
   if (speciesItems.length > 0) {
     items.push({
@@ -678,64 +1018,39 @@ const availablePriceableItems = computed(() => {
     })
   }
 
-  // Add safari extras (prefer preview data, fallback to enquiry)
+  // Add safari extras — only the ones the client chose in the enquiry, with prices from preview data
   const previewExtras = pricePreviewData.value?.safari_extras || []
   const hasObserverParticipants = enquiryParticipants.value.some((part: any) => part.type === 'OBSERVER')
-  const extrasItems = previewExtras.length > 0
-    ? previewExtras
-        .filter((extra: any) => {
-          if (!hasObserverParticipants) return true
-          const name = String(extra.item_name || '').toLowerCase()
-          const code = String(extra.item_code || '').toLowerCase()
-          return !name.includes('observer') && !code.includes('observer')
-        })
-        .map((extra: any) => {
-          // Prefer per-enquiry overrides when present (desired_quantity, item_durations)
-          const enquiryExtra = enquirySafariExtras.value.find((e: any) => String(e.item_id) === String(extra.item_id || extra.id))
-          const baseQuantity = enquiryExtra?.desired_quantity ?? 1
-          const effective = (enquiryExtra && enquiryExtra.item_durations != null)
-            ? enquiryExtra.item_durations
-            : (extra.effective_duration ?? extra.item_durations ?? previewDays.value ?? 1)
-          // Determine whether to multiply by duration (respect explicit mapping or pricing_unit)
-          const shouldMultiply = isDurationRelevant(extra) || (enquiryExtra ? isDurationRelevant(enquiryExtra) : false)
-          const qty = shouldMultiply ? baseQuantity * (effective ?? 1) : baseQuantity
-          return {
-            id: extra.item_id || extra.id,
-            name: cleanItemName(extra.item_name || 'Extra'),
-            code: extra.item_code || '',
-            // keep base quantity separate from calculated (qty) used for totals
-            quantity: baseQuantity,
-            _calc_quantity: qty,
-            _base_quantity: baseQuantity,
-            type: 'EXTRA',
-            suggested_price: parseFloat(extra.amount) || 0,
-            effective_duration: effective,
-            // for debugging / display purposes we may want to expose the underlying values
-            _enquiry_quantity: enquiryExtra?.desired_quantity ?? null,
-            _enquiry_item_durations: enquiryExtra?.item_durations ?? null,
-            _duration_applied: shouldMultiply,
-          }
-        })
-    : enquirySafariExtras.value.map((extra: any) => {
-        const safariExtra = pricePreviewData.value?.safari_extras?.find(
-          (se: any) => se.id === extra.item_id || se.item_id === extra.item_id
-        )
-        const effective = extra.item_durations ?? safariExtra?.effective_duration ?? previewDays.value ?? 1
-        const shouldMultiply = isDurationRelevant(safariExtra) || isDurationRelevant(extra)
-        const qty = shouldMultiply ? (extra.desired_quantity || 1) * (effective ?? 1) : (extra.desired_quantity || 1)
-        return {
-          id: extra.item_id,
-          name: cleanItemName(extra.item_name || 'Extra'),
-          code: '',
-          quantity: (extra.desired_quantity || 1),
-          _calc_quantity: qty,
-          _base_quantity: (extra.desired_quantity || 1),
-          type: 'EXTRA',
-          suggested_price: parseFloat(safariExtra?.amount) || 0,
-          effective_duration: effective,
-          _duration_applied: shouldMultiply,
-        }
-      })
+  const extrasItems = enquirySafariExtras.value
+    .filter((extra: any) => {
+      if (!hasObserverParticipants) return true
+      const name = String(extra.item_name || '').toLowerCase()
+      return !name.includes('observer')
+    })
+    .map((extra: any) => {
+      // Look up pricing from preview data
+      const previewMatch = previewExtras.find((pe: any) => String(pe.item_id || pe.id) === String(extra.item_id))
+      const baseQuantity = extra.desired_quantity ?? 1
+      const effective = (extra.item_durations != null)
+        ? extra.item_durations
+        : (previewMatch?.effective_duration ?? previewMatch?.item_durations ?? previewDays.value ?? 1)
+      const shouldMultiply = isDurationRelevant(previewMatch) || isDurationRelevant(extra)
+      const qty = shouldMultiply ? baseQuantity * (effective ?? 1) : baseQuantity
+      return {
+        id: extra.item_id,
+        name: cleanItemName(previewMatch?.item_name || extra.item_name || 'Extra'),
+        code: previewMatch?.item_code || '',
+        quantity: baseQuantity,
+        _calc_quantity: qty,
+        _base_quantity: baseQuantity,
+        type: 'EXTRA',
+        suggested_price: parseFloat(previewMatch?.amount) || 0,
+        effective_duration: effective,
+        _enquiry_quantity: extra.desired_quantity ?? null,
+        _enquiry_item_durations: extra.item_durations ?? null,
+        _duration_applied: shouldMultiply,
+      }
+    })
 
   if (extrasItems.length > 0) {
     items.push({
@@ -857,7 +1172,7 @@ const formatDate = (dateValue?: string) => {
 
 const getItemsCount = (pricing: Pricing) => {
   if (pricing.items && pricing.items.length > 0) return pricing.items.length
-  return pricing.summary?.total_items || 0
+  return (pricing as any).summary?.total_items || 0
 }
 
 const getItemTypeBadgeClass = (type: string) => {
@@ -990,13 +1305,15 @@ const loadEnrichedPricingData = async (pricingId: number) => {
       // Update the pricing in the list with enriched data
       const idx = pricings.value.findIndex(p => p.id === pricingId)
       if (idx !== -1) {
-        pricings.value[idx] = {
+        const enrichedPricing = {
           ...pricings.value[idx],
           items: response.data.items || [],
-          items_by_type: response.data.items_by_type || {},
-          summary: response.data.summary || {},
           total_amount: response.data.summary?.subtotal || 0,
+        } as any
+        if (response.data.summary) {
+          enrichedPricing.summary = response.data.summary
         }
+        pricings.value[idx] = enrichedPricing
       }
     }
   } catch (error) {
@@ -1006,7 +1323,19 @@ const loadEnrichedPricingData = async (pricingId: number) => {
   }
 }
 
-const navigateToCreateQuotation = () => {
+const generateQuotation = () => {
+  // Cache enquiry data + resolved IDs so the Create Quotation page can use them
+  if (props.enquiryData) {
+    try {
+      const dataToCache = {
+        ...props.enquiryData,
+        _resolved_price_structure_detail_id: enquiryPriceStructureDetailId.value,
+        _resolved_hunting_type_id: enquiryHuntingTypeId.value,
+        _resolved_currency_id: enquiryCurrencyId.value,
+      }
+      sessionStorage.setItem('createQuotationEnquiryData', JSON.stringify(dataToCache))
+    } catch (e) { /* ignore */ }
+  }
   router.push(`/sales/enquiries/${props.enquiryId}/create-quotation`)
 }
 
@@ -1347,36 +1676,93 @@ const savePricingWithItems = async () => {
       return
     }
 
-    const payload = {
-      price_structure_detail_id: enquiryPriceStructureDetailId.value,
-      hunting_type_id: enquiryHuntingTypeId.value,
-      currency_id: enquiryCurrencyId.value,
-      status: 'DRAFT',
-      items: items,
+    // Helper to finalize creation (shared so we can defer when allocations are required)
+    const doCreate = async (itemsToCreate: any[]) => {
+      try {
+        const payload = {
+          price_structure_detail_id: enquiryPriceStructureDetailId.value,
+          hunting_type_id: enquiryHuntingTypeId.value,
+          currency_id: enquiryCurrencyId.value,
+          status: 'DRAFT',
+          items: itemsToCreate,
+        }
+
+        const response = await salesStore.addPricing(props.enquiryId, payload)
+
+        if (response.status === 200 || response.status === 201) {
+          Swal.fire({ title: 'Success!', text: `Quotation created with ${itemsToCreate.length} items`, icon: 'success', timer: 2000 })
+          closeAddPricingModal()
+          await loadPricings(true)
+          emit('update')
+        }
+      } catch (err: any) {
+        console.error('Error saving pricing (deferred):', err)
+        Swal.fire({ title: 'Error', text: err.response?.data?.message || 'Failed to save quotation', icon: 'error' })
+      } finally {
+        savingPricing.value = false
+      }
     }
 
-    const response = await salesStore.addPricing(props.enquiryId, payload)
+    // --- Regulatory overflow handling ---
+    // Detect trophy items that exceed the base package licence
+    const overflowEntries: any[] = []
+    items.forEach((it: any) => {
+      if (it.item_type === 'TROPHY' && it.item_id) {
+        const regLimit = baseSpeciesQtyMap.value.get(Number(it.item_id)) || 0
+        if (regLimit > 0 && (it.quantity || 1) > regLimit) {
+          overflowEntries.push({ item: it, overflowQty: (it.quantity || 1) - regLimit })
+        }
+      }
+    })
 
-    if (response.status === 200 || response.status === 201) {
-      Swal.fire({
-        title: 'Success!',
-        text: `Quotation created with ${items.length} items`,
-        icon: 'success',
-        timer: 2000,
+    if (overflowEntries.length > 0 && autoAssignOverflow.value) {
+      // Prepare allocations (suggestions). If suggestions exist, prompt user to confirm/split.
+      const allocs = await prepareOverflowAllocations(items)
+      if (allocs.length > 0) {
+        // Store pending save and show allocation modal for user confirmation
+        pendingSaveItems.value = items
+        pendingSaveCallback.value = async () => await doCreate(pendingSaveItems.value || [])
+        openOverflowAllocationModal(allocs)
+        // waiting for user to confirm allocations (modal will call confirmAndApplyAllocations which calls pendingSaveCallback)
+        return
+      }
+      // fall through to regular warning if no candidate packages found
+    }
+
+    // If overflow exists and user didn't auto-assign, warn and confirm (same behaviour as before)
+    const regViolations: string[] = []
+    for (const itm of items) {
+      if (itm.item_type !== 'TROPHY' || !itm.item_id) continue
+      const regLimit = baseSpeciesQtyMap.value.get(Number(itm.item_id)) || 0
+      if (regLimit > 0 && (itm.quantity || 1) > regLimit) {
+        regViolations.push(`<li><strong>${itm.description || itm.item_id}</strong>: qty ${itm.quantity} exceeds licence limit of ${regLimit} (exceeded by <strong>${(itm.quantity || 1) - regLimit}</strong>)</li>`)
+      }
+    }
+
+    if (regViolations.length > 0) {
+      const confirmed = await Swal.fire({
+        title: '<i class="fa fa-exclamation-triangle text-danger"></i> Regulatory Limit Exceeded',
+        html: `<p>The following species <strong>exceed their regulatory licence limits</strong>. This can lead to <strong>fines</strong>:</p><ul class="text-start">${regViolations.join('')}</ul><p class="mb-0">Do you want to proceed anyway?</p>`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Create anyway',
+        cancelButtonText: 'Go back and fix',
+        width: 550,
       })
-      closeAddPricingModal()
-      await loadPricings(true)
-      emit('update')
+      if (!confirmed.isConfirmed) {
+        savingPricing.value = false
+        return
+      }
     }
+
+    // No regulatory blocking or user confirmed — create the quotation
+    await doCreate(items)
   } catch (error: any) {
     console.error('Error saving pricing:', error)
-    Swal.fire({
-      title: 'Error',
-      text: error.response?.data?.message || 'Failed to save quotation',
-      icon: 'error',
-    })
+    Swal.fire({ title: 'Error', text: error.response?.data?.message || 'Failed to save quotation', icon: 'error' })
   } finally {
-    savingPricing.value = false
+    // finalization handled in doCreate for deferred case; ensure saving flag cleared
+    // savingPricing.value = false // doCreate already clears it
   }
 }
 
@@ -1585,6 +1971,16 @@ const saveItem = async () => {
   }
 }
 
+const handleInitItemDuration = (event: Event, category: string, itemId: any) => {
+  const target = event.target as HTMLInputElement
+  const value = target.value ? Number(target.value) : null
+  const key = `${category}_${itemId}`
+  if (itemPrices.value[key]) {
+    itemPrices.value[key].item_durations = value
+    updateItemTotal(category, itemId)
+  }
+}
+
 const addItemFromPreview = (previewItem: any) => {
   const unitAmount = Number(previewItem.suggested_price) || 0
   const quantity = Number(previewItem.quantity) || 1
@@ -1652,16 +2048,21 @@ watch([() => itemForm.value.quantity, () => itemForm.value.unit_amount], () => {
   }
 })
 
-// Watch for route changes to reload pricing when returning from edit page
+// Watch for route changes to reload pricing when returning from create/edit quotation page
 watch(() => router.currentRoute.value.path, (newPath, oldPath) => {
-  // If we're returning to this enquiry view from the quotation edit page
-  if (newPath.includes('sales/sales-inquiry') && oldPath?.includes('/quotation/')) {
-    loadPricings()
+  if (!oldPath) return
+  // Returning from create-quotation or edit-quotation (quotation/:pricingId) to the enquiry detail page
+  const comingFromQuotationPage = oldPath.includes('/create-quotation') || oldPath.includes('/quotation/')
+  const landingOnEnquiryDetail = newPath.includes('/sales/enquiries/') && !newPath.includes('/quotation/') && !newPath.includes('/create-quotation')
+  if (comingFromQuotationPage && landingOnEnquiryDetail) {
+    loadPricings(true) // force remote to get fresh data including newly created quotations
   }
 })
 
 onMounted(async () => {
-  await loadPricings()
+  // Force remote reload when arriving from create/edit quotation pages (stale initialPricings)
+  const referrer = router.currentRoute.value.query?.tab === 'quotations'
+  await loadPricings(referrer)
   loadReferenceData()
 
   // Auto-expand the first pricing and load its items

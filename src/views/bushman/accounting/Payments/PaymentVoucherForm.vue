@@ -661,7 +661,8 @@ onMounted(async () => {
     accountingStore.getBankCashAccounts(),
     accountingStore.fetchEntities(),
     accountingStore.fetchPaymentInstruments().catch(() => {
-      // Silently fail if payment instruments endpoint doesn't exist})
+      // Silently fail if payment instruments endpoint doesn't exist
+    })
   ])
 })
 

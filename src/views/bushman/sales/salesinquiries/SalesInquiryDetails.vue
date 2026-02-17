@@ -431,7 +431,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { salesEnquiryService } from '@/stores/bushman/salesEnquiryService'
 import type { SalesEnquiry } from '@/stores/bushman/salesEnquiry'
 import { useToast } from '@/composables/useToast'
@@ -452,6 +453,27 @@ const emit = defineEmits<{
 
 const { init: notify } = useToast()
 const activeTab = ref('overview')
+
+// Check for tab query param (e.g. coming back from Create Quotation)
+const route = useRoute()
+if (route.query.tab && typeof route.query.tab === 'string') {
+  activeTab.value = route.query.tab
+}
+// Also check sessionStorage (set by SalesInquiries parent when opening from Back navigation)
+try {
+  const sessionTab = sessionStorage.getItem('openEnquiryDetailTab')
+  if (sessionTab) {
+    activeTab.value = sessionTab
+    sessionStorage.removeItem('openEnquiryDetailTab')
+  }
+} catch (e) { /* ignore */ }
+
+// Watch for route query changes (e.g. navigating back from edit quotation with ?tab=quotations)
+watch(() => route.query.tab, (newTab) => {
+  if (newTab && typeof newTab === 'string') {
+    activeTab.value = newTab
+  }
+})
 
 // Data from API calls
 const observers = ref<any[]>([])

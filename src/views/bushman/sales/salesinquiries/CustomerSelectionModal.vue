@@ -707,11 +707,16 @@ const handleProceed = async () => {
       }
 
       // Save to database
-      const response = await axios.post(
-        import.meta.env.VITE_APP_BASE_URL + 'entities',
-        entityPayload,
-        { headers: { 'Content-Type': 'application/json' } }
-      )
+      const response = await axios.get(
+  import.meta.env.VITE_APP_BASE_URL + 'entities',
+  {
+    params: {
+      type: 'INDIVIDUAL'
+    },
+    headers: { 'Content-Type': 'application/json' }
+  }
+)
+
 
       if (response.data && response.data.success && response.data.data) {
         entityId = response.data.data.id
@@ -801,15 +806,18 @@ const getExistingCustomers = async () => {
   loadingCustomers.value = true
   try {
     const response = await axios.get(
-      import.meta.env.VITE_APP_BASE_URL + 'entities/individuals',
+      import.meta.env.VITE_APP_BASE_URL + 'entities', // use the correct endpoint
       { headers: { 'Content-Type': 'application/json' } }
     )
-    
+
     if (response.data) {
       const dataArray = Array.isArray(response.data.data) ? response.data.data : 
                         Array.isArray(response.data) ? response.data : []
-      
-      existingCustomersOptions.value = dataArray.map((entity: any) => {
+
+      // filter only INDIVIDUAL type
+      const individualEntities = dataArray.filter((entity: any) => entity.type === 'INDIVIDUAL')
+
+      existingCustomersOptions.value = individualEntities.map((entity: any) => {
         let email = ''
         let phone = ''
         let address = ''
@@ -829,7 +837,6 @@ const getExistingCustomers = async () => {
           })
         }
 
-        // Extract country name - handle object or string
         if (typeof entity.country === 'object' && entity.country !== null) {
           countryName = entity.country.name || entity.country.text || 'N/A'
         } else if (typeof entity.country === 'string') {
@@ -838,7 +845,6 @@ const getExistingCustomers = async () => {
           countryName = entity.country_name
         }
 
-        // Extract nationality name - handle object or string
         if (typeof entity.nationality === 'object' && entity.nationality !== null) {
           nationalityName = entity.nationality.name || entity.nationality.text || 'N/A'
         } else if (typeof entity.nationality === 'string') {

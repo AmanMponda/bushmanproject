@@ -761,7 +761,7 @@ export const useSalesInquiriesStore = defineStore('sales_inquiries', {
      * Lock pricing (change status to LOCKED)
      */
     async lockPricing(pricingId: number) {
-      const url = `${import.meta.env.VITE_APP_BASE_URL}sales-enquiries/pricing/${pricingId}/lock`
+      const url = `${import.meta.env.VITE_APP_BASE_URL}sales-enquiries/pricing/${pricingId}`
       const config = {
         method: 'patch',
         maxBodyLength: Infinity,
@@ -769,6 +769,7 @@ export const useSalesInquiriesStore = defineStore('sales_inquiries', {
         headers: {
           'Content-Type': 'application/json',
         },
+        data: { status: 'LOCKED' },
       }
       const response = await axios.request(config)
       return response

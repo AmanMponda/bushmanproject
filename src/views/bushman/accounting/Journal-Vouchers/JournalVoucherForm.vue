@@ -93,6 +93,12 @@
 
           <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;" />
 
+          <!-- NOTES -->
+          <div style="margin-bottom: 20px;">
+            <label style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 12px;">Notes</label>
+            <textarea v-model="form.narration" placeholder="Enter notes..." style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; min-height: 100px; font-family: inherit;"></textarea>
+          </div>
+
           <!-- PAYMENT DETAILS - MULTI ROW LAYOUT -->
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 20px;">
             <!-- LEFT SIDE: PAYMENT FROM (CREDIT) -->
@@ -182,12 +188,6 @@
                 </div>
               </div>
             </div>
-          </div>
-
-          <!-- NOTES -->
-          <div style="margin-bottom: 20px;">
-            <label style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 12px;">Notes</label>
-            <textarea v-model="form.narration" placeholder="Enter notes..." style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; min-height: 100px; font-family: inherit;"></textarea>
           </div>
 
           <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;" />
@@ -408,6 +408,7 @@ const form = ref({
   payee_account: '',
   payee_account_id: null,
   payee_account_code: '',
+  fund_direction: '',
   total_amount: 0
 })
 
@@ -419,6 +420,14 @@ const selectedRequisitions = ref<any[]>([])
 
 // Single Selected Requisition (for linking)
 const selectedRequisition = ref<any>(null)
+
+// Requisition Details Modal
+const loadingRequisitionDetails = ref(false)
+const showRequisitionDetailsModal = ref(false)
+const selectedRequisitionDetails = ref<any>(null)
+
+// Loaded Voucher (for edit mode)
+const loadedVoucher = ref<any>(null)
 
 // Requisition Search
 const showRequisitionModal = ref(false)
@@ -2170,13 +2179,6 @@ async function onPayeeChange() {
 
 // Lifecycle
 onMounted(async () => {
-  // Minify sidebar for create mode (like Requisition page)
-  if (!isEdit.value) {
-    originalSidebarState.value = appOptionStore.appSidebarMinified
-    appOptionStore.appSidebarMinified = true
-    sidebarMinifiedForCreate.value = true
-  }
-
   // Add click outside listener to close search dropdown
   const handleClickOutside = (event: MouseEvent) => {
     const target = event.target as HTMLElement

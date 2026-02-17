@@ -305,11 +305,8 @@ import autoTable from 'jspdf-autotable'
 import 'vue-multiselect/dist/vue-multiselect.min.css'
 
 const apiBaseUrl = import.meta.env.VITE_APP_BASE_URL
-const accountsBaseUrl = import.meta.env.VITE_APP_ACCOUNTS_BASE_URL || apiBaseUrl
-const accountsEndpoint = import.meta.env.VITE_APP_ACCOUNTS_COMPANY_VSET_URL
 const countriesEndpoint = import.meta.env.VITE_APP_COUNTRIES_URL
 const currenciesEndpoint = import.meta.env.VITE_APP_CURRENCIES_URL
-const supplierMetadataEndpoint = 'supplier-metadata'
 
 const router = useRouter()
 
@@ -522,8 +519,8 @@ const generateSuppliersPdf = async () => {
   try {
     const params: any = { ...tableFilters.value }
     // request table-view endpoint which returns supplier list (server-side paging)
-    const response = await axios.get(`${apiBaseUrl}suppliers/table-view`, {
-      params,
+    const response = await axios.get(`${apiBaseUrl}company-entities`, {
+      params: { ...params, category: 'SUPPLIER', include: 'categories,contacts' },
       headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }
     })
     const data = response.data?.data || response.data || {}
@@ -802,8 +799,27 @@ const normalizeSuppliersResponse = (payload: any) => {
       code: item.code || item.supplier_code || item.supplierCode || '',
       full_name: item.full_name || item.supplier_name || item.name || '',
       trading_name: item.trading_name || '',
-      category: (Array.isArray(item.categories) && item.categories[0]) ? (item.categories[0].name || item.categories[0].display_name) : '-',
-      category_id: (Array.isArray(item.categories) && item.categories[0]) ? item.categories[0].id : undefined,
+      category: (() => {
+        // Try categories relationship array first
+        if (Array.isArray(item.categories) && item.categories.length > 0) {
+          const cat = item.categories.find((c: any) => c.name !== 'SUPPLIER' && c.display_name !== 'SUPPLIER') || item.categories[0]
+          return cat.display_name || cat.name || '-'
+        }
+        // Try entity_categories relationship
+        if (Array.isArray(item.entity_categories) && item.entity_categories.length > 0) {
+          const cat = item.entity_categories[0]?.category || item.entity_categories[0]
+          return cat.display_name || cat.name || '-'
+        }
+        // Try flat category field
+        if (item.category) return item.category
+        if (item.category_name) return item.category_name
+        return '-'
+      })(),
+      category_id: (() => {
+        if (Array.isArray(item.categories) && item.categories[0]) return item.categories[0].id
+        if (Array.isArray(item.entity_categories) && item.entity_categories[0]) return item.entity_categories[0].category_id || item.entity_categories[0].id
+        return item.category_id || undefined
+      })(),
       status: item.status || 'DRAFT',
       phone: (() => {
         const raw = item.contact || phoneObj?.contact || item.phone || '-'
@@ -824,8 +840,9 @@ const normalizeSuppliersResponse = (payload: any) => {
 const fetchSuppliers = async () => {
   loading.value = true
   try {
-    const url = `${import.meta.env.VITE_APP_BASE_URL}suppliers/table-view`
+    const url = `${import.meta.env.VITE_APP_BASE_URL}company-entities`
     const response = await axios.get(url, {
+      params: { ...tableFilters.value, category: 'SUPPLIER', include: 'categories,contacts' },
       headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }
     })
 
@@ -842,7 +859,7 @@ const fetchSuppliers = async () => {
 const fetchSupplierMetadata = async () => {
   if (metadataLoaded.value) return
   try {
-    const response = await axios.get(`${apiBaseUrl}${supplierMetadataEndpoint}`, {
+    const response = await axios.get(`${apiBaseUrl}entities/creation-metadata`, {
       headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }
     })
     const data = response.data?.data || response.data || {}
@@ -916,9 +933,8 @@ const fetchCategories = async () => {
 }
 
 const fetchAccounts = async () => {
-  if (!accountsEndpoint) return
   try {
-    const response = await axios.get(`${accountsBaseUrl}${accountsEndpoint}`, {
+    const response = await axios.get(`${apiBaseUrl}chart-of-accounts/accounts-list`, {
       headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }
     })
     const data = response.data?.data || response.data || []

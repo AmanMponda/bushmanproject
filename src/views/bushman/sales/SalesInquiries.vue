@@ -503,15 +503,35 @@ onMounted(() => {
   // Open enquiry details if an id was passed via sessionStorage (used to avoid exposing id in URL)
   try {
     const openId = sessionStorage.getItem('openEnquiryId')
+    const openTab = sessionStorage.getItem('openEnquiryTab')
+    const openData = sessionStorage.getItem('openEnquiryData')
     if (openId) {
       const id = Number(openId)
       if (Number.isFinite(id) && id > 0) {
+        // If we have cached enquiry data, open detail view instantly (no flash)
+        if (openData) {
+          try {
+            selectedInquiryItem.value = JSON.parse(openData)
+            showDetailsPage.value = true
+            if (openTab) {
+              sessionStorage.setItem('openEnquiryDetailTab', openTab)
+            }
+          } catch (e) {
+            console.error('Failed to parse cached enquiry data:', e)
+          }
+        }
+        // Also fetch fresh data in the background to ensure it's up to date
         ;(async () => {
           try {
             const res = await salesEnquiryService.get(id)
             if (res && res.data) {
               selectedInquiryItem.value = res.data
-              showDetailsPage.value = true
+              if (!showDetailsPage.value) {
+                showDetailsPage.value = true
+                if (openTab) {
+                  sessionStorage.setItem('openEnquiryDetailTab', openTab)
+                }
+              }
             }
           } catch (err) {
             console.error('Failed to open enquiry from session:', err)
@@ -519,6 +539,8 @@ onMounted(() => {
         })()
       }
       sessionStorage.removeItem('openEnquiryId')
+      sessionStorage.removeItem('openEnquiryTab')
+      sessionStorage.removeItem('openEnquiryData')
     }
   } catch (e) {
     // ignore session storage errors
