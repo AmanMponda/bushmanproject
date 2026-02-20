@@ -124,7 +124,7 @@ export const salesEnquiryService = {
    * Lock pricing (change status to LOCKED)
    */
   async lockPricing(pricingId: number): Promise<ApiResponse<Pricing>> {
-    const response = await axios.patch(`${API_BASE}/pricing/${pricingId}`, { status: 'LOCKED' });
+    const response = await axios.put(`${API_BASE}/pricing/${pricingId}`, { status: 'LOCKED' });
     return response.data;
   },
 

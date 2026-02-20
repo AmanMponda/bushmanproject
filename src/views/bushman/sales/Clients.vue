@@ -549,15 +549,18 @@ const getAuthHeaders = () => {
 const fetchClients = async () => {
   loading.value = true
   try {
-    const params: any = { ...tableFilters.value }
-    const response = await axios.get(`${apiBaseUrl}clients`, {
+    const params: any = { ...tableFilters.value, type: 'INDIVIDUAL' }
+    const response = await axios.get(`${apiBaseUrl}entities`, {
       params,
       headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }
     })
 
     const data = response.data?.data || response.data
     const paged = Array.isArray(data) ? { data } : data
-    const items = Array.isArray(paged?.data) ? paged.data : Array.isArray(paged) ? paged : []
+    const allItems = Array.isArray(paged?.data) ? paged.data : Array.isArray(paged) ? paged : []
+    
+    // Filter to only show INDIVIDUAL type entities (clients), excluding suppliers/companies
+    const items = allItems.filter((item: any) => item.type === 'INDIVIDUAL')
 
     clients.value = items
     pagination.value = {

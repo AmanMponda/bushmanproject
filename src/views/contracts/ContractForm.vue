@@ -51,7 +51,7 @@
                 <select v-model="selectedOrderId" @change="onOrderSelect">
                   <option value="">-- Select Order to Auto-Populate --</option>
                   <option v-for="order in availableOrders" :key="order.id" :value="String(order.id)">
-                    {{ order.order_number }} - {{ order.entity?.full_name || order.party_name || 'N/A' }}
+                    {{ order.order_number }} - {{ getOrderPartyName(order) }}
                   </option>
                 </select>
               </div>
@@ -218,6 +218,7 @@ import { useContractStore } from '@/stores/bushman/contract-store'
 import { useOrderStore } from '@/stores/bushman/order-store'
 import { useToast } from '@/composables/useToast'
 import { useAppOptionStore } from '@/stores/app-option'
+import { useAuthStore } from '@/stores/auth'
 import Swal from 'sweetalert2'
 import ContractVersions from './ContractVersions.vue'
 
@@ -227,6 +228,7 @@ const { init } = useToast()
 const contractStore = useContractStore()
 const orderStore = useOrderStore()
 const appOptionStore = useAppOptionStore()
+const authStore = useAuthStore()
 
 // Sidebar state
 const originalSidebarState = ref(false)
@@ -273,6 +275,22 @@ const availableOrders = computed(() => {
   const orders = orderStore.orders || []
   return orders.filter((order: any) => order.status === 'APPROVED')
 })
+
+const getOrderPartyName = (order: any) => {
+  // Direct entity_name on order
+  if (order.entity_name && order.entity_name !== 'N/A') return order.entity_name
+  // From parties array
+  if (order.parties && Array.isArray(order.parties) && order.parties.length > 0) {
+    const party = order.parties[0]
+    if (party.entity?.full_name) return party.entity.full_name
+    if (party.entity?.name) return party.entity.name
+    if (party.entity_name) return party.entity_name
+    if (party.contact_name) return party.contact_name
+  }
+  // Direct entity on order
+  if (order.entity?.full_name) return order.entity.full_name
+  return 'N/A'
+}
 const selectedOrder = ref<any>(null)
 const orderDataLoaded = ref(false)
 
@@ -416,7 +434,8 @@ const submit = async () => {
       parties: form.parties,
       links: form.links,
       sales_confirmation_proposal_id: form.salesConfirmationProposalId,
-      entity_id: form.entityId
+      entity_id: form.entityId,
+      created_by: authStore.user?.id || null
     }
 
     if (isEdit.value) {
@@ -462,13 +481,15 @@ const submit = async () => {
             const createdId = result?.data?.data?.id || result?.data?.id || result?.id
             // Store the newly created contract ID so Version 1 file management appears
             savedContractId.value = createdId
-            // Refresh the contracts list so the new contract appears in ContractList
-            await contractStore.listContracts()
+            // Refresh the contracts list (non-blocking — don't let list errors crash success)
+            contractStore.listContracts().catch(() => {})
             Swal.fire({
               icon: 'success',
               title: 'Contract Created!',
-              text: `${form.title} has been created successfully. You can now upload the contract file for Version 1.`,
+              text: `${form.title} has been created successfully.`,
               confirmButtonColor: '#2563eb'
+            }).then(() => {
+              router.push({ name: 'contracts-list' })
             })
           } catch (error: any) {
             console.error('❌ Contract Creation Error:', error)
@@ -508,6 +529,31 @@ const submit = async () => {
 
 const goBack = () => {
   router.back()
+}
+
+const resetForm = () => {
+  form.contractNumber = ''
+  form.contractTypeId = ''
+  form.title = ''
+  form.status = 'DRAFT'
+  form.startDate = ''
+  form.endDate = ''
+  form.signedDate = ''
+  form.referenceExternal = ''
+  form.governingLaw = ''
+  form.jurisdiction = ''
+  form.legalJurisdiction = ''
+  form.additionalInformation = ''
+  form.financialSummary = ''
+  form.specialTerms = ''
+  form.additionalNote = ''
+  form.parties = []
+  form.links = []
+  form.salesConfirmationProposalId = null
+  form.entityId = null
+  selectedOrderId.value = ''
+  selectedOrder.value = null
+  orderDataLoaded.value = false
 }
 
 // Lifecycle

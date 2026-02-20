@@ -81,6 +81,16 @@
       </div>
     </card>
 
+    <!-- Loading State -->
+    <card v-else-if="loadingPricings">
+      <div class="tab-content p-4">
+        <div class="text-center py-5">
+          <span class="spinner-border spinner-border-sm me-2"></span>
+          <span class="text-muted">Loading quotations...</span>
+        </div>
+      </div>
+    </card>
+
     <!-- Empty State -->
     <card v-else>
       <div class="tab-content p-4">
@@ -566,6 +576,7 @@ const speciesStore = useSpeciesStore()
 // State
 const pricings = ref<Pricing[]>([])
 const expandedPricings = ref<number[]>([])
+const loadingPricings = ref(false)
 const loadingPricingDetails = ref<number | null>(null)
 const showAddPricingModal = ref(false)
 const showItemModal = ref(false)
@@ -625,8 +636,9 @@ const itemForm = ref({
 
 // Computed
 const canAddPricing = computed(() => {
-  // Don't allow generating new quotations if one is already locked
-  if (pricings.value.some(p => p.status === 'LOCKED')) return false
+  // Don't show while loading or if a quotation already exists
+  if (loadingPricings.value) return false
+  if (pricings.value.length > 0) return false
   return props.enquiryId > 0
 })
 
@@ -1420,6 +1432,7 @@ const loadPricings = async (forceRemote = false) => {
   }
 
   if (props.enquiryId) {
+    loadingPricings.value = true
     try {
       const response = await salesStore.getEnquiryPricings(props.enquiryId)
       if (response.status === 200 && response.data) {
@@ -1427,6 +1440,8 @@ const loadPricings = async (forceRemote = false) => {
       }
     } catch (error) {
       console.error('Error loading pricings:', error)
+    } finally {
+      loadingPricings.value = false
     }
   }
 }
@@ -2060,9 +2075,8 @@ watch(() => router.currentRoute.value.path, (newPath, oldPath) => {
 })
 
 onMounted(async () => {
-  // Force remote reload when arriving from create/edit quotation pages (stale initialPricings)
-  const referrer = router.currentRoute.value.query?.tab === 'quotations'
-  await loadPricings(referrer)
+  // Always force remote reload to get fresh data (avoids stale initialPricings from sessionStorage cache)
+  await loadPricings(true)
   loadReferenceData()
 
   // Auto-expand the first pricing and load its items

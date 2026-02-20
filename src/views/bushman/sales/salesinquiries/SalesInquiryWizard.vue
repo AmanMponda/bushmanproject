@@ -59,7 +59,10 @@
                 <span class="lbl">Preferred Date</span>
                 <div class="input-wrapper">
                   <Datepicker v-model="form.start_date" mode="date" :placeholder="'Select start date...'"
-                    @update:modelValue="onStartDateChange" />
+                    @update:modelValue="onStartDateChange"
+                    auto-apply
+                    :action-row="[]"
+                    :hide-navigation="['time']" />
                 </div>
               </label>
 
@@ -175,35 +178,44 @@
 
               <!-- Add Species Form -->
               <div class="add-item-row">
-                <Multiselect :ref="(el: any) => { if (el) speciesMultiselectRef = el }"
-                  :model-value="getSpeciesSelection()" @update:model-value="setSpeciesSelection"
-                  class="v-select-field v-select-grouped species-select" :options="groupedSpeciesOptions" label="label"
-                  track-by="value" :allow-empty="true" :append-to-body="true" :multiple="false" :close-on-select="true"
-                  :group-select="false" :option-height="28" :max-height="300"
-                  :selectable="(option: any) => !option.isHeader && !option.isCategoryHeader && !option.$isDisabled"
-                  :searchable="true" :options-limit="500" :disabled="!currentSalesPackage?.regulatory_package"
-                  placeholder="Search species by name...">
-                  <template #option="{ option }">
-                    <div :class="{
-                      'species-category-header': option.isHeader || option.isCategoryHeader,
-                      'species-option': !option.isHeader && !option.isCategoryHeader,
-                      'ps-3': option.isChild
-                    }">
-                      <span class="species-name">{{ option.name || option.label }}</span>
-                      <span v-if="option.scientificName" class="species-scientific text-muted ms-2">
-                        <em>{{ option.scientificName }}</em>
-                      </span>
-                      <span v-if="option.regulatoryQty > 0 && !option.isHeader" class="badge bg-secondary ms-2">
-                        Qty: {{ option.regulatoryQty }}
-                      </span>
-                    </div>
-                  </template>
-                </Multiselect>
-                <input type="number" v-model.number="speciesQuantity" min="1" placeholder="Qty" class="qty-input" />
-                <button type="button" class="btn btn-primary" style="background-color: #3b82f6; border-color: #3b82f6;"
-                  :disabled="!currentSalesPackage?.regulatory_package" @click="addSpeciesToList">
-                  <i class="fa fa-plus me-1"></i> Add
-                </button>
+                <div style="flex: 1; display: flex;">
+                  <Multiselect
+                    :model-value="getSpeciesSelection()" @update:model-value="setSpeciesSelection"
+                    class="v-select-field v-select-grouped species-select species-select-narrow"
+                    :options="groupedSpeciesOptions" label="label"
+                    track-by="value" :allow-empty="true" :multiple="false" :close-on-select="true"
+                    :group-select="false" :option-height="28" :max-height="350"
+                    :selectable="(option: any) => !option.isHeader && !option.isCategoryHeader && !option.$isDisabled"
+                    :searchable="true" :options-limit="500"
+                    :disabled="false"
+                    placeholder="Search species by name..."
+                    style="width: 100%; min-width: 450px; max-width: 800px; flex: 1 1 700px;"
+                    :showOptions="true"
+                  >
+                    <template #option="{ option }">
+                      <div :class="{
+                        'species-category-header': option.isHeader || option.isCategoryHeader,
+                        'species-option': !option.isHeader && !option.isCategoryHeader,
+                        'ps-3': option.isChild
+                      }">
+                        <span class="species-name">{{ option.name || option.label }}</span>
+                        <span v-if="option.scientificName" class="species-scientific text-muted ms-2">
+                          <em>{{ option.scientificName }}</em>
+                        </span>
+                        <span v-if="option.regulatoryQty > 0 && !option.isHeader" class="badge bg-secondary ms-2">
+                          Qty: {{ option.regulatoryQty }}
+                        </span>
+                      </div>
+                    </template>
+                  </Multiselect>
+                </div>
+                <div style="display: flex; align-items: flex-end; gap: 10px; margin-left: 12px;">
+                  <input type="number" v-model.number="speciesQuantity" min="1" placeholder="Qty" class="qty-input" style="width: 90px;" />
+                  <button type="button" class="btn btn-primary" style="background-color: #3b82f6; border-color: #3b82f6;"
+                    :disabled="!getSpeciesSelection() || !speciesQuantity || !currentSalesPackage?.regulatory_package" @click="addSpeciesToList">
+                    <i class="fa fa-plus me-1"></i> Add
+                  </button>
+                </div>
               </div>
 
               <!-- Species List -->
@@ -302,35 +314,41 @@
                     <div class="normal-species-modal-body">
                       <!-- Add Normal Species Form -->
                       <div class="add-item-row">
-                        <Multiselect
-                          :model-value="getNormalSpeciesSelection()" @update:model-value="setNormalSpeciesSelection"
-                          class="v-select-field v-select-grouped species-select" :options="groupedNormalSpeciesOptions" label="label"
-                          track-by="value" :allow-empty="true" :multiple="false" :close-on-select="true"
-                          :group-select="false" :option-height="28" :max-height="300"
-                          :selectable="(option: any) => !option.isHeader && !option.isCategoryHeader && !option.$isDisabled"
-                          :searchable="true" :options-limit="500"
-                          :disabled="!currentSalesPackage"
-                          placeholder="Search species by name...">
-                          <template #option="{ option }">
-                            <div :class="{
-                              'species-category-header': option.isHeader || option.isCategoryHeader,
-                              'species-option': !option.isHeader && !option.isCategoryHeader,
-                              'ps-3': option.isChild
-                            }">
-                              <span class="species-name">{{ option.name || option.label }}</span>
-                              <span v-if="option.scientificName" class="species-scientific text-muted ms-2">
-                                <em>{{ option.scientificName }}</em>
-                              </span>
-                              <span v-if="option.regulatoryQty > 0 && !option.isHeader" class="badge bg-secondary ms-2">
-                                Qty: {{ option.regulatoryQty }}
-                              </span>
-                            </div>
-                          </template>
-                        </Multiselect>
-                        <input type="number" v-model.number="normalSpeciesQuantity" min="1" placeholder="Qty" class="qty-input" />
-                        <button type="button" class="btn btn-success" @click="addNormalSpeciesToList">
-                          <i class="fa fa-plus me-1"></i> Add
-                        </button>
+                        <div style="flex: 1; display: flex;">
+                          <Multiselect
+                            :model-value="getNormalSpeciesSelection()" @update:model-value="setNormalSpeciesSelection"
+                            class="v-select-field v-select-grouped species-select species-select-narrow" :options="groupedNormalSpeciesOptions" label="label"
+                            track-by="value" :allow-empty="true" :multiple="false" :close-on-select="true"
+                            :group-select="false" :option-height="28" :max-height="350"
+                            :selectable="(option: any) => !option.isHeader && !option.isCategoryHeader && !option.$isDisabled"
+                            :searchable="true" :options-limit="500"
+                            :disabled="false"
+                            placeholder="Search normal species by name..."
+                            style="width: 100%; min-width: 450px; max-width: 800px; flex: 1 1 700px;">
+                            <template #option="{ option }">
+                              <div :class="{
+                                'species-category-header': option.isHeader || option.isCategoryHeader,
+                                'species-option': !option.isHeader && !option.isCategoryHeader,
+                                'ps-3': option.isChild
+                              }">
+                                <span class="species-name">{{ option.name || option.label }}</span>
+                                <span v-if="option.scientificName" class="species-scientific text-muted ms-2">
+                                  <em>{{ option.scientificName }}</em>
+                                </span>
+                                <span v-if="option.regulatoryQty > 0 && !option.isHeader" class="badge bg-secondary ms-2">
+                                  Qty: {{ option.regulatoryQty }}
+                                </span>
+                              </div>
+                            </template>
+                          </Multiselect>
+                        </div>
+                        <div style="display: flex; align-items: flex-end; gap: 10px; margin-left: 12px;">
+                          <input type="number" v-model.number="normalSpeciesQuantity" min="1" placeholder="Qty" class="qty-input" style="width: 90px;" />
+                          <button type="button" class="btn btn-success" style="white-space: nowrap;"
+                            :disabled="!getNormalSpeciesSelection() || !normalSpeciesQuantity || !currentSalesPackage?.regulatory_package" @click="addNormalSpeciesToList">
+                            <i class="fa fa-plus me-1"></i> Add
+                          </button>
+                        </div>
                       </div>
 
                       <!-- Normal Species List -->
@@ -440,23 +458,12 @@
           <div v-show="activeTab === 'participants'" class="inner-card content-card">
             <div class="content-body">
               <!-- Hunting Type Info Banner -->
-              <div v-if="expectedHunterCount != null" class="alert d-flex align-items-center gap-2 py-2 px-3 mb-3"
-                :class="participantCountMismatch ? 'alert-warning' : 'alert-info'">
-                <i class="fa" :class="participantCountMismatch ? 'fa-exclamation-triangle' : 'fa-info-circle'"></i>
-                <div>
-                  <strong>Hunting Type: {{ packageHuntingType }}</strong> —
-                  Package expects <strong>{{ expectedHunterCount }}</strong> hunter{{ expectedHunterCount > 1 ? 's' : '' }}.
-                  <span v-if="participantCountMismatch" class="text-danger ms-1">
-                    Currently {{ participants.length }} participant{{ participants.length !== 1 ? 's' : '' }}.
-                  </span>
-                  <span v-else class="text-success ms-1">
-                    <i class="fa fa-check-circle"></i> Match
-                  </span>
-                </div>
+              <div v-if="expectedHunterCount != null && participantCountMismatch" class="alert alert-warning py-2 px-3 mb-3" style="font-size:13px;">
+                <span style="color:#b94a48; font-weight:bold;">Participants do not match package (PH must be Added.)</span>
               </div>
 
               <!-- Add Hunter Button -->
-              <div class="add-item-row">
+              <div class="add-item-row" style="justify-content: space-between; align-items: center;">
                 <small class="text-muted">Add hunters/participants for this enquiry. Primary hunter is required.</small>
                 <div>
                   <button type="button" class="btn btn-outline-primary btn-sm" @click="addParticipant">
@@ -519,7 +526,7 @@
                     <div class="ptbl-col-entity">
                       <select v-model="p.entity_id" class="form-select form-select-sm" @change="onParticipantEntityChange(p)">
                         <option :value="null">Select Hunter...</option>
-                        <option v-for="e in getAvailableEntityOptions(p)" :key="e.value" :value="e.value">{{ e.label }}</option>
+                        <option v-for="opt in getAvailableEntityOptions(p)" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
                       </select>
                     </div>
                     <div class="ptbl-col-share">
@@ -568,24 +575,10 @@
               <div class="share-summary mt-3">
                 <div class="share-bar">
                   <div class="share-bar-label">
-                    <strong>Total Share:</strong>
-                    <span :class="totalSharePercentage === expectedTotalShare ? 'text-success' : 'text-danger'">
-                      {{ totalSharePercentage.toFixed(2) }}%
+                    <strong>Independent Hunters:</strong>
+                    <span v-for="(p, i) in participants.filter(p => p.is_independent)" :key="p._uid" class="ms-2">
+                      {{ p.entity_name || 'Hunter ' + (i+1) }}: <span :class="p.share_percentage === 100 ? 'text-success' : 'text-danger'">{{ p.share_percentage }}%</span>
                     </span>
-                    <span v-if="totalSharePercentage !== expectedTotalShare" class="text-danger ms-2">
-                      <i class="fa fa-exclamation-circle"></i> Must equal {{ expectedTotalShare }}%
-                      <small class="text-muted">({{ expectedHunterCount || 1 }} hunter{{ (expectedHunterCount || 1) > 1 ? 's' : '' }} × 100%)</small>
-                    </span>
-                    <span v-else class="text-success ms-2">
-                      <i class="fa fa-check-circle"></i> Valid
-                    </span>
-                  </div>
-                  <div class="progress" style="height: 8px;">
-                    <div
-                      class="progress-bar"
-                      :class="totalSharePercentage === expectedTotalShare ? 'bg-success' : totalSharePercentage > expectedTotalShare ? 'bg-danger' : 'bg-warning'"
-                      :style="{ width: Math.min((totalSharePercentage / expectedTotalShare) * 100, 100) + '%' }"
-                    ></div>
                   </div>
                 </div>
               </div>
@@ -629,7 +622,7 @@
               </div>
 
               <!-- Add Safari Extra: dynamic rows (allows duplicates) -->
-              <div class="add-item-row">
+              <div class="add-item-row" style="justify-content: space-between; align-items: center;">
                 <small class="text-muted">Add multiple rows; select the same extra multiple times and set duration per row.</small>
                 <div>
                   <button type="button" class="btn btn-outline-primary btn-sm" @click="addSafariExtra" title="Add a new safari extra row">
@@ -748,9 +741,9 @@
                 <div class="review-grid">
                   <div class="review-item"><span class="label">Client Name:</span><span class="value">{{ displayOrNotProvided(form.full_name || props.customerData?.full_name) }}</span></div>
                   <div class="review-item"><span class="label">Phone:</span><span class="value">{{ displayOrNotProvided(form.phone || props.customerData?.phone) }}</span></div>
-                  <div class="review-item"><span class="label">Country:</span><span class="value">{{ displayOrNotProvided(getItemLabel(countryItems, form.country)) }}</span></div>
+                  <div class="review-item"><span class="label">Country:</span><span class="value">{{ displayOrNotProvided(props.customerData?.country_name || getItemLabel(countryItems, form.country)) }}</span></div>
                   <div class="review-item"><span class="label">Email:</span><span class="value">{{ displayOrNotProvided(form.email || props.customerData?.email) }}</span></div>
-                  <div class="review-item"><span class="label">Nationality:</span><span class="value">{{ displayOrNotProvided(getItemLabel(nationalityItems, form.nationality)) }}</span></div>
+                  <div class="review-item"><span class="label">Nationality:</span><span class="value">{{ displayOrNotProvided(props.customerData?.nationality_name || getItemLabel(nationalityItems, form.nationality)) }}</span></div>
                   <div class="review-item"><span class="label">Address:</span><span class="value">{{ displayOrNotProvided(form.address || props.customerData?.address) }}</span></div>
                 </div>
               </div>
@@ -763,9 +756,9 @@
                 </div>
                 <div class="review-grid">
                   <div class="review-item"><span class="label">Season:</span><span class="value">{{ getItemLabel(seasonItems, form.season) }}</span></div>
-                  <div class="review-item"><span class="label">Hunting Type:</span><span class="value">{{ displayOrNotProvided((currentSalesPackage && currentSalesPackage.hunting_type) || (packagesOptions.find(p => p.value === form.priceListId)?.selfItem?.hunting_type) || 'Not provided') }}</span></div>
+                  <div class="review-item"><span class="label">Hunting Type:</span><span class="value">{{ displayOrNotProvided((currentSalesPackage && currentSalesPackage.hunting_type) || (packagesOptions.find(p => p.value === form.priceListId)?.selfItem?.hunting_type)) }}</span></div>
                   <!-- Package spans full width to avoid cramped long package names -->
-                  <div class="review-item full"><span class="label">Package:</span><span class="value">{{ getItemLabel(packageItems, form.priceListId) || 'No package selected' }}</span></div>
+                  <div class="review-item full"><span class="label">Package:</span><span class="value">{{ getItemLabel(packageItems, form.priceListId) || '-' }}</span></div>
                 </div>
               </div>
 
@@ -798,47 +791,58 @@
                         <span class="badge me-2" :class="p.participant_type === 'primary' ? 'bg-warning text-dark' : 'bg-secondary'">
                           {{ p.participant_type === 'primary' ? 'Primary' : `Hunter #${i + 1}` }}
                         </span>
-                        <strong>{{ p.entity_name || 'Not selected' }}</strong>
-                        <span v-if="!p.is_independent" class="text-muted ms-2">(Dependent)</span>
+                        <strong>
+                          <!-- Show entity_name if set, else fallback to form.full_name or customerData.full_name for primary -->
+                          <template v-if="p.entity_name && p.entity_name.trim() !== ''">
+                            {{ p.entity_name }}
+                          </template>
+                          <template v-else-if="p.participant_type === 'primary' && (form.full_name || (props.customerData && props.customerData.full_name))">
+                            {{ form.full_name || props.customerData.full_name }}
+                          </template>
+                          <template v-else>
+                            Not selected
+                          </template>
+                        </strong>
+                        <span v-if="!p.is_independent" class="text-muted ms-2">(Dependent on {{ getDependentOnLabel(p) }})</span>
                       </div>
                       <span class="share-badge">{{ p.share_percentage }}%</span>
                     </div>
                   </div>
-                  <div class="share-total-review mt-2" :class="totalSharePercentage === expectedTotalShare ? 'text-success' : 'text-danger'">
-                    <strong>Total Share: {{ totalSharePercentage.toFixed(2) }}% / {{ expectedTotalShare }}%</strong>
+                </div>
+              </div>
+
+              <!-- Species Summary (Main + Normal side by side) -->
+              <div style="display: flex; gap: 24px; flex-wrap: wrap;">
+                <!-- Main Species -->
+                <div class="review-section" style="flex: 1; min-width: 280px;">
+                  <div class="review-header">
+                    <i class="fa fa-paw text-primary me-2"></i>
+                    <h6>Main Species ({{ speciesObjects.length }})</h6>
                   </div>
+                  <div v-if="speciesObjects.length > 0" class="species-list-wrap">
+                    <ul class="species-list">
+                      <li v-for="(s, index) in speciesObjects" :key="s.species_id || s.id || index">
+                        <strong>{{ s.name }}</strong> <span class="text-muted">(x{{ s.quantity }})</span>
+                      </li>
+                    </ul>
+                  </div>
+                  <span v-else class="text-muted">No main species selected</span>
                 </div>
-              </div>
 
-              <!-- Species Summary -->
-              <div class="review-section">
-                <div class="review-header">
-                  <i class="fa fa-paw text-primary me-2"></i>
-                  <h6>Main Species ({{ speciesObjects.length }})</h6>
-                </div>
-                <div v-if="speciesObjects.length > 0" class="species-list-wrap">
-                  <ul class="species-list">
-                    <li v-for="(s, index) in speciesObjects" :key="s.species_id || s.id || index">
-                      <strong>{{ s.name }}</strong> <span class="text-muted">(x{{ s.quantity }})</span>
-                    </li>
-                  </ul>
-                </div>
-                <span v-else class="text-muted">No main species selected</span>
-              </div>
-
-              <!-- Normal Species Summary -->
-              <div v-if="normalSpeciesObjects.length > 0" class="review-section">
-                <div class="review-header">
-                  <i class="fa fa-leaf text-success me-2"></i>
-                  <h6>Normal Species ({{ normalSpeciesObjects.length }})</h6>
-                </div>
-                <div class="species-list-wrap">
-                  <ul class="species-list">
-                    <li v-for="(s, index) in normalSpeciesObjects" :key="s.species_id || s.id || index">
-                      <strong>{{ s.name }}</strong> <span class="text-muted">(x{{ s.quantity }})</span>
-                      <span class="badge bg-success ms-1" style="font-size: 10px;">Normal</span>
-                    </li>
-                  </ul>
+                <!-- Normal Species -->
+                <div v-if="normalSpeciesObjects.length > 0" class="review-section" style="flex: 1; min-width: 280px;">
+                  <div class="review-header">
+                    <i class="fa fa-leaf text-success me-2"></i>
+                    <h6>Normal Species ({{ normalSpeciesObjects.length }})</h6>
+                  </div>
+                  <div class="species-list-wrap">
+                    <ul class="species-list">
+                      <li v-for="(s, index) in normalSpeciesObjects" :key="s.species_id || s.id || index">
+                        <strong>{{ s.name }}</strong> <span class="text-muted">(x{{ s.quantity }})</span>
+                        <span class="badge bg-success ms-1" style="font-size: 10px;">Normal</span>
+                      </li>
+                    </ul>
+                  </div>
                 </div>
               </div>
 
@@ -853,7 +857,7 @@
                     <li v-for="extra in selectedSafariExtras" :key="extra.id">
                       {{ extra.name || 'Safari Extra' }}
                       <small v-if="extra.quantity && extra.quantity > 1" class="text-muted">(x{{ extra.quantity }})</small>
-                      <small v-if="computeEffectiveDuration(extra) != null" class="text-muted"> — {{ computeEffectiveDuration(extra) }} day<span v-if="(computeEffectiveDuration(extra) ?? 0) > 1">s</span></small>
+                      <small v-if="computeEffectiveDuration(extra) != null" class="text-muted"> ({{ computeEffectiveDuration(extra) }} day<span v-if="(computeEffectiveDuration(extra) ?? 0) > 1">s</span>)</small>
                     </li>
                   </ul>
                 </div>
@@ -889,24 +893,159 @@
 
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, reactive, ref, watch, nextTick } from 'vue'
+import { useAppOptionStore } from '@/stores/app-option'
 import axios from 'axios'
 import Swal from 'sweetalert2'
 import handleErrors from '@/stores/bushman/errorHandler'
-import { useToast } from '@/composables/useToast'
 import { salesEnquiryService } from '@/stores/bushman/salesEnquiryService'
+import { useAuthStore } from '@/stores/auth'
 import { useSettingsStore } from '@/stores/bushman/settings-store'
 import { usePriceListStore } from '@/stores/bushman/price-list-store'
-import { useAuthStore } from '@/stores/auth'
-import { useAppOptionStore } from '@/stores/app-option'
-import CurrencyInput from '@/components/CurrencyInput.vue'
-import Datepicker from '@/components/plugins/Datepicker.vue'
+import { useToast } from '@/composables/useToast'
 import Multiselect from 'vue-multiselect'
-import 'vue-multiselect/dist/vue-multiselect.css'
+import 'vue-multiselect/dist/vue-multiselect.min.css'
+import CurrencyInput from '@/components/CurrencyInput.vue'
+// ─── Participants State ───
+let participantUidCounter = 1
+interface Participant {
+  _uid: number
+  entity_id: number | null
+  entity_name: string
+  participant_type: 'primary' | 'additional'
+  is_independent: boolean
+  dependent_on_participant_id: number | null
+  share_percentage: number
+  notes: string
+}
+
+const participants = ref<Participant[]>([
+  {
+    _uid: participantUidCounter++,
+    entity_id: null,
+    entity_name: '',
+    participant_type: 'primary',
+    is_independent: true,
+    dependent_on_participant_id: null,
+    share_percentage: 100,
+    notes: '',
+  }
+])
+const entityOptions = ref<{ value: number; label: string }[]>([])
+const loadingEntities = ref(false)
+
+const primaryParticipant = computed(() => participants.value.find(p => p.participant_type === 'primary') || null)
+const additionalParticipants = computed(() => participants.value.filter(p => p.participant_type === 'additional'))
+import { computed, onMounted, onUnmounted, reactive, ref, watch, nextTick } from 'vue'
+import Datepicker from '@vuepic/vue-datepicker'
+import '@vuepic/vue-datepicker/dist/main.css'
+
+// ─── Participants State ───
 
 // PDF generation (preview before submitting)
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
+
+// Add this computed property for upgrade fees (empty by default, or implement logic as needed)
+const expectedTotalShare = computed(() => {
+  // By default, 100% per hunter
+  const expected = expectedHunterCount.value;
+  if (!expected) return 100;
+  return expected * 100;
+});
+interface UpgradeFee {
+  id: number|string
+  species_name?: string
+  species?: { name?: string }
+  currency_symbol?: string
+  amount?: number
+}
+const selectedUpgradeFees = computed<UpgradeFee[]>(() => {
+  // TODO: Replace with real logic to compute upgrade fees if available
+  return []
+})
+
+// Computed for select options
+const seasonItems = computed(() =>
+  (seasonsOptions.value || []).map((s: any) => ({
+    value: s.value,
+    label: s.text || s.label || ''
+  }))
+)
+const priceStructureItems = computed(() =>
+  (priceStructuresOptions.value || []).map((p: any) => ({
+    value: p.value,
+    label: p.text || p.label || ''
+  }))
+)
+const gameAreaItems = computed(() =>
+  (areasOptions.value || []).map((a: any) => ({
+    value: a.value,
+    label: a.text || a.label || ''
+  }))
+)
+const packageItems = computed(() =>
+  (packagesOptions.value || []).map((p: any) => ({
+    value: p.value,
+    label: p.text || p.label || ''
+  }))
+)
+const countryItems = computed(() =>
+  (countries.value || []).map((c: any) => ({
+    value: c.value,
+    label: c.text || c.label || ''
+  }))
+)
+const nationalityItems = computed(() =>
+  (nationality.value || []).map((n: any) => ({
+    value: n.value,
+    label: n.text || n.label || ''
+  }))
+)
+
+// Grouped species options (main) — built from fullPackageSpecies (same source as auto-populated list)
+const groupedSpeciesOptions = computed(() => {
+  if (!currentSalesPackage.value) return []
+  // Use fullPackageSpecies with subtype MAIN_SPECIE — same data that populates speciesObjects
+  const mainSpecies = (fullPackageSpecies.value || []).filter((s: any) => s.subtype === 'MAIN_SPECIE')
+  if (mainSpecies.length > 0) {
+    return mainSpecies.map((s: any) => ({
+      value: s.species_id,
+      label: s.name,
+      name: s.name,
+      regulatoryQty: getRegulatoryQuantity(s.species_id),
+      scientificName: s.scientific_name || '',
+    }))
+  }
+  // Fallback: use speciesOptions filtered by species_ids present in speciesObjects
+  const ids = new Set((speciesObjects.value || []).map((s: any) => s.species_id))
+  return (speciesOptions.value || []).filter((s: any) => ids.has(s.value))
+})
+
+// Grouped normal species options — built from fullPackageSpecies (same source as auto-populated list)
+const groupedNormalSpeciesOptions = computed(() => {
+  if (!currentSalesPackage.value) return []
+  // Only exclude species that were manually added (not from package)
+  const manuallyAddedIds = new Set(
+    (normalSpeciesObjects.value || [])
+      .filter((s: any) => !s.fromPackage)
+      .map((s: any) => s.species_id)
+  )
+  // Use fullPackageSpecies with subtype NORMAL_SPECIE — show ALL normal species from the package
+  const normalSpecies = (fullPackageSpecies.value || []).filter((s: any) => s.subtype === 'NORMAL_SPECIE')
+  if (normalSpecies.length > 0) {
+    return normalSpecies
+      .filter((s: any) => !manuallyAddedIds.has(s.species_id))
+      .map((s: any) => ({
+        value: s.species_id,
+        label: s.name,
+        name: s.name,
+        regulatoryQty: getRegulatoryQuantity(s.species_id),
+        scientificName: s.scientific_name || '',
+      }))
+  }
+  // Fallback: show all speciesOptions if no fullPackageSpecies
+  return (speciesOptions.value || []).filter((s: any) => !manuallyAddedIds.has(s.value))
+})
 
 // NOTE: replaced html2canvas snapshot with server-style jsPDF layout (autotable) to match single-enquiry PDF
 
@@ -921,6 +1060,24 @@ const vueformRef = ref<any>(null)
 const { init } = useToast()
 const appOptionStore = useAppOptionStore()
 const originalSidebarState = ref<boolean>(false)
+
+
+
+
+// Ensure primary participant's entity_id is set when customerData changes
+watch(
+  () => props.customerData,
+  (customer) => {
+    if (customer && customer.entity_id) {
+      const primary = participants.value.find(p => p.participant_type === 'primary')
+      if (primary) {
+        primary.entity_id = customer.entity_id
+        primary.entity_name = customer.full_name || ''
+      }
+    }
+  },
+  { immediate: true }
+);
 
 // Form state - reactive object that syncs with Vueform
 const form = reactive({
@@ -1001,35 +1158,7 @@ const selectedSpeciesId = ref<number | null>(null)
 const speciesQuantity = ref(1)
 
 // ─── Participants State ───
-let participantUidCounter = 1
-interface Participant {
-  _uid: number
-  entity_id: number | null
-  entity_name: string
-  participant_type: 'primary' | 'additional'
-  is_independent: boolean
-  dependent_on_participant_id: number | null
-  share_percentage: number
-  notes: string
-}
-
-const participants = ref<Participant[]>([
-  {
-    _uid: participantUidCounter++,
-    entity_id: null,
-    entity_name: '',
-    participant_type: 'primary',
-    is_independent: true,
-    dependent_on_participant_id: null,
-    share_percentage: 100,
-    notes: '',
-  }
-])
-const entityOptions = ref<{ value: number; label: string }[]>([])
-const loadingEntities = ref(false)
-
-const primaryParticipant = computed(() => participants.value.find(p => p.participant_type === 'primary') || null)
-const additionalParticipants = computed(() => participants.value.filter(p => p.participant_type === 'additional'))
+// ...existing code...
 
 // ─── Hunting Type → Expected Hunter Count ───
 // Parses hunting_type strings like "1x1", "2x1" etc. First number = expected hunters.
@@ -1048,9 +1177,9 @@ const expectedHunterCount = computed((): number | null => {
 })
 
 const participantCountMismatch = computed((): boolean => {
-  const expected = expectedHunterCount.value
-  if (expected == null) return false
-  return participants.value.length !== expected
+  // Show warning only if number of hunters is odd and greater than 1 (3, 5, ...), regardless of package
+  const hunterCount = participants.value.length;
+  return hunterCount % 2 === 1 && hunterCount > 1;
 })
 
 // Filter out already-selected entities so the same hunter can't be added twice
@@ -1067,20 +1196,11 @@ const totalSharePercentage = computed(() =>
   participants.value.reduce((sum, p) => sum + (Number(p.share_percentage) || 0), 0)
 )
 
-// Expected total share: each INDEPENDENT hunter pays 100% of the per-person package price.
-// Dependent hunters pay 0% (they don't have their own share).
-// e.g. 2x1 with both independent = 200%, 2x1 with 1 dependent = 100%
-const expectedTotalShare = computed((): number => {
-  const independentCount = participants.value.filter(p => p.is_independent).length
-  return independentCount * 100 || 100
-})
-
 const participantValidationErrors = computed(() => {
   const errors: string[] = []
   const primary = primaryParticipant.value
-  if (!primary || !primary.entity_id) {
-    errors.push('Primary hunter must be selected.')
-  }
+  // Only show warning if primary is missing or entity_id is falsy
+  // Removed primary hunter validation warning as requested
   for (let i = 0; i < additionalParticipants.value.length; i++) {
     const p = additionalParticipants.value[i]
     // Additional hunters are optional — only validate dependency if entity is already selected
@@ -1088,14 +1208,14 @@ const participantValidationErrors = computed(() => {
       errors.push(`Hunter #${i + 2} is not independent — "Dependent On" must be selected.`)
     }
   }
-  if (Math.abs(totalSharePercentage.value - expectedTotalShare.value) > 0.01) {
-    errors.push(`Total share percentage must equal ${expectedTotalShare.value}% (currently ${totalSharePercentage.value.toFixed(2)}%). Each independent hunter should have 100%.`)
-  }
-  // Hunting type mismatch validation
-  const expected = expectedHunterCount.value
-  if (expected != null && participants.value.length !== expected) {
-    errors.push(`Hunting type ${packageHuntingType.value} expects ${expected} hunter(s), but ${participants.value.length} participant(s) are configured.`)
-  }
+  // Each independent hunter must have 100% share
+  const independents = participants.value.filter(p => p.is_independent)
+  independents.forEach((p, idx) => {
+    if (p.share_percentage !== 100) {
+      errors.push(`${p.entity_name || 'Hunter ' + (idx+1)} must have 100% share.`)
+    }
+  })
+  // Dependents can have any share
   return errors
 })
 
@@ -1172,14 +1292,28 @@ const onParticipantEntityChange = (p: Participant) => {
   p.entity_name = entity?.label || ''
 }
 
+const getDependentOnLabel = (p: any): string => {
+  if (p.is_independent || !p.dependent_on_participant_id) return '—'
+  const dep = participants.value.find((dp: any) => dp._uid === p.dependent_on_participant_id)
+  if (!dep) return '—'
+  if (dep.entity_name && dep.entity_name.trim() !== '') return dep.entity_name
+  const depIdx = participants.value.indexOf(dep)
+  return depIdx === 0 ? 'Primary Hunter' : `Hunter #${depIdx + 1}`
+}
+
 const getDependencyOptions = (currentParticipant: Participant) => {
-  // Only independent hunters can be depended on (no chain dependencies)
+  // Any independent hunter can be depended on, even if their entity data isn't filled yet
   return participants.value
-    .filter(p => p._uid !== currentParticipant._uid && p.entity_id && p.is_independent)
-    .map(p => ({
-      value: p._uid,
-      label: p.entity_name || `Hunter (ID: ${p.entity_id})`,
-    }))
+    .filter(p => p._uid !== currentParticipant._uid && p.is_independent)
+    .map((p, _i) => {
+      const idx = participants.value.indexOf(p)
+      const label = p.entity_name
+        ? p.entity_name
+        : idx === 0
+          ? 'Primary Hunter'
+          : `Hunter #${idx + 1}`
+      return { value: p._uid, label }
+    })
 }
 
 // Auto-set dependent_on when a hunter is not independent and there's only one option,
@@ -1227,7 +1361,11 @@ const fetchAllSpecies = async () => {
                       Array.isArray(response.data) ? response.data : []
     speciesOptions.value = dataArray.map((species: any) => ({
       value: species.id,
-      text: species.name,
+      label: species.name,
+      name: species.name,
+      type: species.type, // 'MAIN' or 'NORMAL'
+      regulatoryQty: species.regulatory_quantity || species.regulatoryQty || 0,
+      scientificName: species.scientific_name || '',
       scientific_name: species.scientific_name || ''
     }))
   } catch (error) {
@@ -1238,14 +1376,17 @@ const fetchAllSpecies = async () => {
 const fetchEntities = async () => {
   loadingEntities.value = true
   try {
+    const token = localStorage.getItem('token')
+    const authHeaders = token ? { Authorization: `Bearer ${token}` } : {}
     const response = await axios.get(
-      import.meta.env.VITE_APP_BASE_URL + 'entities/creation-metadata',
-      { headers: { 'Content-Type': 'application/json' } }
+      import.meta.env.VITE_APP_BASE_URL + 'entities',
+      { headers: { 'Content-Type': 'application/json', ...authHeaders } }
     )
-    const payload = response.data?.data || response.data || {}
-    const dataArray = Array.isArray(payload.entities) ? payload.entities :
+    const dataArray = Array.isArray(response.data?.data) ? response.data.data :
                       Array.isArray(response.data) ? response.data : []
-    entityOptions.value = dataArray.map((e: any) => ({
+    // Filter to INDIVIDUAL type entities only
+    const individuals = dataArray.filter((e: any) => e.type === 'INDIVIDUAL')
+    entityOptions.value = individuals.map((e: any) => ({
       value: e.id,
       label: e.full_name || e.name || `Entity #${e.id}`,
     }))
@@ -1290,8 +1431,8 @@ const downloadPreviewPdf = async () => {
     const metaHeader = ['Date', 'Created By', 'Areas']
     const metaValues = [
       new Date().toISOString().split('T')[0],
-      form.email || (props.customerData?.email) || 'Not provided',
-      getAreaLabel(form.area) || 'Not provided'
+      form.email || (props.customerData?.email) || '-',
+      getAreaLabel(form.area) || '-'
     ]
     autoTable(pdf, {
       startY: cursorY,
@@ -1312,9 +1453,9 @@ const downloadPreviewPdf = async () => {
     const clientRows = [
       ['Client Name:', displayOrNotProvided(form.full_name || props.customerData?.full_name)],
       ['Phone:', displayOrNotProvided(form.phone || props.customerData?.phone)],
-      ['Country:', displayOrNotProvided(getItemLabel(countryItems.value, form.country))],
+      ['Country:', displayOrNotProvided(props.customerData?.country_name || getItemLabel(countryItems.value, form.country))],
       ['Email:', displayOrNotProvided(form.email || props.customerData?.email)],
-      ['Nationality:', displayOrNotProvided(getItemLabel(nationalityItems.value, form.nationality))],
+      ['Nationality:', displayOrNotProvided(props.customerData?.nationality_name || getItemLabel(nationalityItems.value, form.nationality))],
       ['Address:', displayOrNotProvided(form.address || props.customerData?.address)]
     ]
     autoTable(pdf, {
@@ -1334,8 +1475,8 @@ const downloadPreviewPdf = async () => {
     pdf.setFont('helvetica', 'bold')
     pdf.text('Season & Package', margin, cursorY)
     cursorY += 8
-    const packageLabel = getItemLabel(packageItems.value, form.priceListId) || 'No package selected'
-    const huntingTypeLabel = (currentSalesPackage.value && currentSalesPackage.value.hunting_type) || (packagesOptions.value.find((p: any) => p.value === form.priceListId)?.selfItem?.hunting_type) || 'Not provided'
+    const packageLabel = getItemLabel(packageItems.value, form.priceListId) || '-'
+    const huntingTypeLabel = (currentSalesPackage.value && currentSalesPackage.value.hunting_type) || (packagesOptions.value.find((p: any) => p.value === form.priceListId)?.selfItem?.hunting_type) || '-'
     const seasonPackageRows = [
       ['Season:', displayOrNotProvided(getItemLabel(seasonItems.value, form.season))],
       ['Package:', displayOrNotProvided(packageLabel)],
@@ -1386,11 +1527,9 @@ const downloadPreviewPdf = async () => {
     if (participants.value.length > 0) {
       const participantRows = participants.value.map((p: any, i: number) => {
         const role = p.participant_type === 'primary' ? 'Primary' : `Hunter #${i + 1}`
-        const name = p.entity_name || 'Not selected'
+        const name = p.entity_name || '-'
         const status = p.is_independent ? 'Independent' : 'Dependent'
-        const dependentOn = !p.is_independent && p.dependent_on_participant_id
-          ? (participants.value.find((dp: any) => dp._uid === p.dependent_on_participant_id)?.entity_name || '—')
-          : '—'
+        const dependentOn = getDependentOnLabel(p)
         return [role, name, status, dependentOn, `${p.share_percentage}%`]
       })
       autoTable(pdf, {
@@ -1409,19 +1548,60 @@ const downloadPreviewPdf = async () => {
         }
       })
       cursorY = (pdf as any).lastAutoTable.finalY + 4
-      // Total share
-      const totalShare = participants.value.reduce((sum: number, p: any) => sum + (Number(p.share_percentage) || 0), 0)
-      const pdfExpectedTotal = (expectedHunterCount.value != null && expectedHunterCount.value > 1) ? expectedHunterCount.value * 100 : 100
-      pdf.setFontSize(9)
-      pdf.setFont('helvetica', 'bold')
-      pdf.setTextColor(totalShare === pdfExpectedTotal ? 40 : 200, totalShare === pdfExpectedTotal ? 160 : 0, totalShare === pdfExpectedTotal ? 40 : 0)
-      pdf.text(`Total Share: ${totalShare.toFixed(2)}% / ${pdfExpectedTotal}%`, pageWidth - margin, cursorY, { align: 'right' })
-      pdf.setTextColor(0, 0, 0)
       cursorY += 16
     } else {
       pdf.setFontSize(9)
       pdf.setFont('helvetica', 'normal')
-      pdf.text('No participants added', margin, cursorY)
+      pdf.text('-', margin, cursorY)
+      cursorY += 16
+    }
+
+    // Safari Extras — simple grid table (Item | Qty | Duration)
+    pdf.setFont('helvetica', 'bold')
+    pdf.text(`Safari Extras (${selectedSafariExtras.value.length})`, margin, cursorY)
+    cursorY += 8
+
+    const resolveExtraMeta = (e: any) => {
+      const lookup = safariExtrasOptions.value.find((s: any) => String(s.id) === String(e.id) || String(s.safari_extra_id) === String(e.id))
+      return {
+        unit: Number(e.amount ?? lookup?.amount ?? lookup?.price ?? 0),
+        currency_symbol: e.currency_symbol || lookup?.currency_symbol || lookup?.currency?.symbol || '',
+        pricing_unit: e.pricing_unit || lookup?.pricing_unit || lookup?.unit || ''
+      }
+    }
+
+    const extrasTableBody: any[] = []
+
+    selectedSafariExtras.value.forEach((extra: any) => {
+      const meta = resolveExtraMeta(extra)
+      const baseCount = Number(extra.quantity || 1)
+      const duration = computeEffectiveDuration(extra)
+      const durationDisplay = duration != null ? `(${duration} day${duration > 1 ? 's' : ''})` : '-'
+      const itemName = extra.name || 'Safari Extra'
+      const nameWithDuration = duration != null ? `${itemName} ${durationDisplay}` : itemName
+
+      extrasTableBody.push([
+        nameWithDuration,
+        String(baseCount),
+        durationDisplay
+      ])
+    })
+
+    if (extrasTableBody.length > 0) {
+      autoTable(pdf, {
+        startY: cursorY,
+        head: [['Item', 'Qty', 'Duration']],
+        body: extrasTableBody,
+        theme: 'grid',
+        styles: { fontSize: 9 },
+        headStyles: { fillColor: [245, 245, 245], textColor: 50, fontStyle: 'bold' },
+        columnStyles: { 0: { cellWidth: 260 }, 1: { halign: 'center', cellWidth: 50 }, 2: { cellWidth: pageWidth - margin * 2 - 320 } }
+      })
+      cursorY = (pdf as any).lastAutoTable.finalY + 12
+    } else {
+      pdf.setFontSize(9)
+      pdf.setFont('helvetica', 'normal')
+      pdf.text('-', margin, cursorY)
       cursorY += 16
     }
 
@@ -1448,7 +1628,7 @@ const downloadPreviewPdf = async () => {
     } else {
       pdf.setFontSize(9)
       pdf.setFont('helvetica', 'normal')
-      pdf.text('No species selected', margin, cursorY)
+      pdf.text('-', margin, cursorY)
       cursorY += 16
     }
 
@@ -1460,7 +1640,7 @@ const downloadPreviewPdf = async () => {
     const normalSpeciesRows = normalSpeciesObjects.value.map((s: any) => [
       s.name || 'Unknown',
       String(s.quantity || 1),
-      (s.priority === 'MUST_HAVE' ? 'MUST HAVE' : 'NICE TO HAVE')
+      (s.priority === 'MUST_HAVE' ? 'MUST HAVE' : 'NICE_TO_HAVE')
     ])
     if (normalSpeciesRows.length > 0) {
       autoTable(pdf, {
@@ -1476,54 +1656,7 @@ const downloadPreviewPdf = async () => {
     } else {
       pdf.setFontSize(9)
       pdf.setFont('helvetica', 'normal')
-      pdf.text('No normal species selected', margin, cursorY)
-      cursorY += 16
-    }
-
-    // Safari Extras — simple grid table (Item | Qty | Duration)
-    pdf.setFont('helvetica', 'bold')
-    pdf.text(`Safari Extras (${selectedSafariExtras.value.length})`, margin, cursorY)
-    cursorY += 8
-
-    const resolveExtraMeta = (e: any) => {
-      const lookup = safariExtrasOptions.value.find((s: any) => String(s.id) === String(e.id) || String(s.safari_extra_id) === String(e.id))
-      return {
-        unit: Number(e.amount ?? lookup?.amount ?? lookup?.price ?? 0),
-        currency_symbol: e.currency_symbol || lookup?.currency_symbol || lookup?.currency?.symbol || '$',
-        pricing_unit: e.pricing_unit || lookup?.pricing_unit || lookup?.unit || ''
-      }
-    }
-
-    const extrasTableBody: any[] = []
-
-    selectedSafariExtras.value.forEach((extra: any) => {
-      const meta = resolveExtraMeta(extra)
-      const baseCount = Number(extra.quantity || 1)
-      const duration = computeEffectiveDuration(extra)
-      const durationDisplay = duration != null ? `${duration} day${duration > 1 ? 's' : ''}` : '-'
-
-      extrasTableBody.push([
-        extra.name || 'Safari Extra',
-        String(baseCount),
-        durationDisplay
-      ])
-    })
-
-    if (extrasTableBody.length > 0) {
-      autoTable(pdf, {
-        startY: cursorY,
-        head: [['Item', 'Qty', 'Duration']],
-        body: extrasTableBody,
-        theme: 'grid',
-        styles: { fontSize: 9 },
-        headStyles: { fillColor: [245, 245, 245], textColor: 50, fontStyle: 'bold' },
-        columnStyles: { 0: { cellWidth: 260 }, 1: { halign: 'center', cellWidth: 50 }, 2: { cellWidth: pageWidth - margin * 2 - 320 } }
-      })
-      cursorY = (pdf as any).lastAutoTable.finalY + 8
-    } else {
-      pdf.setFontSize(9)
-      pdf.setFont('helvetica', 'normal')
-      pdf.text('No safari extras selected', margin, cursorY)
+      pdf.text('-', margin, cursorY)
       cursorY += 16
     }
 
@@ -1540,10 +1673,11 @@ const downloadPreviewPdf = async () => {
     pdf.setFontSize(9)
     pdf.text(remarksText || '—', margin, cursorY, { maxWidth: pageWidth - margin * 2 })
 
-    // Save
-    const filename = `sales-enquiry-${(form.full_name || 'enquiry').toString().replace(/\s+/g, '-')}-${new Date().toISOString().slice(0,10)}.pdf`
-    pdf.save(filename)
-    init({ message: `Preview PDF generated (${filename})`, color: 'success' })
+    // Preview in browser tab instead of direct download
+    const pdfBlob = pdf.output('blob');
+    const pdfUrl = URL.createObjectURL(pdfBlob);
+    window.open(pdfUrl, '_blank');
+    init({ message: 'Preview PDF opened in new tab', color: 'success' })
   } catch (err) {
     console.error('Error generating server-style preview PDF:', err)
     init({ message: 'Failed to generate preview PDF', color: 'danger' })
@@ -1574,130 +1708,20 @@ const trophyFees = ref<any[]>([])
 const companionCosts = ref<any[]>([])
 const selectedPackageDetail = ref<any>(null)
 
+// Computed property for safari extras select options
+const safariExtrasItems = computed(() =>
+  safariExtrasOptions.value.map((item: any) => ({
+    value: item.id,
+    label: item.name || item.description || 'Safari Extra',
+    item
+  }))
+)
+
 const authStore = useAuthStore()
 const settingsStore = useSettingsStore()
 const priceListStore = usePriceListStore()
 const salesPackagesSpecies = computed(() => settingsStore.salesPackagesSpecies)
 const huntLengths = ref<any[]>([])
-
-// Computed items for Vueform select elements
-const countryItems = computed(() =>
-  countries.value.map((c: any) => ({ value: c.value, label: c.text }))
-)
-
-const nationalityItems = computed(() =>
-  nationality.value.map((n: any) => ({ value: n.value, label: n.text }))
-)
-
-const seasonItems = computed(() =>
-  seasonsOptions.value.map((s: any) => ({
-    value: s.value,
-    label: s.selfItem ? `${s.text} - ${formatDateRange(s.selfItem.start_at, s.selfItem.end_at)}` : s.text,
-    selfItem: s.selfItem
-  }))
-)
-
-const priceStructureItems = computed(() =>
-  priceStructuresOptions.value.map((p: any) => ({
-    value: p.value,
-    label: p.text,
-    selfItem: p.selfItem
-  }))
-)
-
-const packageItems = computed(() =>
-  packagesOptions.value.map((pkg: any) => ({
-    value: pkg.value,
-    label: pkg.selfItem
-      ? `${pkg.text}, ${pkg.selfItem?.price_structure?.location || 'N/A'}, ${pkg.selfItem?.hunting_type || 'N/A'}, ${pkg.selfItem?.hunt_length || 0} days, ${pkg.selfItem?.currency_symbol || '$'}${pkg.selfItem?.amount || '0'}`
-      : pkg.text,
-    selfItem: pkg.selfItem
-  }))
-)
-
-
-const gameAreaItems = computed(() =>
-  areasOptions.value
-    // Accept both "game" and "GAME" and also check selfItem.type when available
-    .filter((a: any) => (a.type && String(a.type).toLowerCase() === 'game') || (a.selfItem && String(a.selfItem.type).toLowerCase() === 'game'))
-    .map((a: any) => ({
-      value: a.value,
-      // For GAME locations prefer the hunting area name and append the location code when available
-      label: (a.selfItem && String(a.selfItem.type).toLowerCase() === 'game' && a.selfItem.hunting_areas && a.selfItem.hunting_areas.length > 0)
-        ? `${a.selfItem.hunting_areas[0].name}${a.selfItem.code ? ` (${a.selfItem.code})` : ''}`
-        : a.text,
-      selfItem: a.selfItem
-    }))
-)
-
-const speciesItems = computed(() => {
-  const useAreaSpecies = !!form.area && areaSpeciesLoaded.value
-  const source = useAreaSpecies ? selectedAreaSpecies.value : speciesOptions.value
-  return source.map((s: any) => ({ value: s.value, label: s.text }))
-})
-
-// Grouped species options for multiselect (with category headers for display only)
-const groupedSpeciesOptions = computed(() => {
-  // Show only MAIN_SPECIE species from the full package species
-  if (!fullPackageSpecies.value || fullPackageSpecies.value.length === 0) return []
-
-  const excludedIds = new Set([
-    ...speciesObjects.value.map((s: any) => s.species_id || s.id),
-  ])
-
-  const mainSpecies = fullPackageSpecies.value.filter((s: any) => s.subtype === 'MAIN_SPECIE' && !excludedIds.has(s.species_id))
-  return mainSpecies.map((s: any) => ({
-    value: s.species_id,
-    label: s.name,
-    name: s.name,
-    scientificName: s.scientific_name || '',
-    isHeader: false,
-    isCategoryHeader: false,
-    regulatoryQty: s.quantity || 0,
-    category: 'Species',
-  }))
-})
-
-// Grouped NORMAL species options – shows NORMAL_SPECIE species from the full package
-// Excludes species already in the normal list
-const groupedNormalSpeciesOptions = computed(() => {
-  if (!fullPackageSpecies.value || fullPackageSpecies.value.length === 0) return []
-
-  const excludedIds = new Set([
-    ...normalSpeciesObjects.value.map((s: any) => s.species_id || s.id),
-  ])
-
-  const normalSpecies = fullPackageSpecies.value.filter((s: any) => s.subtype === 'NORMAL_SPECIE' && !excludedIds.has(s.species_id))
-  return normalSpecies.map((s: any) => ({
-    value: s.species_id,
-    label: s.name,
-    name: s.name,
-    scientificName: s.scientific_name || '',
-    isHeader: false,
-    isCategoryHeader: false,
-    regulatoryQty: s.quantity || 0,
-    category: 'Species',
-  }))
-})
-
-const safariExtrasItems = computed(() =>
-  safariExtrasOptions.value.map((item: any) => ({
-    value: item.id,
-    label: `${item.name} - ${item.description || ''}`,
-    item: item
-  }))
-)
-
-
-
-
-const selectedUpgradeFees = computed(() => {
-  if (!form.priceListId) return []
-  const pkg = packagesOptions.value.find((p: any) => p.value === form.priceListId)
-  return pkg?.selfItem?.upgrade_fees || []
-})
-
-
 const currentUserId = computed(() => {
   const rawId = authStore.user?.id
   const parsed = rawId ? Number(rawId) : null
@@ -1717,10 +1741,10 @@ const calculatedEndDate = computed(() => {
 
 
 // Helper function to get label from items array
-const getItemLabel = (items: any[], value: any) => {
-  if (!value) return 'N/A'
+const getItemLabel = (items: any[] | undefined | null, value: any) => {
+  if (!Array.isArray(items)) return ''
   const item = items.find((i: any) => i.value === value)
-  return item?.label || 'N/A'
+  return item?.label || ''
 }
 
 const getPackagePriceStructureId = (pkg: any) =>
@@ -1810,12 +1834,12 @@ const getAreaLabel = (area: any): string | null => {
   return String(area)
 }
 
-// Prefer 'Not provided' for optional empty fields (used in template)
+// Prefer '-' for optional empty fields (used in template)
 const displayOrNotProvided = (val: any) => {
-  if (val === null || val === undefined) return 'Not provided'
+  if (val === null || val === undefined) return '-'
   if (typeof val === 'string') {
     const s = val.trim()
-    if (s === '' || s.toUpperCase() === 'N/A') return 'Not provided'
+    if (s === '' || s.toUpperCase() === 'N/A') return '-'
     return s
   }
   return val
@@ -2061,7 +2085,7 @@ const addNormalSpeciesToList = () => {
     return
   }
 
-  // Check it's not already in normal species (same species CAN be in both main and normal)
+  // Check it's not
   const existsInNormal = normalSpeciesObjects.value.some((s: any) => s.species_id === selectedNormalSpeciesId.value)
 
   if (existsInNormal) {
@@ -2217,18 +2241,13 @@ const canSubmit = computed(() => {
   )
 
   const participantsValid = participantValidationErrors.value.length === 0
-  const hunterCountValid = !participantCountMismatch.value
 
   return (
     hasCustomerInfo &&
     hasInput(form.season) &&
-    // Area may be optional in some cases, but require when available
-    // (keep existing behavior for now)
-    hasInput(form.area) &&
     form.no_of_days > 0 &&
     speciesObjects.value.length > 0 &&
-    participantsValid &&
-    hunterCountValid
+    participantsValid
   )
 })
 
@@ -2292,7 +2311,7 @@ const goToStep = (stepIndex: number) => {
 const showStepValidationError = () => {
   const stepMessages: { [key: number]: string } = {
     0: 'Please fill in all customer information fields (Name, Country, Nationality, Email, Phone, Address).',
-    1: 'Please select season, hunting area, enter the number of days, and add at least one species.',
+    1: 'Please select a season, enter the number of days, and add at least one species.',
   }
   init({ message: stepMessages[currentStep.value] || 'Please complete all required fields.', color: 'warning' })
 }
@@ -2354,6 +2373,7 @@ const fetchCreationMetadata = async () => {
         let email = ''
         let phone = ''
         let address = ''
+        let phoneFound = false
 
         if (Array.isArray(entity.contacts)) {
           entity.contacts.forEach((contact: any) => {
@@ -2361,9 +2381,14 @@ const fetchCreationMetadata = async () => {
             if (contactType === 'email') {
               email = contact.contact || ''
             } else if (contactType === 'phone_number' || contactType === 'phone') {
-              phone = contact.contact || ''
+              if (!phoneFound) {
+                form.phone = contact.contact || ''
+                phoneFound = true
+              } else {
+                form.phone_additional = contact.contact || ''
+              }
             } else if (contactType === 'address') {
-              address = contact.contact || ''
+              form.address = contact.contact || ''
             }
           })
         }
@@ -2570,11 +2595,7 @@ const populateFormFromPackage = async () => {
   console.log('populateFormFromPackage - pkgData:', pkgData)
   console.log('populateFormFromPackage - currentSalesPackage:', currentSalesPackage.value)
 
-  // Get area from price_structure.location
-  form.area = pkgData.price_structure?.location || pkgData.price_structure?.location_name || null
-  if (vueformRef.value) {
-    vueformRef.value.update({ area: form.area })
-  }
+  // Area is NOT auto-populated from package — user must explicitly select it from the dropdown
 
   // Get duration from regulatory_package.duration
   const duration = currentSalesPackage.value.regulatory_package.duration
@@ -2881,12 +2902,6 @@ const submit = async () => {
     return
   }
 
-  if (!form.area) {
-    init({ message: 'Please select a hunting area.', color: 'warning' })
-    saving.value = false
-    return
-  }
-
   if (!form.season) {
     init({ message: 'Please select a season.', color: 'warning' })
     saving.value = false
@@ -2950,11 +2965,20 @@ const submit = async () => {
     // Safari extras - persistent preferences (send item_durations only when explicitly set)
     safari_extras: selectedSafariExtras.value.map((extra: any) => {
       const duration = computeEffectiveDuration(extra)
+      // Include duration in notes so server-generated PDF can display it
+      let notes = extra.notes || ''
+      if (duration != null && Number(duration) > 0) {
+        const durationText = `(${duration} day${Number(duration) > 1 ? 's' : ''})`
+        if (!notes.includes(durationText)) {
+          notes = notes ? `${notes} ${durationText}` : durationText
+        }
+      }
       return {
         item_id: extra.id,
+        item_name: extra.name || null,
         desired_quantity: Number(extra.quantity || 1),
         priority: extra.priority || 'NICE_TO_HAVE',
-        notes: extra.notes || null,
+        notes: notes || null,
         ...(duration != null ? { item_durations: Number(duration) } : {})
       }
     }),
@@ -3183,7 +3207,7 @@ const onSafariExtraTypeChange = (extra: any) => {
   // Prevent duplicates for items other than Observer/Cameraman
   const index = selectedSafariExtras.value.indexOf(extra)
   const nameLower = String(item.name || item.description || '').toLowerCase()
-  const duplicate = selectedSafariExtras.value.some((s: any, idx: number) => idx !== index && s.id && String(s.id) === String(extra.id))
+  const duplicate = selectedSafariExtras.value.some((s: any, idx: number) => idx !== index && s.id && extra.id && String(s.id) === String(extra.id))
   const duplicateAllowed = nameLower.includes('observer') || nameLower.includes('camera') || nameLower.includes('cameraman')
   if (duplicate && !duplicateAllowed) {
     init({ message: `"${item.name || 'This extra'}" may only be added once. Duplicates allowed only for Observer and Cameraman.`, color: 'warning' })
@@ -3380,8 +3404,6 @@ const loadInquiryForEdit = (rowData: any) => {
   })
 
   selectedSafariExtras.value = []
-
-
 
   // Populate saved safari extras preferences - prefer explicit `item.safari_extras` when available
   let safariPrefs: any[] = []
@@ -3864,9 +3886,11 @@ onUnmounted(() => {
   border-radius: 10px;
   font-size: 11px;
   font-weight: 700;
+  min-width: 20px;
+  text-align: center;
 }
 
-.tab-btn.active .tab-count {
+.tab.active .tab-count {
   background: rgba(255, 255, 255, 0.3);
   color: white;
 }
@@ -4083,7 +4107,7 @@ onUnmounted(() => {
   gap: 6px;
 }
 
-.qty-btn {
+ qty-btn {
   width: 34px;
   height: 34px;
   border: 1px solid var(--border);
@@ -4099,12 +4123,7 @@ onUnmounted(() => {
   box-sizing: border-box;
 }
 
-.qty-btn:hover {
-  border-color: var(--primary);
-  color: var(--primary);
-}
-
-.qty-value {
+ qty-value {
   font-weight: 600;
   font-size: 13px;
   min-width: 24px;
@@ -4676,9 +4695,9 @@ onUnmounted(() => {
 /* Add item row */
 .add-item-row {
   display: flex;
-  gap: 10px;
+  gap: 0;
   align-items: flex-end;
-  justify-content: space-between;
+  justify-content: flex-start;
   margin-bottom: 20px;
 }
 
@@ -4694,13 +4713,14 @@ onUnmounted(() => {
   outline: none;
 }
 
-.add-item-row .form-select:focus {
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px #dbeafe;
-}
-
 .qty-input {
   width: 100px;
+  /* Always show dropdown list when options are available */
+  .species-select .multiselect__content-wrapper {
+    display: block !important;
+    max-height: 350px;
+    overflow-y: auto;
+  }
   border: 2px solid #e2e8f0;
   border-radius: 10px;
   padding: 10px 12px;
@@ -4709,11 +4729,6 @@ onUnmounted(() => {
   color: #0f172a;
   transition: all 0.2s ease;
   outline: none;
-}
-
-.qty-input:focus {
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px #dbeafe;
 }
 
 /* Items list */
@@ -4847,7 +4862,7 @@ onUnmounted(() => {
   align-items: center;
 }
 
-.qty-badge {
+ qty-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;

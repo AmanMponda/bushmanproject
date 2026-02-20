@@ -29,6 +29,27 @@ export const downloadPdfFromBase64 = (base64Pdf: string, filename: string) => {
 }
 
 /**
+ * Preview a base64-encoded PDF in a new browser tab
+ * @param base64Pdf - Base64 encoded PDF string
+ */
+export const previewPdfFromBase64 = (base64Pdf: string) => {
+  try {
+    const byteCharacters = atob(base64Pdf)
+    const byteNumbers = new Array(byteCharacters.length)
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i)
+    }
+    const byteArray = new Uint8Array(byteNumbers)
+    const blob = new Blob([byteArray], { type: 'application/pdf' })
+    const url = window.URL.createObjectURL(blob)
+    window.open(url, '_blank')
+  } catch (error) {
+    console.error('Error previewing PDF:', error)
+    throw error
+  }
+}
+
+/**
  * Fetch and download a quotation PDF
  * @param pricingId - ID of the pricing/quotation
  * @returns Promise that resolves when download is complete
@@ -46,7 +67,7 @@ export const downloadQuotationPdf = async (pricingId: string | number) => {
 
     const data = await response.json()
     if (data?.success && data?.pdf) {
-      downloadPdfFromBase64(data.pdf, `quotation-${pricingId}.pdf`)
+      previewPdfFromBase64(data.pdf)
     } else {
       throw new Error(data?.message || 'Failed to generate quotation PDF')
     }

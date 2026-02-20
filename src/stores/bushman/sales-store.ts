@@ -763,7 +763,7 @@ export const useSalesInquiriesStore = defineStore('sales_inquiries', {
     async lockPricing(pricingId: number) {
       const url = `${import.meta.env.VITE_APP_BASE_URL}sales-enquiries/pricing/${pricingId}`
       const config = {
-        method: 'patch',
+        method: 'put',
         maxBodyLength: Infinity,
         url: url,
         headers: {

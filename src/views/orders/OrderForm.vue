@@ -183,7 +183,50 @@
             </div>
           </div>
 
-          <!-- SECTION 4: ADDITIONAL INFO -->
+          <!-- SECTION 4: ORDER CHARGES -->
+          <div class="form-section">
+            <div class="section-title">
+              <span class="section-icon">💰</span>
+              Order Charges
+            </div>
+
+            <div class="financial-grid">
+              <label class="field">
+                <span class="lbl">Expense Included</span>
+                <div class="input-wrapper">
+                  <span class="input-icon">➕</span>
+                  <input v-model.number="form.expenseIncluded" type="number" placeholder="0.00" step="0.01" min="0" />
+                </div>
+              </label>
+
+              <label class="field">
+                <span class="lbl">VAT (%)</span>
+                <div class="input-wrapper">
+                  <span class="input-icon">%</span>
+                  <input v-model.number="form.vat" type="number" placeholder="0" step="0.1" min="0" max="100" />
+                </div>
+                <span v-if="form.vat > 0" style="font-size: 10px; color: #64748b; margin-top: 2px;">= {{ formatCurrency(vatAmount) }} (on items only)</span>
+              </label>
+            </div>
+
+            <!-- Grand Total Display -->
+            <div v-if="form.expenseIncluded > 0 || form.vat > 0" style="margin-top: 12px; padding: 14px; background: linear-gradient(135deg, #e8f5e9, #c8e6c9); border-radius: 8px; border-left: 4px solid #2e7d32;">
+              <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                <div style="font-size: 12px; color: #555;">
+                  <div>Items Subtotal: <strong>{{ formatCurrency(itemsSubtotal) }}</strong></div>
+                  <div>Logistics Total: <strong>{{ formatCurrency(logisticsTotal) }}</strong></div>
+                  <div v-if="form.vat > 0">VAT ({{ form.vat }}% on items): <strong>+{{ formatCurrency(vatAmount) }}</strong></div>
+                  <div v-if="form.expenseIncluded > 0">Expense Included: <strong>+{{ formatCurrency(form.expenseIncluded) }}</strong></div>
+                </div>
+                <div style="text-align: right;">
+                  <div style="font-size: 11px; color: #2e7d32; font-weight: 600; text-transform: uppercase;">Grand Total</div>
+                  <div style="font-size: 22px; font-weight: 800; color: #1b5e20;">{{ formatCurrency(orderGrandTotal) }}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- SECTION 5: ADDITIONAL INFO -->
           <div class="form-section">
             <div class="section-title">
               <span class="section-icon">📝</span>
@@ -211,6 +254,11 @@
             <h3>Order Configuration</h3>
             <p>Set up items, parties, logistics and payment terms</p>
           </div>
+          <button class="btn btn-outline-primary btn-sm" type="button" @click="downloadPreviewPdf" :disabled="generatingPdf" style="margin-left: auto; white-space: nowrap;">
+            <span v-if="generatingPdf" class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
+            <i class="fa fa-file-pdf me-1"></i>
+            {{ generatingPdf ? 'Generating...' : 'Preview Order PDF' }}
+          </button>
         </div>
 
         <!-- Horizontal Tabs -->
@@ -270,24 +318,27 @@
                     <h4>📦 Order Items</h4>
                   </div>
                   <div class="table-wrapper">
-                    <table class="data-table parties-table">
+                    <table class="data-table items-table">
                       <thead>
                         <tr>
-                          <th style="min-width: 150px">Name</th>
-                          <th style="min-width: 100px">Category</th>
-                          <th style="min-width: 80px">Qty</th>
-                          <th style="min-width: 100px">Unit Amount</th>
-                          <th style="min-width: 100px">Total</th>
+                          <th>Name</th>
+                          <th>Category</th>
+                          <th>Qty</th>
+                          <th>Unit Amount</th>
+                          <th>Total</th>
                         </tr>
                       </thead>
                       <tbody>
-                        <tr v-for="(item, idx) in form.items" :key="idx">
-                          <td>{{ item.name }}</td>
+                        <tr v-for="(item, idx) in form.items" :key="idx" :class="{ 'table-row-invalid': itemErrors[idx] }">
+                          <td>
+                            {{ item.name }}
+                            <div v-if="itemErrors[idx]" class="item-error">{{ itemErrors[idx] }}</div>
+                          </td>
                           <td>{{ item.category }}</td>
-                          <td class="text-center">{{ item.quantity }}</td>
+                          <td>{{ item.quantity }}</td>
                           <td>{{ formatCurrency(item.rate) }}</td>
-                          <td class="text-center">
-                            <span class="badge bg-info">{{ formatCurrency(item.amount || (item.quantity * item.rate)) }}</span>
+                          <td>
+                            <span class="badge bg-info">{{ formatCurrency((Number(item.quantity) || 0) * (Number(item.rate) || 0) - (Number(item.discount) || 0)) }}</span>
                           </td>
                         </tr>
                       </tbody>
@@ -302,12 +353,12 @@
                     <h4>👥 Parties</h4>
                   </div>
                   <div class="table-wrapper">
-                    <table class="data-table">
+                    <table class="data-table parties-data-table">
                       <thead>
                         <tr>
-                          <th style="min-width: 100px">Role</th>
-                          <th style="min-width: 150px">Entity Name</th>
-                          <th style="min-width: 100px">Phone</th>
+                          <th>Role</th>
+                          <th>Entity Name</th>
+                          <th>Phone</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -351,15 +402,15 @@
               </div>
               <!-- Logistics List -->
               <div class="table-wrapper mt-3">
-                <table class="data-table">
+                <table class="data-table" style="table-layout: fixed; width: 100%;">
                   <thead>
                     <tr>
-                      <th style="min-width: 150px">Type</th>
-                      <th style="min-width: 200px">Details</th>
-                      <th style="min-width: 100px">Dates</th>
-                      <th style="min-width: 120px">Amount</th>
-                      <th style="min-width: 80px">Status</th>
-                      <th style="min-width: 100px">Actions</th>
+                      <th style="width: 10%;">Type</th>
+                      <th style="width: 30%;">Details</th>
+                      <th style="width: 18%;">Dates</th>
+                      <th style="width: 14%; text-align: right;">Amount</th>
+                      <th style="width: 12%; text-align: center;">Status</th>
+                      <th style="width: 10%; text-align: center;">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -379,8 +430,8 @@
                           <input v-model="editLogistics.hotel_name" placeholder="Enter hotel name" class="form-input" style="margin: 0; font-size: 12px;" />
                           <div style="display: flex; gap: 8px;">
                             <input v-model="editLogistics.room_type" placeholder="Room type" class="form-input" style="margin: 0; flex: 1; font-size: 12px;" />
-                            <input v-model.number="editLogistics.rooms" type="number" placeholder="Rooms" min="0" class="form-input" style="margin: 0; width: 70px; font-size: 12px;" />
-                            <input v-model.number="editLogistics.nights" type="number" placeholder="Nights" min="0" class="form-input" style="margin: 0; width: 70px; font-size: 12px;" />
+                            <input v-model.number="editLogistics.rooms" type="number" placeholder="Rooms" min="1" class="form-input" style="margin: 0; width: 70px; font-size: 12px;" />
+                            <input v-model.number="editLogistics.nights" type="number" placeholder="Nights" min="1" class="form-input" style="margin: 0; width: 70px; font-size: 12px;" />
                           </div>
                         </div>
 
@@ -408,8 +459,8 @@
                       </td>
                       <td>
                         <div style="display: flex; flex-direction: column; gap: 6px;">
-                          <input v-model="editLogistics.start_datetime" type="datetime-local" class="form-input" style="margin: 0; font-size: 11px;" />
-                          <input v-model="editLogistics.end_datetime" type="datetime-local" class="form-input" style="margin: 0; font-size: 11px;" />
+                          <input v-model="editLogistics.start_datetime" type="date" class="form-input" style="margin: 0; font-size: 12px;" />
+                          <input v-model="editLogistics.end_datetime" type="date" class="form-input" style="margin: 0; font-size: 12px;" />
                         </div>
                       </td>
                       <td>
@@ -435,12 +486,12 @@
 
                     <!-- Existing Logistics Items -->
                     <tr v-for="(logistics, idx) in form.logistics" :key="idx">
-                      <td>
+                      <td style="vertical-align: middle;">
                         <span class="badge" :class="{'bg-primary': logistics.logistics_type === 'HOTEL', 'bg-info': logistics.logistics_type === 'CHARTER', 'bg-warning': logistics.logistics_type === 'TRANSFER', 'bg-secondary': !logistics.logistics_type}">
                           {{ logistics.logistics_type || 'OTHER' }}
                         </span>
                       </td>
-                      <td>
+                      <td style="vertical-align: middle;">
                         <strong v-if="logistics.hotel_name">{{ logistics.hotel_name }}</strong>
                         <strong v-else-if="logistics.from_location">{{ logistics.from_location }} → {{ logistics.to_location }}</strong>
                         <strong v-else-if="logistics.from_airport">{{ logistics.from_airport }} → {{ logistics.to_airport }}</strong>
@@ -450,21 +501,21 @@
                           <span v-else-if="logistics.seats">{{ logistics.seats }} seats</span>
                         </div>
                       </td>
-                      <td>
+                      <td style="vertical-align: middle;">
                         <div style="font-size: 11px;">
-                          <div v-if="logistics.start_datetime">{{ new Date(logistics.start_datetime).toLocaleDateString() }}</div>
-                          <div v-if="logistics.end_datetime">→ {{ new Date(logistics.end_datetime).toLocaleDateString() }}</div>
+                          <div v-if="logistics.start_datetime">{{ new Date(logistics.start_datetime).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) }}</div>
+                          <div v-if="logistics.end_datetime">→ {{ new Date(logistics.end_datetime).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) }}</div>
                         </div>
                       </td>
-                      <td style="text-align: right;">
+                      <td style="text-align: right; vertical-align: middle;">
                         <span class="badge bg-info" style="font-size: 12px;">{{ formatCurrency(logistics.estimated_amount || 0) }}</span>
                       </td>
-                      <td>
+                      <td style="text-align: center; vertical-align: middle;">
                         <span class="badge" :class="{'bg-success': logistics.status === 'BOOKED', 'bg-warning': logistics.status === 'PLANNED', 'bg-info': logistics.status === 'COSTED'}">
                           {{ logistics.status }}
                         </span>
                       </td>
-                      <td style="text-align: center;">
+                      <td style="text-align: center; vertical-align: middle;">
                         <button @click="removeLogistics(idx)" class="btn btn-xs btn-danger" type="button" title="Delete">
                           <i class="fas fa-trash"></i>
                         </button>
@@ -513,6 +564,19 @@
                 </div>
               </div>
 
+              <!-- Grand Total Reference Banner -->
+              <div style="margin-bottom: 12px; padding: 10px 14px; background: linear-gradient(135deg, #e8f5e9, #c8e6c9); border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-size: 13px; color: #2e7d32; font-weight: 500;">Order Grand Total:</span>
+                <span style="font-size: 18px; font-weight: 800; color: #1b5e20;">{{ formatCurrency(orderGrandTotal) }}</span>
+              </div>
+
+              <!-- Warning if payments exist -->
+              <div v-if="hasExistingPayments" style="margin-bottom: 12px; padding: 10px 14px; background: #fff3e0; border-left: 4px solid #ff9800; border-radius: 4px;">
+                <p style="margin: 0; font-size: 13px; color: #e65100; font-weight: 500;">
+                  ⚠️ Payments have already been recorded. Installment amounts will <strong>not</strong> auto-recalculate to preserve accounting integrity.
+                </p>
+              </div>
+
               <div class="subsection-header">
                 <h4>Installment Plan Details</h4>
                 <button @click="showInstallmentForm = !showInstallmentForm" class="btn btn-sm btn-primary" type="button">
@@ -525,12 +589,13 @@
                 <table class="data-table">
                   <thead>
                     <tr>
-                      <th style="min-width: 80px">#</th>
-                      <th style="min-width: 120px">Amount Due</th>
-                      <th style="min-width: 100px">Type</th>
+                      <th style="min-width: 50px">#</th>
+                      <th style="min-width: 140px">Name</th>
+                      <th style="min-width: 80px">%</th>
+                      <th style="min-width: 120px">Calculated Amount</th>
                       <th style="min-width: 80px">Due Days</th>
-                      <th style="min-width: 140px">Due Type</th>
-                      <th style="min-width: 90px">Deposit</th>
+                      <th style="min-width: 130px">Due Type</th>
+                      <th style="min-width: 70px">Deposit</th>
                       <th style="min-width: 80px">Actions</th>
                     </tr>
                   </thead>
@@ -541,15 +606,13 @@
                         <span class="badge bg-secondary">{{ form.installments.length + 1 }}</span>
                       </td>
                       <td>
-                        <input v-model.number="newInstallment.amountDue" type="number" placeholder="Amount" step="0.01" class="form-input" style="max-width: 120px;" />
+                        <input v-model="newInstallment.name" type="text" placeholder="e.g. Deposit" class="form-input" style="font-size: 12px;" />
                       </td>
                       <td>
-                        <select v-model="newInstallment.amountDueType" class="form-select">
-                          <option :value="null">Select...</option>
-                          <option v-for="type in installmentAmountTypes" :key="type.value || type.id" :value="type.value || type.id">
-                            {{ type.label || type.name }}
-                          </option>
-                        </select>
+                        <input v-model.number="newInstallment.percentage" type="number" placeholder="%" step="0.1" min="0" max="100" class="form-input" style="max-width: 80px;" />
+                      </td>
+                      <td class="text-center">
+                        <span class="badge bg-info" style="font-size: 12px;">{{ formatCurrency(Math.round(((newInstallment.percentage || 0) / 100 * orderGrandTotal) * 100) / 100) }}</span>
                       </td>
                       <td>
                         <input v-model.number="newInstallment.dueDays" type="number" placeholder="Days" min="0" class="form-input" style="max-width: 80px;" />
@@ -577,16 +640,18 @@
                       </td>
                     </tr>
 
-                    <!-- Existing Installments -->
-                    <tr v-for="(inst, idx) in form.installments" :key="idx">
+                    <!-- Existing Installments (use computedInstallments for live amounts) -->
+                    <tr v-for="(inst, idx) in computedInstallments" :key="idx">
                       <td class="text-center">
                         <span class="badge bg-primary">{{ inst.sequenceNo }}</span>
                       </td>
-                      <td>
-                        <span v-if="inst.amountDueType === 'FIXED'" class="badge bg-info">{{ formatCurrency(inst.amountDue) }}</span>
-                        <span v-else class="badge bg-warning">{{ inst.amountDue }}%</span>
+                      <td>{{ inst.name || inst.narration || `Installment ${inst.sequenceNo}` }}</td>
+                      <td class="text-center">
+                        <span class="badge bg-warning" style="font-size: 12px;">{{ inst.percentage }}%</span>
                       </td>
-                      <td>{{ inst.amountDueType }}</td>
+                      <td class="text-center">
+                        <span class="badge bg-info" style="font-size: 12px;">{{ formatCurrency(inst.calculatedAmount) }}</span>
+                      </td>
                       <td class="text-center">{{ inst.dueDays }}</td>
                       <td>{{ inst.dueDaysType }}</td>
                       <td class="text-center">
@@ -626,14 +691,17 @@
                     </div>
                   </div>
 
-                  <div v-if="hasPercentageInstallments" style="padding: 12px; background: white; border-radius: 4px; border: 1px solid #cbd5e1;">
+                  <div style="padding: 12px; background: white; border-radius: 4px; border: 1px solid #cbd5e1;">
                     <div style="font-size: 12px; color: #64748b; margin-bottom: 4px;">Total Percentage</div>
-                    <div style="font-size: 18px; font-weight: 700; color: #8b5cf6;">
-                      {{ getTotalInstallmentPercentage() }}%
+                    <div style="font-size: 18px; font-weight: 700;" :style="{ color: installmentPercentageValid ? '#8b5cf6' : '#ef4444' }">
+                      {{ totalInstallmentPercentage.toFixed(1) }}%
+                    </div>
+                    <div v-if="!installmentPercentageValid && form.installments.length > 0" style="font-size: 10px; color: #ef4444; margin-top: 2px;">
+                      Must equal 100%
                     </div>
                   </div>
 
-                  <div v-if="hasFixedInstallments" style="padding: 12px; background: white; border-radius: 4px; border: 1px solid #cbd5e1;">
+                  <div style="padding: 12px; background: white; border-radius: 4px; border: 1px solid #cbd5e1;">
                     <div style="font-size: 12px; color: #64748b; margin-bottom: 4px;">Total Amount</div>
                     <div style="font-size: 18px; font-weight: 700; color: #10b981;">
                       {{ formatCurrency(getTotalFixedInstallmentAmount()) }}
@@ -651,9 +719,9 @@
                         <span v-if="inst.isDeposit" style="margin-left: 8px; padding: 2px 6px; background: #fef3c7; color: #92400e; border-radius: 3px; font-size: 10px; font-weight: 600;">DEPOSIT</span>
                         <div style="color: #64748b; margin-top: 2px;">Due in {{ inst.dueDays }} days ({{ inst.dueDaysType }})</div>
                       </div>
-                      <div style="text-align: right; font-weight: 600;">
-                        <div v-if="inst.amountDueType === 'PERCENTAGE'" style="color: #8b5cf6;">{{ inst.amountDue }}%</div>
-                        <div v-else style="color: #10b981;">{{ formatCurrency(inst.amountDue) }}</div>
+                      <div style="text-align: right;">
+                        <div style="font-weight: 600; color: #8b5cf6;">{{ inst.percentage }}%</div>
+                        <div style="font-weight: 600; color: #10b981; font-size: 11px;">{{ formatCurrency(inst.calculatedAmount) }}</div>
                       </div>
                     </div>
                   </div>
@@ -1030,13 +1098,18 @@ import { useRouter, useRoute } from 'vue-router'
 import { useOrderStore } from '@/stores/bushman/order-store'
 import { useAppOptionStore } from '@/stores/app-option'
 import { useToast } from '@/composables/useToast'
+import { useAuthStore } from '@/stores/auth'
 import Swal from 'sweetalert2'
+import { jsPDF } from 'jspdf'
+import autoTable from 'jspdf-autotable'
 
 const router = useRouter()
 const route = useRoute()
 const orderStore = useOrderStore()
 const appOptionStore = useAppOptionStore()
 const toast = useToast()
+const authStore = useAuthStore()
+const currentUserId = computed(() => authStore.user?.id)
 
 // State
 const loading = ref(false)
@@ -1049,6 +1122,12 @@ const editingLogistics = ref<any[]>([])
 const showInstallmentForm = ref(false)
 const newAllergy = ref('')
 const originalSidebarState = ref(false)
+
+// PDF generation state
+const generatingPdf = ref(false)
+
+// Item-level validation errors (keyed by item index)
+const itemErrors = ref<Record<number, string>>({})
 
 // Payment Management State
 const paymentSummary = ref<any>(null)
@@ -1087,6 +1166,7 @@ const form = reactive({
   currency: '', // Will be populated from backend
   exchangeRate: 1.0,
   vat: 0,
+  expenseIncluded: 0,
   
   // REFERENCES
   enquiryId: '',
@@ -1167,11 +1247,11 @@ const newLogistics = reactive({
 
 const newInstallment = reactive({
   sequenceNo: 1,
-  amountDue: 0,
-  amountDueType: '', // Will be populated from backend
+  percentage: 0,
   dueDaysType: '', // Will be populated from backend
   dueDays: 0,
   isDeposit: false,
+  name: '',
 })
 
 // Computed
@@ -1264,9 +1344,61 @@ const installmentDaysTypes = computed(() => orderStore.installmentDaysTypes || [
 // Available payment plan templates for quick setup
 const availablePaymentPlanTemplates = computed(() => orderStore.getPaymentPlanTemplates())
 
-// Calculate total order amount (for percentage-based installments)
+// ─── Dynamic Grand Total Calculation ───
+const itemsSubtotal = computed((): number => {
+  return form.items.reduce((sum: number, item: any) => {
+    const qty = Number(item.quantity) || 0
+    const rate = Number(item.rate) || 0
+    const disc = Number(item.discount) || 0
+    const lineTotal = qty * rate - disc
+    return sum + lineTotal
+  }, 0)
+})
+
+const logisticsTotal = computed((): number => {
+  return form.logistics.reduce((sum: number, l: any) => {
+    return sum + (Number(l.estimated_amount) || 0)
+  }, 0)
+})
+
+/** VAT amount calculated on items subtotal only */
+const vatAmount = computed((): number => {
+  const pct = Number(form.vat) || 0
+  return Math.round((pct / 100) * itemsSubtotal.value * 100) / 100
+})
+
+const orderGrandTotal = computed((): number => {
+  const total = itemsSubtotal.value + logisticsTotal.value + vatAmount.value + (Number(form.expenseIncluded) || 0)
+  return Math.round(total * 100) / 100
+})
+
+/** Whether ANY payment has been recorded against this order (edit mode only) */
+const hasExistingPayments = computed((): boolean => {
+  if (!paymentSummary.value) return false
+  return Number(paymentSummary.value.total_paid) > 0
+})
+
+/** Compute the calculated amount for each installment from its percentage */
+const computedInstallments = computed(() => {
+  return form.installments.map((inst: any) => {
+    const pct = Number(inst.percentage) || 0
+    const calculatedAmount = Math.round(((pct / 100) * orderGrandTotal.value) * 100) / 100
+    return { ...inst, calculatedAmount }
+  })
+})
+
+const totalInstallmentPercentage = computed((): number => {
+  return form.installments.reduce((sum: number, inst: any) => sum + (Number(inst.percentage) || 0), 0)
+})
+
+const installmentPercentageValid = computed((): boolean => {
+  if (form.installments.length === 0) return true
+  return Math.abs(totalInstallmentPercentage.value - 100) < 0.01
+})
+
+// Calculate total order amount (legacy helper used by store)
 const calculateTotalOrderAmount = (): number => {
-  return orderStore.calculateOrderTotal(form.items)
+  return orderGrandTotal.value
 }
 
 const filteredQuotations = computed(() => {
@@ -1304,25 +1436,18 @@ const isQuotationLocked = computed(() => {
   return status === 'LOCKED'
 })
 
-// Installment summary computed properties
-const hasPercentageInstallments = computed(() => {
-  return form.installments.some((inst) => inst.amountDueType === 'PERCENTAGE')
-})
+// Installment summary computed properties (kept for template compatibility)
+const hasPercentageInstallments = computed(() => form.installments.length > 0)
+const hasFixedInstallments = computed(() => false) // all are percentage-based now
 
-const hasFixedInstallments = computed(() => {
-  return form.installments.some((inst) => inst.amountDueType === 'FIXED')
-})
-
-const getTotalInstallmentPercentage = (): number => {
-  return orderStore.getTotalInstallmentPercentage(form.installments)
-}
+const getTotalInstallmentPercentage = (): number => totalInstallmentPercentage.value
 
 const getTotalFixedInstallmentAmount = (): number => {
-  return orderStore.getTotalFixedInstallmentAmount(form.installments)
+  return computedInstallments.value.reduce((sum: number, inst: any) => sum + (inst.calculatedAmount || 0), 0)
 }
 
 const sortedInstallmentsByDueDays = computed(() => {
-  return orderStore.sortInstallmentsByDueDays(form.installments)
+  return [...computedInstallments.value].sort((a: any, b: any) => (a.dueDays || 0) - (b.dueDays || 0))
 })
 
 // Methods
@@ -1493,6 +1618,9 @@ const addLogistics = (idx: number) => {
   let isValid: boolean = false
   
   if (item.logistics_type === 'HOTEL') {
+    // Ensure rooms & nights are at least 1
+    item.rooms = Number(item.rooms) >= 1 ? Number(item.rooms) : 1
+    item.nights = Number(item.nights) >= 1 ? Number(item.nights) : 1
     isValid = !!(item.hotel_name && item.room_type && item.rooms && item.nights)
   } else if (item.logistics_type === 'CHARTER') {
     isValid = !!(item.from_airport && item.to_airport && item.seats)
@@ -1576,45 +1704,57 @@ const addNewLogistic = () => {
 }
 
 const addInstallment = () => {
-  if (!newInstallment.amountDue) {
-    toast.warning('Please enter amount')
+  if (!newInstallment.percentage || newInstallment.percentage <= 0) {
+    toast.warning('Please enter a valid percentage (> 0)')
+    return
+  }
+  // Check if adding this would exceed 100%
+  const currentTotal = totalInstallmentPercentage.value
+  if (currentTotal + newInstallment.percentage > 100.01) {
+    toast.warning(`Adding ${newInstallment.percentage}% would exceed 100% (current: ${currentTotal.toFixed(1)}%)`)
     return
   }
   newInstallment.sequenceNo = form.installments.length + 1
-  form.installments.push({ ...newInstallment })
+  form.installments.push({
+    sequenceNo: newInstallment.sequenceNo,
+    name: newInstallment.name || `Installment ${newInstallment.sequenceNo}`,
+    percentage: newInstallment.percentage,
+    calculatedAmount: Math.round(((newInstallment.percentage / 100) * orderGrandTotal.value) * 100) / 100,
+    dueDays: newInstallment.dueDays,
+    dueDaysType: newInstallment.dueDaysType,
+    isDeposit: newInstallment.isDeposit,
+  })
   resetInstallmentForm()
   showInstallmentForm.value = false
   toast.success('Installment added')
 }
 
 const applyPaymentPlanTemplateToForm = (template: any) => {
-  // Get the template stages directly (don't calculate, just apply percentages as-is)
-  const newInstallments = template.stages.map((stage: any) => ({
-    sequenceNo: stage.sequenceNo,
-    name: stage.name,
-    narration: stage.narration || stage.name,
-    amountDue: stage.amountDue, // Keep original amount (percentage or fixed)
-    amountDueType: stage.amountDueType,
-    dueDays: stage.dueDays,
-    dueDaysType: stage.dueDaysType,
-    isDeposit: stage.isDeposit,
-    description: stage.description || ''
-  }))
-  
-  // Replace existing installments with template installments
+  const gt = orderGrandTotal.value
+  const newInstallments = template.stages.map((stage: any) => {
+    const pct = Number(stage.amountDue) || 0 // templates store percentage in amountDue
+    return {
+      sequenceNo: stage.sequenceNo,
+      name: stage.name,
+      narration: stage.narration || stage.name,
+      percentage: pct,
+      calculatedAmount: Math.round(((pct / 100) * gt) * 100) / 100,
+      dueDays: stage.dueDays,
+      dueDaysType: stage.dueDaysType,
+      isDeposit: stage.isDeposit,
+      description: stage.description || ''
+    }
+  })
+
   form.installments = newInstallments
-  
-  // Show success message
-  toast.success(`${template.name} applied successfully! ${form.installments.length} installments created.`)
-  
-  // Close the form
+  toast.success(`${template.name} applied! ${form.installments.length} installments (Grand Total: ${formatCurrency(gt)})`)
   showInstallmentForm.value = false
   resetInstallmentForm()
 }
 
 const resetInstallmentForm = () => {
-  newInstallment.amountDue = 0
-  newInstallment.amountDueType = 'FIXED'
+  newInstallment.percentage = 0
+  newInstallment.name = ''
   newInstallment.dueDaysType = 'AFTER_CONFIRMATION'
   newInstallment.dueDays = 0
   newInstallment.isDeposit = false
@@ -1850,6 +1990,417 @@ const formatCurrency = (amount: number) => {
   }
 }
 
+// ─── PDF Preview / Download ───
+const fmtPdfCurrency = (amount: number | string | null | undefined): string => {
+  const num = Number(amount)
+  if (!Number.isFinite(num)) return '-'
+  return formatCurrency(num)
+}
+
+const displayOrDash = (val: any): string => {
+  if (val === null || val === undefined || val === '') return '-'
+  return String(val)
+}
+
+const downloadPreviewPdf = async () => {
+  generatingPdf.value = true
+  try {
+    const pdf = new jsPDF({ unit: 'pt', format: 'a4' })
+    const pageWidth = pdf.internal.pageSize.getWidth()
+    const margin = 36
+    let cursorY = 40
+
+    // ── Header ──
+    pdf.setFontSize(16)
+    pdf.setFont('helvetica', 'bold')
+    pdf.text('ORDER PREVIEW', pageWidth / 2, cursorY, { align: 'center' })
+    cursorY += 20
+    pdf.setDrawColor(0)
+    pdf.setLineWidth(0.5)
+    pdf.line(margin, cursorY, pageWidth - margin, cursorY)
+    cursorY += 14
+
+    // ── Order Meta ──
+    const selectedEnq = enquiries.value.find((e: any) => String(e.id) === String(form.enquiryId))
+    const selectedQuot = quotations.value.find((q: any) => String(q.id) === String(form.quotationId))
+
+    const metaRows = [
+      ['Order Number:', displayOrDash(form.orderNumber || '(New)'),           'Order Date:', displayOrDash(form.orderDate)],
+      ['Enquiry:',      displayOrDash(selectedEnq ? (selectedEnq.code || `#${selectedEnq.id}`) : form.enquiryId),
+       'Quotation:',    displayOrDash(selectedQuot ? (selectedQuot.code || selectedQuot.name || `#${selectedQuot.id}`) : form.quotationId)],
+      ['Status:',       displayOrDash(form.status || 'NEW'),                  'Currency:',   displayOrDash((() => { const c = currencies.value.find((c: any) => c.id === form.currency); return c ? `${c.symbol || ''} ${c.name || ''}`.trim() : form.currency || '-'; })())]
+    ]
+    autoTable(pdf, {
+      startY: cursorY,
+      body: metaRows,
+      theme: 'grid',
+      styles: { fontSize: 9, cellPadding: 5 },
+      columnStyles: {
+        0: { cellWidth: 90, fontStyle: 'bold', fillColor: [245, 245, 245] },
+        1: { cellWidth: (pageWidth - margin * 2) / 2 - 90 },
+        2: { cellWidth: 90, fontStyle: 'bold', fillColor: [245, 245, 245] },
+        3: { cellWidth: (pageWidth - margin * 2) / 2 - 90 }
+      }
+    })
+    cursorY = (pdf as any).lastAutoTable.finalY + 16
+
+    // ── Order Items ──
+    pdf.setFontSize(12)
+    pdf.setFont('helvetica', 'bold')
+    pdf.text(`Order Items (${form.items.length})`, margin, cursorY)
+    cursorY += 8
+    if (form.items.length > 0) {
+      const itemRows = form.items.map((it: any, idx: number) => [
+        String(idx + 1),
+        it.name || it.description || '-',
+        it.category || '-',
+        String(it.quantity || 0),
+        fmtPdfCurrency(it.rate),
+        fmtPdfCurrency(it.discount || 0),
+        fmtPdfCurrency(it.amount || (it.quantity * it.rate))
+      ])
+      autoTable(pdf, {
+        startY: cursorY,
+        head: [['#', 'Name', 'Category', 'Qty', 'Unit Price', 'Discount', 'Total']],
+        body: itemRows,
+        theme: 'grid',
+        tableWidth: pageWidth - margin * 2,
+        margin: { left: margin, right: margin },
+        styles: { fontSize: 9 },
+        headStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: 'bold' },
+        columnStyles: {
+          0: { cellWidth: 26, halign: 'center' },
+          1: { cellWidth: 'auto' },
+          2: { cellWidth: 70 },
+          3: { cellWidth: 36, halign: 'center' },
+          4: { cellWidth: 80, halign: 'right' },
+          5: { cellWidth: 65, halign: 'right' },
+          6: { cellWidth: 80, halign: 'right' }
+        }
+      })
+      // Items total row
+      const itemsTotal = form.items.reduce((sum: number, it: any) => sum + Number(it.amount || (it.quantity * it.rate) || 0), 0)
+      cursorY = (pdf as any).lastAutoTable.finalY
+      autoTable(pdf, {
+        startY: cursorY,
+        body: [['', '', '', '', '', 'TOTAL:', fmtPdfCurrency(itemsTotal)]],
+        theme: 'grid',
+        tableWidth: pageWidth - margin * 2,
+        margin: { left: margin, right: margin },
+        styles: { fontSize: 9, fontStyle: 'bold' },
+        columnStyles: {
+          0: { cellWidth: 26 }, 1: { cellWidth: 'auto' }, 2: { cellWidth: 70 },
+          3: { cellWidth: 36 }, 4: { cellWidth: 80 },
+          5: { cellWidth: 65, halign: 'right', fillColor: [245, 245, 245] },
+          6: { cellWidth: 80, halign: 'right', fillColor: [245, 245, 245] }
+        }
+      })
+      cursorY = (pdf as any).lastAutoTable.finalY + 16
+    } else {
+      pdf.setFontSize(9); pdf.setFont('helvetica', 'normal')
+      pdf.text('No items added.', margin, cursorY + 6)
+      cursorY += 20
+    }
+
+    // ── Parties ──
+    pdf.setFontSize(12)
+    pdf.setFont('helvetica', 'bold')
+    pdf.text(`Parties (${form.parties.length})`, margin, cursorY)
+    cursorY += 8
+    if (form.parties.length > 0) {
+      const partyRows = form.parties.map((p: any) => [
+        (p.role || '-').toUpperCase(),
+        p.entity?.full_name || p.entity_name || p.entity || '-',
+        p.contact_person || '-',
+        p.contact_phone || '-',
+        p.email || '-'
+      ])
+      autoTable(pdf, {
+        startY: cursorY,
+        head: [['Role', 'Entity Name', 'Contact Person', 'Phone', 'Email']],
+        body: partyRows,
+        theme: 'grid',
+        tableWidth: pageWidth - margin * 2,
+        margin: { left: margin, right: margin },
+        styles: { fontSize: 9 },
+        headStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: 'bold' },
+        columnStyles: {
+          0: { cellWidth: 70 },
+          1: { cellWidth: 'auto' },
+          2: { cellWidth: 100 },
+          3: { cellWidth: 90 },
+          4: { cellWidth: 120 }
+        }
+      })
+      cursorY = (pdf as any).lastAutoTable.finalY + 16
+    } else {
+      pdf.setFontSize(9); pdf.setFont('helvetica', 'normal')
+      pdf.text('No parties added.', margin, cursorY + 6)
+      cursorY += 20
+    }
+
+    // ── Logistics ──
+    pdf.setFontSize(12)
+    pdf.setFont('helvetica', 'bold')
+    pdf.text(`Logistics (${form.logistics.length})`, margin, cursorY)
+    cursorY += 8
+    if (form.logistics.length > 0) {
+      const logisticsRows = form.logistics.map((l: any) => {
+        let details = ''
+        if (l.logistics_type === 'HOTEL') {
+          details = `${l.hotel_name || '-'} (${l.room_type || '-'}), ${l.rooms || 0} room(s), ${l.nights || 0} night(s)`
+        } else if (l.logistics_type === 'CHARTER') {
+          details = `${l.from_airport || '-'} → ${l.to_airport || '-'}, ${l.seats || 0} seat(s)`
+        } else if (l.logistics_type === 'TRANSFER' || l.logistics_type === 'AIRPORT') {
+          details = `${l.from_location || '-'} → ${l.to_location || '-'}`
+          if (l.passengers_hunters || l.passengers_observers) {
+            details += ` (Hunters: ${l.passengers_hunters || 0}, Observers: ${l.passengers_observers || 0})`
+          }
+        } else {
+          details = l.description || '-'
+        }
+        const dateRange = [
+          l.start_datetime ? new Date(l.start_datetime).toLocaleDateString() : '',
+          l.end_datetime ? new Date(l.end_datetime).toLocaleDateString() : ''
+        ].filter(Boolean).join(' → ') || '-'
+        return [
+          l.logistics_type || 'OTHER',
+          details,
+          dateRange,
+          fmtPdfCurrency(l.estimated_amount),
+          l.status || '-'
+        ]
+      })
+      autoTable(pdf, {
+        startY: cursorY,
+        head: [['Type', 'Details', 'Dates', 'Amount', 'Status']],
+        body: logisticsRows,
+        theme: 'grid',
+        tableWidth: pageWidth - margin * 2,
+        margin: { left: margin, right: margin },
+        styles: { fontSize: 9, overflow: 'linebreak' },
+        headStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: 'bold' },
+        columnStyles: {
+          0: { cellWidth: 65 },
+          1: { cellWidth: 'auto' },
+          2: { cellWidth: 100 },
+          3: { cellWidth: 80, halign: 'right' },
+          4: { cellWidth: 60, halign: 'center' }
+        }
+      })
+      cursorY = (pdf as any).lastAutoTable.finalY + 16
+    } else {
+      pdf.setFontSize(9); pdf.setFont('helvetica', 'normal')
+      pdf.text('No logistics added.', margin, cursorY + 6)
+      cursorY += 20
+    }
+
+    // ── Check page break ──
+    if (cursorY > pdf.internal.pageSize.getHeight() - 120) {
+      pdf.addPage()
+      cursorY = 40
+    }
+
+    // ── Grand Total Breakdown ──
+    pdf.setFontSize(12)
+    pdf.setFont('helvetica', 'bold')
+    pdf.text('Order Total Summary', margin, cursorY)
+    cursorY += 8
+    const totalRows: string[][] = [
+      ['Items Subtotal', fmtPdfCurrency(itemsSubtotal.value)],
+      ['Logistics Total', fmtPdfCurrency(logisticsTotal.value)],
+    ]
+    if (Number(form.vat) > 0) totalRows.push([`VAT (${form.vat}% on items)`, `+ ${fmtPdfCurrency(vatAmount.value)}`])
+    if (Number(form.expenseIncluded) > 0) totalRows.push(['Expense Included', `+ ${fmtPdfCurrency(form.expenseIncluded)}`])
+    totalRows.push(['GRAND TOTAL', fmtPdfCurrency(orderGrandTotal.value)])
+    autoTable(pdf, {
+      startY: cursorY,
+      body: totalRows.map(r => ({ label: r[0], amount: r[1] })),
+      theme: 'grid',
+      styles: { fontSize: 10 },
+      columns: [{ header: '', dataKey: 'label' }, { header: '', dataKey: 'amount' }],
+      columnStyles: {
+        0: { cellWidth: 300, fontStyle: 'bold' },
+        1: { cellWidth: pageWidth - margin * 2 - 300, halign: 'right', fontStyle: 'bold' }
+      },
+      didParseCell: (data: any) => {
+        // Highlight grand total row
+        if (data.row.index === totalRows.length - 1) {
+          data.cell.styles.fillColor = [41, 128, 185]
+          data.cell.styles.textColor = 255
+          data.cell.styles.fontSize = 12
+        }
+      }
+    })
+    cursorY = (pdf as any).lastAutoTable.finalY + 16
+
+    // ── Payment Plan / Installments ──
+    pdf.setFontSize(12)
+    pdf.setFont('helvetica', 'bold')
+    pdf.text(`Payment Plan (${form.installments.length} installments)`, margin, cursorY)
+    cursorY += 8
+    if (form.installments.length > 0) {
+      const instData = computedInstallments.value
+      const sorted = [...instData].sort((a, b) => (a.sequenceNo || 0) - (b.sequenceNo || 0))
+      const instRows = sorted.map((inst: any) => [
+        String(inst.sequenceNo || '-'),
+        inst.name || inst.narration || `Installment ${inst.sequenceNo}`,
+        `${inst.percentage}%`,
+        fmtPdfCurrency(inst.calculatedAmount),
+        `${inst.dueDays || 0} days (${inst.dueDaysType || '-'})`,
+        inst.isDeposit ? 'Yes' : 'No'
+      ])
+      autoTable(pdf, {
+        startY: cursorY,
+        head: [['#', 'Description', 'Percentage', 'Amount', 'Due', 'Deposit']],
+        body: instRows,
+        theme: 'grid',
+        tableWidth: pageWidth - margin * 2,
+        margin: { left: margin, right: margin },
+        styles: { fontSize: 9 },
+        headStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: 'bold' },
+        columnStyles: {
+          0: { cellWidth: 26, halign: 'center' },
+          1: { cellWidth: 'auto' },
+          2: { cellWidth: 70, halign: 'center' },
+          3: { cellWidth: 90, halign: 'right' },
+          4: { cellWidth: 110 },
+          5: { cellWidth: 50, halign: 'center' }
+        }
+      })
+      cursorY = (pdf as any).lastAutoTable.finalY + 16
+    } else {
+      pdf.setFontSize(9); pdf.setFont('helvetica', 'normal')
+      pdf.text('No payment plan configured.', margin, cursorY + 6)
+      cursorY += 20
+    }
+
+    // ── Check page break ──
+    if (cursorY > pdf.internal.pageSize.getHeight() - 140) {
+      pdf.addPage()
+      cursorY = 40
+    }
+
+    // ── Preferences ──
+    const prefs = form.preferences
+    const hasPrefs = prefs.food_preferences || prefs.beverage_preferences || prefs.alcohol_preferences || (prefs.allergies && prefs.allergies.length > 0) || prefs.special_requests
+    if (hasPrefs) {
+      pdf.setFontSize(12)
+      pdf.setFont('helvetica', 'bold')
+      pdf.text('Preferences & Special Requests', margin, cursorY)
+      cursorY += 8
+      const prefRows: string[][] = []
+      if (prefs.food_preferences) prefRows.push(['Food Preferences:', prefs.food_preferences])
+      if (prefs.beverage_preferences) prefRows.push(['Beverage Preferences:', prefs.beverage_preferences])
+      if (prefs.alcohol_preferences) prefRows.push(['Alcohol Preferences:', prefs.alcohol_preferences])
+      if (prefs.allergies && prefs.allergies.length > 0) prefRows.push(['Allergies:', prefs.allergies.join(', ')])
+      if (prefs.special_requests) prefRows.push(['Special Requests:', prefs.special_requests])
+      autoTable(pdf, {
+        startY: cursorY,
+        head: [['Field', 'Details']],
+        body: prefRows.map(r => ({ k: r[0], v: r[1] })),
+        theme: 'grid',
+        tableWidth: pageWidth - margin * 2,
+        styles: { fontSize: 9 },
+        headStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: 'bold' },
+        columns: [{ header: 'Field', dataKey: 'k' }, { header: 'Details', dataKey: 'v' }],
+        columnStyles: {
+          0: { cellWidth: 140, fontStyle: 'bold' },
+          1: { cellWidth: pageWidth - margin * 2 - 140, overflow: 'linebreak' }
+        }
+      })
+      cursorY = (pdf as any).lastAutoTable.finalY + 16
+    }
+
+    // ── Remarks & Notes ──
+    const hasRemarks = form.remarks || form.notes
+    if (hasRemarks) {
+      if (cursorY > pdf.internal.pageSize.getHeight() - 80) {
+        pdf.addPage()
+        cursorY = 40
+      }
+      pdf.setFontSize(12)
+      pdf.setFont('helvetica', 'bold')
+      pdf.text('Remarks & Notes', margin, cursorY)
+      cursorY += 12
+      pdf.setFont('helvetica', 'normal')
+      pdf.setFontSize(9)
+      if (form.remarks) {
+        pdf.setFont('helvetica', 'bold')
+        pdf.text('Remarks:', margin, cursorY)
+        pdf.setFont('helvetica', 'normal')
+        cursorY += 12
+        pdf.text(form.remarks, margin + 8, cursorY, { maxWidth: pageWidth - margin * 2 - 8 })
+        cursorY += Math.ceil(form.remarks.length / 80) * 12 + 10
+      }
+      if (form.notes) {
+        pdf.setFont('helvetica', 'bold')
+        pdf.text('Notes:', margin, cursorY)
+        pdf.setFont('helvetica', 'normal')
+        cursorY += 12
+        pdf.text(form.notes, margin + 8, cursorY, { maxWidth: pageWidth - margin * 2 - 8 })
+      }
+    }
+
+    // ── Footer ──
+    const pageCount = pdf.getNumberOfPages()
+    for (let i = 1; i <= pageCount; i++) {
+      pdf.setPage(i)
+      pdf.setFontSize(8)
+      pdf.setFont('helvetica', 'normal')
+      pdf.setTextColor(150)
+      pdf.text(
+        `Generated on ${new Date().toLocaleString()} — Page ${i} of ${pageCount}`,
+        pageWidth / 2,
+        pdf.internal.pageSize.getHeight() - 20,
+        { align: 'center' }
+      )
+      pdf.setTextColor(0)
+    }
+
+    // preview in browser tab
+    const pdfBlob = pdf.output('blob')
+    const pdfUrl = URL.createObjectURL(pdfBlob)
+    window.open(pdfUrl, '_blank')
+    toast.success('Preview PDF opened in new tab')
+  } catch (err) {
+    console.error('Error generating order preview PDF:', err)
+    toast.error('Failed to generate preview PDF')
+  } finally {
+    generatingPdf.value = false
+  }
+}
+
+const validateOrderItems = (): boolean => {
+  itemErrors.value = {}
+  let ok = true
+  form.items.forEach((it: any, idx: number) => {
+    const rawId = it.item_id ?? it.id
+    const idNum = rawId != null ? Number(rawId) : null
+
+    // If item_id is provided, it must be a positive integer matching a catalogue item
+    if (rawId != null && (!Number.isFinite(idNum) || idNum <= 0)) {
+      itemErrors.value[idx] = 'Invalid item_id — select a valid catalogue/pricing item.'
+      ok = false
+      return
+    }
+
+    // If no item_id (custom/manual line), require a description
+    if (rawId == null && !(it.name || it.description)) {
+      itemErrors.value[idx] = 'This item requires either a catalogue item or a description.'
+      ok = false
+      return
+    }
+
+    if (!it.quantity || Number(it.quantity) <= 0) {
+      itemErrors.value[idx] = 'Quantity must be ≥ 1.'
+      ok = false
+      return
+    }
+  })
+  return ok
+}
+
 const submit = async () => {
   const confirmation = await Swal.fire({
     title: isEdit.value ? 'Update Order?' : 'Create Order?',
@@ -1883,32 +2434,77 @@ const submit = async () => {
     return
   }
 
+  // Strict item validation (block submit if any invalid)
+  if (!validateOrderItems()) {
+    // Open items section and focus
+    showSections.items = true
+    Swal.fire('Fix items', 'One or more items are invalid. Please correct highlighted rows before submitting.', 'warning')
+    return
+  }
+
+  // Validate installment percentages total 100%
+  if (form.installments.length > 0 && !installmentPercentageValid.value) {
+    showSections.payment = true
+    Swal.fire(
+      'Invalid Payment Plan',
+      `Installment percentages must total exactly 100%. Current total: ${totalInstallmentPercentage.value.toFixed(1)}%`,
+      'warning'
+    )
+    return
+  }
+
   saving.value = true
   try {
     const participantsData = form.participants.filter(p => p.count > 0)
     const logisticsData = form.logistics.filter(l => l.logistics_type)
 
+    // Client-side validations / normalization to avoid 422 from server
+    // 1) Ensure created_by is provided
+    if (!currentUserId.value) {
+      Swal.fire('Error', 'Cannot determine current user (created_by missing). Please login again.', 'error')
+      saving.value = false
+      return
+    }
+
+    // 2) Normalize items: ensure item_id is numeric when present, otherwise null
+    const normalizedItems = form.items.map((item: any) => {
+      const idVal = item.item_id != null ? Number(item.item_id) : (item.id != null ? Number(item.id) : null)
+      return {
+        item_id: Number.isFinite(idVal) && idVal > 0 ? idVal : null,
+        description: item.name || item.description || '',
+        item_category_id: item.category ? parseInt(item.category as string) : null,
+        quantity: Number(item.quantity) || 0,
+        rate: Number(item.rate) || 0,
+        discount: Number(item.discount) || 0,
+        discount_amount: Number(item.discount) || 0,
+        line_total: (Number(item.quantity) || 0) * (Number(item.rate) || 0) - (Number(item.discount) || 0),
+      }
+    })
+
+    // 3) Normalize logistics: ensure ALL entries have rooms & nights >= 1 (backend requires min 1)
+    const normalizedLogistics = logisticsData.map((log: any) => {
+      const l = { ...log }
+      l.rooms = Number(l.rooms) >= 1 ? Number(l.rooms) : 1
+      l.nights = Number(l.nights) >= 1 ? Number(l.nights) : 1
+      return l
+    })
+
     const payload = {
+      created_by: Number(currentUserId.value),
       order_type: form.orderType,
       status: form.status,
       order_date: form.orderDate,
       currency_id: form.currency ? parseInt(form.currency as string) : null,
       exchange_rate: form.exchangeRate,
       vat: form.vat,
+      expense_included: Number(form.expenseIncluded) || 0,
+      grand_total: orderGrandTotal.value,
+      total_amount: orderGrandTotal.value,
       remarks: form.remarks || null,
       notes: form.notes || null,
       enquiry_id: form.enquiryId ? parseInt(form.enquiryId as string) : null,
       quotation_id: form.quotationId ? parseInt(form.quotationId as string) : null,
-      items: form.items.map(item => ({
-        item_id: item.item_id || item.id,
-        description: item.name,
-        item_category_id: item.category ? parseInt(item.category as string) : null,
-        quantity: item.quantity,
-        rate: item.rate,
-        discount: item.discount || 0,
-        discount_amount: item.discount || 0,
-        line_total: (item.quantity * item.rate) - (item.discount || 0),
-      })),
+      items: normalizedItems,
       parties: form.parties.map(party => ({
         role: (party.role || 'CUSTOMER').toUpperCase(),
         entity_id: party.entity ? parseInt(party.entity as string) : null,
@@ -1918,12 +2514,16 @@ const submit = async () => {
         contact_email: party.email || party.contact_email || null,
       })),
       participants: participantsData,
-      logistics: logisticsData.map(log => ({
+      logistics: normalizedLogistics.map(log => ({
         logistics_type: log.logistics_type,
+        hotel_name: log.hotel_name || null,
         location: log.location || null,
-        check_in_date: log.check_in_date || null,
-        nights: log.nights || 0,
-        rooms: log.rooms || 0,
+        check_in_date: log.start_datetime || log.check_in_date || null,
+        check_out_date: log.end_datetime || log.check_out_date || null,
+        start_datetime: log.start_datetime ? (log.start_datetime.length === 10 ? log.start_datetime + ' 00:00:00' : log.start_datetime) : null,
+        end_datetime: log.end_datetime ? (log.end_datetime.length === 10 ? log.end_datetime + ' 00:00:00' : log.end_datetime) : null,
+        nights: Number(log.nights) >= 1 ? Number(log.nights) : 1,
+        rooms: Number(log.rooms) >= 1 ? Number(log.rooms) : 1,
         from_airport: log.from_airport || null,
         to_airport: log.to_airport || null,
         flight_date: log.flight_date || null,
@@ -1934,17 +2534,20 @@ const submit = async () => {
         vehicle_type: log.vehicle_type || null,
         estimated_amount: log.estimated_amount || 0,
         status: log.status || 'PLANNED',
-        description: log.description || null
+        notes: log.description || log.notes || null
       })),
       preferences: form.preferences,
-      installments: form.installments.map(inst => ({
+      installments: computedInstallments.value.map(inst => ({
         sequence_no: inst.sequenceNo,
-        amount_due: inst.amountDue,
-        amount_due_type: inst.amountDueType,
+        percentage: inst.percentage,
+        amount_due: inst.calculatedAmount,
+        amount_due_type: 'PERCENTAGE',
         due_days: inst.dueDays,
         due_days_type: inst.dueDaysType,
         is_deposit: inst.isDeposit ? 1 : 0,
         currency_id: form.currency ? parseInt(form.currency as string) : null,
+        name: inst.name || inst.narration || `Installment ${inst.sequenceNo}`,
+        narration: inst.narration || inst.name || `Installment ${inst.sequenceNo}`,
       })),
     }
 
@@ -1982,7 +2585,19 @@ const submit = async () => {
       }
     }
   } catch (error: any) {
-    Swal.fire('Error!', error.message || 'An error occurred', 'error')
+    // Improve display for validation (422) errors returned from server
+    const resp = error?.response?.data
+    if (resp && resp.errors) {
+      const msgs: string[] = []
+      for (const k of Object.keys(resp.errors)) {
+        const v = resp.errors[k]
+        if (Array.isArray(v)) msgs.push(`${k}: ${v.join(', ')}`)
+        else msgs.push(`${k}: ${String(v)}`)
+      }
+      Swal.fire('Validation failed', msgs.join('<br/>'), 'error')
+    } else {
+      Swal.fire('Error!', error.message || 'An error occurred', 'error')
+    }
   } finally {
     saving.value = false
   }
@@ -1995,6 +2610,7 @@ const resetForm = () => {
   form.currency = ''
   form.exchangeRate = 1.0
   form.vat = 0
+  form.expenseIncluded = 0
   form.enquiryId = ''
   form.quotationId = ''
   form.remarks = ''
@@ -2068,6 +2684,8 @@ const loadExistingOrder = async () => {
       form.currency = order.currency
       form.exchangeRate = order.exchangeRate || 1.0
       form.vat = order.vat || 0
+      form.expenseIncluded = Number(order.expense_included || order.expenseIncluded || 0)
+
       form.enquiryId = order.enquiryId
       form.quotationId = order.quotationId
       form.remarks = order.remarks || ''
@@ -2075,9 +2693,25 @@ const loadExistingOrder = async () => {
       form.items = order.items || []
       form.parties = order.parties || []
       form.participants = order.participants || []
-      form.logistics = order.logistics || []
+      form.logistics = (order.logistics || []).map((log: any) => ({
+        ...log,
+        description: log.description || log.notes || '',
+        start_datetime: log.start_datetime || '',
+        end_datetime: log.end_datetime || '',
+      }))
       form.preferences = order.preferences || { food_preferences: '', beverage_preferences: '', allergies: [], alcohol_preferences: '', special_requests: '' }
-      form.installments = order.installments || []
+      // Map installments: normalize to percentage-based structure
+      form.installments = (order.installments || []).map((inst: any, idx: number) => ({
+        sequenceNo: inst.sequenceNo || inst.sequence_no || idx + 1,
+        name: inst.name || inst.narration || `Installment ${idx + 1}`,
+        percentage: inst.percentage || (inst.amountDueType === 'PERCENTAGE' ? inst.amountDue : inst.amount_due_type === 'PERCENTAGE' ? inst.amount_due : 0),
+        calculatedAmount: inst.calculatedAmount || inst.calculated_amount || inst.amount_due || 0,
+        dueDays: inst.dueDays || inst.due_days || 0,
+        dueDaysType: inst.dueDaysType || inst.due_days_type || 'AFTER_CONFIRMATION',
+        isDeposit: !!(inst.isDeposit || inst.is_deposit),
+        description: inst.description || '',
+        narration: inst.narration || inst.name || '',
+      }))
     }
   } catch (error) {
     toast.error('Error loading order')
@@ -2087,6 +2721,18 @@ const loadExistingOrder = async () => {
 }
 
 // Watch for both enquiry and quotation changes to update status and fetch pricing items & parties
+// ─── Auto-recalculate installment amounts when grand total changes ───
+watch(orderGrandTotal, (newGT) => {
+  if (form.installments.length === 0) return
+  // Do NOT recalculate if payments already exist (accounting integrity)
+  if (hasExistingPayments.value) return
+  // Recalculate each installment's amount from its percentage
+  form.installments.forEach((inst: any) => {
+    const pct = Number(inst.percentage) || 0
+    inst.calculatedAmount = Math.round(((pct / 100) * newGT) * 100) / 100
+  })
+})
+
 watch(
   () => [form.enquiryId, form.quotationId],
   async (newVal, oldVal) => {
@@ -2127,14 +2773,18 @@ watch(
         // Log the first item to see all available fields
         // Transform pricing items to order items format - extract quantity and rate from line items
         form.items = pricingItems.map((pItem: any) => {
-          // Try multiple possible field names for rate
-          let unitRate = pItem.rate || pItem.unit_price || pItem.unit_rate || pItem.rate_amount || pItem.price || pItem.unit_cost || 0
           const qty = pItem.quantity || pItem.qty || pItem.line_qty || 1
-          const totalAmount = pItem.amount || pItem.total || pItem.line_total || pItem.total_amount || (qty * unitRate)
           
-          // If rate is 0 but we have amount, calculate rate from amount/quantity
-          if (unitRate === 0 && totalAmount > 0 && qty > 0) {
-            unitRate = totalAmount / qty
+          // The quotation's amount is the authoritative total for each item
+          const quotationAmount = pItem.amount || pItem.total || pItem.line_total || pItem.total_amount || 0
+          
+          // Get catalog rate as fallback
+          let unitRate = pItem.rate || pItem.unit_price || pItem.unit_rate || pItem.rate_amount || pItem.price || pItem.unit_cost || 0
+          
+          // If quotation provides an amount, derive rate from it (amount may include bundled pricing)
+          // This ensures rate * qty = quotation amount, so backend stores the correct total
+          if (quotationAmount > 0 && qty > 0) {
+            unitRate = Math.round((quotationAmount / qty) * 100) / 100
           }
           
           const discount = pItem.discount || pItem.discount_amount || pItem.line_discount || 0
@@ -2147,13 +2797,13 @@ watch(
           }
           
           return {
-            item_id: pItem.item_id || pItem.id,
+            // Use explicit catalog item_id when provided by pricing; do NOT fall back to pricing-line id
+            item_id: pItem.item_id ?? null,
             name: description,
             category: category,
             quantity: qty,
             rate: unitRate,
-            discount: discount,
-            amount: totalAmount
+            discount: discount
           }
         })
         
@@ -3523,6 +4173,17 @@ onMounted(() => {
   color: white;
 }
 
+.btn.btn-outline-primary {
+  border: 2px solid #2563eb;
+  background: #ffffff;
+  color: #2563eb;
+}
+
+.btn.btn-outline-primary:hover {
+  background: #2563eb;
+  color: #ffffff;
+}
+
 .btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
@@ -3607,19 +4268,64 @@ onMounted(() => {
   width: 33.3333%;
 }
 
-.data-table.parties-table th:nth-child(1),
-.data-table.parties-table td:nth-child(1) {
+/* ── Items Table (5 columns) ── */
+.data-table.items-table {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.data-table.items-table th:nth-child(1),
+.data-table.items-table td:nth-child(1) {
+  width: 30%;
   text-align: left;
 }
 
-.data-table.parties-table th:nth-child(2),
-.data-table.parties-table td:nth-child(2) {
+.data-table.items-table th:nth-child(2),
+.data-table.items-table td:nth-child(2) {
+  width: 16%;
   text-align: center;
 }
 
-.data-table.parties-table th:nth-child(3),
-.data-table.parties-table td:nth-child(3) {
+.data-table.items-table th:nth-child(3),
+.data-table.items-table td:nth-child(3) {
+  width: 10%;
+  text-align: center;
+}
+
+.data-table.items-table th:nth-child(4),
+.data-table.items-table td:nth-child(4) {
+  width: 22%;
   text-align: right;
+}
+
+.data-table.items-table th:nth-child(5),
+.data-table.items-table td:nth-child(5) {
+  width: 22%;
+  text-align: right;
+}
+
+/* ── Parties Table (3 columns) ── */
+.data-table.parties-data-table {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.data-table.parties-data-table th:nth-child(1),
+.data-table.parties-data-table td:nth-child(1) {
+  width: 20%;
+  text-align: left;
+}
+
+.data-table.parties-data-table th:nth-child(2),
+.data-table.parties-data-table td:nth-child(2) {
+  width: 50%;
+  text-align: left;
+}
+
+.data-table.parties-data-table th:nth-child(3),
+.data-table.parties-data-table td:nth-child(3) {
+  width: 30%;
+  text-align: left;
 }
 
 .data-table thead {
@@ -3952,4 +4658,16 @@ onMounted(() => {
     gap: 6px;
   }
 }
+
+/* Validation styles for Order items */
+.table-row-invalid {
+  background-color: #fff5f5;
+  border-left: 4px solid #ef5350;
+}
+.item-error {
+  color: #b00020;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
 </style>

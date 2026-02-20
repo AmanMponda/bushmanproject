@@ -104,7 +104,7 @@ export const useOrderStore = defineStore('order', {
           status: this.filters.status || undefined,
           page: this.filters.page,
           per_page: this.filters.per_page,
-          include: 'parties,parties.entity,items,items.item,items.unitOfMeasurement',
+          include: 'parties,parties.entity,items,items.item,items.unitOfMeasurement,logistics',
           ...params
         }
 
@@ -137,7 +137,7 @@ export const useOrderStore = defineStore('order', {
           method: 'get',
           url: `${API_BASE}/${id}`,
           params: {
-            include: 'parties,parties.entity,items,sales_details,order_payments,payment_schedule,documents,preferences'
+            include: 'parties,parties.entity,items,logistics,sales_details,order_payments,payment_schedule,documents,preferences'
           },
           headers: {
             'Content-Type': 'application/json'
@@ -1436,13 +1436,12 @@ export const useOrderStore = defineStore('order', {
     },
 
     /**
-     * Calculate total order amount from items
+     * Calculate total order amount from items (items subtotal only, without VAT/expenses)
      */
     calculateOrderTotal(items: any[]): number {
       return items.reduce((sum: number, item: any) => {
         const itemTotal = (item.quantity || 1) * (item.rate || 0)
-        const discount = itemTotal * ((item.discount || 0) / 100)
-        return sum + (itemTotal - discount)
+        return sum + itemTotal
       }, 0)
     },
 

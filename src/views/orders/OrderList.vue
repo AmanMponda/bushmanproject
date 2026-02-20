@@ -48,9 +48,6 @@
                   <button class="btn btn-info btn-sm" title="View" @click="viewOrder(row)">
                     <i class="fa fa-eye"></i>
                   </button>
-                  <button class="btn btn-success btn-sm" title="Download PDF" @click="downloadOrderPdf(row)">
-                    <i class="fa fa-download"></i>
-                  </button>
                   <button class="btn btn-danger btn-sm" title="Delete" @click="confirmDelete(row)">
                     <i class="fa fa-trash"></i>
                   </button>
@@ -71,8 +68,6 @@ import { useOrderStore } from '@/stores/bushman/order-store'
 import { useToast } from '@/composables/useToast'
 import StandardDataTable from '@/components/bootstrap/StandardDataTable.vue'
 import Swal from 'sweetalert2'
-import jsPDF from 'jspdf'
-import 'jspdf-autotable'
 
 interface Order {
   id: string | number
@@ -143,8 +138,7 @@ const customFilters = computed(() => [
 
 // Page Actions
 const pageActions = computed(() => [
-  { label: 'Create Order', icon: 'fa fa-plus', class: 'btn btn-primary', method: () => createOrder() },
-  { label: 'Download Order', icon: 'fa fa-download', class: 'btn btn-success', method: () => downloadSelectedOrder() }
+  { label: 'Create Order', icon: 'fa fa-plus', class: 'btn btn-primary', method: () => createOrder() }
 ])
 
 // Methods
@@ -234,30 +228,45 @@ const getCustomerName = (order: any) => {
 }
 
 const calculateTotalAmount = (order: any): number => {
-  // First, use the total_amount if already calculated by backend
-  if (order.total_amount && order.total_amount > 0) {
-    return order.total_amount
+  // First, use grand_total if set (includes items + logistics + charges - discount)
+  if (order.grand_total && Number(order.grand_total) > 0) {
+    return Number(order.grand_total)
   }
 
-  // If items exist with quantity/rate data, calculate from them
+  // Second, use the total_amount if already calculated by backend
+  if (order.total_amount && Number(order.total_amount) > 0) {
+    return Number(order.total_amount)
+  }
+
+  // Calculate from items, logistics, charges, discount
+  let itemsSubtotal = 0
   if (order.items && Array.isArray(order.items) && order.items.length > 0) {
-    const subtotal = order.items.reduce((sum: number, item: any) => {
-      return sum + ((item.quantity || 0) * (item.rate || 0))
+    itemsSubtotal = order.items.reduce((sum: number, item: any) => {
+      const qty = Number(item.quantity) || 0
+      const rate = Number(item.rate) || Number(item.unit_price) || Number(item.price) || 0
+      const lineTotal = Number(item.line_total) || Number(item.total) || Number(item.amount) || (qty * rate)
+      return sum + lineTotal
     }, 0)
-
-    const totalDiscount = order.items.reduce((sum: number, item: any) => {
-      return sum + (item.discount_amount || 0)
-    }, 0)
-
-    const afterDiscount = subtotal - totalDiscount
-    const vat = afterDiscount * ((order.vat || 0) / 100)
-    const grandTotal = afterDiscount + vat + (order.expense_included || 0)
-
-    return grandTotal > 0 ? grandTotal : 0
   }
 
-  // No items - order is empty
-  return 0
+  // Add logistics
+  let logisticsTotal = 0
+  if (order.logistics && Array.isArray(order.logistics)) {
+    logisticsTotal = order.logistics.reduce((sum: number, l: any) => {
+      return sum + (Number(l.estimated_amount) || Number(l.amount) || 0)
+    }, 0)
+  }
+
+  // VAT on items only
+  const vatPct = Number(order.vat) || 0
+  const vatAmount = Math.round((vatPct / 100) * itemsSubtotal * 100) / 100
+
+  // Expense included
+  const expenseIncluded = Number(order.expense_included) || 0
+
+  const grandTotal = itemsSubtotal + logisticsTotal + vatAmount + expenseIncluded
+
+  return grandTotal > 0 ? grandTotal : 0
 }
 
 const handleFiltersUpdate = (newFilters: any) => {
@@ -291,275 +300,6 @@ const viewOrder = (row: any) => {
     return
   }
   router.push({ name: 'orders-view', params: { id: orderId } })
-}
-
-const downloadOrderPdf = (row: any) => {
-  try {
-    const doc = new jsPDF()
-    const pageWidth = doc.internal.pageSize.getWidth()
-    const pageHeight = doc.internal.pageSize.getHeight()
-    const margin = 15
-    let yPos = margin
-    
-    // Header Background (Blue)
-    doc.setFillColor(13, 110, 253) // Bootstrap primary blue
-    doc.rect(0, 0, pageWidth, 40, 'F')
-    
-    // Title
-    doc.setTextColor(255, 255, 255)
-    doc.setFontSize(24)
-    doc.setFont('Arial', 'bold')
-    doc.text('ORDER', margin, 18)
-    
-    // Subtitle
-    doc.setTextColor(200, 200, 200)
-    doc.setFontSize(10)
-    doc.text(`Order #${row.order_number || row.id}`, margin, 28)
-    
-    // Reset text color
-    doc.setTextColor(0, 0, 0)
-    yPos = 50
-    
-    // Left column - Order Info
-    doc.setFontSize(9)
-    doc.setFont('Arial', 'bold')
-    doc.setTextColor(13, 110, 253)
-    doc.text('ORDER INFORMATION', margin, yPos)
-    
-    yPos += 8
-    doc.setFont('Arial', 'normal')
-    doc.setTextColor(0, 0, 0)
-    
-    const orderInfo = [
-      { label: 'Order Date:', value: row.order_date || row.date || 'N/A' },
-      { label: 'Order Type:', value: row.type || 'N/A' },
-      { label: 'Status:', value: row.status || 'N/A' },
-      { label: 'Customer:', value: getCustomerName(row) }
-    ]
-    
-    orderInfo.forEach((info) => {
-      doc.setFont('Arial', 'bold')
-      doc.text(info.label, margin, yPos)
-      doc.setFont('Arial', 'normal')
-      doc.text(String(info.value), margin + 50, yPos)
-      yPos += 6
-    })
-    
-    yPos += 5
-    
-    // Items Section
-    if (row.items && Array.isArray(row.items) && row.items.length > 0) {
-      if (yPos > pageHeight - 60) {
-        doc.addPage()
-        yPos = margin
-      }
-      
-      doc.setFontSize(9)
-      doc.setFont('Arial', 'bold')
-      doc.setTextColor(13, 110, 253)
-      doc.text('ORDER ITEMS', margin, yPos)
-      
-      yPos += 8
-      
-      const itemTableData = row.items.map((item: any) => [
-        item.name || 'N/A',
-        item.category || 'N/A',
-        String(item.quantity || 0),
-        formatCurrency(item.rate || 0),
-        formatCurrency(item.amount || 0)
-      ])
-      
-      ;(doc as any).autoTable({
-        startY: yPos,
-        head: [['Item Name', 'Category', 'Qty', 'Unit Amount', 'Total']],
-        body: itemTableData,
-        theme: 'grid',
-        margin: margin,
-        styles: { fontSize: 8, cellPadding: 3, lineColor: 200, lineWidth: 0.5 },
-        headStyles: { 
-          fillColor: 13, 
-          textColor: 255, 
-          fontStyle: 'bold',
-          halign: 'left'
-        },
-        columnStyles: {
-          2: { halign: 'center' },
-          3: { halign: 'right' },
-          4: { halign: 'right', fontStyle: 'bold', fillColor: 245 }
-        }
-      })
-      
-      yPos = (doc as any).lastAutoTable.finalY + 8
-    }
-    
-    // Parties Section
-    if (row.parties && Array.isArray(row.parties) && row.parties.length > 0) {
-      if (yPos > pageHeight - 60) {
-        doc.addPage()
-        yPos = margin
-      }
-      
-      doc.setFontSize(9)
-      doc.setFont('Arial', 'bold')
-      doc.setTextColor(13, 110, 253)
-      doc.text('PARTIES', margin, yPos)
-      
-      yPos += 8
-      
-      const partiesTableData = row.parties.map((party: any) => [
-        party.role || 'N/A',
-        party.entity_name || party.entity || 'N/A',
-        party.contact_person || 'N/A',
-        party.contact_phone || 'N/A'
-      ])
-      
-      ;(doc as any).autoTable({
-        startY: yPos,
-        head: [['Role', 'Entity Name', 'Contact Person', 'Phone']],
-        body: partiesTableData,
-        theme: 'grid',
-        margin: margin,
-        styles: { fontSize: 8, cellPadding: 3, lineColor: 200, lineWidth: 0.5 },
-        headStyles: { 
-          fillColor: 13, 
-          textColor: 255, 
-          fontStyle: 'bold',
-          halign: 'left'
-        }
-      })
-      
-      yPos = (doc as any).lastAutoTable.finalY + 8
-    }
-    
-    // Participants Section
-    if (row.participants && Array.isArray(row.participants) && row.participants.length > 0) {
-      const filteredParticipants = row.participants.filter((p: any) => p.party_type !== 'STAFF')
-      
-      if (filteredParticipants.length > 0) {
-        if (yPos > pageHeight - 60) {
-          doc.addPage()
-          yPos = margin
-        }
-        
-        doc.setFontSize(9)
-        doc.setFont('Arial', 'bold')
-        doc.setTextColor(13, 110, 253)
-        doc.text('PARTICIPANTS', margin, yPos)
-        
-        yPos += 8
-        
-        const participantsTableData = filteredParticipants.map((participant: any) => [
-          participant.party_type || 'N/A',
-          String(participant.count || 0)
-        ])
-        
-        ;(doc as any).autoTable({
-          startY: yPos,
-          head: [['Type', 'Count']],
-          body: participantsTableData,
-          theme: 'grid',
-          margin: margin,
-          styles: { fontSize: 8, cellPadding: 3, lineColor: 200, lineWidth: 0.5 },
-          headStyles: { 
-            fillColor: 13, 
-            textColor: 255, 
-            fontStyle: 'bold',
-            halign: 'left'
-          },
-          columnStyles: { 1: { halign: 'center' } }
-        })
-        
-        yPos = (doc as any).lastAutoTable.finalY + 8
-      }
-    }
-    
-    // Logistics Section
-    if (row.logistics && Array.isArray(row.logistics) && row.logistics.length > 0) {
-      if (yPos > pageHeight - 60) {
-        doc.addPage()
-        yPos = margin
-      }
-      
-      doc.setFontSize(9)
-      doc.setFont('Arial', 'bold')
-      doc.setTextColor(13, 110, 253)
-      doc.text('LOGISTICS & ACCOMMODATION', margin, yPos)
-      
-      yPos += 8
-      
-      const logisticsTableData = row.logistics.map((log: any) => [
-        log.description || 'N/A',
-        String(log.quantity || 0),
-        formatCurrency(log.unit_amount || 0),
-        formatCurrency(log.total_amount || 0)
-      ])
-      
-      ;(doc as any).autoTable({
-        startY: yPos,
-        head: [['Description', 'Qty', 'Unit Amount', 'Total Amount']],
-        body: logisticsTableData,
-        theme: 'grid',
-        margin: margin,
-        styles: { fontSize: 8, cellPadding: 3, lineColor: 200, lineWidth: 0.5 },
-        headStyles: { 
-          fillColor: 13, 
-          textColor: 255, 
-          fontStyle: 'bold',
-          halign: 'left'
-        },
-        columnStyles: {
-          1: { halign: 'center' },
-          2: { halign: 'right' },
-          3: { halign: 'right', fontStyle: 'bold', fillColor: 245 }
-        }
-      })
-      
-      yPos = (doc as any).lastAutoTable.finalY + 8
-    }
-    
-    // Summary Section
-    if (row.items && Array.isArray(row.items) && row.items.length > 0) {
-      const totalAmount = calculateTotalAmount(row)
-      if (totalAmount > 0) {
-        if (yPos > pageHeight - 40) {
-          doc.addPage()
-          yPos = margin
-        }
-        
-        yPos += 5
-        doc.setDrawColor(13, 110, 253)
-        doc.setLineWidth(1)
-        doc.line(margin, yPos, pageWidth - margin, yPos)
-        
-        yPos += 8
-        doc.setFontSize(12)
-        doc.setFont('Arial', 'bold')
-        doc.setTextColor(13, 110, 253)
-        doc.text('TOTAL AMOUNT', margin, yPos)
-        doc.text(formatCurrency(totalAmount), pageWidth - margin, yPos, { align: 'right' })
-      }
-    }
-    
-    // Footer
-    const pageCount = (doc as any).internal.pages.length - 1
-    doc.setTextColor(150, 150, 150)
-    doc.setFontSize(8)
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i)
-      doc.text(`Page ${i} of ${pageCount}`, pageWidth / 2, pageHeight - 10, { align: 'center' })
-    }
-    
-    // Save the PDF
-    doc.save(`order-${row.order_number || row.id}.pdf`)
-    
-    init({ message: 'Order PDF downloaded', color: 'success' })
-  } catch (error: any) {
-    alert('Error: ' + error.message)
-  }
-}
-
-const downloadSelectedOrder = () => {
-  init({ message: 'Please select an order by clicking the download icon in the actions column', color: 'info' })
 }
 
 const confirmDelete = (row: any) => {

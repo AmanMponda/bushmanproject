@@ -286,6 +286,7 @@ import Multiselect from 'vue-multiselect'
 import 'vue-multiselect/dist/vue-multiselect.min.css'
 import { salesEnquiryService } from '@/stores/bushman/salesEnquiryService'
 import { useToast } from '@/composables/useToast'
+import { useAuthStore } from '@/stores/auth'
 
 const props = defineProps<{ 
   editData?: any | null 
@@ -707,23 +708,40 @@ const handleProceed = async () => {
       }
 
       // Save to database
-      const response = await axios.get(
-  import.meta.env.VITE_APP_BASE_URL + 'entities',
-  {
-    params: {
-      type: 'INDIVIDUAL'
-    },
-    headers: { 'Content-Type': 'application/json' }
-  }
-)
+      const apiBaseUrl = import.meta.env.VITE_APP_BASE_URL
+      const token = localStorage.getItem('token')
+      const authHeaders = token ? { Authorization: `Bearer ${token}` } : {}
 
+      const response = await axios.post(
+        apiBaseUrl + 'entities',
+        {
+          full_name: entityPayload.full_name,
+          nick_name: entityPayload.nick_name,
+          type: 'INDIVIDUAL',
+          status: 'ACTIVE',
+          country_id: entityPayload.country_id,
+          nationality_id: entityPayload.nationality_id,
+          contacts: entityPayload.contacts
+        },
+        {
+          headers: { 'Content-Type': 'application/json', ...authHeaders }
+        }
+      )
 
-      if (response.data && response.data.success && response.data.data) {
-        entityId = response.data.data.id
+      console.log('Entity creation response:', response.data)
+
+      // Handle different API response shapes:
+      // { success: true, data: { id: ... } } OR { data: { id: ... } } OR { id: ... }
+      const respData = response.data
+      const createdEntity = respData?.data || respData
+      if (createdEntity && createdEntity.id) {
+        entityId = createdEntity.id
         init({ message: 'Customer created successfully!', color: 'success' })
+        // Refresh the existing customers list so the new customer appears
+        await getExistingCustomers()
       } else {
-        console.error('Entity creation failed:', response.data)
-        init({ message: response.data?.message || 'Failed to create customer. Please try again.', color: 'danger' })
+        console.error('Entity creation failed — no id in response:', respData)
+        init({ message: respData?.message || 'Failed to create customer. Please try again.', color: 'danger' })
         return
       }
     } catch (error: any) {
@@ -750,13 +768,19 @@ const handleProceed = async () => {
   const fullPhone = form.phone ? `${form.phone_country_code}${form.phone}` : ''
   const fullPhoneAdditional = form.phone_additional ? `${form.phone_additional_country_code}${form.phone_additional}` : ''
 
+  // Resolve country/nationality names for display in the wizard
+  const countryObj = countries.value.find((c: any) => c.value === form.country)
+  const nationalityObj = nationalities.value.find((n: any) => n.value === form.nationality)
+
   const customerData = {
     customerType: customerType.value,
     entity_id: entityId,
     full_name: form.full_name,
     nick_name: form.nick_name,
     country: form.country,
+    country_name: countryObj?.text || '',
     nationality: form.nationality,
+    nationality_name: nationalityObj?.text || '',
     email: form.email,
     phone: fullPhone,
     phone_additional: fullPhoneAdditional,
@@ -805,9 +829,11 @@ const getNationalities = async () => {
 const getExistingCustomers = async () => {
   loadingCustomers.value = true
   try {
+    const token = localStorage.getItem('token')
+    const authHeaders = token ? { Authorization: `Bearer ${token}` } : {}
     const response = await axios.get(
-      import.meta.env.VITE_APP_BASE_URL + 'entities', // use the correct endpoint
-      { headers: { 'Content-Type': 'application/json' } }
+      import.meta.env.VITE_APP_BASE_URL + 'entities',
+      { headers: { 'Content-Type': 'application/json', ...authHeaders } }
     )
 
     if (response.data) {

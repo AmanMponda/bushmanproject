@@ -100,7 +100,7 @@
             <div class="col-lg-12">
               <div class="card">
                 <!-- HEADER -->
-                <div class="card-header d-flex align-items-center bg-white fw-400">
+                <div class="card-header d-flex align-items-center bg-white fw-400" style="position: sticky; top: 0; z-index: 10;">
                   <div class="d-flex align-items-center">
                     <div class="vehicle-icon me-3">
                       <i class="fa fa-search fa-3x text-primary"></i>
@@ -157,7 +157,7 @@ import SalesInquiryWizard from './salesinquiries/SalesInquiryWizard.vue'
 import CustomerSelectionModal from './salesinquiries/CustomerSelectionModal.vue'
 import StandardDataTable from '@/components/bootstrap/StandardDataTable.vue'
 import Swal from 'sweetalert2'
-import { downloadPdfFromBase64 } from '@/services/pdfService'
+import { downloadPdfFromBase64, previewPdfFromBase64 } from '@/services/pdfService'
 
 
 const { init } = useToast()
@@ -482,9 +482,8 @@ const downloadSingleInquiryPdf = async () => {
     })
 
     if (response.data.success && response.data.pdf) {
-      const filename = `sales-inquiry-${selectedInquiryItem.value.code || id}.pdf`
-      downloadPdfFromBase64(response.data.pdf, filename)
-      init({ message: `PDF downloaded: ${filename}`, color: 'success' })
+      previewPdfFromBase64(response.data.pdf)
+      init({ message: 'PDF opened in new tab', color: 'success' })
     } else {
       init({ message: 'Failed to generate PDF for the enquiry', color: 'danger' })
     }

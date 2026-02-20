@@ -1021,7 +1021,7 @@ const enquiryParticipants = computed(() => {
     : existingLogistics
   const hasParticipants = activeLogistics.length > 0 || activeLogistics.some((l: any) => {
     const desc = String(l.description || l.item_name || '').toLowerCase()
-    return desc.includes('participant') || desc.includes('companion') || desc.includes('observer')
+    return desc.includes('participant') || desc.includes('companion')
   })
   
   if (hasParticipants) return []
@@ -1046,14 +1046,8 @@ const enquiryParticipants = computed(() => {
     })
   }
   
-  // Handle observers
-  if (pref.no_of_observers > 0) {
-    participants.push({
-      type: 'OBSERVER',
-      count: pref.no_of_observers,
-      label: `Observers (${pref.no_of_observers})`,
-    })
-  }
+  // Note: Observers are Safari Extras (EXTRA type), not LOGISTICS participants.
+  // They come through via enquirySafariExtras with proper item_durations.
   
   return participants
 })
@@ -1227,17 +1221,12 @@ const availablePriceableItems = computed(() => {
     })
   }
 
-  // Add participants as LOGISTICS costs
+  // Add companion hunters as LOGISTICS costs (Observers are Safari Extras, not LOGISTICS)
   if (enquiryParticipants.value.length > 0) {
     items.push({
       category: 'Companion Hunters',
       items: enquiryParticipants.value.map((part: any) => {
-        let cost = 0
-        if (part.type === 'COMPANION') {
-          cost = parseFloat(pricePreviewData.value?.companion_costs?.[0]?.amount) || 0
-        } else if (part.type === 'OBSERVER') {
-          cost = parseFloat(pricePreviewData.value?.observer_costs?.[0]?.amount) || 0
-        }
+        const cost = parseFloat(pricePreviewData.value?.companion_costs?.[0]?.amount) || 0
         return {
           id: `participant_${part.type}`,
           name: part.label,
@@ -1487,6 +1476,16 @@ const categoryHasDuration = (category: any) => {
   return category.items.some((it: any) => isDurationRelevantForItem(it))
 }
 
+// Append duration in brackets to the description text when item_durations is set
+const descriptionWithDuration = (desc: string, itemDurations: any): string => {
+  const d = Number(itemDurations)
+  if (!d || d <= 0) return desc
+  const suffix = `(${d} day${d > 1 ? 's' : ''})`
+  // Avoid duplicating if already present
+  if (desc.includes(suffix)) return desc
+  return `${desc} ${suffix}`
+}
+
 const initializeItemPrice = (category: string, item: any) => {
   const key = `${category}_${item.id}`
   if (selectedItems.value[key]) {
@@ -1500,12 +1499,15 @@ const updateItemTotal = (category: string, itemId: any) => {
   if (itemPrices.value[key]) {
     const qty = itemPrices.value[key].quantity || 1
     const unit = itemPrices.value[key].unit_amount || 0
-    // If this is an EXTRA, consider duration override for client-side total preview
+    // If this is an EXTRA or LOGISTICS with duration, consider duration override for client-side total preview
     if (itemPrices.value[key].item_type === 'EXTRA') {
       const desc = itemPrices.value[key].description || ''
       const pricingUnit = itemPrices.value[key].pricing_unit || ''
       const shouldMultiply = durationRelevantByNameLocal(desc) || (String(pricingUnit).toLowerCase().includes('per_day'))
       const days = shouldMultiply ? (itemPrices.value[key].item_durations ?? enquiryDays.value ?? 1) : 1
+      itemPrices.value[key].total_amount = (unit || 0) * qty * days
+    } else if (itemPrices.value[key].item_type === 'LOGISTICS' && itemPrices.value[key].item_durations) {
+      const days = Number(itemPrices.value[key].item_durations) || 1
       itemPrices.value[key].total_amount = (unit || 0) * qty * days
     } else {
       itemPrices.value[key].total_amount = qty * unit
@@ -1545,7 +1547,7 @@ const computeLocalPricingPreview = (overrides: any[]) => {
       const srcCat = availablePriceableItems.value.find((c: any) => c.category === p.description?.category)
       // p may not carry the category; best-effort: no change
     }
-    const itemTotal = (p.item_type === 'EXTRA') ? unit * qty * days : unit * qty
+    const itemTotal = (p.item_type === 'EXTRA' || (p.item_type === 'LOGISTICS' && days > 1)) ? unit * qty * days : unit * qty
     preview.items.push({ ...p, item_total: itemTotal })
     preview.total_amount += itemTotal
   })
@@ -1578,7 +1580,7 @@ const performPricingRecalc = async (replaceItems = false, persist = true) => {
       items.push({
         item_type: p.item_type,
         item_id: p.item_id,
-        description,
+        description: descriptionWithDuration(description!, p.item_durations),
         quantity: p.quantity,
         unit_amount: p.unit_amount,
         ...(p.item_durations != null ? { item_durations: p.item_durations } : {})
@@ -2084,7 +2086,9 @@ const saveQuotation = async () => {
         missingDescriptions.push(key)
       }
 
-      items.push(price)
+      // Clone and enrich description with duration for per-day items
+      const enriched = { ...price, description: descriptionWithDuration(price.description || '', price.item_durations) }
+      items.push(enriched)
     }
 
     if (missingDescriptions.length > 0) {
@@ -2244,7 +2248,7 @@ const createPricingWithItems = async () => {
           item_type: it.item_type,
           item_id: it.item_id ?? null,
           linked_species_item_id: it.linked_species_item_id ?? null,
-          description: it.description || '',
+          description: descriptionWithDuration(it.description || '', it.item_durations),
           quantity: it.quantity || 1,
           unit_amount: it.unit_amount || 0,
           total_amount: it.total_amount || (it.quantity || 1) * (it.unit_amount || 0),
@@ -2282,8 +2286,16 @@ const createPricingWithItems = async () => {
         timer: 2000,
       })
 
-      // Navigate back to the enquiry's quotations tab
-      router.push(`/sales/enquiries/${enquiryId.value}?tab=quotations`)
+      // Navigate back to the enquiry list, which will auto-open the detail view on the Quotations tab
+      sessionStorage.setItem('openEnquiryId', String(enquiryId.value))
+      sessionStorage.setItem('openEnquiryTab', 'quotations')
+      const dataToStore = enquiryData.value || existingPricing.value?.enquiry || null
+      if (dataToStore) {
+        try { sessionStorage.setItem('openEnquiryData', JSON.stringify(dataToStore)) } catch (e) { /* ignore */ }
+      }
+      router.push('/sales/sales-inquiry').then(() => {
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+      })
     }
   } catch (error: any) {
     console.error('Error creating pricing:', error)
@@ -3078,7 +3090,7 @@ const saveQuotationChanges = async () => {
         const payload: any = {
           item_type: item.item_type,
           item_id: item.item_id ?? null,
-          description: item.description || item.item_name || '',
+          description: descriptionWithDuration(item.description || item.item_name || '', item.item_durations),
           quantity: item.quantity || 1,
           unit_amount: item.unit_amount || 0,
           is_optional: !!item.is_optional,
