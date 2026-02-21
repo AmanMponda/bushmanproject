@@ -400,8 +400,6 @@ export const useOrderStore = defineStore('order', {
     // ==================== ORDER TYPES ====================
 
     async fetchOrderTypes(): Promise<any> {
-      this.loading = true
-      this.error = null
       try {
         const config = {
           method: 'get',
@@ -417,16 +415,12 @@ export const useOrderStore = defineStore('order', {
       } catch (err: any) {
         // Fail silently and return empty array
         this.orderTypes = []
-      } finally {
-        this.loading = false
       }
     },
 
     // ==================== ORDER STATUSES ====================
 
     async fetchOrderStatuses(): Promise<any> {
-      this.loading = true
-      this.error = null
       try {
         const config = {
           method: 'get',
@@ -442,8 +436,6 @@ export const useOrderStore = defineStore('order', {
       } catch (err: any) {
         // Fail silently and return empty array
         this.orderStatuses = []
-      } finally {
-        this.loading = false
       }
     },
 

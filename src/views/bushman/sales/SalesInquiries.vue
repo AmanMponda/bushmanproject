@@ -95,7 +95,14 @@
 
       <!-- Detail View -->
       <template v-else>
-        <div class="price-list-details">
+        <!-- Loading spinner while enquiry data is being fetched -->
+        <div v-if="!selectedInquiryItem" class="text-center p-5">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+          <p class="text-muted mt-2">Loading enquiry details...</p>
+        </div>
+        <div v-else class="price-list-details">
           <div class="row gx-4">
             <div class="col-lg-12">
               <div class="card">
@@ -166,7 +173,18 @@ const settingsStore = useSettingsStore()
 // UI State
 const showAddSalesInquiriesForm = ref(false)
 const showCustomerModal = ref(false)
-const showDetailsPage = ref(false)
+
+// Check sessionStorage synchronously during setup so detail view renders immediately (no list flash)
+let _initialOpenId: number | null = null
+try {
+  const openId = sessionStorage.getItem('openEnquiryId')
+  if (openId) {
+    const id = Number(openId)
+    if (Number.isFinite(id) && id > 0) _initialOpenId = id
+  }
+} catch (_) { /* ignore */ }
+
+const showDetailsPage = ref(_initialOpenId !== null)
 // Use `undefined` to match child prop type (SalesEnquiry | undefined)
 const selectedInquiryItem = ref<SalesEnquiry | undefined>(undefined)
 const editingRow = ref<any>(null)
@@ -499,50 +517,43 @@ onMounted(() => {
   getSeasonList()
   getSalesInquiryList()
 
-  // Open enquiry details if an id was passed via sessionStorage (used to avoid exposing id in URL)
-  try {
-    const openId = sessionStorage.getItem('openEnquiryId')
+  // Open enquiry details if an id was detected during setup
+  if (_initialOpenId) {
+    const id = _initialOpenId
     const openTab = sessionStorage.getItem('openEnquiryTab')
     const openData = sessionStorage.getItem('openEnquiryData')
-    if (openId) {
-      const id = Number(openId)
-      if (Number.isFinite(id) && id > 0) {
-        // If we have cached enquiry data, open detail view instantly (no flash)
-        if (openData) {
-          try {
-            selectedInquiryItem.value = JSON.parse(openData)
-            showDetailsPage.value = true
-            if (openTab) {
-              sessionStorage.setItem('openEnquiryDetailTab', openTab)
-            }
-          } catch (e) {
-            console.error('Failed to parse cached enquiry data:', e)
+
+    // If we have cached enquiry data, show it instantly
+    if (openData) {
+      try {
+        selectedInquiryItem.value = JSON.parse(openData)
+        if (openTab) {
+          sessionStorage.setItem('openEnquiryDetailTab', openTab)
+        }
+      } catch (e) {
+        console.error('Failed to parse cached enquiry data:', e)
+      }
+    }
+
+    // Fetch fresh data in the background
+    ;(async () => {
+      try {
+        const res = await salesEnquiryService.get(id)
+        if (res && res.data) {
+          selectedInquiryItem.value = res.data
+          if (openTab) {
+            sessionStorage.setItem('openEnquiryDetailTab', openTab)
           }
         }
-        // Also fetch fresh data in the background to ensure it's up to date
-        ;(async () => {
-          try {
-            const res = await salesEnquiryService.get(id)
-            if (res && res.data) {
-              selectedInquiryItem.value = res.data
-              if (!showDetailsPage.value) {
-                showDetailsPage.value = true
-                if (openTab) {
-                  sessionStorage.setItem('openEnquiryDetailTab', openTab)
-                }
-              }
-            }
-          } catch (err) {
-            console.error('Failed to open enquiry from session:', err)
-          }
-        })()
+      } catch (err) {
+        console.error('Failed to open enquiry from session:', err)
       }
-      sessionStorage.removeItem('openEnquiryId')
-      sessionStorage.removeItem('openEnquiryTab')
-      sessionStorage.removeItem('openEnquiryData')
-    }
-  } catch (e) {
-    // ignore session storage errors
+    })()
+
+    // Clean up sessionStorage
+    sessionStorage.removeItem('openEnquiryId')
+    sessionStorage.removeItem('openEnquiryTab')
+    sessionStorage.removeItem('openEnquiryData')
   }
 })
 </script>

@@ -80,20 +80,13 @@
 
           <template v-if="entityForm.type === 'INDIVIDUAL'">
             <FormSection :columns="3">
-              <FormField label="Date of Birth" required>
-                <div class="vueform-date-wrapper">
-                  <Vueform size="sm" :display-errors="false" :endpoint="false">
-                    <DateElement
-                      name="dob"
-                      v-model="entityForm.individual_profile.date_of_birth"
-                      @change="entityForm.individual_profile.date_of_birth = $event"
-                      :display-format="'MMM D, YYYY'"
-                      :value-format="'YYYY-MM-DD'"
-                      placeholder="Select date of birth..."
-                      :add-class="{ DateElement: { input: 'form-control' } }"
-                    />
-                  </Vueform>
-                </div>
+              <FormField label="Date of Birth" optional>
+                <input
+                  type="date"
+                  class="form-control"
+                  v-model="entityForm.individual_profile.date_of_birth"
+                  placeholder="Select date of birth..."
+                />
               </FormField>
               <FormField label="Gender" optional>
                 <Multiselect
@@ -198,19 +191,12 @@
               />
             </FormField>
             <FormField label="Incorporation Date" optional>
-              <div class="vueform-date-wrapper">
-                <Vueform size="sm" :display-errors="false" :endpoint="false">
-                  <DateElement
-                    name="incorporation_date"
-                    v-model="entityForm.company_profile.incorporation_date"
-                    @change="entityForm.company_profile.incorporation_date = $event"
-                    :display-format="'MMM D, YYYY'"
-                    :value-format="'YYYY-MM-DD'"
-                    placeholder="Select incorporation date..."
-                    :add-class="{ DateElement: { input: 'form-control' } }"
-                  />
-                </Vueform>
-              </div>
+                <input
+                  type="date"
+                  class="form-control"
+                  v-model="entityForm.company_profile.incorporation_date"
+                  placeholder="Select incorporation date..."
+                />
             </FormField>
             <FormField label="Business Type" optional>
               <input v-model="entityForm.company_profile.business_type" type="text" placeholder="e.g., Limited" />
@@ -393,6 +379,10 @@ const saveEntity = async () => {
       entityCode = `${prefix}-${timestamp}`
     }
 
+    // Get current user ID from localStorage
+    const userData = localStorage.getItem('user')
+    const currentUserId = userData ? JSON.parse(userData)?.id : null
+
     const payload: any = {
       full_name: entityForm.full_name,
       trading_name: entityForm.trading_name || undefined,
@@ -405,6 +395,7 @@ const saveEntity = async () => {
       base_currency_id: resolveId(entityForm.base_currency_id),
       is_group: entityForm.is_group || false,
       parent_entity_id: resolveId(entityForm.parent_entity_id),
+      user_id: currentUserId,
       notes: entityForm.notes || undefined,
       categories: buildCategoryPayload()
     }

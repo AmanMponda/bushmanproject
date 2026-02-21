@@ -254,11 +254,37 @@
             <h3>Order Configuration</h3>
             <p>Set up items, parties, logistics and payment terms</p>
           </div>
-          <button class="btn btn-outline-primary btn-sm" type="button" @click="downloadPreviewPdf" :disabled="generatingPdf" style="margin-left: auto; white-space: nowrap;">
-            <span v-if="generatingPdf" class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
-            <i class="fa fa-file-pdf me-1"></i>
-            {{ generatingPdf ? 'Generating...' : 'Preview Order PDF' }}
-          </button>
+          <!-- PDF Preview: simple button for single order, dropdown for multi-order -->
+          <div v-if="!willCreateMultipleOrders" style="margin-left: auto;">
+            <button class="btn btn-outline-primary btn-sm" type="button" @click="downloadPreviewPdf('all')" :disabled="generatingPdf" style="white-space: nowrap;">
+              <span v-if="generatingPdf" class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
+              <i class="fa fa-file-pdf me-1"></i>
+              {{ generatingPdf ? 'Generating...' : 'Preview Order PDF' }}
+            </button>
+          </div>
+          <div v-else style="margin-left: auto; position: relative;">
+            <button class="btn btn-outline-primary btn-sm" type="button" @click="showPdfDropdown = !showPdfDropdown" :disabled="generatingPdf" style="white-space: nowrap;">
+              <span v-if="generatingPdf" class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
+              <i class="fa fa-file-pdf me-1"></i>
+              {{ generatingPdf ? 'Generating...' : 'Preview Order PDF' }}
+              <i class="fas fa-chevron-down ms-1" style="font-size: 10px;"></i>
+            </button>
+            <div v-if="showPdfDropdown" @click="showPdfDropdown = false" style="position: fixed; inset: 0; z-index: 998;"></div>
+            <div v-if="showPdfDropdown" style="position: absolute; right: 0; top: 100%; margin-top: 4px; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.12); z-index: 999; min-width: 220px; overflow: hidden;">
+              <button @click="downloadPreviewPdf('all'); showPdfDropdown = false" style="display: flex; align-items: center; gap: 8px; width: 100%; padding: 10px 14px; border: none; background: none; cursor: pointer; font-size: 13px; color: #334155; text-align: left; transition: background 0.15s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='none'">
+                <i class="fas fa-users" style="color: #6366f1; width: 16px;"></i>
+                <span><strong>All Orders</strong> (Combined Preview)</span>
+              </button>
+              <div style="height: 1px; background: #e2e8f0;"></div>
+              <button v-for="g in orderGroups" :key="'pdf-' + getParticipantKey(g.primary)"
+                @click="downloadPreviewPdf(getParticipantKey(g.primary)); showPdfDropdown = false"
+                style="display: flex; align-items: center; gap: 8px; width: 100%; padding: 10px 14px; border: none; background: none; cursor: pointer; font-size: 13px; color: #334155; text-align: left; transition: background 0.15s;"
+                onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='none'">
+                <i class="fas fa-user" style="color: #3b82f6; width: 16px;"></i>
+                <span>{{ getParticipantName(getParticipantKey(g.primary)) }}</span>
+              </button>
+            </div>
+          </div>
         </div>
 
         <!-- Horizontal Tabs -->
@@ -352,6 +378,16 @@
                   <div class="subsection-header">
                     <h4>👥 Parties</h4>
                   </div>
+                  <!-- Multi-order split banner -->
+                  <div v-if="willCreateMultipleOrders" class="alert alert-info d-flex align-items-center py-2 px-3 mb-2" style="font-size:0.85rem;">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <span>
+                      <strong>{{ orderGroups.length }} separate orders</strong> will be created — one per independent participant.
+                      <span v-for="(g, gi) in orderGroups" :key="gi" class="ms-1">
+                        <span class="badge bg-primary me-1">{{ g.party?.entity_name || 'Unknown' }}</span>
+                      </span>
+                    </span>
+                  </div>
                   <div class="table-wrapper">
                     <table class="data-table parties-data-table">
                       <thead>
@@ -392,8 +428,31 @@
 
           <!-- LOGISTICS & MORE SECTION -->
           <div v-if="showSections.logistics" class="expandable-section">
-            <!-- Logistics -->
-            <div class="subsection">
+            <!-- Participant Tabs (only when multi-order) -->
+            <div v-if="willCreateMultipleOrders" class="participant-tab-bar mb-3">
+              <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 8px;">
+                <i class="fas fa-users" style="color: #6366f1; font-size: 13px;"></i>
+                <span style="font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Logistics per participant</span>
+              </div>
+              <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                <button type="button"
+                  style="border: none; cursor: pointer; font-size: 12.5px; font-weight: 500; padding: 6px 14px; border-radius: 20px; transition: all 0.2s ease; display: inline-flex; align-items: center; gap: 5px;"
+                  :style="activeParticipantTab.logistics === 'shared' ? 'background: #10b981; color: #fff; box-shadow: 0 2px 6px rgba(16,185,129,0.3);' : 'background: #f1f5f9; color: #64748b;'"
+                  @click="switchToParticipantTab('logistics', 'shared')">
+                  <i class="fas fa-link" style="font-size: 10px;"></i> Shared
+                </button>
+                <button v-for="g in orderGroups" :key="getParticipantKey(g.primary)"
+                  type="button"
+                  style="border: none; cursor: pointer; font-size: 12.5px; font-weight: 500; padding: 6px 14px; border-radius: 20px; transition: all 0.2s ease; display: inline-flex; align-items: center; gap: 5px;"
+                  :style="activeParticipantTab.logistics === getParticipantKey(g.primary) ? 'background: #3b82f6; color: #fff; box-shadow: 0 2px 6px rgba(59,130,246,0.3);' : 'background: #f1f5f9; color: #64748b;'"
+                  @click="switchToParticipantTab('logistics', getParticipantKey(g.primary))">
+                  <i class="fas fa-user" style="font-size: 10px;"></i> {{ getParticipantName(getParticipantKey(g.primary)) }}
+                </button>
+              </div>
+            </div>
+
+            <!-- Shared or single-participant logistics (original form) -->
+            <div v-if="!willCreateMultipleOrders || activeParticipantTab.logistics === 'shared'" class="subsection">
               <div class="subsection-header">
                 <h4>Logistics & Accommodation</h4>
                 <button @click="addNewLogistic" class="btn btn-sm btn-primary" type="button">
@@ -428,19 +487,28 @@
                         <!-- HOTEL Fields -->
                         <div v-if="editLogistics.logistics_type === 'HOTEL'" style="display: flex; gap: 8px; flex-direction: column;">
                           <input v-model="editLogistics.hotel_name" placeholder="Enter hotel name" class="form-input" style="margin: 0; font-size: 12px;" />
-                          <div style="display: flex; gap: 8px;">
+                          <div style="display: flex; gap: 8px; align-items: end;">
                             <input v-model="editLogistics.room_type" placeholder="Room type" class="form-input" style="margin: 0; flex: 1; font-size: 12px;" />
-                            <input v-model.number="editLogistics.rooms" type="number" placeholder="Rooms" min="1" class="form-input" style="margin: 0; width: 70px; font-size: 12px;" />
-                            <input v-model.number="editLogistics.nights" type="number" placeholder="Nights" min="1" class="form-input" style="margin: 0; width: 70px; font-size: 12px;" />
+                            <div style="display: flex; flex-direction: column; width: 70px;">
+                              <label style="font-size: 10px; color: #666; margin-bottom: 2px; font-weight: 600;">Rooms</label>
+                              <input v-model.number="editLogistics.rooms" type="number" placeholder="0" min="1" class="form-input" style="margin: 0; width: 70px; font-size: 12px;" />
+                            </div>
+                            <div style="display: flex; flex-direction: column; width: 70px;">
+                              <label style="font-size: 10px; color: #666; margin-bottom: 2px; font-weight: 600;">Nights</label>
+                              <input v-model.number="editLogistics.nights" type="number" placeholder="0" min="1" class="form-input" style="margin: 0; width: 70px; font-size: 12px;" />
+                            </div>
                           </div>
                         </div>
 
                         <!-- CHARTER Fields -->
                         <div v-else-if="editLogistics.logistics_type === 'CHARTER'" style="display: flex; gap: 8px; flex-direction: column;">
-                          <div style="display: flex; gap: 8px;">
+                          <div style="display: flex; gap: 8px; align-items: end;">
                             <input v-model="editLogistics.from_airport" placeholder="From (e.g., DAR)" class="form-input" style="margin: 0; flex: 1; font-size: 12px;" />
                             <input v-model="editLogistics.to_airport" placeholder="To (e.g., ARK)" class="form-input" style="margin: 0; flex: 1; font-size: 12px;" />
-                            <input v-model.number="editLogistics.seats" type="number" placeholder="Seats" min="0" class="form-input" style="margin: 0; width: 70px; font-size: 12px;" />
+                            <div style="display: flex; flex-direction: column; width: 70px;">
+                              <label style="font-size: 10px; color: #666; margin-bottom: 2px; font-weight: 600;">Seats</label>
+                              <input v-model.number="editLogistics.seats" type="number" placeholder="0" min="0" class="form-input" style="margin: 0; width: 70px; font-size: 12px;" />
+                            </div>
                           </div>
                         </div>
 
@@ -525,7 +593,129 @@
                 </table>
               </div>
               <div v-if="form.logistics.length === 0 && editingLogistics.length === 0" class="empty-state mt-3">No logistics added yet</div>
-              <div v-if="form.logistics.length === 0 && editingLogistics.length === 0" class="empty-state mt-3">No logistics added yet</div>
+            </div>
+
+            <!-- Multi-participant: per-participant logistics -->
+            <div v-for="g in orderGroups" :key="'log-' + getParticipantKey(g.primary)"
+                 v-show="willCreateMultipleOrders && activeParticipantTab.logistics !== 'shared' && activeParticipantTab.logistics === getParticipantKey(g.primary)"
+                 class="subsection">
+              <div class="subsection-header">
+                <h4>Logistics for {{ getParticipantName(getParticipantKey(g.primary)) }}</h4>
+                <button @click="addNewLogisticForParticipant(getParticipantKey(g.primary))" class="btn btn-sm btn-primary" type="button">
+                  <i class="fas fa-plus me-1"></i>Add Logistics
+                </button>
+              </div>
+              <div class="table-wrapper mt-3">
+                <table class="data-table" style="table-layout: fixed; width: 100%;">
+                  <thead>
+                    <tr>
+                      <th style="width: 10%;">Type</th>
+                      <th style="width: 30%;">Details</th>
+                      <th style="width: 18%;">Dates</th>
+                      <th style="width: 14%; text-align: right;">Amount</th>
+                      <th style="width: 12%; text-align: center;">Status</th>
+                      <th style="width: 10%; text-align: center;">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <!-- Add form rows for this participant -->
+                    <tr v-for="(editLog, eIdx) in perParticipantData[getParticipantKey(g.primary)]?.editingLogistics || []" :key="'pe-' + eIdx" class="form-row">
+                      <td>
+                        <select v-model="editLog.logistics_type" class="form-select" style="margin: 0;">
+                          <option value="">-- Select Type --</option>
+                          <option v-for="type in logisticsTypes" :key="type.id || type.key" :value="type.key || type.name || type.id">
+                            {{ type.key || type.name || type.id }}
+                          </option>
+                        </select>
+                      </td>
+                      <td>
+                        <div v-if="editLog.logistics_type === 'HOTEL'" style="display: flex; gap: 8px; flex-direction: column;">
+                          <input v-model="editLog.hotel_name" placeholder="Hotel name" class="form-input" style="margin: 0; font-size: 12px;" />
+                          <div style="display: flex; gap: 8px; align-items: end;">
+                            <input v-model="editLog.room_type" placeholder="Room type" class="form-input" style="margin: 0; flex: 1; font-size: 12px;" />
+                            <div style="display: flex; flex-direction: column; width: 70px;">
+                              <label style="font-size: 10px; color: #666; margin-bottom: 2px; font-weight: 600;">Rooms</label>
+                              <input v-model.number="editLog.rooms" type="number" placeholder="0" min="1" class="form-input" style="margin: 0; width: 70px; font-size: 12px;" />
+                            </div>
+                            <div style="display: flex; flex-direction: column; width: 70px;">
+                              <label style="font-size: 10px; color: #666; margin-bottom: 2px; font-weight: 600;">Nights</label>
+                              <input v-model.number="editLog.nights" type="number" placeholder="0" min="1" class="form-input" style="margin: 0; width: 70px; font-size: 12px;" />
+                            </div>
+                          </div>
+                        </div>
+                        <div v-else-if="editLog.logistics_type === 'CHARTER'" style="display: flex; gap: 8px; align-items: end;">
+                          <input v-model="editLog.from_airport" placeholder="From" class="form-input" style="margin: 0; flex: 1; font-size: 12px;" />
+                          <input v-model="editLog.to_airport" placeholder="To" class="form-input" style="margin: 0; flex: 1; font-size: 12px;" />
+                          <div style="display: flex; flex-direction: column; width: 70px;">
+                            <label style="font-size: 10px; color: #666; margin-bottom: 2px; font-weight: 600;">Seats</label>
+                            <input v-model.number="editLog.seats" type="number" placeholder="0" min="0" class="form-input" style="margin: 0; width: 70px; font-size: 12px;" />
+                          </div>
+                        </div>
+                        <div v-else-if="['TRANSFER', 'AIRPORT'].includes(editLog.logistics_type)" style="display: flex; gap: 8px;">
+                          <input v-model="editLog.from_location" placeholder="From" class="form-input" style="margin: 0; flex: 1; font-size: 12px;" />
+                          <input v-model="editLog.to_location" placeholder="To" class="form-input" style="margin: 0; flex: 1; font-size: 12px;" />
+                        </div>
+                        <div v-else>
+                          <input v-model="editLog.description" placeholder="Description" class="form-input" style="margin: 0; font-size: 12px;" />
+                        </div>
+                      </td>
+                      <td>
+                        <div style="display: flex; flex-direction: column; gap: 6px;">
+                          <input v-model="editLog.start_datetime" type="date" class="form-input" style="margin: 0; font-size: 12px;" />
+                          <input v-model="editLog.end_datetime" type="date" class="form-input" style="margin: 0; font-size: 12px;" />
+                        </div>
+                      </td>
+                      <td><input v-model.number="editLog.estimated_amount" type="number" placeholder="Amount" min="0" step="0.01" class="form-input" style="margin: 0; font-size: 12px;" /></td>
+                      <td>
+                        <select v-model="editLog.status" class="form-select" style="margin: 0; font-size: 12px;">
+                          <option value="">-- Status --</option>
+                          <option v-for="status in logisticsStatuses" :key="status.id || status.key" :value="status.key || status.name || status.id">{{ status.key || status.name || status.id }}</option>
+                        </select>
+                      </td>
+                      <td style="text-align: center;">
+                        <button @click="addLogisticsForParticipant(getParticipantKey(g.primary), eIdx)" class="btn btn-xs btn-success me-2" type="button"><i class="fas fa-check"></i></button>
+                        <button @click="cancelEditingLogisticsForParticipant(getParticipantKey(g.primary), eIdx)" class="btn btn-xs btn-danger" type="button"><i class="fas fa-times"></i></button>
+                      </td>
+                    </tr>
+                    <!-- Existing logistics for this participant -->
+                    <tr v-for="(logistics, idx) in perParticipantData[getParticipantKey(g.primary)]?.logistics || []" :key="'pl-' + idx">
+                      <td style="vertical-align: middle;">
+                        <span class="badge" :class="{'bg-primary': logistics.logistics_type === 'HOTEL', 'bg-info': logistics.logistics_type === 'CHARTER', 'bg-warning': logistics.logistics_type === 'TRANSFER', 'bg-secondary': !logistics.logistics_type}">
+                          {{ logistics.logistics_type || 'OTHER' }}
+                        </span>
+                      </td>
+                      <td style="vertical-align: middle;">
+                        <strong v-if="logistics.hotel_name">{{ logistics.hotel_name }}</strong>
+                        <strong v-else-if="logistics.from_location">{{ logistics.from_location }} → {{ logistics.to_location }}</strong>
+                        <strong v-else-if="logistics.from_airport">{{ logistics.from_airport }} → {{ logistics.to_airport }}</strong>
+                        <strong v-else>{{ logistics.description || '-' }}</strong>
+                        <div style="font-size: 11px; color: #666; margin-top: 4px;">
+                          <span v-if="logistics.rooms">{{ logistics.rooms }} room(s), {{ logistics.nights }} night(s)</span>
+                          <span v-else-if="logistics.seats">{{ logistics.seats }} seats</span>
+                        </div>
+                      </td>
+                      <td style="vertical-align: middle;">
+                        <div style="font-size: 11px;">
+                          <div v-if="logistics.start_datetime">{{ new Date(logistics.start_datetime).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) }}</div>
+                          <div v-if="logistics.end_datetime">→ {{ new Date(logistics.end_datetime).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) }}</div>
+                        </div>
+                      </td>
+                      <td style="text-align: right; vertical-align: middle;">
+                        <span class="badge bg-info" style="font-size: 12px;">{{ formatCurrency(logistics.estimated_amount || 0) }}</span>
+                      </td>
+                      <td style="text-align: center; vertical-align: middle;">
+                        <span class="badge" :class="{'bg-success': logistics.status === 'BOOKED', 'bg-warning': logistics.status === 'PLANNED', 'bg-info': logistics.status === 'COSTED'}">{{ logistics.status }}</span>
+                      </td>
+                      <td style="text-align: center; vertical-align: middle;">
+                        <button @click="removeLogisticsForParticipant(getParticipantKey(g.primary), idx)" class="btn btn-xs btn-danger" type="button"><i class="fas fa-trash"></i></button>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div v-if="(perParticipantData[getParticipantKey(g.primary)]?.logistics || []).length === 0 && (perParticipantData[getParticipantKey(g.primary)]?.editingLogistics || []).length === 0" class="empty-state mt-3">
+                No logistics added for {{ getParticipantName(getParticipantKey(g.primary)) }}
+              </div>
             </div>
 
             <!-- Navigation Buttons -->
@@ -541,7 +731,127 @@
 
           <!-- PAYMENT PLAN SECTION -->
           <div v-if="showSections.payment" class="expandable-section">
-            <div class="subsection">
+            <!-- Participant Tabs (only when multi-order) -->
+            <div v-if="willCreateMultipleOrders" class="participant-tab-bar mb-3">
+              <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 8px;">
+                <i class="fas fa-users" style="color: #6366f1; font-size: 13px;"></i>
+                <span style="font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Payment plan per participant</span>
+              </div>
+              <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                <button type="button"
+                  style="border: none; cursor: pointer; font-size: 12.5px; font-weight: 500; padding: 6px 14px; border-radius: 20px; transition: all 0.2s ease; display: inline-flex; align-items: center; gap: 5px;"
+                  :style="activeParticipantTab.payment === 'shared' ? 'background: #10b981; color: #fff; box-shadow: 0 2px 6px rgba(16,185,129,0.3);' : 'background: #f1f5f9; color: #64748b;'"
+                  @click="switchToParticipantTab('payment', 'shared')">
+                  <i class="fas fa-link" style="font-size: 10px;"></i> Shared
+                </button>
+                <button v-for="g in orderGroups" :key="'pay-' + getParticipantKey(g.primary)"
+                  type="button"
+                  style="border: none; cursor: pointer; font-size: 12.5px; font-weight: 500; padding: 6px 14px; border-radius: 20px; transition: all 0.2s ease; display: inline-flex; align-items: center; gap: 5px;"
+                  :style="activeParticipantTab.payment === getParticipantKey(g.primary) ? 'background: #3b82f6; color: #fff; box-shadow: 0 2px 6px rgba(59,130,246,0.3);' : 'background: #f1f5f9; color: #64748b;'"
+                  @click="switchToParticipantTab('payment', getParticipantKey(g.primary))">
+                  <i class="fas fa-user" style="font-size: 10px;"></i> {{ getParticipantName(getParticipantKey(g.primary)) }}
+                </button>
+              </div>
+            </div>
+
+            <!-- Per-participant installments (multi-order mode) -->
+            <template v-if="willCreateMultipleOrders && activeParticipantTab.payment !== 'shared'">
+              <div v-for="g in orderGroups" :key="'payc-' + getParticipantKey(g.primary)"
+                   v-show="activeParticipantTab.payment !== 'shared' && activeParticipantTab.payment === getParticipantKey(g.primary)">
+                <div class="subsection">
+                  <!-- Payment Plan Template Selector for this participant -->
+                  <div style="margin-bottom: 16px; padding: 14px; background: #f0f9ff; border: 1px solid #bfdbfe; border-radius: 6px;">
+                    <h5 style="margin: 0 0 10px 0; font-size: 14px; font-weight: 600; color: #1e40af;">
+                      <i class="fas fa-file-invoice-dollar" style="margin-right: 8px;"></i>Payment Plan for {{ getParticipantName(getParticipantKey(g.primary)) }}
+                    </h5>
+                    <p style="margin: 0 0 12px 0; font-size: 13px; color: #1e3a8a;">Choose a template or add custom installments.</p>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
+                      <div v-for="template in availablePaymentPlanTemplates" :key="'pt-' + template.id"
+                           @click="applyPaymentPlanTemplateForParticipant(getParticipantKey(g.primary), template)"
+                           style="padding: 12px; background: white; border: 2px solid #dbeafe; border-radius: 4px; cursor: pointer; transition: all 0.2s; user-select: none;"
+                           @mouseenter="$event.currentTarget.style.borderColor = '#60a5fa'"
+                           @mouseleave="$event.currentTarget.style.borderColor = '#dbeafe'">
+                        <div style="font-weight: 600; color: #1e40af; margin-bottom: 4px;">{{ template.name }}</div>
+                        <div style="font-size: 12px; color: #475569;">{{ template.stages.length }} stages</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Grand Total Banner -->
+                  <div style="margin-bottom: 12px; padding: 10px 14px; background: linear-gradient(135deg, #e8f5e9, #c8e6c9); border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-size: 13px; color: #2e7d32; font-weight: 500;">Order Grand Total:</span>
+                    <span style="font-size: 18px; font-weight: 800; color: #1b5e20;">{{ formatCurrency(orderGrandTotal) }}</span>
+                  </div>
+
+                  <div class="subsection-header">
+                    <h4>Installments</h4>
+                    <button @click="perParticipantData[getParticipantKey(g.primary)].showInstallmentForm = true" class="btn btn-sm btn-primary" type="button">
+                      <i class="fas fa-plus me-1"></i>Add Installment
+                    </button>
+                  </div>
+
+                  <div class="table-wrapper mt-3">
+                    <table class="data-table">
+                      <thead>
+                        <tr>
+                          <th style="min-width: 50px">#</th>
+                          <th style="min-width: 140px">Name</th>
+                          <th style="min-width: 80px">%</th>
+                          <th style="min-width: 120px">Amount</th>
+                          <th style="min-width: 80px">Due Days</th>
+                          <th style="min-width: 130px">Due Type</th>
+                          <th style="min-width: 70px">Deposit</th>
+                          <th style="min-width: 80px">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <!-- Add form row -->
+                        <tr v-if="perParticipantData[getParticipantKey(g.primary)]?.showInstallmentForm" class="form-row">
+                          <td class="text-center"><span class="badge bg-secondary">{{ (perParticipantData[getParticipantKey(g.primary)]?.installments || []).length + 1 }}</span></td>
+                          <td><input v-model="newInstallment.name" type="text" placeholder="e.g. Deposit" class="form-input" style="font-size: 12px;" /></td>
+                          <td><input v-model.number="newInstallment.percentage" type="number" placeholder="%" step="0.1" min="0" max="100" class="form-input" style="max-width: 80px;" /></td>
+                          <td class="text-center"><span class="badge bg-info" style="font-size: 12px;">{{ formatCurrency(Math.round(((newInstallment.percentage || 0) / 100 * orderGrandTotal) * 100) / 100) }}</span></td>
+                          <td><input v-model.number="newInstallment.dueDays" type="number" placeholder="Days" min="0" class="form-input" style="max-width: 80px;" /></td>
+                          <td>
+                            <select v-model="newInstallment.dueDaysType" class="form-select">
+                              <option :value="null">Select...</option>
+                              <option v-for="type in installmentDaysTypes" :key="type.value || type.id" :value="type.value || type.id">{{ type.label || type.name }}</option>
+                            </select>
+                          </td>
+                          <td class="text-center"><input v-model="newInstallment.isDeposit" type="checkbox" class="form-checkbox" /></td>
+                          <td class="text-center">
+                            <button @click="addInstallmentForParticipant(getParticipantKey(g.primary), newInstallment); resetInstallmentForm()" class="btn btn-xs btn-success me-2" type="button"><i class="fas fa-check"></i></button>
+                            <button @click="perParticipantData[getParticipantKey(g.primary)].showInstallmentForm = false; resetInstallmentForm()" class="btn btn-xs btn-danger" type="button"><i class="fas fa-times"></i></button>
+                          </td>
+                        </tr>
+                        <!-- Existing installments -->
+                        <tr v-for="(inst, idx) in perParticipantData[getParticipantKey(g.primary)]?.installments || []" :key="'pi-' + idx">
+                          <td class="text-center"><span class="badge bg-primary">{{ inst.sequenceNo }}</span></td>
+                          <td>{{ inst.name || inst.narration || `Installment ${inst.sequenceNo}` }}</td>
+                          <td class="text-center"><span class="badge bg-warning" style="font-size: 12px;">{{ inst.percentage }}%</span></td>
+                          <td class="text-center"><span class="badge bg-info" style="font-size: 12px;">{{ formatCurrency(inst.calculatedAmount || Math.round(((inst.percentage || 0) / 100 * orderGrandTotal) * 100) / 100) }}</span></td>
+                          <td class="text-center">{{ inst.dueDays }}</td>
+                          <td>{{ inst.dueDaysType }}</td>
+                          <td class="text-center">
+                            <i v-if="inst.isDeposit" class="fas fa-check text-success"></i>
+                            <i v-else class="fas fa-times text-muted"></i>
+                          </td>
+                          <td class="text-center">
+                            <button @click="removeInstallmentForParticipant(getParticipantKey(g.primary), idx)" class="btn btn-xs btn-danger" type="button"><i class="fas fa-trash"></i></button>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div v-if="(perParticipantData[getParticipantKey(g.primary)]?.installments || []).length === 0" class="empty-state mt-3">
+                    No installments for {{ getParticipantName(getParticipantKey(g.primary)) }}
+                  </div>
+                </div>
+              </div>
+            </template>
+
+            <!-- Shared or single-participant (original) -->
+            <div v-if="!willCreateMultipleOrders || activeParticipantTab.payment === 'shared'" class="subsection">
               <!-- PAYMENT PLAN TEMPLATE SELECTOR -->
               <div style="margin-bottom: 16px; padding: 14px; background: #f0f9ff; border: 1px solid #bfdbfe; border-radius: 6px;">
                 <h5 style="margin: 0 0 10px 0; font-size: 14px; font-weight: 600; color: #1e40af;">
@@ -807,7 +1117,85 @@
               <h4>Additional Details</h4>
             </div>
 
-            <div class="subsection">
+            <!-- Participant Tabs (only when multi-order) -->
+            <div v-if="willCreateMultipleOrders" class="participant-tab-bar mb-3">
+              <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 8px;">
+                <i class="fas fa-users" style="color: #6366f1; font-size: 13px;"></i>
+                <span style="font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Preferences per participant</span>
+              </div>
+              <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                <button type="button"
+                  style="border: none; cursor: pointer; font-size: 12.5px; font-weight: 500; padding: 6px 14px; border-radius: 20px; transition: all 0.2s ease; display: inline-flex; align-items: center; gap: 5px;"
+                  :style="activeParticipantTab.preferences === 'shared' ? 'background: #10b981; color: #fff; box-shadow: 0 2px 6px rgba(16,185,129,0.3);' : 'background: #f1f5f9; color: #64748b;'"
+                  @click="switchToParticipantTab('preferences', 'shared')">
+                  <i class="fas fa-link" style="font-size: 10px;"></i> Shared
+                </button>
+                <button v-for="g in orderGroups" :key="'pref-' + getParticipantKey(g.primary)"
+                  type="button"
+                  style="border: none; cursor: pointer; font-size: 12.5px; font-weight: 500; padding: 6px 14px; border-radius: 20px; transition: all 0.2s ease; display: inline-flex; align-items: center; gap: 5px;"
+                  :style="activeParticipantTab.preferences === getParticipantKey(g.primary) ? 'background: #3b82f6; color: #fff; box-shadow: 0 2px 6px rgba(59,130,246,0.3);' : 'background: #f1f5f9; color: #64748b;'"
+                  @click="switchToParticipantTab('preferences', getParticipantKey(g.primary))">
+                  <i class="fas fa-user" style="font-size: 10px;"></i> {{ getParticipantName(getParticipantKey(g.primary)) }}
+                </button>
+              </div>
+            </div>
+
+            <!-- Per-participant preferences (multi-order mode) -->
+            <template v-if="willCreateMultipleOrders && activeParticipantTab.preferences !== 'shared'">
+              <div v-for="g in orderGroups" :key="'prefc-' + getParticipantKey(g.primary)"
+                   v-show="activeParticipantTab.preferences !== 'shared' && activeParticipantTab.preferences === getParticipantKey(g.primary)" class="subsection">
+                <div class="subsection-group">
+                  <h5 style="display: flex; align-items: center; gap: 0.5rem; color: #333; margin-bottom: 1.2rem; font-size: 0.95rem; font-weight: 600;">
+                    <i class="fas fa-utensils" style="color: #ff6b35;"></i>
+                    Dietary & Beverage Preferences for {{ getParticipantName(getParticipantKey(g.primary)) }}
+                  </h5>
+                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+                    <div class="form-section" style="display: flex; flex-direction: column; height: 100px;">
+                      <label class="form-label">Food Preferences</label>
+                      <textarea v-model="perParticipantData[getParticipantKey(g.primary)].preferences.food_preferences" @input="formatBulletTextForParticipant(getParticipantKey(g.primary), 'food')" placeholder="Enter each preference on a new line..." class="form-textarea" rows="2" style="flex: 1; resize: none; background: white; position: relative; z-index: 2;"></textarea>
+                    </div>
+                    <div class="form-section" style="display: flex; flex-direction: column; height: 100px;">
+                      <label class="form-label">Beverage Preferences</label>
+                      <textarea v-model="perParticipantData[getParticipantKey(g.primary)].preferences.beverage_preferences" @input="formatBulletTextForParticipant(getParticipantKey(g.primary), 'beverage')" placeholder="Enter each preference on a new line..." class="form-textarea" rows="2" style="flex: 1; resize: none; background: white; position: relative; z-index: 2;"></textarea>
+                    </div>
+                  </div>
+                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 0;">
+                    <div class="form-section" style="display: flex; flex-direction: column; height: 100px;">
+                      <label class="form-label">Alcohol Preference</label>
+                      <textarea v-model="perParticipantData[getParticipantKey(g.primary)].preferences.alcohol_preferences" @input="formatBulletTextForParticipant(getParticipantKey(g.primary), 'alcohol')" placeholder="Enter each preference on a new line..." class="form-textarea" rows="2" style="flex: 1; resize: none; background: white; position: relative; z-index: 2;"></textarea>
+                    </div>
+                    <div class="form-section" style="display: flex; flex-direction: column;">
+                      <label class="form-label" style="margin-bottom: 0.6rem; font-weight: 500; color: #555;">⚠️ Allergies</label>
+                      <div style="display: flex; gap: 0.6rem; align-items: center; margin-bottom: 0.8rem;">
+                        <input v-model="perParticipantData[getParticipantKey(g.primary)].newAllergy" type="text" placeholder="e.g., Peanuts, Dairy..." class="form-input" style="flex: 1; padding: 0.65rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9rem;" />
+                        <button @click="addAllergyForParticipant(getParticipantKey(g.primary))" class="btn btn-primary" type="button" style="padding: 0.65rem 1rem; flex-shrink: 0; height: auto; border-radius: 4px;">
+                          <i class="fas fa-plus"></i> Add
+                        </button>
+                      </div>
+                      <div v-if="perParticipantData[getParticipantKey(g.primary)]?.preferences?.allergies?.length > 0" style="display: flex; flex-wrap: wrap; gap: 0.6rem;">
+                        <span v-for="(allergy, aidx) in perParticipantData[getParticipantKey(g.primary)].preferences.allergies" :key="aidx" style="display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.5rem 0.8rem; background: #fff3cd; border: 1px solid #ffc107; border-radius: 20px; font-size: 0.85rem; color: #856404;">
+                          {{ allergy }}
+                          <button @click="removeAllergyForParticipant(getParticipantKey(g.primary), aidx)" type="button" style="background: none; border: none; color: #856404; cursor: pointer; font-size: 1.1rem; padding: 0; line-height: 1;">&times;</button>
+                        </span>
+                      </div>
+                      <div v-else class="text-muted" style="font-size: 0.85rem; color: #999;">No allergies added</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="subsection-group">
+                  <h5 style="display: flex; align-items: center; gap: 0.5rem; color: #333; margin: 0 0 0.8rem 0; font-size: 0.95rem; font-weight: 600;">
+                    <i class="fas fa-sticky-note" style="color: #3498db;"></i>
+                    Special Requests for {{ getParticipantName(getParticipantKey(g.primary)) }}
+                  </h5>
+                  <div class="form-section" style="margin-bottom: 0;">
+                    <textarea v-model="perParticipantData[getParticipantKey(g.primary)].preferences.special_requests" placeholder="Add special requests..." class="form-textarea" rows="2"></textarea>
+                  </div>
+                </div>
+              </div>
+            </template>
+
+            <!-- Shared or single-participant preferences (original) -->
+            <div v-if="!willCreateMultipleOrders || activeParticipantTab.preferences === 'shared'" class="subsection">
               <!-- DIETARY PREFERENCES SUBSECTION -->
               <div class="subsection-group">
                 <h5 style="display: flex; align-items: center; gap: 0.5rem; color: #333; margin-bottom: 1.2rem; font-size: 0.95rem; font-weight: 600;">
@@ -1125,6 +1513,243 @@ const originalSidebarState = ref(false)
 
 // PDF generation state
 const generatingPdf = ref(false)
+const showPdfDropdown = ref(false)
+
+// Enquiry participants raw data — used to detect independent participants and split orders
+const enquiryParticipantsRaw = ref<any[]>([])
+
+// Computed: order groups based on independent participants
+// Each independent participant gets their own order.
+// Dependent participants are attached to the participant they depend on.
+// Helper: get a stable key for a participant (entity_id preferred, falls back to participant id)
+const getParticipantKey = (participant: any): string => {
+  if (participant.entity_id) return String(participant.entity_id)
+  return `pid-${participant.id}`
+}
+
+const orderGroups = computed(() => {
+  const participants = enquiryParticipantsRaw.value
+  if (participants.length <= 1) return [] // No split needed for 0 or 1 participant
+  
+  const independents = participants.filter((p: any) => p.is_independent)
+  if (independents.length <= 1) return [] // Only 1 independent → no split
+  
+  // Build groups: each independent participant + their dependents
+  const groups: Array<{ primary: any; dependents: any[]; party: any }> = []
+  for (const indep of independents) {
+    const dependents = participants.filter(
+      (p: any) => !p.is_independent && p.dependent_on_participant_id === indep.id
+    )
+    // Find the matching party in form.parties by entity_id (only if entity_id exists)
+    const matchingParty = indep.entity_id
+      ? form.parties.find((p: any) => String(p.entity) === String(indep.entity_id))
+      : null
+    // Build a fallback party — for participants without entity_id, display as "Unknown"
+    const fallbackParty = matchingParty || {
+      role: 'CUSTOMER',
+      entity: indep.entity_id ? String(indep.entity_id) : '',
+      entity_name: indep.entity?.full_name || indep.entity?.name || indep.entity_name || indep.name || 'Unknown',
+      contact_person: indep.contact_name || '',
+      contact_phone: indep.contact_phone || '',
+      email: indep.contact_email || '',
+    }
+    groups.push({
+      primary: indep,
+      dependents,
+      party: fallbackParty
+    })
+  }
+  return groups
+})
+
+const willCreateMultipleOrders = computed(() => orderGroups.value.length > 1)
+
+// ─── Per-Participant Data (for multi-order split) ───
+// When multiple independent participants exist, each gets their own logistics,
+// installments, and preferences. Keyed by entity_id string.
+const perParticipantData = reactive<Record<string, {
+  logistics: any[]
+  installments: any[]
+  preferences: {
+    food_preferences: string
+    beverage_preferences: string
+    allergies: string[]
+    alcohol_preferences: string
+    special_requests: string
+  }
+  editingLogistics: any[]
+  showInstallmentForm: boolean
+  newAllergy: string
+}>>({})
+
+// Active participant tab for each section — 'shared' means all participants use the same data
+const activeParticipantTab = reactive<Record<string, string>>({
+  logistics: 'shared',
+  payment: 'shared',
+  preferences: 'shared',
+})
+
+// Track which participants have been individually customized
+const customizedParticipants = reactive<Record<string, Set<string>>>({
+  logistics: new Set(),
+  payment: new Set(),
+  preferences: new Set(),
+})
+
+// Initialize per-participant data when order groups change
+watch(orderGroups, (groups) => {
+  if (groups.length <= 1) return
+  for (const g of groups) {
+    const key = getParticipantKey(g.primary)
+    if (!perParticipantData[key]) {
+      // Start empty — will be populated when user switches to individual tab
+      perParticipantData[key] = {
+        logistics: [],
+        installments: [],
+        preferences: { food_preferences: '', beverage_preferences: '', allergies: [], alcohol_preferences: '', special_requests: '' },
+        editingLogistics: [],
+        showInstallmentForm: false,
+        newAllergy: '',
+      }
+    }
+  }
+}, { immediate: true })
+
+// When switching from shared to individual tab, copy shared data as starting point
+const switchToParticipantTab = (section: string, entityId: string) => {
+  activeParticipantTab[section] = entityId
+  if (entityId === 'shared') return
+  const data = perParticipantData[entityId]
+  if (!data) return
+  // Only copy shared data the first time user switches to this participant
+  if (!customizedParticipants[section]?.has(entityId)) {
+    if (section === 'logistics') {
+      data.logistics = JSON.parse(JSON.stringify(form.logistics))
+    } else if (section === 'payment') {
+      data.installments = JSON.parse(JSON.stringify(form.installments))
+    } else if (section === 'preferences') {
+      data.preferences = JSON.parse(JSON.stringify(form.preferences))
+    }
+    customizedParticipants[section]?.add(entityId)
+  }
+}
+
+// Helper: get current participant's data for a section, or the shared form data
+const getParticipantLogistics = (entityId: string) => perParticipantData[entityId]?.logistics || form.logistics
+const getParticipantInstallments = (entityId: string) => perParticipantData[entityId]?.installments || form.installments
+const getParticipantPreferences = (entityId: string) => perParticipantData[entityId]?.preferences || form.preferences
+
+// Helper: get entity name for a participant tab
+const getParticipantName = (key: string): string => {
+  if (!key || key === 'null' || key === 'undefined') return 'Unknown'
+  // 1) Check form.parties (by entity_id)
+  const party = form.parties.find((p: any) => String(p.entity) === key)
+  if (party?.entity_name) return party.entity_name
+  // 2) Fallback: check raw enquiry participants (by entity_id OR participant id via pid- prefix)
+  let rawPart: any = null
+  if (key.startsWith('pid-')) {
+    const pid = key.replace('pid-', '')
+    rawPart = enquiryParticipantsRaw.value.find((p: any) => String(p.id) === pid)
+  } else {
+    rawPart = enquiryParticipantsRaw.value.find((p: any) => String(p.entity_id) === key)
+  }
+  if (rawPart) {
+    const name = rawPart.entity?.full_name || rawPart.entity?.name || rawPart.entity_name || rawPart.name
+    if (name) return name
+  }
+  // 3) Check orderGroups which may have resolved the party
+  const group = orderGroups.value.find((g: any) => getParticipantKey(g.primary) === key)
+  if (group?.party?.entity_name) return group.party.entity_name
+  return 'Unknown'
+}
+
+// Per-participant logistics helpers
+const addNewLogisticForParticipant = (entityId: string) => {
+  const data = perParticipantData[entityId]
+  if (!data) return
+  data.editingLogistics.push({
+    logistics_type: '',
+    hotel_name: '',
+    room_type: '',
+    rooms: 0,
+    nights: 0,
+    from_airport: '',
+    to_airport: '',
+    flight_date: '',
+    seats: 0,
+    from_location: '',
+    to_location: '',
+    transfer_date: '',
+    description: '',
+    start_datetime: '',
+    end_datetime: '',
+    estimated_amount: 0,
+    status: 'PLANNED',
+    notes: ''
+  })
+}
+
+const addLogisticsForParticipant = (entityId: string, eIdx: number) => {
+  const data = perParticipantData[entityId]
+  if (!data) return
+  const editItem = data.editingLogistics[eIdx]
+  if (!editItem || !editItem.logistics_type) return
+  data.logistics.push({ ...editItem })
+  data.editingLogistics.splice(eIdx, 1)
+}
+
+const cancelEditingLogisticsForParticipant = (entityId: string, eIdx: number) => {
+  const data = perParticipantData[entityId]
+  if (!data) return
+  data.editingLogistics.splice(eIdx, 1)
+}
+
+const removeLogisticsForParticipant = (entityId: string, idx: number) => {
+  const data = perParticipantData[entityId]
+  if (!data) return
+  data.logistics.splice(idx, 1)
+}
+
+// Per-participant installment helpers
+const addInstallmentForParticipant = (entityId: string, newInst: any) => {
+  const data = perParticipantData[entityId]
+  if (!data) return
+  data.installments.push({
+    sequenceNo: data.installments.length + 1,
+    name: newInst.name || `Installment ${data.installments.length + 1}`,
+    narration: newInst.name || `Installment ${data.installments.length + 1}`,
+    percentage: newInst.percentage || 0,
+    calculatedAmount: Math.round(((newInst.percentage || 0) / 100 * orderGrandTotal.value) * 100) / 100,
+    dueDays: newInst.dueDays || 0,
+    dueDaysType: newInst.dueDaysType || null,
+    isDeposit: newInst.isDeposit || false,
+  })
+  data.showInstallmentForm = false
+}
+
+const removeInstallmentForParticipant = (entityId: string, idx: number) => {
+  const data = perParticipantData[entityId]
+  if (!data) return
+  data.installments.splice(idx, 1)
+  // Resequence
+  data.installments.forEach((inst: any, i: number) => { inst.sequenceNo = i + 1 })
+}
+
+// Per-participant allergy helpers
+const addAllergyForParticipant = (entityId: string) => {
+  const data = perParticipantData[entityId]
+  if (!data || !data.newAllergy.trim()) return
+  if (!data.preferences.allergies.includes(data.newAllergy.trim())) {
+    data.preferences.allergies.push(data.newAllergy.trim())
+  }
+  data.newAllergy = ''
+}
+
+const removeAllergyForParticipant = (entityId: string, idx: number) => {
+  const data = perParticipantData[entityId]
+  if (!data) return
+  data.preferences.allergies.splice(idx, 1)
+}
 
 // Item-level validation errors (keyed by item index)
 const itemErrors = ref<Record<number, string>>({})
@@ -1752,6 +2377,29 @@ const applyPaymentPlanTemplateToForm = (template: any) => {
   resetInstallmentForm()
 }
 
+// Per-participant payment plan template
+const applyPaymentPlanTemplateForParticipant = (entityId: string, template: any) => {
+  const data = perParticipantData[entityId]
+  if (!data) return
+  const gt = orderGrandTotal.value
+  data.installments = template.stages.map((stage: any) => {
+    const pct = Number(stage.amountDue) || 0
+    return {
+      sequenceNo: stage.sequenceNo,
+      name: stage.name,
+      narration: stage.narration || stage.name,
+      percentage: pct,
+      calculatedAmount: Math.round(((pct / 100) * gt) * 100) / 100,
+      dueDays: stage.dueDays,
+      dueDaysType: stage.dueDaysType,
+      isDeposit: stage.isDeposit,
+      description: stage.description || ''
+    }
+  })
+  data.showInstallmentForm = false
+  toast.success(`${template.name} applied for ${getParticipantName(entityId)}!`)
+}
+
 const resetInstallmentForm = () => {
   newInstallment.percentage = 0
   newInstallment.name = ''
@@ -1929,6 +2577,17 @@ const getStatusLabel = (status: string): string => {
   return labels[status] || status
 }
 
+const applyBulletFormatting = (text: string): string => {
+  const lines = text.split('\n')
+  const formattedLines = lines.map(line => {
+    const trimmed = line.trim()
+    if (!trimmed) return ''
+    if (trimmed.startsWith('•')) return trimmed
+    return '• ' + trimmed
+  })
+  return formattedLines.join('\n')
+}
+
 const formatBulletText = (type: 'food' | 'beverage' | 'alcohol') => {
   let text = ''
   
@@ -1940,24 +2599,8 @@ const formatBulletText = (type: 'food' | 'beverage' | 'alcohol') => {
     text = form.preferences.alcohol_preferences
   }
   
-  // Split by newlines
-  const lines = text.split('\n')
+  const formatted = applyBulletFormatting(text)
   
-  // Process each line to ensure it has a bullet point
-  const formattedLines = lines.map(line => {
-    const trimmed = line.trim()
-    // If line is empty, keep it empty
-    if (!trimmed) return ''
-    // If line already starts with bullet, keep it
-    if (trimmed.startsWith('•')) return trimmed
-    // Otherwise add bullet
-    return '• ' + trimmed
-  })
-  
-  // Join back with newlines
-  const formatted = formattedLines.join('\n')
-  
-  // Only update if text changed
   if (formatted !== text) {
     if (type === 'food') {
       form.preferences.food_preferences = formatted
@@ -1965,6 +2608,32 @@ const formatBulletText = (type: 'food' | 'beverage' | 'alcohol') => {
       form.preferences.beverage_preferences = formatted
     } else if (type === 'alcohol') {
       form.preferences.alcohol_preferences = formatted
+    }
+  }
+}
+
+const formatBulletTextForParticipant = (entityId: string, type: 'food' | 'beverage' | 'alcohol') => {
+  const pData = perParticipantData[entityId]
+  if (!pData?.preferences) return
+  
+  let text = ''
+  if (type === 'food') {
+    text = pData.preferences.food_preferences
+  } else if (type === 'beverage') {
+    text = pData.preferences.beverage_preferences
+  } else if (type === 'alcohol') {
+    text = pData.preferences.alcohol_preferences
+  }
+  
+  const formatted = applyBulletFormatting(text)
+  
+  if (formatted !== text) {
+    if (type === 'food') {
+      pData.preferences.food_preferences = formatted
+    } else if (type === 'beverage') {
+      pData.preferences.beverage_preferences = formatted
+    } else if (type === 'alcohol') {
+      pData.preferences.alcohol_preferences = formatted
     }
   }
 }
@@ -2002,9 +2671,16 @@ const displayOrDash = (val: any): string => {
   return String(val)
 }
 
-const downloadPreviewPdf = async () => {
+const downloadPreviewPdf = async (target: string = 'all') => {
   generatingPdf.value = true
   try {
+    // Determine which participant(s) to include
+    const isMulti = willCreateMultipleOrders.value && orderGroups.value.length > 1
+    const isSingleParticipant = isMulti && target !== 'all'
+    const targetGroup = isSingleParticipant ? orderGroups.value.find(g => getParticipantKey(g.primary) === target) : null
+    const targetName = targetGroup ? getParticipantName(target) : ''
+    const groupsToRender = isSingleParticipant && targetGroup ? [targetGroup] : (isMulti ? orderGroups.value : [])
+
     const pdf = new jsPDF({ unit: 'pt', format: 'a4' })
     const pageWidth = pdf.internal.pageSize.getWidth()
     const margin = 36
@@ -2013,7 +2689,8 @@ const downloadPreviewPdf = async () => {
     // ── Header ──
     pdf.setFontSize(16)
     pdf.setFont('helvetica', 'bold')
-    pdf.text('ORDER PREVIEW', pageWidth / 2, cursorY, { align: 'center' })
+    const headerTitle = isSingleParticipant ? `ORDER PREVIEW — ${targetName}` : 'ORDER PREVIEW'
+    pdf.text(headerTitle, pageWidth / 2, cursorY, { align: 'center' })
     cursorY += 20
     pdf.setDrawColor(0)
     pdf.setLineWidth(0.5)
@@ -2067,7 +2744,7 @@ const downloadPreviewPdf = async () => {
         tableWidth: pageWidth - margin * 2,
         margin: { left: margin, right: margin },
         styles: { fontSize: 9 },
-        headStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: 'bold' },
+        headStyles: { fillColor: [245, 245, 245], textColor: 50, fontStyle: 'bold' },
         columnStyles: {
           0: { cellWidth: 26, halign: 'center' },
           1: { cellWidth: 'auto' },
@@ -2103,12 +2780,25 @@ const downloadPreviewPdf = async () => {
     }
 
     // ── Parties ──
+    // For single-participant preview, filter parties to the target participant + dependents
+    let displayParties = form.parties
+    if (isSingleParticipant && targetGroup) {
+      const targetEntityIds = new Set<string>()
+      if (targetGroup.primary.entity_id) targetEntityIds.add(String(targetGroup.primary.entity_id))
+      if (targetGroup.dependents) {
+        targetGroup.dependents.forEach((d: any) => { if (d.entity_id) targetEntityIds.add(String(d.entity_id)) })
+      }
+      displayParties = form.parties.filter((p: any) => {
+        const eid = String(p.entity_id || p.entity?.id || p.entity || '')
+        return targetEntityIds.has(eid)
+      })
+    }
     pdf.setFontSize(12)
     pdf.setFont('helvetica', 'bold')
-    pdf.text(`Parties (${form.parties.length})`, margin, cursorY)
+    pdf.text(`Parties (${displayParties.length})`, margin, cursorY)
     cursorY += 8
-    if (form.parties.length > 0) {
-      const partyRows = form.parties.map((p: any) => [
+    if (displayParties.length > 0) {
+      const partyRows = displayParties.map((p: any) => [
         (p.role || '-').toUpperCase(),
         p.entity?.full_name || p.entity_name || p.entity || '-',
         p.contact_person || '-',
@@ -2123,7 +2813,7 @@ const downloadPreviewPdf = async () => {
         tableWidth: pageWidth - margin * 2,
         margin: { left: margin, right: margin },
         styles: { fontSize: 9 },
-        headStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: 'bold' },
+        headStyles: { fillColor: [245, 245, 245], textColor: 50, fontStyle: 'bold' },
         columnStyles: {
           0: { cellWidth: 70 },
           1: { cellWidth: 'auto' },
@@ -2139,69 +2829,8 @@ const downloadPreviewPdf = async () => {
       cursorY += 20
     }
 
-    // ── Logistics ──
-    pdf.setFontSize(12)
-    pdf.setFont('helvetica', 'bold')
-    pdf.text(`Logistics (${form.logistics.length})`, margin, cursorY)
-    cursorY += 8
-    if (form.logistics.length > 0) {
-      const logisticsRows = form.logistics.map((l: any) => {
-        let details = ''
-        if (l.logistics_type === 'HOTEL') {
-          details = `${l.hotel_name || '-'} (${l.room_type || '-'}), ${l.rooms || 0} room(s), ${l.nights || 0} night(s)`
-        } else if (l.logistics_type === 'CHARTER') {
-          details = `${l.from_airport || '-'} → ${l.to_airport || '-'}, ${l.seats || 0} seat(s)`
-        } else if (l.logistics_type === 'TRANSFER' || l.logistics_type === 'AIRPORT') {
-          details = `${l.from_location || '-'} → ${l.to_location || '-'}`
-          if (l.passengers_hunters || l.passengers_observers) {
-            details += ` (Hunters: ${l.passengers_hunters || 0}, Observers: ${l.passengers_observers || 0})`
-          }
-        } else {
-          details = l.description || '-'
-        }
-        const dateRange = [
-          l.start_datetime ? new Date(l.start_datetime).toLocaleDateString() : '',
-          l.end_datetime ? new Date(l.end_datetime).toLocaleDateString() : ''
-        ].filter(Boolean).join(' → ') || '-'
-        return [
-          l.logistics_type || 'OTHER',
-          details,
-          dateRange,
-          fmtPdfCurrency(l.estimated_amount),
-          l.status || '-'
-        ]
-      })
-      autoTable(pdf, {
-        startY: cursorY,
-        head: [['Type', 'Details', 'Dates', 'Amount', 'Status']],
-        body: logisticsRows,
-        theme: 'grid',
-        tableWidth: pageWidth - margin * 2,
-        margin: { left: margin, right: margin },
-        styles: { fontSize: 9, overflow: 'linebreak' },
-        headStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: 'bold' },
-        columnStyles: {
-          0: { cellWidth: 65 },
-          1: { cellWidth: 'auto' },
-          2: { cellWidth: 100 },
-          3: { cellWidth: 80, halign: 'right' },
-          4: { cellWidth: 60, halign: 'center' }
-        }
-      })
-      cursorY = (pdf as any).lastAutoTable.finalY + 16
-    } else {
-      pdf.setFontSize(9); pdf.setFont('helvetica', 'normal')
-      pdf.text('No logistics added.', margin, cursorY + 6)
-      cursorY += 20
-    }
-
-    // ── Check page break ──
-    if (cursorY > pdf.internal.pageSize.getHeight() - 120) {
-      pdf.addPage()
-      cursorY = 40
-    }
-
     // ── Grand Total Breakdown ──
+    if (cursorY > pdf.internal.pageSize.getHeight() - 120) { pdf.addPage(); cursorY = 40 }
     pdf.setFontSize(12)
     pdf.setFont('helvetica', 'bold')
     pdf.text('Order Total Summary', margin, cursorY)
@@ -2224,70 +2853,106 @@ const downloadPreviewPdf = async () => {
         1: { cellWidth: pageWidth - margin * 2 - 300, halign: 'right', fontStyle: 'bold' }
       },
       didParseCell: (data: any) => {
-        // Highlight grand total row
         if (data.row.index === totalRows.length - 1) {
-          data.cell.styles.fillColor = [41, 128, 185]
-          data.cell.styles.textColor = 255
+          data.cell.styles.fillColor = [245, 245, 245]
+          data.cell.styles.textColor = 50
           data.cell.styles.fontSize = 12
         }
       }
     })
     cursorY = (pdf as any).lastAutoTable.finalY + 16
 
-    // ── Payment Plan / Installments ──
-    pdf.setFontSize(12)
-    pdf.setFont('helvetica', 'bold')
-    pdf.text(`Payment Plan (${form.installments.length} installments)`, margin, cursorY)
-    cursorY += 8
-    if (form.installments.length > 0) {
-      const instData = computedInstallments.value
-      const sorted = [...instData].sort((a, b) => (a.sequenceNo || 0) - (b.sequenceNo || 0))
-      const instRows = sorted.map((inst: any) => [
-        String(inst.sequenceNo || '-'),
-        inst.name || inst.narration || `Installment ${inst.sequenceNo}`,
-        `${inst.percentage}%`,
-        fmtPdfCurrency(inst.calculatedAmount),
-        `${inst.dueDays || 0} days (${inst.dueDaysType || '-'})`,
-        inst.isDeposit ? 'Yes' : 'No'
-      ])
-      autoTable(pdf, {
-        startY: cursorY,
-        head: [['#', 'Description', 'Percentage', 'Amount', 'Due', 'Deposit']],
-        body: instRows,
-        theme: 'grid',
-        tableWidth: pageWidth - margin * 2,
-        margin: { left: margin, right: margin },
-        styles: { fontSize: 9 },
-        headStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: 'bold' },
-        columnStyles: {
-          0: { cellWidth: 26, halign: 'center' },
-          1: { cellWidth: 'auto' },
-          2: { cellWidth: 70, halign: 'center' },
-          3: { cellWidth: 90, halign: 'right' },
-          4: { cellWidth: 110 },
-          5: { cellWidth: 50, halign: 'center' }
-        }
-      })
-      cursorY = (pdf as any).lastAutoTable.finalY + 16
-    } else {
-      pdf.setFontSize(9); pdf.setFont('helvetica', 'normal')
-      pdf.text('No payment plan configured.', margin, cursorY + 6)
-      cursorY += 20
-    }
-
-    // ── Check page break ──
-    if (cursorY > pdf.internal.pageSize.getHeight() - 140) {
-      pdf.addPage()
-      cursorY = 40
-    }
-
-    // ── Preferences ──
-    const prefs = form.preferences
-    const hasPrefs = prefs.food_preferences || prefs.beverage_preferences || prefs.alcohol_preferences || (prefs.allergies && prefs.allergies.length > 0) || prefs.special_requests
-    if (hasPrefs) {
+    // ── Helper: render logistics table for a list ──
+    const renderLogisticsTable = (logisticsList: any[], label: string) => {
+      if (cursorY > pdf.internal.pageSize.getHeight() - 100) { pdf.addPage(); cursorY = 40 }
       pdf.setFontSize(12)
       pdf.setFont('helvetica', 'bold')
-      pdf.text('Preferences & Special Requests', margin, cursorY)
+      pdf.text(label, margin, cursorY)
+      cursorY += 8
+      if (logisticsList.length > 0) {
+        const logisticsRows = logisticsList.map((l: any) => {
+          let details = ''
+          if (l.logistics_type === 'HOTEL') {
+            details = `${l.hotel_name || '-'} (${l.room_type || '-'}), ${l.rooms || 0} room(s), ${l.nights || 0} night(s)`
+          } else if (l.logistics_type === 'CHARTER') {
+            details = `${l.from_airport || '-'} → ${l.to_airport || '-'}, ${l.seats || 0} seat(s)`
+          } else if (l.logistics_type === 'TRANSFER' || l.logistics_type === 'AIRPORT') {
+            details = `${l.from_location || '-'} → ${l.to_location || '-'}`
+            if (l.passengers_hunters || l.passengers_observers) {
+              details += ` (Hunters: ${l.passengers_hunters || 0}, Observers: ${l.passengers_observers || 0})`
+            }
+          } else {
+            details = l.description || l.notes || l.item_name || '-'
+          }
+          const dateRange = [
+            l.start_datetime ? new Date(l.start_datetime).toLocaleDateString() : '',
+            l.end_datetime ? new Date(l.end_datetime).toLocaleDateString() : ''
+          ].filter(Boolean).join(' → ') || '-'
+          return [l.logistics_type || 'OTHER', details, dateRange, fmtPdfCurrency(l.estimated_amount), l.status || '-']
+        })
+        autoTable(pdf, {
+          startY: cursorY,
+          head: [['Type', 'Details', 'Dates', 'Amount', 'Status']],
+          body: logisticsRows,
+          theme: 'grid',
+          tableWidth: pageWidth - margin * 2,
+          margin: { left: margin, right: margin },
+          styles: { fontSize: 9, overflow: 'linebreak' },
+          headStyles: { fillColor: [245, 245, 245], textColor: 50, fontStyle: 'bold' },
+          columnStyles: { 0: { cellWidth: 65 }, 1: { cellWidth: 'auto' }, 2: { cellWidth: 100 }, 3: { cellWidth: 80, halign: 'right' }, 4: { cellWidth: 60, halign: 'center' } }
+        })
+        cursorY = (pdf as any).lastAutoTable.finalY + 12
+      } else {
+        pdf.setFontSize(9); pdf.setFont('helvetica', 'normal')
+        pdf.text('No logistics added.', margin, cursorY + 6)
+        cursorY += 20
+      }
+    }
+
+    // ── Helper: render installments table for a list ──
+    const renderInstallmentsTable = (instList: any[], label: string) => {
+      if (cursorY > pdf.internal.pageSize.getHeight() - 100) { pdf.addPage(); cursorY = 40 }
+      pdf.setFontSize(12)
+      pdf.setFont('helvetica', 'bold')
+      pdf.text(label, margin, cursorY)
+      cursorY += 8
+      if (instList.length > 0) {
+        const sorted = [...instList].sort((a: any, b: any) => (a.sequenceNo || 0) - (b.sequenceNo || 0))
+        const instRows = sorted.map((inst: any) => [
+          String(inst.sequenceNo || '-'),
+          inst.name || inst.narration || `Installment ${inst.sequenceNo}`,
+          `${inst.percentage}%`,
+          fmtPdfCurrency(inst.calculatedAmount),
+          `${inst.dueDays || 0} days (${inst.dueDaysType || '-'})`,
+          inst.isDeposit ? 'Yes' : 'No'
+        ])
+        autoTable(pdf, {
+          startY: cursorY,
+          head: [['#', 'Description', 'Percentage', 'Amount', 'Due', 'Deposit']],
+          body: instRows,
+          theme: 'grid',
+          tableWidth: pageWidth - margin * 2,
+          margin: { left: margin, right: margin },
+          styles: { fontSize: 9 },
+          headStyles: { fillColor: [245, 245, 245], textColor: 50, fontStyle: 'bold' },
+          columnStyles: { 0: { cellWidth: 26, halign: 'center' }, 1: { cellWidth: 'auto' }, 2: { cellWidth: 70, halign: 'center' }, 3: { cellWidth: 90, halign: 'right' }, 4: { cellWidth: 110 }, 5: { cellWidth: 50, halign: 'center' } }
+        })
+        cursorY = (pdf as any).lastAutoTable.finalY + 12
+      } else {
+        pdf.setFontSize(9); pdf.setFont('helvetica', 'normal')
+        pdf.text('No payment plan configured.', margin, cursorY + 6)
+        cursorY += 20
+      }
+    }
+
+    // ── Helper: render preferences for a prefs object ──
+    const renderPreferencesTable = (prefs: any, label: string) => {
+      const hasPrefs = prefs.food_preferences || prefs.beverage_preferences || prefs.alcohol_preferences || (prefs.allergies && prefs.allergies.length > 0) || prefs.special_requests
+      if (!hasPrefs) return
+      if (cursorY > pdf.internal.pageSize.getHeight() - 100) { pdf.addPage(); cursorY = 40 }
+      pdf.setFontSize(12)
+      pdf.setFont('helvetica', 'bold')
+      pdf.text(label, margin, cursorY)
       cursorY += 8
       const prefRows: string[][] = []
       if (prefs.food_preferences) prefRows.push(['Food Preferences:', prefs.food_preferences])
@@ -2302,14 +2967,70 @@ const downloadPreviewPdf = async () => {
         theme: 'grid',
         tableWidth: pageWidth - margin * 2,
         styles: { fontSize: 9 },
-        headStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: 'bold' },
+        headStyles: { fillColor: [245, 245, 245], textColor: 50, fontStyle: 'bold' },
         columns: [{ header: 'Field', dataKey: 'k' }, { header: 'Details', dataKey: 'v' }],
-        columnStyles: {
-          0: { cellWidth: 140, fontStyle: 'bold' },
-          1: { cellWidth: pageWidth - margin * 2 - 140, overflow: 'linebreak' }
-        }
+        columnStyles: { 0: { cellWidth: 140, fontStyle: 'bold' }, 1: { cellWidth: pageWidth - margin * 2 - 140, overflow: 'linebreak' } }
       })
-      cursorY = (pdf as any).lastAutoTable.finalY + 16
+      cursorY = (pdf as any).lastAutoTable.finalY + 12
+    }
+
+    // ── Render Logistics / Payment / Preferences — per participant or shared ──
+    if (groupsToRender.length > 0) {
+      // Per-participant sections
+      for (let gi = 0; gi < groupsToRender.length; gi++) {
+        const group = groupsToRender[gi]
+        const entityKey = getParticipantKey(group.primary)
+        const participantName = getParticipantName(entityKey)
+        const pData = perParticipantData[entityKey]
+
+        // Page break check
+        if (cursorY > pdf.internal.pageSize.getHeight() - 80) { pdf.addPage(); cursorY = 40 }
+
+        // ── Participant Header (gray bar, same style as other section headers) ──
+        if (!isSingleParticipant) {
+          pdf.setFillColor(245, 245, 245)
+          pdf.setDrawColor(220, 220, 220)
+          pdf.roundedRect(margin, cursorY - 2, pageWidth - margin * 2, 20, 3, 3, 'FD')
+          pdf.setFontSize(11)
+          pdf.setFont('helvetica', 'bold')
+          pdf.setTextColor(50)
+          pdf.text(participantName, margin + 10, cursorY + 11)
+          pdf.setTextColor(0)
+          cursorY += 28
+        }
+
+        // Determine data sources per section (customized or shared)
+        const useCustomLogs = customizedParticipants.logistics.has(entityKey)
+        const useCustomPay = customizedParticipants.payment.has(entityKey)
+        const useCustomPrefs = customizedParticipants.preferences.has(entityKey)
+
+        const logData = useCustomLogs ? (pData?.logistics || []) : (form.logistics || [])
+        const instData = useCustomPay ? (pData?.installments || []) : (form.installments || [])
+        const prefData = useCustomPrefs ? (pData?.preferences || form.preferences) : form.preferences
+
+        // Single-participant: no need to repeat name (already in header); combined: include name
+        const logLabel = isSingleParticipant ? `Logistics (${logData.length})` : `Logistics — ${participantName} (${logData.length})`
+        const instLabel = isSingleParticipant ? `Payment Plan (${instData.length})` : `Payment Plan — ${participantName} (${instData.length})`
+        const prefLabel = isSingleParticipant ? 'Preferences & Special Requests' : `Preferences — ${participantName}`
+
+        renderLogisticsTable(logData, logLabel)
+        renderInstallmentsTable(instData, instLabel)
+        renderPreferencesTable(prefData, prefLabel)
+
+        // Separator between participants (only for combined preview)
+        if (!isSingleParticipant && gi < groupsToRender.length - 1) {
+          if (cursorY > pdf.internal.pageSize.getHeight() - 30) { pdf.addPage(); cursorY = 40 }
+          pdf.setDrawColor(200, 200, 200)
+          pdf.setLineWidth(0.3)
+          pdf.line(margin, cursorY, pageWidth - margin, cursorY)
+          cursorY += 12
+        }
+      }
+    } else {
+      // Single-order mode: original flat layout
+      renderLogisticsTable(form.logistics, `Logistics (${form.logistics.length})`)
+      renderInstallmentsTable(form.installments, `Payment Plan (${form.installments.length} installments)`)
+      renderPreferencesTable(form.preferences, 'Preferences & Special Requests')
     }
 
     // ── Remarks & Notes ──
@@ -2402,14 +3123,21 @@ const validateOrderItems = (): boolean => {
 }
 
 const submit = async () => {
+  const multiOrderCount = willCreateMultipleOrders.value ? orderGroups.value.length : 0
+  const confirmText = isEdit.value
+    ? 'Are you sure you want to update this order?'
+    : multiOrderCount > 1
+      ? `${multiOrderCount} independent participants detected. ${multiOrderCount} separate orders will be created and submitted. Continue?`
+      : 'Are you sure you want to create this order?'
+
   const confirmation = await Swal.fire({
-    title: isEdit.value ? 'Update Order?' : 'Create Order?',
-    text: isEdit.value ? 'Are you sure you want to update this order?' : 'Are you sure you want to create this order?',
+    title: isEdit.value ? 'Update Order?' : multiOrderCount > 1 ? `Create ${multiOrderCount} Orders?` : 'Create Order?',
+    text: confirmText,
     icon: 'question',
     showCancelButton: true,
     confirmButtonColor: '#3085d6',
     cancelButtonColor: '#d33',
-    confirmButtonText: isEdit.value ? 'Yes, update!' : 'Yes, create!',
+    confirmButtonText: isEdit.value ? 'Yes, update!' : multiOrderCount > 1 ? `Yes, create ${multiOrderCount} orders!` : 'Yes, create!',
   })
 
   if (!confirmation.isConfirmed) return
@@ -2556,6 +3284,169 @@ const submit = async () => {
       Swal.fire('Success!', 'Order updated successfully', 'success').then(() => {
         router.push('/orders')
       })
+    } else if (willCreateMultipleOrders.value) {
+      // ─── MULTI-ORDER SPLIT: create one order per independent participant ───
+      const groups = orderGroups.value
+      const createdOrders: Array<{ id: number; orderNumber: string; entityName: string }> = []
+      const failedOrders: Array<{ entityName: string; error: string }> = []
+
+      for (const group of groups) {
+        try {
+          // Build per-participant party list: primary + their dependents
+          const groupParties: any[] = []
+
+          // Add the independent participant as CUSTOMER
+          if (group.party) {
+            groupParties.push({
+              role: 'CUSTOMER',
+              entity_id: group.party.entity ? parseInt(group.party.entity as string) : null,
+              entity_name: group.party.entity_name || null,
+              contact_name: group.party.contact_person || group.party.contact || null,
+              contact_phone: group.party.contact_phone || null,
+              contact_email: group.party.email || group.party.contact_email || null,
+            })
+          }
+
+          // Add dependents — these are people whose costs are covered by
+          // the independent participant. They are still CUSTOMERs on this order,
+          // NOT companions (companions are independent and pay for themselves).
+          for (const dep of group.dependents) {
+            const depParty = form.parties.find(
+              (p: any) => String(p.entity) === String(dep.entity_id)
+            )
+            if (depParty) {
+              groupParties.push({
+                role: 'CUSTOMER',
+                entity_id: depParty.entity ? parseInt(depParty.entity as string) : null,
+                entity_name: depParty.entity_name || null,
+                contact_name: depParty.contact_person || depParty.contact || null,
+                contact_phone: depParty.contact_phone || null,
+                contact_email: depParty.email || depParty.contact_email || null,
+              })
+            }
+          }
+
+          // Clone the base payload but replace parties, logistics, installments, preferences
+          // with this participant's own data (or shared form data if not individually customized)
+          const entityKey = getParticipantKey(group.primary)
+          const pData = perParticipantData[entityKey]
+
+          // Determine which data source to use per section:
+          // If participant was individually customized, use their perParticipantData;
+          // otherwise, use the shared form data (user stayed on "Shared" tab)
+          const useCustomLogistics = customizedParticipants.logistics.has(entityKey)
+          const useCustomPayment = customizedParticipants.payment.has(entityKey)
+          const useCustomPreferences = customizedParticipants.preferences.has(entityKey)
+
+          const rawLogistics = useCustomLogistics ? (pData?.logistics || []) : (form.logistics || [])
+          const rawInstallments = useCustomPayment ? (pData?.installments || []) : (form.installments || [])
+          const rawPreferences = useCustomPreferences ? (pData?.preferences || form.preferences) : form.preferences
+
+          // Normalize per-participant logistics
+          const participantLogistics = rawLogistics.filter((l: any) => l.logistics_type)
+          const normalizedParticipantLogistics = participantLogistics.map((log: any) => {
+            const l = { ...log }
+            l.rooms = Number(l.rooms) >= 1 ? Number(l.rooms) : 1
+            l.nights = Number(l.nights) >= 1 ? Number(l.nights) : 1
+            return {
+              logistics_type: l.logistics_type,
+              hotel_name: l.hotel_name || null,
+              location: l.location || null,
+              check_in_date: l.start_datetime || l.check_in_date || null,
+              check_out_date: l.end_datetime || l.check_out_date || null,
+              start_datetime: l.start_datetime ? (l.start_datetime.length === 10 ? l.start_datetime + ' 00:00:00' : l.start_datetime) : null,
+              end_datetime: l.end_datetime ? (l.end_datetime.length === 10 ? l.end_datetime + ' 00:00:00' : l.end_datetime) : null,
+              nights: Number(l.nights) >= 1 ? Number(l.nights) : 1,
+              rooms: Number(l.rooms) >= 1 ? Number(l.rooms) : 1,
+              from_airport: l.from_airport || null,
+              to_airport: l.to_airport || null,
+              flight_date: l.flight_date || null,
+              seats: l.seats || 0,
+              from_location: l.from_location || null,
+              to_location: l.to_location || null,
+              transfer_date: l.transfer_date || null,
+              vehicle_type: l.vehicle_type || null,
+              estimated_amount: l.estimated_amount || 0,
+              status: l.status || 'PLANNED',
+              notes: l.description || l.notes || null
+            }
+          })
+
+          // Per-participant installments
+          const participantInstallments = (rawInstallments || []).map((inst: any) => ({
+            sequence_no: inst.sequenceNo,
+            percentage: inst.percentage,
+            amount_due: inst.calculatedAmount || Math.round(((inst.percentage || 0) / 100 * orderGrandTotal.value) * 100) / 100,
+            amount_due_type: 'PERCENTAGE',
+            due_days: inst.dueDays,
+            due_days_type: inst.dueDaysType,
+            is_deposit: inst.isDeposit ? 1 : 0,
+            currency_id: form.currency ? parseInt(form.currency as string) : null,
+            name: inst.name || inst.narration || `Installment ${inst.sequenceNo}`,
+            narration: inst.narration || inst.name || `Installment ${inst.sequenceNo}`,
+          }))
+
+          // Per-participant preferences
+          const participantPreferences = rawPreferences
+
+          const groupPayload = {
+            ...payload,
+            // Set top-level entity info so backend stores it on the order itself
+            entity_id: group.party?.entity ? parseInt(group.party.entity as string) : null,
+            entity_name: group.party?.entity_name || 'Unknown',
+            parties: groupParties,
+            logistics: normalizedParticipantLogistics,
+            installments: participantInstallments,
+            preferences: participantPreferences,
+          }
+
+          const createResp = await orderStore.createOrder(groupPayload)
+          const newId = createResp.data.data?.id || createResp.data?.id
+          const orderNum = createResp.data.data?.order_number || createResp.data?.order_number || `#${newId}`
+          const entityName = group.party?.entity_name || 'Unknown'
+
+          // Auto-submit
+          if (newId) {
+            try {
+              await orderStore.submitOrder(newId)
+            } catch (submitErr) {
+              // Creation succeeded, submit failed — still track as created
+            }
+          }
+
+          createdOrders.push({ id: newId, orderNumber: orderNum, entityName })
+        } catch (err: any) {
+          failedOrders.push({
+            entityName: group.party?.entity_name || 'Unknown',
+            error: err?.response?.data?.message || err.message || 'Unknown error',
+          })
+        }
+      }
+
+      // Refresh orders list
+      await orderStore.listOrders()
+
+      // Show summary
+      if (failedOrders.length === 0) {
+        const orderList = createdOrders
+          .map(o => `<li><strong>${o.orderNumber}</strong> — ${o.entityName}</li>`)
+          .join('')
+        Swal.fire({
+          title: `${createdOrders.length} Orders Created!`,
+          html: `<p>Separate orders were created and submitted for each independent participant:</p><ul style="text-align:left;">${orderList}</ul>`,
+          icon: 'success',
+        }).then(() => router.push('/orders'))
+      } else if (createdOrders.length > 0) {
+        const okList = createdOrders.map(o => `<li>✅ ${o.orderNumber} — ${o.entityName}</li>`).join('')
+        const failList = failedOrders.map(f => `<li>❌ ${f.entityName}: ${f.error}</li>`).join('')
+        Swal.fire({
+          title: 'Partial Success',
+          html: `<ul style="text-align:left;">${okList}${failList}</ul>`,
+          icon: 'warning',
+        }).then(() => router.push('/orders'))
+      } else {
+        Swal.fire('Error', 'All order creations failed. Please try again.', 'error')
+      }
     } else {
       const createResponse = await orderStore.createOrder(payload)
       const newOrderId = createResponse.data.data?.id || createResponse.data?.id
@@ -2621,6 +3512,16 @@ const resetForm = () => {
   form.logistics = []
   form.preferences = { food_preferences: '', beverage_preferences: '', allergies: [], alcohol_preferences: '', special_requests: '' }
   form.installments = []
+  enquiryParticipantsRaw.value = []
+  // Clear per-participant data
+  Object.keys(perParticipantData).forEach(k => delete perParticipantData[k])
+  activeParticipantTab.logistics = 'shared'
+  activeParticipantTab.payment = 'shared'
+  activeParticipantTab.preferences = 'shared'
+  // Reset customization tracking
+  customizedParticipants.logistics.clear()
+  customizedParticipants.payment.clear()
+  customizedParticipants.preferences.clear()
   toast.info('Form reset')
 }
 
@@ -2828,6 +3729,84 @@ watch(
           }
         })
         
+        // ===== MERGE ENQUIRY PARTICIPANTS AS ADDITIONAL PARTIES =====
+        // The pricing parties only return the client-level party (e.g. CUSTOMER).
+        // The enquiry may have additional named participants (hunters) that should
+        // also appear as order parties with the same CUSTOMER role.
+        if (form.enquiryId) {
+          try {
+            const baseUrl = (import.meta.env.VITE_APP_BASE_URL || '').replace(/\/+$/, '')
+            const token = localStorage.getItem('token')
+            const authHeaders: Record<string, string> = {
+              'Content-Type': 'application/json',
+              ...(token ? { Authorization: `Bearer ${token}` } : {})
+            }
+
+            // Step 1: Fetch enquiry participants to get entity_ids
+            const enquiryResp = await fetch(
+              `${baseUrl}/sales/sales-inquiries/${form.enquiryId}`,
+              { headers: authHeaders }
+            )
+            if (enquiryResp.ok) {
+              const enquiryJson = await enquiryResp.json()
+              const enquiryData = enquiryJson?.data || enquiryJson
+              const enquiryParticipants = enquiryData?.participants || []
+              
+              // Store raw participant data for order-split logic
+              enquiryParticipantsRaw.value = enquiryParticipants
+              
+              // Collect entity_ids already present in order parties to avoid duplicates
+              const existingEntityIds = new Set(
+                form.parties
+                  .filter((p: any) => p.entity)
+                  .map((p: any) => String(p.entity))
+              )
+              
+              // Step 2: For each participant not already in parties, fetch entity name by ID
+              for (const participant of enquiryParticipants) {
+                const entityId = participant.entity_id
+                if (!entityId) continue
+                if (existingEntityIds.has(String(entityId))) continue
+                
+                // Try to resolve entity name from the participant data first
+                let entityName = participant.entity?.full_name
+                  || participant.entity?.name
+                  || participant.entity_name
+                  || participant.name
+                  || ''
+                
+                // If no name resolved, fetch entity directly by ID
+                if (!entityName) {
+                  try {
+                    const entResp = await fetch(`${baseUrl}/entities/${entityId}`, { headers: authHeaders })
+                    if (entResp.ok) {
+                      const entJson = await entResp.json()
+                      const entData = entJson?.data || entJson
+                      entityName = entData?.full_name || entData?.name || ''
+                    }
+                  } catch (e) {
+                    console.warn(`Could not fetch entity ${entityId}:`, e)
+                  }
+                }
+                
+                form.parties.push({
+                  role: 'CUSTOMER',
+                  entity: entityId.toString(),
+                  entity_name: entityName,
+                  contact_person: participant.contact_name || '',
+                  contact_phone: participant.contact_phone || '',
+                  email: participant.contact_email || ''
+                })
+                
+                existingEntityIds.add(String(entityId))
+              }
+            }
+          } catch (err) {
+            // Silently fail — order parties from pricing are still populated
+            console.warn('Could not fetch enquiry participants for party merge:', err)
+          }
+        }
+        
         // ===== AUTO-POPULATE LOGISTICS & PARTICIPANTS =====
         // Use the new smart endpoint that extracts all data from quotation
         
@@ -2993,6 +3972,12 @@ onMounted(() => {
 
   loadDropdownData()
   loadExistingOrder()
+
+  // Pre-fill enquiry from query params (e.g. from pipeline)
+  const queryEnquiryId = route.query.enquiry_id as string
+  if (queryEnquiryId && !isEdit.value) {
+    form.enquiryId = queryEnquiryId
+  }
   
   // Load payment data if editing existing order
   if (isEdit.value) {

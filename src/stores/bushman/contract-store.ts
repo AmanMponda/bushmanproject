@@ -16,6 +16,7 @@ interface ContractState {
   partyRoles: any[]
   billingScheduleTypes: any[]
   renewalTerms: any[]
+  versions: any[]
   loading: boolean
   error: string | null
   filters: {
@@ -38,6 +39,7 @@ export const useContractStore = defineStore('contract', {
     partyRoles: [] as any[],
     billingScheduleTypes: [] as any[],
     renewalTerms: [] as any[],
+    versions: [] as any[],
     loading: false,
     error: null as string | null,
     filters: {
@@ -192,9 +194,27 @@ export const useContractStore = defineStore('contract', {
       this.error = null
       try {
         const response: any = await axios.get(`${CONTRACTS_BASE()}/${contractId}/versions`)
+        this.versions = response.data?.data || response.data || []
         return response
       } catch (err: any) {
         this.error = err?.response?.data?.message || 'Error loading contract versions'
+        throw err
+      } finally {
+        this.loading = false
+      }
+    },
+
+    async signVersion(contractId: number, versionId: number): Promise<any> {
+      this.loading = true
+      this.error = null
+      try {
+        // Dedicated POST /sign endpoint — backend sets status=SIGNED + signed_at=now
+        const response: any = await axios.post(
+          `${CONTRACTS_BASE()}/${contractId}/versions/${versionId}/sign`
+        )
+        return response
+      } catch (err: any) {
+        this.error = err?.response?.data?.message || 'Error signing contract version'
         throw err
       } finally {
         this.loading = false
@@ -219,7 +239,18 @@ export const useContractStore = defineStore('contract', {
       this.loading = true
       this.error = null
       try {
-        const response: any = await axios.put(`${CONTRACTS_BASE()}/${contractId}/versions/${versionId}`, payload)
+        const url = `${CONTRACTS_BASE()}/${contractId}/versions/${versionId}`
+
+        // Backend accepts PUT with multipart/form-data for file uploads
+        if (payload instanceof FormData) {
+          const response: any = await axios.put(url, payload, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+          })
+          return response
+        }
+
+        // JSON payload (e.g. status update without file)
+        const response: any = await axios.put(url, payload)
         return response
       } catch (err: any) {
         this.error = err?.response?.data?.message || 'Error updating contract version'
@@ -244,7 +275,26 @@ export const useContractStore = defineStore('contract', {
     },
 
     async downloadVersionFile(contractId: number, versionId: number) {
-      return axios.get(`${CONTRACTS_BASE()}/${contractId}/versions/${versionId}/download`, { responseType: 'blob' })
+      // Backend returns either a file blob OR a JSON with base64 PDF
+      // First try as JSON to handle the base64 fallback case
+      try {
+        const response: any = await axios.get(
+          `${CONTRACTS_BASE()}/${contractId}/versions/${versionId}/download`
+        )
+        // If response has .pdf field, it's the base64 fallback
+        if (response.data?.pdf) {
+          return { type: 'base64', data: response.data }
+        }
+        // Otherwise it's a blob/file — shouldn't reach here with default responseType
+        return { type: 'blob', data: response.data }
+      } catch {
+        // Fallback: try as blob (for actual file downloads)
+        const response: any = await axios.get(
+          `${CONTRACTS_BASE()}/${contractId}/versions/${versionId}/download`,
+          { responseType: 'blob' }
+        )
+        return { type: 'blob', data: response.data }
+      }
     },
 
 

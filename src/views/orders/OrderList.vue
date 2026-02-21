@@ -216,6 +216,8 @@ const getCustomerName = (order: any) => {
       if (customer.contact_name) {
         return customer.contact_name
       }
+      // Party exists but has no entity — show Unknown
+      return 'Unknown'
     }
   }
   
@@ -224,7 +226,7 @@ const getCustomerName = (order: any) => {
     return order.entity.full_name
   }
   
-  return 'N/A'
+  return 'Unknown'
 }
 
 const calculateTotalAmount = (order: any): number => {
@@ -334,6 +336,10 @@ const confirmDelete = (row: any) => {
 
 // Lifecycle
 onMounted(async () => {
+  // Clear stale data immediately so old results don't flash before fresh fetch
+  orderStore.orders = []
+  orderStore.loading = true
+
   await Promise.all([
     orderStore.fetchOrderTypes(),
     orderStore.fetchOrderStatuses()

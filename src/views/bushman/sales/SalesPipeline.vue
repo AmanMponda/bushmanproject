@@ -409,39 +409,63 @@ const loadSeasons = async () => {
 }
 
 const handleCardClick = (item: any) => {
-  if (item.type === 'proposal') {
-    handleViewProposal(item)
-  }
+  handleViewItem(item)
 }
 
-const handleViewProposal = async (item: any) => {
+const handleViewItem = async (item: any) => {
   try {
-    const proposalId = item.proposal_id || item.confirmation_id || item.id
-    if (proposalId) {
-      const type = item.type === 'inquiry' ? 'inquiry' : 'proposal'
+    const stage = (item.stage || '').toLowerCase()
+    const isOrderStage = ['confirmed', 'completed', 'fulfilled'].includes(stage)
+    const orderId = item.order_id || item.proposal_id || item.confirmation_id
+
+    if (isOrderStage && orderId) {
+      // Confirmed/Completed/Fulfilled → order overview
       router.push({
-        name: 'pipeline-item-view',
-        params: { id: proposalId.toString() },
-        query: { type },
+        name: 'orders-view',
+        params: { id: orderId.toString() },
+      })
+    } else if (item.type === 'inquiry' || stage === 'new' || stage === 'pending' || stage === 'provision_sales') {
+      // Inquiry/Quotation/Provision stages → enquiry overview (SalesInquiries detail view)
+      // Use sessionStorage so SalesInquiries.vue auto-opens the detail view with breadcrumb/header
+      sessionStorage.setItem('openEnquiryId', item.id.toString())
+      router.push({ name: 'sales-inquiry' })
+    } else if (orderId) {
+      // Fallback: try as order overview
+      router.push({
+        name: 'orders-view',
+        params: { id: orderId.toString() },
       })
     } else {
       toast?.init({
-        message: 'No quotation found for this item',
+        message: 'No details found for this item',
         color: 'warning',
       })
     }
   } catch (error) {
     toast?.init({
-      message: 'Failed to load quotation details',
+      message: 'Failed to load item details',
       color: 'danger',
     })
   }
 }
 
+// Alias kept for template compatibility
+const handleViewProposal = handleViewItem
+
 const handleEditProposal = async (item: any) => {
-  const proposalId = item.proposal_id || item.confirmation_id
-  if (proposalId) {
-    await fetchProposalById(proposalId)
+  const stage = (item.stage || '').toLowerCase()
+  const isOrderStage = ['confirmed', 'completed', 'fulfilled'].includes(stage)
+  const orderId = item.order_id || item.proposal_id || item.confirmation_id
+
+  if ((isOrderStage || item.order_id) && orderId) {
+    // Edit order
+    router.push({
+      name: 'orders-edit',
+      params: { id: orderId.toString() },
+    })
+  } else if (item.proposal_id || item.confirmation_id) {
+    const legacyId = item.proposal_id || item.confirmation_id
+    await fetchProposalById(legacyId)
     editingProposal.value = currentProposal.value
     isEditMode.value = true
     preselectedInquiry.value = null
@@ -450,10 +474,24 @@ const handleEditProposal = async (item: any) => {
 }
 
 const handleCreateProposal = (inquiry: any) => {
-  editingProposal.value = null
-  isEditMode.value = false
-  preselectedInquiry.value = inquiry
-  showFormModal.value = true
+  const stage = (inquiry.stage || '').toLowerCase()
+
+  if (stage === 'provision_sales') {
+    // Provision sales → Navigate to Create Order form with enquiry context
+    router.push({
+      name: 'orders-create',
+      query: {
+        enquiry_id: inquiry.id?.toString(),
+        from_pipeline: 'true',
+      },
+    })
+  } else {
+    // New inquiry → navigate to the Create Quotation page inside the enquiry
+    router.push({
+      name: 'create-quotation',
+      params: { id: inquiry.id?.toString() },
+    })
+  }
 }
 
 const handleSaveProposal = async (data: any) => {

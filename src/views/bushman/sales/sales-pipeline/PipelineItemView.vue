@@ -47,10 +47,10 @@
                     }}
                     <span
                       v-if="proposal.stage || proposal.status"
-                      :class="getStatusBadgeClass(proposal.stage || proposal.status)"
+                      :class="getStatusBadgeClass(proposal.stage || proposal.status || '')"
                       class="badge ms-2"
                     >
-                      {{ formatStatus(proposal.stage || proposal.status) }}
+                      {{ formatStatus(proposal.stage || proposal.status || '') }}
                     </span>
                   </small>
                 </div>
@@ -106,14 +106,27 @@
                 <button class="btn btn-outline-secondary text-nowrap btn-sm px-3 rounded-pill" @click="goBack">
                   <i class="fa fa-arrow-left me-1"></i> Back
                 </button>
-                <button class="btn btn-primary text-nowrap btn-sm px-3 rounded-pill" @click="handleCreateProposal">
+                <!-- New inquiry without pricing → Create Quotation -->
+                <button
+                  v-if="!inquiryHasExistingPricing"
+                  class="btn btn-primary text-nowrap btn-sm px-3 rounded-pill"
+                  @click="handleCreateProposal"
+                >
                   <i class="fa fa-plus me-1"></i> Create Quotation
+                </button>
+                <!-- Locked pricing → Create Confirmation (order) -->
+                <button
+                  v-if="inquiryHasLockedPricing && !inquiry?.proposal_id"
+                  class="btn btn-success text-nowrap btn-sm px-3 rounded-pill"
+                  @click="handleCreateProposal"
+                >
+                  <i class="fa fa-check-circle me-1"></i> Create Confirmation
                 </button>
               </div>
             </div>
 
             <!-- Content -->
-            <SalesInquiryDetails :item="inquiry" @goBack="goBack" />
+            <SalesInquiryDetails :item="inquiry as any" @goBack="goBack" />
           </template>
         </div>
       </div>
@@ -187,22 +200,38 @@ interface Proposal {
   }
 }
 
-interface Inquiry {
-  id?: number
-  code?: string
+interface SalesEnquiry {
+  id: number
+  code: string
   inquiry_type?: string
+  date: string
+  status: string
+  entity_id?: number
+  user_id?: number
   entity?: {
     full_name?: string
   }
   client?: {
-    full_name?: string
+    full_name: string
+    country: string
   }
   season?: {
     name?: string
   }
   hunting_details?: {
-    season?: string
+    areas: string
+    species: string
+    no_of_days: number
+    season: string
+    no_of_hunters: number
   }
+  created_at?: string
+  updated_at?: string
+  [key: string]: any
+}
+
+interface Inquiry extends SalesEnquiry {
+  status: string // Override to accept string type for status
 }
 
 // Router & utilities
@@ -224,6 +253,29 @@ const preselectedInquiry = ref<Inquiry | null>(null)
 const proposalStore = useProposalStore()
 const currentProposal = computed(() => proposalStore.currentProposal)
 const { fetchProposalById, fetchPipeline, updateProposalStatus, createProposal, updateProposal } = proposalStore
+
+// Check if the inquiry already has a quotation/pricing (locked or otherwise)
+const inquiryHasExistingPricing = computed(() => {
+  const item = inquiry.value as any
+  if (!item) return false
+  if (item.pricings && Array.isArray(item.pricings) && item.pricings.length > 0) return true
+  if (item.has_pricing || item.has_quotation || item.has_proposal) return true
+  if (item.pricing_count > 0) return true
+  if (item.proposal_id) return true
+  return false
+})
+
+// Check if the inquiry has a LOCKED pricing (ready for confirmation / order creation)
+const inquiryHasLockedPricing = computed(() => {
+  const item = inquiry.value as any
+  if (!item) return false
+  if (item.pricings && Array.isArray(item.pricings)) {
+    return item.pricings.some((p: any) => (p.status || '').toUpperCase() === 'LOCKED')
+  }
+  // Fallback: if stage indicates provision_sales, it has locked pricing
+  const stage = (item.stage || '').toLowerCase()
+  return stage === 'provision_sales'
+})
 
 // Methods
 const loadItem = async () => {
@@ -247,10 +299,14 @@ const loadItem = async () => {
     if (type === 'inquiry') {
       // Fetch inquiry details
       try {
-        const url = `${import.meta.env.VITE_APP_BASE_URL}sales/sales-inquiries/${itemId}/`
+        const url = `${import.meta.env.VITE_APP_BASE_URL}sales-enquiries/${itemId}`
         const response = await axios.get(url)
         if (response.data) {
-          inquiry.value = response.data.data || response.data
+          const inquiryData = response.data.data || response.data
+          inquiry.value = {
+            ...inquiryData,
+            status: inquiryData.status || 'pending',
+          }
         } else {
           error.value = 'Inquiry not found'
         }
@@ -432,10 +488,22 @@ const handleEdit = () => {
 }
 
 const handleCreateProposal = () => {
-  editingProposal.value = null
-  isEditMode.value = false
-  preselectedInquiry.value = inquiry.value
-  showFormModal.value = true
+  if (inquiryHasLockedPricing.value) {
+    // Locked pricing → Navigate to Create Order form (this becomes a sales confirmation when approved)
+    router.push({
+      name: 'orders-create',
+      query: {
+        enquiry_id: inquiry.value?.id?.toString(),
+        from_pipeline: 'true',
+      },
+    })
+  } else {
+    // Early stage → open ProposalForm modal
+    editingProposal.value = null
+    isEditMode.value = false
+    preselectedInquiry.value = inquiry.value
+    showFormModal.value = true
+  }
 }
 
 const handleStatusChange = async (data: { id: number; status: string }) => {

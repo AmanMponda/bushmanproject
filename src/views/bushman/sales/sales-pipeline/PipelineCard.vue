@@ -2,7 +2,7 @@
   <div class="pipeline-card" @click="$emit('click', item)">
     <div class="card-header-section">
       <div class="card-type-badge" :class="getTypeBadgeClass">
-        {{ item.type === 'inquiry' ? 'Inquiry' : 'Quotation' }}
+        {{ typeBadgeLabel }}
       </div>
       <div class="card-status-badge" :class="getStatusBadgeClass">
         {{ formatStatus(item.stage || item.status) }}
@@ -27,28 +27,39 @@
     </div>
 
     <div class="card-footer-section">
-      <div v-if="item.pricing?.total_amount" class="card-amount">
-        <strong>{{ formatCurrency(item.pricing.total_amount) }}</strong>
+      <div v-if="item.total_amount || item.pricing?.total_amount" class="card-amount">
+        <strong>{{ formatCurrency(item.total_amount || item.pricing?.total_amount) }}</strong>
       </div>
       <div class="card-actions">
+        <!-- New inquiry without pricing → Create Quotation (+) -->
         <button
-          v-if="item.type === 'inquiry' && !item.proposal_id"
+          v-if="isNewInquiry"
           class="btn btn-sm btn-outline-primary"
           @click.stop="$emit('createProposal', item)"
           title="Create Quotation"
         >
           <i class="fa fa-plus"></i>
         </button>
+        <!-- Provision sales without order → Create Order -->
         <button
-          v-if="item.proposal_id || item.confirmation_id || item.type === 'proposal'"
+          v-if="isProvisionSales && !item.order_id && !item.proposal_id && !item.confirmation_id"
+          class="btn btn-sm btn-outline-success"
+          @click.stop="$emit('createProposal', item)"
+          title="Create Order"
+        >
+          <i class="fa fa-check-circle"></i>
+        </button>
+        <!-- View details  -->
+        <button
           class="btn btn-sm btn-outline-secondary"
           @click.stop="$emit('view', item)"
           title="View Details"
         >
           <i class="fa fa-eye"></i>
         </button>
+        <!-- Edit (only for items with an order/proposal, NOT for confirmed/completed) -->
         <button
-          v-if="item.proposal_id || item.confirmation_id"
+          v-if="(item.order_id || item.proposal_id || item.confirmation_id) && !isConfirmedOrCompleted"
           class="btn btn-sm btn-outline-warning"
           @click.stop="$emit('edit', item)"
           title="Edit"
@@ -78,8 +89,15 @@ interface PipelineItem {
   season?: { name?: string }
   hunting_details?: { season?: string }
   pricing?: { total_amount?: number }
+  total_amount?: number
+  pricings?: Array<{ status?: string; total_amount?: number }>
+  pricing_count?: number
+  has_pricing?: boolean
   proposal_id?: number
   confirmation_id?: number
+  order_id?: number
+  order_number?: string
+  order_status?: string
 }
 
 const props = defineProps<{
@@ -94,7 +112,51 @@ defineEmits<{
 }>()
 
 const getTypeBadgeClass = computed(() => {
+  const stage = (props.item.stage || '').toLowerCase()
+  if (stage === 'provision_sales' || stage === 'confirmed') return 'badge-confirmed'
+  if (stage === 'completed') return 'badge-completed'
+  if (stage === 'pending') return 'badge-quotation'
+  if (stage === 'cancelled') return 'badge-cancelled'
   return props.item.type === 'inquiry' ? 'badge-inquiry' : 'badge-quotation'
+})
+
+const typeBadgeLabel = computed(() => {
+  const stage = (props.item.stage || '').toLowerCase()
+  if (stage === 'provision_sales') return 'Ready for Order'
+  if (stage === 'confirmed' || stage === 'approved') return 'Sales Confirmation'
+  if (stage === 'completed' || stage === 'fulfilled') return 'Completed'
+  if (stage === 'cancelled') return 'Cancelled'
+  if (stage === 'pending' || stage === 'submitted') return 'Quotation'
+  if (props.item.type === 'inquiry') return 'Inquiry'
+  return 'Order'
+})
+
+const isNewInquiry = computed(() => {
+  const stage = (props.item.stage || '').toLowerCase()
+  return (props.item.type === 'inquiry' && (stage === 'new' || stage === '')) && !hasExistingPricing.value
+})
+
+const isProvisionSales = computed(() => {
+  const stage = (props.item.stage || '').toLowerCase()
+  return stage === 'provision_sales'
+})
+
+const isConfirmedOrCompleted = computed(() => {
+  const stage = (props.item.stage || '').toLowerCase()
+  return ['confirmed', 'completed', 'fulfilled', 'approved'].includes(stage)
+})
+
+// Check if this inquiry already has a pricing/quotation (locked or otherwise)
+const hasExistingPricing = computed(() => {
+  const item = props.item as any
+  // Check various indicators that a quotation already exists
+  if (item.has_pricing || item.has_quotation || item.has_proposal) return true
+  if (item.pricings && Array.isArray(item.pricings) && item.pricings.length > 0) return true
+  if (item.pricing_count > 0) return true
+  // If the stage indicates it's past the inquiry phase, quotation already exists
+  const stage = (item.stage || item.status || '').toLowerCase()
+  if (['pending', 'provision_sales', 'confirmed', 'completed', 'locked'].includes(stage)) return true
+  return false
 })
 
 const getStatusBadgeClass = computed(() => {
@@ -180,6 +242,21 @@ const formatCurrency = (amount: number | undefined): string => {
 .badge-success {
   background: #dcfce7;
   color: #15803d;
+}
+
+.badge-confirmed {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.badge-completed {
+  background: #dcfce7;
+  color: #14532d;
+}
+
+.badge-cancelled {
+  background: #fee2e2;
+  color: #991b1b;
 }
 
 .badge-warning {

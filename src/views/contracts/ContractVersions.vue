@@ -185,15 +185,29 @@ const downloadVersionFile = async (version: any) => {
 			}
 			return
 		}
-		const resp = await store.downloadVersionFile(Number(props.contractId), Number(version.id))
-		const blob = resp.data || resp
-		const url = window.URL.createObjectURL(blob)
-		const a = document.createElement('a')
-		a.href = url
+		const result = await store.downloadVersionFile(Number(props.contractId), Number(version.id))
 		const filename = version.filePath ? version.filePath.split('/').pop() : `contract_v${version.versionNo}.pdf`
-		a.download = filename
-		a.click()
-		window.URL.revokeObjectURL(url)
+
+		if (result.type === 'base64' && result.data?.pdf) {
+			const byteChars = atob(result.data.pdf)
+			const byteNums = new Array(byteChars.length)
+			for (let i = 0; i < byteChars.length; i++) byteNums[i] = byteChars.charCodeAt(i)
+			const blob = new Blob([new Uint8Array(byteNums)], { type: 'application/pdf' })
+			const url = window.URL.createObjectURL(blob)
+			const a = document.createElement('a')
+			a.href = url
+			a.download = filename
+			a.click()
+			window.URL.revokeObjectURL(url)
+		} else {
+			const blob = result.data instanceof Blob ? result.data : new Blob([result.data])
+			const url = window.URL.createObjectURL(blob)
+			const a = document.createElement('a')
+			a.href = url
+			a.download = filename
+			a.click()
+			window.URL.revokeObjectURL(url)
+		}
 	} catch (error: any) {
 		console.error('Download failed', error)
 		init({ message: 'Download failed', color: 'danger' })

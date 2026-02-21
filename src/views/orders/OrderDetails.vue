@@ -13,7 +13,7 @@
           <div style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end;">
             <button @click="previewOrderPdf" :disabled="downloadingPdf" class="btn btn-outline-primary btn-sm">
               <span v-if="downloadingPdf" class="spinner-border spinner-border-sm me-1"></span>
-              <i v-else class="fa fa-file-pdf me-1"></i> 
+              <i v-else class="fa fa-file-pdf me-1"></i>
               {{ downloadingPdf ? 'Downloading...' : 'Download PDF' }}
             </button>
             <button v-if="order.status !== 'APPROVED'" @click="editOrder" class="btn btn-outline-success btn-sm">
@@ -31,24 +31,17 @@
 
       <!-- Tab Navigation -->
       <div class="tab-navigation">
-        <button 
-          :class="['tab-btn', 'tab-first', { active: activeTab === 'overview' }]"
-          @click="activeTab = 'overview'"
-        >
+        <button :class="['tab-btn', 'tab-first', { active: activeTab === 'overview' }]" @click="activeTab = 'overview'">
           <i class="fa fa-info-circle me-1"></i>
           <span>Overview</span>
         </button>
-        <button 
-          :class="['tab-btn', 'tab-middle', { active: activeTab === 'payments' }]"
-          @click="activeTab = 'payments'"
-        >
+        <button :class="['tab-btn', 'tab-middle', { active: activeTab === 'payments' }]"
+          @click="activeTab = 'payments'">
           <i class="fa fa-credit-card me-1"></i>
           <span>Payments</span>
         </button>
-        <button 
-          :class="['tab-btn', 'tab-last', { active: activeTab === 'logistics' }]"
-          @click="activeTab = 'logistics'"
-        >
+        <button :class="['tab-btn', 'tab-last', { active: activeTab === 'logistics' }]"
+          @click="activeTab = 'logistics'">
           <i class="fa fa-truck me-1"></i>
           <span>Logistics</span>
         </button>
@@ -56,450 +49,444 @@
 
       <!-- TAB CONTENT INSIDE CARD -->
       <div class="tab-content p-4" v-if="order && !loading && !error">
-      <!-- OVERVIEW TAB -->
-      <div id="overview" class="tab-pane fade" :class="{ 'show active': activeTab === 'overview' }" style="margin-bottom: 20px;">
-        <!-- Key Information -->
-        <div class="row g-4 mb-5">
-          <div class="col-md-4">
-            <div style="text-align: center;">
-              <i class="fa fa-receipt fa-lg text-primary mb-2"></i>
-              <div class="h5 mb-1">{{ order.order_number || 'N/A' }}</div>
-              <small class="text-muted">Order Number</small>
-            </div>
-          </div>
-          <div class="col-md-4">
-            <div style="text-align: center;">
-              <i class="fa fa-calendar fa-lg text-warning mb-2"></i>
-              <div class="h5 mb-1">{{ formatDate(order.date || order.order_date || order.orderDate || order.created_at) }}</div>
-              <small class="text-muted">Order Date</small>
-            </div>
-          </div>
-          <div class="col-md-4">
-            <div style="text-align: center;">
-              <i class="fa fa-tag text-info mb-2" style="font-size: 1.2rem;"></i>
-              <div><span :class="getStatusBadge(order.status)" class="badge" style="font-size: 0.7rem; padding: 0.25rem 0.5rem;">{{ order.status }}</span></div>
-              <small class="text-muted d-block mt-2">Status</small>
-            </div>
-          </div>
-        </div>
+        <!-- OVERVIEW TAB -->
+        <div id="overview" class="tab-pane fade" :class="{ 'show active': activeTab === 'overview' }"
+          style="margin-bottom: 20px;">
+          <!-- Order Information -->
+          <div class="mb-5">
+            <h5 class="mb-3" style="border-bottom: 2px solid #e9ecef; padding-bottom: 10px; font-weight: 600;">
+              <i class="fa fa-info-circle me-2 text-primary"></i>Order Information
+            </h5>
 
-        <!-- Financial Summary -->
-        <div class="mb-5">
-          <h5 class="mb-3" style="border-bottom: 2px solid #e9ecef; padding-bottom: 10px; font-weight: 600;">
-            <i class="fa fa-calculator me-2 text-success"></i>Financial Summary
-          </h5>
-          <div class="row g-4">
-            <div class="col-md-3">
-              <div class="summary-card">
-                <small class="text-muted d-block mb-1">Subtotal</small>
-                <strong class="h5 mb-0">{{ formatCurrency(orderFinancial.subtotal) }}</strong>
-              </div>
-            </div>
-            <div class="col-md-3">
-              <div class="summary-card">
-                <small class="text-muted d-block mb-1">Logistics</small>
-                <strong class="h5 mb-0">{{ formatCurrency(orderFinancial.logisticsTotal) }}</strong>
-              </div>
-            </div>
-            <div class="col-md-3">
-              <div class="summary-card">
-                <small class="text-muted d-block mb-1">VAT + Expense</small>
-                <strong class="h5 mb-0">{{ formatCurrency(orderFinancial.vat + orderFinancial.expenseIncluded) }}</strong>
-              </div>
-            </div>
-            <div class="col-md-3">
-              <div class="summary-card summary-card-highlight">
-                <small class="text-muted d-block mb-1">Grand Total</small>
-                <strong class="h5 mb-0 text-success">{{ formatCurrency(orderFinancial.grandTotal) }}</strong>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Logistics Summary (compact) -->
-        <div v-if="logisticsTimeline.length > 0" class="mb-5">
-          <div style="display: flex; align-items: center; gap: 16px; padding: 12px 16px; background: #f0f9ff; border-radius: 6px; border-left: 4px solid #2563eb;">
-            <i class="fa fa-truck text-primary" style="font-size: 18px;"></i>
-            <div style="display: flex; gap: 24px; flex-wrap: wrap; font-size: 13px;">
-              <span><strong>{{ logisticsTimeline.length }}</strong> logistics item(s)</span>
-              <span>Total: <strong class="text-primary">{{ logisticsSummary.totalCost }}</strong></span>
-              <span class="text-success"><strong>{{ logisticsSummary.booked }}</strong> booked</span>
-              <span class="text-warning"><strong>{{ logisticsSummary.pending }}</strong> pending</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Installment Snapshot -->
-        <div v-if="installmentSnapshot.count > 0" class="mb-5">
-          <h5 class="mb-3" style="border-bottom: 2px solid #e9ecef; padding-bottom: 10px; font-weight: 600;">
-            <i class="fa fa-calendar-check me-2 text-info"></i>Installment Snapshot
-          </h5>
-          <div class="row g-4">
-            <div class="col-md-3">
-              <div class="summary-card">
-                <small class="text-muted d-block mb-1">Total Installments</small>
-                <strong class="h5 mb-0">{{ installmentSnapshot.count }}</strong>
-              </div>
-            </div>
-            <div class="col-md-3">
-              <div class="summary-card">
-                <small class="text-muted d-block mb-1">Pending</small>
-                <strong class="h5 mb-0 text-warning">{{ installmentSnapshot.pendingCount }}</strong>
-              </div>
-            </div>
-            <div class="col-md-3">
-              <div class="summary-card">
-                <small class="text-muted d-block mb-1">Next Due</small>
-                <strong class="h5 mb-0">{{ installmentSnapshot.nextDueDate ? formatDate(installmentSnapshot.nextDueDate) : 'None' }}</strong>
-                <div v-if="installmentSnapshot.nextAmount" style="font-size: 12px; color: #64748b;">{{ formatCurrency(installmentSnapshot.nextAmount) }}</div>
-              </div>
-            </div>
-            <div class="col-md-3">
-              <div class="summary-card summary-card-highlight">
-                <small class="text-muted d-block mb-1">Total Paid</small>
-                <strong class="h5 mb-0 text-success">{{ formatCurrency(installmentSnapshot.totalPaid) }}</strong>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Order Information & Parties Combined -->
-        <div class="mb-5">
-          <h5 class="mb-3" style="border-bottom: 2px solid #e9ecef; padding-bottom: 10px; font-weight: 600;">
-            <i class="fa fa-info-circle me-2 text-primary"></i>Order Information & Parties
-          </h5>
-          
-          <!-- First Row: Order Type, VAT, and Parties -->
-          <div class="row g-3 mb-4">
-            <!-- Order Type -->
-            <div v-if="order.type && order.type !== 'N/A'" class="col-md-3">
-              <small class="text-muted d-block">Order Type</small>
-              <strong>{{ order.type }}</strong>
-            </div>
-            <!-- VAT Rate -->
-            <div v-if="order.vat && order.vat !== 0" class="col-md-3">
-              <small class="text-muted d-block">VAT Rate</small>
-              <strong>{{ order.vat }}%</strong>
-            </div>
-            <!-- Parties in same row -->
-            <div v-for="party in partyCards" :key="party.id" class="col-md-3">
+            <!-- Row 1: Order Number | Status | Order Type | Order Date -->
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 16px;">
               <div>
-                <strong style="font-size: 13px;">{{ getRoleLabel(party.role) }}</strong>
-                <div v-if="party.entity?.full_name || party.entity?.name" style="font-weight: 500; font-size: 13px; margin-bottom: 6px;">{{ party.entity?.full_name || party.entity?.name }}</div>
-                <div class="small" style="font-size: 12px;">
-                  <div v-if="party.contact_name && party.contact_name !== 'N/A'" class="mb-1"><strong>Contact:</strong> {{ party.contact_name }}</div>
-                  <div v-if="party.contact_phone && party.contact_phone !== 'N/A'" class="mb-1"><strong>Phone:</strong> {{ party.contact_phone }}</div>
-                  <div v-if="party.contact_email && party.contact_email !== 'N/A'" class="mb-1"><strong>Email:</strong> {{ party.contact_email }}</div>
-                  <div v-if="party.commission_rate"><strong>Commission:</strong> {{ party.commission_rate }}%</div>
+                <small class="text-muted d-block">Order Number</small>
+                <strong>{{ order.order_number || 'N/A' }}</strong>
+              </div>
+              <div>
+                <small class="text-muted d-block">Status</small>
+                <span :class="getStatusBadge(order.status)" class="badge" style="font-size: 0.7rem; padding: 0.25rem 0.5rem;">{{ order.status }}</span>
+              </div>
+              <div>
+                <small class="text-muted d-block">Order Type</small>
+                <strong>{{ order.type || 'N/A' }}</strong>
+              </div>
+              <div>
+                <small class="text-muted d-block">Order Date</small>
+                <strong>{{ formatDate(order.date || order.order_date || order.orderDate || order.created_at) }}</strong>
+              </div>
+            </div>
+
+            <!-- Row 2: VAT Rate | Currency | Created | Last Updated -->
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 16px;">
+              <div>
+                <small class="text-muted d-block">VAT Rate</small>
+                <strong>{{ order.vat || 0 }}%</strong>
+              </div>
+              <div>
+                <small class="text-muted d-block">Currency</small>
+                <strong>{{ order.currency?.code || order.currency_code || 'USD' }}</strong>
+              </div>
+              <div>
+                <small class="text-muted d-block">Created</small>
+                <strong style="font-size: 13px;">{{ order.created_at ? formatDateTime(order.created_at) : 'N/A' }}</strong>
+              </div>
+              <div>
+                <small class="text-muted d-block">Last Updated</small>
+                <strong style="font-size: 13px;">{{ order.updated_at ? formatDateTime(order.updated_at) : 'N/A' }}</strong>
+              </div>
+            </div>
+
+            <!-- Row 3: Financial Summary | Parties | Expected Date | Remarks -->
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 16px;">
+              <div>
+                <small class="text-muted d-block">Financial Summary</small>
+                <strong style="font-size: 14px; color: #059669;">Grand Total: {{ formatCurrency(orderFinancial.grandTotal) }}</strong>
+              </div>
+              <div v-for="party in partyCards" :key="'info-' + party.id">
+                <small class="text-muted d-block">{{ getRoleLabel(party.role) }}</small>
+                <strong>{{ party.entity?.full_name || party.entity?.name || party.entity_name || 'Unknown' }}</strong>
+                <div v-if="party.contact_name && party.contact_name !== 'N/A'" style="font-size: 12px; color: #64748b;">{{ party.contact_name }}</div>
+              </div>
+              <div v-if="order.expected_date">
+                <small class="text-muted d-block">Expected Date</small>
+                <strong>{{ formatDate(order.expected_date) }}</strong>
+              </div>
+              <div v-if="order.remarks">
+                <small class="text-muted d-block">Remarks</small>
+                <strong style="font-size: 13px;">{{ order.remarks }}</strong>
+              </div>
+            </div>
+          </div>
+
+          <!-- Financial Summary -->
+          <div class="mb-5">
+            <h5 class="mb-3" style="border-bottom: 2px solid #e9ecef; padding-bottom: 10px; font-weight: 600;">
+              <i class="fa fa-calculator me-2 text-success"></i>Financial Summary
+            </h5>
+            <div class="row g-4 mt-1">
+              <div class="col-md-3">
+                <div class="summary-card">
+                  <small class="text-muted d-block mb-1">Subtotal</small>
+                  <strong class="h5 mb-0">{{ formatCurrency(orderFinancial.subtotal) }}</strong>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="summary-card">
+                  <small class="text-muted d-block mb-1">Logistics</small>
+                  <strong class="h5 mb-0">{{ formatCurrency(orderFinancial.logisticsTotal) }}</strong>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="summary-card">
+                  <small class="text-muted d-block mb-1">VAT + Expense</small>
+                  <strong class="h5 mb-0">{{ formatCurrency(orderFinancial.vat + orderFinancial.expenseIncluded)
+                    }}</strong>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="summary-card summary-card-highlight">
+                  <small class="text-muted d-block mb-1">Grand Total</small>
+                  <strong class="h5 mb-0 text-success">{{ formatCurrency(orderFinancial.grandTotal) }}</strong>
                 </div>
               </div>
             </div>
           </div>
 
-          <!-- Second Row: Other details -->
-          <div class="row g-3">
-            <div v-if="order.expected_date && order.expected_date !== 'N/A'" class="col-md-3">
-              <small class="text-muted d-block">Expected Date</small>
-              <strong>{{ formatDate(order.expected_date) }}</strong>
-            </div>
-            <div v-if="order.created_at" class="col-md-3">
-              <small class="text-muted d-block">Created</small>
-              <strong style="font-size: 13px;">{{ formatDateTime(order.created_at) }}</strong>
-            </div>
-            <div v-if="order.updated_at" class="col-md-3">
-              <small class="text-muted d-block">Updated</small>
-              <strong style="font-size: 13px;">{{ formatDateTime(order.updated_at) }}</strong>
-            </div>
-          </div>
-        </div>
-      </div>
-
-
-
-      <!-- PAYMENTS TAB -->
-      <div id="payments" class="tab-pane fade" :class="{ 'show active': activeTab === 'payments' }" style="margin-bottom: 20px;">
-        <!-- Financial Summary -->
-        <div class="mb-5">
-          <h5 class="mb-3" style="border-bottom: 2px solid #e9ecef; padding-bottom: 10px; font-weight: 600;">
-            <i class="fa fa-calculator me-2 text-success"></i>Financial Summary
-          </h5>
-          <div class="row g-4">
-            <div class="col-md-3">
-              <div style="text-align: center;">
-                <i class="fa fa-shopping-cart fa-lg text-primary mb-2"></i>
-                <div class="h5 mb-1">{{ formatCurrency(orderFinancial.subtotal) }}</div>
-                <small class="text-muted">Subtotal</small>
-              </div>
-            </div>
-            <div class="col-md-3">
-              <div style="text-align: center;">
-                <i class="fa fa-percent fa-lg text-warning mb-2"></i>
-                <div class="h5 mb-1">{{ formatCurrency(orderFinancial.vat) }}</div>
-                <small class="text-muted">VAT</small>
-              </div>
-            </div>
-            <div class="col-md-3">
-              <div style="text-align: center;">
-                <i class="fa fa-tag fa-lg text-info mb-2"></i>
-                <div class="h5 mb-1">{{ formatCurrency(orderFinancial.expenseIncluded) }}</div>
-                <small class="text-muted">Expense Included</small>
-              </div>
-            </div>
-            <div class="col-md-3">
-              <div style="text-align: center;">
-                <i class="fa fa-dollar-sign fa-lg text-success mb-2"></i>
-                <div class="h5 mb-1">{{ formatCurrency(orderFinancial.grandTotal) }}</div>
-                <small class="text-muted">Grand Total</small>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Payment Status -->
-        <div class="mb-5">
-          <h5 class="mb-3" style="border-bottom: 2px solid #e9ecef; padding-bottom: 10px; font-weight: 600;">
-            <i class="fa fa-credit-card me-2 text-info"></i>Payment Status
-          </h5>
-          <div class="row g-4 mb-4">
-            <div class="col-md-3">
-              <div style="text-align: center;">
-                <i class="fa fa-check-circle fa-lg text-success mb-2"></i>
-                <div class="h5 mb-1">{{ formatCurrency(paymentStatus.paidAmount) }}</div>
-                <small class="text-muted">Paid Amount</small>
-              </div>
-            </div>
-            <div class="col-md-3">
-              <div style="text-align: center;">
-                <i class="fa fa-exclamation-circle fa-lg text-warning mb-2"></i>
-                <div class="h5 mb-1">{{ formatCurrency(paymentStatus.balanceDue) }}</div>
-                <small class="text-muted">Balance Due</small>
-              </div>
-            </div>
-            <div class="col-md-3">
-              <div style="text-align: center;">
-                <i class="fa fa-percent fa-lg text-info mb-2"></i>
-                <div class="h5 mb-1">{{ paymentStatus.percentage }}%</div>
-                <small class="text-muted">Progress</small>
-              </div>
-            </div>
-          </div>
-
-          <!-- Dynamic Progress Bar -->
-          <div class="progress mb-2" style="height: 24px; border-radius: 12px; background: #e5e7eb;">
+          <!-- Logistics Summary (compact) -->
+          <div v-if="logisticsTimeline.length > 0" class="mb-5">
             <div
-              class="progress-bar"
-              :class="{
+              style="display: flex; align-items: center; gap: 16px; padding: 12px 16px; background: #f0f9ff; border-radius: 6px; border-left: 4px solid #2563eb;">
+              <i class="fa fa-truck text-primary" style="font-size: 18px;"></i>
+              <div style="display: flex; gap: 24px; flex-wrap: wrap; font-size: 13px;">
+                <span><strong>{{ logisticsTimeline.length }}</strong> logistics item(s)</span>
+                <span>Total: <strong class="text-primary">{{ logisticsSummary.totalCost }}</strong></span>
+                <span class="text-success"><strong>{{ logisticsSummary.booked }}</strong> booked</span>
+                <span class="text-warning"><strong>{{ logisticsSummary.pending }}</strong> pending</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Installment Snapshot -->
+          <div v-if="installmentSnapshot.count > 0" class="mb-5">
+            <h5 class="mb-3" style="border-bottom: 2px solid #e9ecef; padding-bottom: 10px; font-weight: 600;">
+              <i class="fa fa-calendar-check me-2 text-info"></i>Installment Snapshot
+            </h5>
+            <div class="row g-4">
+              <div class="col-md-3">
+                <div class="summary-card">
+                  <small class="text-muted d-block mb-1">Total Installments</small>
+                  <strong class="h5 mb-0">{{ installmentSnapshot.count }}</strong>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="summary-card">
+                  <small class="text-muted d-block mb-1">Pending</small>
+                  <strong class="h5 mb-0 text-warning">{{ installmentSnapshot.pendingCount }}</strong>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="summary-card">
+                  <small class="text-muted d-block mb-1">Next Due</small>
+                  <strong class="h5 mb-0">{{ installmentSnapshot.nextDueDate ?
+                    formatDate(installmentSnapshot.nextDueDate) : 'None' }}</strong>
+                  <div v-if="installmentSnapshot.nextAmount" style="font-size: 12px; color: #64748b;">{{
+                    formatCurrency(installmentSnapshot.nextAmount) }}</div>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="summary-card summary-card-highlight">
+                  <small class="text-muted d-block mb-1">Total Paid</small>
+                  <strong class="h5 mb-0 text-success">{{ formatCurrency(installmentSnapshot.totalPaid) }}</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+
+
+        </div>
+
+
+
+        <!-- PAYMENTS TAB -->
+        <div id="payments" class="tab-pane fade" :class="{ 'show active': activeTab === 'payments' }"
+          style="margin-bottom: 20px;">
+          <!-- Financial Summary -->
+          <div class="mb-5">
+            <h5 class="mb-3" style="border-bottom: 2px solid #e9ecef; padding-bottom: 10px; font-weight: 600;">
+              <i class="fa fa-calculator me-2 text-success"></i>Financial Summary
+            </h5>
+            <div class="row g-4">
+              <div class="col-md-3">
+                <div style="text-align: center;">
+                  <i class="fa fa-shopping-cart fa-lg text-primary mb-2"></i>
+                  <div class="h5 mb-1">{{ formatCurrency(orderFinancial.subtotal) }}</div>
+                  <small class="text-muted">Subtotal</small>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div style="text-align: center;">
+                  <i class="fa fa-percent fa-lg text-warning mb-2"></i>
+                  <div class="h5 mb-1">{{ formatCurrency(orderFinancial.vat) }}</div>
+                  <small class="text-muted">VAT</small>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div style="text-align: center;">
+                  <i class="fa fa-tag fa-lg text-info mb-2"></i>
+                  <div class="h5 mb-1">{{ formatCurrency(orderFinancial.expenseIncluded) }}</div>
+                  <small class="text-muted">Expense Included</small>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div style="text-align: center;">
+                  <i class="fa fa-dollar-sign fa-lg text-success mb-2"></i>
+                  <div class="h5 mb-1">{{ formatCurrency(orderFinancial.grandTotal) }}</div>
+                  <small class="text-muted">Grand Total</small>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Payment Status -->
+          <div class="mb-5">
+            <h5 class="mb-3" style="border-bottom: 2px solid #e9ecef; padding-bottom: 10px; font-weight: 600;">
+              <i class="fa fa-credit-card me-2 text-info"></i>Payment Status
+            </h5>
+            <div class="row g-4 mb-4">
+              <div class="col-md-3">
+                <div style="text-align: center;">
+                  <i class="fa fa-check-circle fa-lg text-success mb-2"></i>
+                  <div class="h5 mb-1">{{ formatCurrency(paymentStatus.paidAmount) }}</div>
+                  <small class="text-muted">Paid Amount</small>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div style="text-align: center;">
+                  <i class="fa fa-exclamation-circle fa-lg text-warning mb-2"></i>
+                  <div class="h5 mb-1">{{ formatCurrency(paymentStatus.balanceDue) }}</div>
+                  <small class="text-muted">Balance Due</small>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div style="text-align: center;">
+                  <i class="fa fa-percent fa-lg text-info mb-2"></i>
+                  <div class="h5 mb-1">{{ paymentStatus.percentage }}%</div>
+                  <small class="text-muted">Progress</small>
+                </div>
+              </div>
+            </div>
+
+            <!-- Dynamic Progress Bar -->
+            <div class="progress mb-2" style="height: 24px; border-radius: 12px; background: #e5e7eb;">
+              <div class="progress-bar" :class="{
                 'bg-danger': paymentStatus.percentage < 25,
                 'bg-warning': paymentStatus.percentage >= 25 && paymentStatus.percentage < 50,
                 'bg-info': paymentStatus.percentage >= 50 && paymentStatus.percentage < 75,
                 'bg-success': paymentStatus.percentage >= 75
-              }"
-              :style="{ width: paymentStatus.percentage + '%' }"
-              role="progressbar"
-            >
-              {{ paymentStatus.percentage }}%
+              }" :style="{ width: paymentStatus.percentage + '%' }" role="progressbar">
+                {{ paymentStatus.percentage }}%
+              </div>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 12px; color: #64748b;">
+              <span>{{ formatCurrency(paymentStatus.paidAmount) }} paid</span>
+              <span>{{ formatCurrency(paymentStatus.balanceDue) }} remaining</span>
             </div>
           </div>
-          <div style="display: flex; justify-content: space-between; font-size: 12px; color: #64748b;">
-            <span>{{ formatCurrency(paymentStatus.paidAmount) }} paid</span>
-            <span>{{ formatCurrency(paymentStatus.balanceDue) }} remaining</span>
-          </div>
-        </div>
 
-        <!-- Installment Breakdown -->
-        <div v-if="paymentSchedule.length > 0" class="mb-5">
-          <h5 class="mb-3" style="border-bottom: 2px solid #e9ecef; padding-bottom: 10px; font-weight: 600;">
-            <i class="fa fa-list-ol me-2 text-primary"></i>Installment Breakdown
-          </h5>
-          <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0" style="table-layout: fixed; width: 100%;">
-              <thead class="table-light">
-                <tr>
-                  <th style="width: 6%; text-align: center;">#</th>
-                  <th style="width: 24%;">Description</th>
-                  <th style="width: 16%; text-align: right;">Amount Due</th>
-                  <th style="width: 16%;">Due Date</th>
-                  <th style="width: 14%; text-align: center;">Status</th>
-                  <th style="width: 24%; text-align: center;">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="inst in paymentSchedule" :key="inst.sequence">
-                  <td style="text-align: center; color: #94a3b8;">{{ inst.sequence }}</td>
-                  <td>
-                    <strong style="font-size: 13px;">{{ inst.description || 'Installment ' + inst.sequence }}</strong>
-                  </td>
-                  <td class="text-end fw-bold">{{ formatCurrency(inst.amount_due) }}</td>
-                  <td>
-                    <span>{{ formatDate(inst.due_date) }}</span>
-                    <span v-if="inst.overdue" class="badge bg-danger ms-1" style="font-size: 10px;">Overdue</span>
-                  </td>
-                  <td style="text-align: center;">
-                    <span :class="getPaymentStatusBadge(inst.status)" class="badge">{{ inst.status }}</span>
-                  </td>
-                  <td style="text-align: center;">
-                    <button
-                      v-if="inst.status !== 'PAID'"
-                      class="btn btn-outline-success btn-sm"
-                      @click="recordPayment(inst)"
-                      style="font-size: 12px; padding: 4px 10px;"
-                    >
-                      <i class="fa fa-money-bill me-1"></i>Record Payment
-                    </button>
-                    <span v-else style="color: #10b981; font-size: 12px;">
-                      <i class="fa fa-check-circle me-1"></i>Paid
-                    </span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- Payment History -->
-        <div v-if="paymentHistory.length > 0" class="mb-5">
-          <h5 class="mb-3" style="border-bottom: 2px solid #e9ecef; padding-bottom: 10px; font-weight: 600;">
-            <i class="fa fa-history me-2 text-success"></i>Payment History
-          </h5>
-          <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0" style="table-layout: fixed; width: 100%;">
-              <thead class="table-light">
-                <tr>
-                  <th style="width: 6%; text-align: center;">#</th>
-                  <th style="width: 20%;">Date</th>
-                  <th style="width: 18%; text-align: right;">Amount</th>
-                  <th style="width: 16%;">Method</th>
-                  <th style="width: 20%;">Reference</th>
-                  <th style="width: 20%;">Recorded By</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="payment in paymentHistory" :key="payment.id">
-                  <td style="text-align: center; color: #94a3b8;">{{ payment.sequence }}</td>
-                  <td>{{ formatDate(payment.date) }}</td>
-                  <td class="text-end fw-bold text-success">{{ formatCurrency(payment.amount) }}</td>
-                  <td>{{ payment.method }}</td>
-                  <td style="font-size: 12px;">{{ payment.reference }}</td>
-                  <td style="font-size: 12px;">{{ payment.recordedBy }}</td>
-                </tr>
-              </tbody>
-              <tfoot style="background: #f0fdf4; border-top: 2px solid #e2e8f0;">
-                <tr>
-                  <td colspan="2" style="text-align: right; font-weight: 600; font-size: 13px; color: #334155;">
-                    Total ({{ paymentHistory.length }} payments)
-                  </td>
-                  <td class="text-end">
-                    <strong style="font-size: 15px; color: #16a34a;">{{ formatCurrency(paymentStatus.paidAmount) }}</strong>
-                  </td>
-                  <td colspan="3"></td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        </div>
-        <div v-else class="mb-5">
-          <div class="alert alert-info" style="margin-bottom: 0;">
-            <i class="fa fa-info-circle me-2"></i>No payments recorded yet
-          </div>
-        </div>
-      </div>
-
-      <!-- LOGISTICS TAB -->
-      <div id="logistics" class="tab-pane fade" :class="{ 'show active': activeTab === 'logistics' }" style="margin-bottom: 20px;">
-        <div v-if="logisticsTimeline.length > 0">
-          <h5 class="mb-3" style="border-bottom: 2px solid #e9ecef; padding-bottom: 10px; font-weight: 600;">
-            <i class="fa fa-truck me-2 text-primary"></i>Logistics & Accommodation
-          </h5>
-          <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0" style="table-layout: fixed; width: 100%;">
-              <thead style="background: #f8fafc;">
-                <tr>
-                  <th style="width: 5%; text-align: center;">#</th>
-                  <th style="width: 12%;">Type</th>
-                  <th style="width: 25%;">Details</th>
-                  <th style="width: 20%;">Period</th>
-                  <th style="width: 14%; text-align: right;">Cost</th>
-                  <th style="width: 12%; text-align: center;">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="(logistics, idx) in logisticsTimeline" :key="idx">
-                  <td style="text-align: center; color: #94a3b8;">{{ idx + 1 }}</td>
-                  <td>
-                    <div style="display: flex; align-items: center; gap: 6px;">
-                      <i :class="getLogisticsIcon(logistics.type)" style="color: #2563eb;"></i>
-                      <span class="badge" :class="{
-                        'bg-primary': logistics.type === 'HOTEL',
-                        'bg-info': logistics.type === 'CHARTER',
-                        'bg-warning text-dark': logistics.type === 'TRANSFER' || logistics.type === 'AIRPORT',
-                        'bg-secondary': !['HOTEL','CHARTER','TRANSFER','AIRPORT'].includes(logistics.type)
-                      }">{{ logistics.type || 'OTHER' }}</span>
-                    </div>
-                  </td>
-                  <td>
-                    <strong style="font-size: 13px;">{{ logistics.title || getLogisticsTypeLabel(logistics.type) }}</strong>
-                    <div v-if="logistics.details" style="font-size: 11px; color: #64748b; margin-top: 2px;">{{ logistics.details }}</div>
-                    <div v-if="logistics.hotel_name" style="font-size: 11px; color: #64748b; margin-top: 2px;">{{ logistics.hotel_name }}</div>
-                    <div v-if="logistics.rooms" style="font-size: 11px; color: #64748b;">{{ logistics.rooms }} room(s), {{ logistics.nights }} night(s)</div>
-                    <div v-if="logistics.from_airport" style="font-size: 11px; color: #64748b;">{{ logistics.from_airport }} → {{ logistics.to_airport }} ({{ logistics.seats }} seats)</div>
-                    <div v-if="logistics.from_location" style="font-size: 11px; color: #64748b;">{{ logistics.from_location }} → {{ logistics.to_location }}</div>
-                  </td>
-                  <td>
-                    <div v-if="logistics.start_date || logistics.end_date" style="font-size: 12px;">
-                      <div v-if="logistics.start_date">{{ formatDate(logistics.start_date) }}</div>
-                      <div v-if="logistics.end_date" style="color: #64748b;">→ {{ formatDate(logistics.end_date) }}</div>
-                    </div>
-                    <span v-else style="color: #94a3b8; font-size: 12px;">—</span>
-                  </td>
-                  <td style="text-align: right;">
-                    <strong style="font-size: 13px;">{{ formatCurrency(logistics.estimated_amount || 0) }}</strong>
-                  </td>
-                  <td style="text-align: center;">
-                    <span :class="getLogisticsStatusBadge(logistics.status)" class="badge mb-1">{{ logistics.status }}</span>
-                    <div style="margin-top: 4px;">
-                      <button
-                        v-if="logistics.status === 'PLANNED'"
-                        class="btn btn-outline-info btn-sm"
-                        @click="updateLogisticsStatus(idx, 'BOOKED')"
-                        style="font-size: 10px; padding: 2px 8px;"
-                      >
-                        <i class="fa fa-arrow-right me-1"></i>Book
+          <!-- Installment Breakdown -->
+          <div v-if="paymentSchedule.length > 0" class="mb-5">
+            <h5 class="mb-3" style="border-bottom: 2px solid #e9ecef; padding-bottom: 10px; font-weight: 600;">
+              <i class="fa fa-list-ol me-2 text-primary"></i>Installment Breakdown
+            </h5>
+            <div class="table-responsive">
+              <table class="table table-hover align-middle mb-0" style="table-layout: fixed; width: 100%;">
+                <thead class="table-light">
+                  <tr>
+                    <th style="width: 6%; text-align: center;">#</th>
+                    <th style="width: 24%;">Description</th>
+                    <th style="width: 16%; text-align: right;">Amount Due</th>
+                    <th style="width: 16%;">Due Date</th>
+                    <th style="width: 14%; text-align: center;">Status</th>
+                    <th style="width: 24%; text-align: center;">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="inst in paymentSchedule" :key="inst.sequence">
+                    <td style="text-align: center; color: #94a3b8;">{{ inst.sequence }}</td>
+                    <td>
+                      <strong style="font-size: 13px;">{{ inst.description || 'Installment ' + inst.sequence }}</strong>
+                    </td>
+                    <td class="text-end fw-bold">{{ formatCurrency(inst.amount_due) }}</td>
+                    <td>
+                      <span>{{ formatDate(inst.due_date) }}</span>
+                      <span v-if="inst.overdue" class="badge bg-danger ms-1" style="font-size: 10px;">Overdue</span>
+                    </td>
+                    <td style="text-align: center;">
+                      <span :class="getPaymentStatusBadge(inst.status)" class="badge">{{ inst.status }}</span>
+                    </td>
+                    <td style="text-align: center;">
+                      <button v-if="inst.status !== 'PAID'" class="btn btn-outline-success btn-sm"
+                        @click="recordPayment(inst)" style="font-size: 12px; padding: 4px 10px;">
+                        <i class="fa fa-money-bill me-1"></i>Record Payment
                       </button>
-                      <button
-                        v-else-if="logistics.status === 'BOOKED'"
-                        class="btn btn-outline-success btn-sm"
-                        @click="updateLogisticsStatus(idx, 'COMPLETED')"
-                        style="font-size: 10px; padding: 2px 8px;"
-                      >
-                        <i class="fa fa-check me-1"></i>Complete
-                      </button>
-                      <span v-else-if="logistics.status === 'COMPLETED'" style="color: #10b981; font-size: 11px;">
-                        <i class="fa fa-check-circle"></i>
+                      <span v-else style="color: #10b981; font-size: 12px;">
+                        <i class="fa fa-check-circle me-1"></i>Paid
                       </span>
-                    </div>
-                  </td>
-                </tr>
-              </tbody>
-              <tfoot style="background: #f0fdf4; border-top: 2px solid #e2e8f0;">
-                <tr>
-                  <td colspan="4" style="text-align: right; font-weight: 600; font-size: 13px; color: #334155;">
-                    Total ({{ logisticsTimeline.length }} items) &mdash;
-                    <span class="text-success">{{ logisticsSummary.booked }} booked</span>,
-                    <span class="text-warning">{{ logisticsSummary.pending }} pending</span>
-                  </td>
-                  <td style="text-align: right;">
-                    <strong style="font-size: 15px; color: #16a34a;">{{ logisticsSummary.totalCost }}</strong>
-                  </td>
-                  <td></td>
-                </tr>
-              </tfoot>
-            </table>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Payment History -->
+          <div v-if="paymentHistory.length > 0" class="mb-5">
+            <h5 class="mb-3" style="border-bottom: 2px solid #e9ecef; padding-bottom: 10px; font-weight: 600;">
+              <i class="fa fa-history me-2 text-success"></i>Payment History
+            </h5>
+            <div class="table-responsive">
+              <table class="table table-hover align-middle mb-0" style="table-layout: fixed; width: 100%;">
+                <thead class="table-light">
+                  <tr>
+                    <th style="width: 6%; text-align: center;">#</th>
+                    <th style="width: 20%;">Date</th>
+                    <th style="width: 18%; text-align: right;">Amount</th>
+                    <th style="width: 16%;">Method</th>
+                    <th style="width: 20%;">Reference</th>
+                    <th style="width: 20%;">Recorded By</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="payment in paymentHistory" :key="payment.id">
+                    <td style="text-align: center; color: #94a3b8;">{{ payment.sequence }}</td>
+                    <td>{{ formatDate(payment.date) }}</td>
+                    <td class="text-end fw-bold text-success">{{ formatCurrency(payment.amount) }}</td>
+                    <td>{{ payment.method }}</td>
+                    <td style="font-size: 12px;">{{ payment.reference }}</td>
+                    <td style="font-size: 12px;">{{ payment.recordedBy }}</td>
+                  </tr>
+                </tbody>
+                <tfoot style="background: #f0fdf4; border-top: 2px solid #e2e8f0;">
+                  <tr>
+                    <td colspan="2" style="text-align: right; font-weight: 600; font-size: 13px; color: #334155;">
+                      Total ({{ paymentHistory.length }} payments)
+                    </td>
+                    <td class="text-end">
+                      <strong style="font-size: 15px; color: #16a34a;">{{ formatCurrency(paymentStatus.paidAmount)
+                        }}</strong>
+                    </td>
+                    <td colspan="3"></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+          <div v-else class="mb-5">
+            <div class="alert alert-info" style="margin-bottom: 0;">
+              <i class="fa fa-info-circle me-2"></i>No payments recorded yet
+            </div>
           </div>
         </div>
-        <div v-else class="alert alert-info">
-          <i class="fa fa-inbox me-2"></i> No logistics records for this order
+
+        <!-- LOGISTICS TAB -->
+        <div id="logistics" class="tab-pane fade" :class="{ 'show active': activeTab === 'logistics' }"
+          style="margin-bottom: 20px;">
+          <div v-if="logisticsTimeline.length > 0">
+            <h5 class="mb-3" style="border-bottom: 2px solid #e9ecef; padding-bottom: 10px; font-weight: 600;">
+              <i class="fa fa-truck me-2 text-primary"></i>Logistics & Accommodation
+            </h5>
+            <div class="table-responsive">
+              <table class="table table-hover table-layout align-middle mb-0">
+                <thead style="background: #f8fafc;">
+                  <tr>
+                    <th style="width: 5%; text-align: center;">#</th>
+                    <th style="width: 12%;">Type</th>
+                    <th style="width: 25%;">Details</th>
+                    <th style="width: 20%;">Period</th>
+                    <th style="width: 14%; text-align: right;">Cost</th>
+                    <th style="width: 12%; text-align: center;">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(logistics, idx) in logisticsTimeline" :key="idx">
+                    <td style="text-align: center; color: #94a3b8;">{{ idx + 1 }}</td>
+                    <td>
+                      <div style="display: flex; align-items: center; gap: 6px;">
+                        <i :class="getLogisticsIcon(logistics.type)" style="color: #2563eb;"></i>
+                        <span class="badge" :class="{
+                          'bg-primary': logistics.type === 'HOTEL',
+                          'bg-info': logistics.type === 'CHARTER',
+                          'bg-warning text-dark': logistics.type === 'TRANSFER' || logistics.type === 'AIRPORT',
+                          'bg-secondary': !['HOTEL', 'CHARTER', 'TRANSFER', 'AIRPORT'].includes(logistics.type)
+                        }">{{ logistics.type || 'OTHER' }}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <strong style="font-size: 13px;">{{ logistics.title || getLogisticsTypeLabel(logistics.type)
+                        }}</strong>
+                      <div v-if="logistics.details" style="font-size: 11px; color: #64748b; margin-top: 2px;">{{
+                        logistics.details }}</div>
+                      <div v-if="logistics.hotel_name" style="font-size: 11px; color: #64748b; margin-top: 2px;">{{
+                        logistics.hotel_name }}</div>
+                      <div v-if="logistics.rooms" style="font-size: 11px; color: #64748b;">{{ logistics.rooms }}
+                        room(s), {{ logistics.nights }} night(s)</div>
+                      <div v-if="logistics.from_airport" style="font-size: 11px; color: #64748b;">{{
+                        logistics.from_airport }} → {{ logistics.to_airport }} ({{ logistics.seats }} seats)</div>
+                      <div v-if="logistics.from_location" style="font-size: 11px; color: #64748b;">{{
+                        logistics.from_location }} → {{ logistics.to_location }}</div>
+                    </td>
+                    <td>
+                      <div v-if="logistics.start_date || logistics.end_date" style="font-size: 12px;">
+                        <div v-if="logistics.start_date">{{ formatDate(logistics.start_date) }}</div>
+                        <div v-if="logistics.end_date" style="color: #64748b;">→ {{ formatDate(logistics.end_date) }}
+                        </div>
+                      </div>
+                      <span v-else style="color: #94a3b8; font-size: 12px;">—</span>
+                    </td>
+                    <td style="text-align: right;">
+                      <strong style="font-size: 13px;">{{ formatCurrency(logistics.estimated_amount || 0) }}</strong>
+                    </td>
+                    <td style="text-align: center;">
+                      <span :class="getLogisticsStatusBadge(logistics.status)" class="badge mb-1">{{ logistics.status
+                        }}</span>
+                      <div style="margin-top: 4px;">
+                        <button v-if="logistics.status === 'PLANNED'" class="btn btn-outline-info btn-sm"
+                          @click="updateLogisticsStatus(idx, 'BOOKED')" style="font-size: 10px; padding: 2px 8px;">
+                          <i class="fa fa-arrow-right me-1"></i>Book
+                        </button>
+                        <button v-else-if="logistics.status === 'BOOKED'" class="btn btn-outline-success btn-sm"
+                          @click="updateLogisticsStatus(idx, 'COMPLETED')" style="font-size: 10px; padding: 2px 8px;">
+                          <i class="fa fa-check me-1"></i>Complete
+                        </button>
+                        <span v-else-if="logistics.status === 'COMPLETED'" style="color: #10b981; font-size: 11px;">
+                          <i class="fa fa-check-circle"></i>
+                        </span>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+                <tfoot style="background: #f0fdf4; border-top: 2px solid #e2e8f0;">
+                  <tr>
+                    <td colspan="4" style="text-align: right; font-weight: 600; font-size: 13px; color: #334155;">
+                      Total ({{ logisticsTimeline.length }} items) &mdash;
+                      <span class="text-success">{{ logisticsSummary.booked }} booked</span>,
+                      <span class="text-warning">{{ logisticsSummary.pending }} pending</span>
+                    </td>
+                    <td style="text-align: right;">
+                      <strong style="font-size: 15px; color: #16a34a;">{{ logisticsSummary.totalCost }}</strong>
+                    </td>
+                    <td></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+          <div v-else class="alert alert-info">
+            <i class="fa fa-inbox me-2"></i> No logistics records for this order
+          </div>
         </div>
-      </div>
       </div>
     </div>
 
@@ -542,9 +529,9 @@ const formatDate = (date: string) => {
 
 const formatDateTime = (date: string) => {
   if (!date) return 'N/A'
-  return new Date(date).toLocaleString('en-US', { 
-    year: 'numeric', 
-    month: 'short', 
+  return new Date(date).toLocaleString('en-US', {
+    year: 'numeric',
+    month: 'short',
     day: 'numeric',
     hour: '2-digit',
     minute: '2-digit'
@@ -662,7 +649,7 @@ const logisticsSummary = computed(() => {
   const totalCost = formatCurrency(logistics.reduce((sum: number, l: any) => sum + (l.estimated_amount || 0), 0))
   const booked = logistics.filter((l: any) => l.status === 'BOOKED').length
   const pending = logistics.filter((l: any) => l.status === 'PLANNED').length
-  
+
   return { totalCost, booked, pending }
 })
 
@@ -725,7 +712,7 @@ const paymentSummary = computed(() => {
   const totalDue = schedule.reduce((sum: number, p: any) => sum + (p.amount_due || 0), 0)
   const paid = schedule.filter((p: any) => p.status === 'PAID').reduce((sum: number, p: any) => sum + (p.amount_due || 0), 0)
   const balance = totalDue - paid
-  
+
   return { totalDue, paid, balance }
 })
 
@@ -893,9 +880,9 @@ const createContractFromOrder = () => {
       try {
         const response = await orderStore.createContractFromOrder(order.value?.id)
         const contractId = response.data.data?.id || response.data?.id
-        
+
         init({ message: 'Contract created successfully', color: 'success' })
-        
+
         // Navigate to contract details/form
         setTimeout(() => {
           router.push({
@@ -994,8 +981,13 @@ onMounted(async () => {
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 .card {
@@ -1056,25 +1048,73 @@ onMounted(async () => {
   font-weight: 500;
 }
 
-.bg-primary { background: #3b82f6 !important; }
-.bg-success { background: #10b981 !important; }
-.bg-warning { background: #f59e0b !important; }
-.bg-danger { background: #ef4444 !important; }
-.bg-info { background: #0ea5e9 !important; }
-.bg-secondary { background: #6b7280 !important; }
-.bg-light { background: #f9fafb !important; }
+.bg-primary {
+  background: #3b82f6 !important;
+}
 
-.text-white { color: white !important; }
-.text-muted { color: #6b7280; }
-.text-success { color: #10b981; }
-.text-warning { color: #f59e0b; }
-.text-danger { color: #ef4444; }
+.bg-success {
+  background: #10b981 !important;
+}
 
-.border-primary { border-left: 4px solid #3b82f6; }
-.border-success { border-left: 4px solid #10b981; }
-.border-warning { border-left: 4px solid #f59e0b; }
-.border-danger { border-left: 4px solid #ef4444; }
-.border-info { border-left: 4px solid #0ea5e9; }
+.bg-warning {
+  background: #f59e0b !important;
+}
+
+.bg-danger {
+  background: #ef4444 !important;
+}
+
+.bg-info {
+  background: #0ea5e9 !important;
+}
+
+.bg-secondary {
+  background: #6b7280 !important;
+}
+
+.bg-light {
+  background: #f9fafb !important;
+}
+
+.text-white {
+  color: white !important;
+}
+
+.text-muted {
+  color: #6b7280;
+}
+
+.text-success {
+  color: #10b981;
+}
+
+.text-warning {
+  color: #f59e0b;
+}
+
+.text-danger {
+  color: #ef4444;
+}
+
+.border-primary {
+  border-left: 4px solid #3b82f6;
+}
+
+.border-success {
+  border-left: 4px solid #10b981;
+}
+
+.border-warning {
+  border-left: 4px solid #f59e0b;
+}
+
+.border-danger {
+  border-left: 4px solid #ef4444;
+}
+
+.border-info {
+  border-left: 4px solid #0ea5e9;
+}
 
 .progress {
   border-radius: 4px;
@@ -1169,14 +1209,24 @@ onMounted(async () => {
   margin: 0.5rem;
 }
 
-.g-2 { gap: 0.5rem; }
-.g-3 { gap: 1rem; }
+.g-2 {
+  gap: 0.5rem;
+}
+
+.g-3 {
+  gap: 1rem;
+}
 
 .w-100 {
   width: 100%;
 }
 
-.mb-0 { margin-bottom: 0; }
+.table-layout {
+  table-layout: fixed;
+  width: 100%;
+}
+
+/* .mb-0 { margin-bottom: 0; }
 .mb-1 { margin-bottom: 0.25rem; }
 .mb-2 { margin-bottom: 0.5rem; }
 .mb-3 { margin-bottom: 1rem; }
@@ -1189,7 +1239,7 @@ onMounted(async () => {
 .me-3 { margin-right: 1rem; }
 .ms-1 { margin-left: 0.25rem; }
 .ms-4 { margin-left: 1.5rem; }
-.pt-2 { padding-top: 0.5rem; }
+.pt-2 { padding-top: 0.5rem; } */
 
 .btn {
   border-radius: 4px;
@@ -1204,12 +1254,35 @@ onMounted(async () => {
   gap: 0.5rem;
 }
 
-.btn-primary { background: #3b82f6; color: white; }
-.btn-success { background: #10b981; color: white; }
-.btn-warning { background: #f59e0b; color: white; }
-.btn-danger { background: #ef4444; color: white; }
-.btn-info { background: #0ea5e9; color: white; }
-.btn-secondary { background: #6b7280; color: white; }
+.btn-primary {
+  background: #3b82f6;
+  color: white;
+}
+
+.btn-success {
+  background: #10b981;
+  color: white;
+}
+
+.btn-warning {
+  background: #f59e0b;
+  color: white;
+}
+
+.btn-danger {
+  background: #ef4444;
+  color: white;
+}
+
+.btn-info {
+  background: #0ea5e9;
+  color: white;
+}
+
+.btn-secondary {
+  background: #6b7280;
+  color: white;
+}
 
 .btn:hover {
   opacity: 0.9;
@@ -1362,6 +1435,7 @@ onMounted(async () => {
   border: 1px solid #3b82f6;
   color: #3b82f6;
 }
+
 .btn-outline-primary:hover {
   background: #3b82f6;
   color: white;
@@ -1372,6 +1446,7 @@ onMounted(async () => {
   border: 1px solid #10b981;
   color: #10b981;
 }
+
 .btn-outline-success:hover {
   background: #10b981;
   color: white;
@@ -1382,6 +1457,7 @@ onMounted(async () => {
   border: 1px solid #0ea5e9;
   color: #0ea5e9;
 }
+
 .btn-outline-info:hover {
   background: #0ea5e9;
   color: white;
@@ -1392,9 +1468,9 @@ onMounted(async () => {
   border: 1px solid #6b7280;
   color: #6b7280;
 }
+
 .btn-outline-secondary:hover {
   background: #6b7280;
   color: white;
 }
-
 </style>

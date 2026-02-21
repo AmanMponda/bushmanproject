@@ -1439,6 +1439,7 @@ const downloadPreviewPdf = async () => {
       head: [metaHeader],
       body: [metaValues],
       theme: 'grid',
+      tableWidth: pageWidth - margin * 2,
       styles: { fontSize: 9 },
       headStyles: { fillColor: [245, 245, 245], textColor: 50, fontStyle: 'bold' },
       columnStyles: { 0: { cellWidth: 100 }, 1: { cellWidth: 160 }, 2: { cellWidth: pageWidth - margin * 2 - 260 } }
@@ -1537,14 +1538,15 @@ const downloadPreviewPdf = async () => {
         head: [['Role', 'Name', 'Status', 'Dependent On', 'Share %']],
         body: participantRows,
         theme: 'grid',
+        tableWidth: pageWidth - margin * 2,
         styles: { fontSize: 9 },
         headStyles: { fillColor: [245, 245, 245], textColor: 50, fontStyle: 'bold' },
         columnStyles: {
           0: { cellWidth: 80, fontStyle: 'bold' },
-          1: { cellWidth: 140 },
+          1: { cellWidth: 150 },
           2: { cellWidth: 80 },
-          3: { cellWidth: 120 },
-          4: { cellWidth: 60, halign: 'right' }
+          3: { cellWidth: 130 },
+          4: { cellWidth: pageWidth - margin * 2 - 440, halign: 'right' }
         }
       })
       cursorY = (pdf as any).lastAutoTable.finalY + 4
@@ -1593,9 +1595,10 @@ const downloadPreviewPdf = async () => {
         head: [['Item', 'Qty', 'Duration']],
         body: extrasTableBody,
         theme: 'grid',
+        tableWidth: pageWidth - margin * 2,
         styles: { fontSize: 9 },
         headStyles: { fillColor: [245, 245, 245], textColor: 50, fontStyle: 'bold' },
-        columnStyles: { 0: { cellWidth: 260 }, 1: { halign: 'center', cellWidth: 50 }, 2: { cellWidth: pageWidth - margin * 2 - 320 } }
+        columnStyles: { 0: { cellWidth: 260 }, 1: { halign: 'center', cellWidth: 50 }, 2: { cellWidth: pageWidth - margin * 2 - 310 } }
       })
       cursorY = (pdf as any).lastAutoTable.finalY + 12
     } else {
@@ -1620,9 +1623,10 @@ const downloadPreviewPdf = async () => {
         head: [['Item', 'Qty', 'Priority']],
         body: speciesRows,
         theme: 'grid',
+        tableWidth: pageWidth - margin * 2,
         styles: { fontSize: 9 },
         headStyles: { fillColor: [245, 245, 245], textColor: 50, fontStyle: 'bold' },
-        columnStyles: { 0: { cellWidth: 240 }, 1: { halign: 'center', cellWidth: 50 }, 2: { cellWidth: pageWidth - margin * 2 - 300 } }
+        columnStyles: { 0: { cellWidth: 240 }, 1: { halign: 'center', cellWidth: 50 }, 2: { cellWidth: pageWidth - margin * 2 - 290 } }
       })
       cursorY = (pdf as any).lastAutoTable.finalY + 12
     } else {
@@ -1648,9 +1652,10 @@ const downloadPreviewPdf = async () => {
         head: [['Item', 'Qty', 'Priority']],
         body: normalSpeciesRows,
         theme: 'grid',
+        tableWidth: pageWidth - margin * 2,
         styles: { fontSize: 9 },
         headStyles: { fillColor: [245, 245, 245], textColor: 50, fontStyle: 'bold' },
-        columnStyles: { 0: { cellWidth: 240 }, 1: { halign: 'center', cellWidth: 50 }, 2: { cellWidth: pageWidth - margin * 2 - 300 } }
+        columnStyles: { 0: { cellWidth: 240 }, 1: { halign: 'center', cellWidth: 50 }, 2: { cellWidth: pageWidth - margin * 2 - 290 } }
       })
       cursorY = (pdf as any).lastAutoTable.finalY + 12
     } else {
@@ -2597,12 +2602,12 @@ const populateFormFromPackage = async () => {
 
   // Area is NOT auto-populated from package — user must explicitly select it from the dropdown
 
-  // Get duration from regulatory_package.duration
+  // Get duration from regulatory_package.duration — always update when package changes
   const duration = currentSalesPackage.value.regulatory_package.duration
-  if (!form.no_of_days) {
+  if (duration) {
     form.no_of_days = Number(duration)
     if (vueformRef.value) {
-      vueformRef.value.update({ no_of_days: duration })
+      vueformRef.value.update({ no_of_days: Number(duration) })
     }
   }
 

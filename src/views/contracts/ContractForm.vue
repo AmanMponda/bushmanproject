@@ -105,6 +105,17 @@
             <h3>Contract Configuration</h3>
             <p>Set up parties, versions, and billing terms</p>
           </div>
+          <button
+            class="btn-preview-pdf"
+            type="button"
+            @click="downloadPreviewPdf"
+            :disabled="generatingPdf || (!route.params.id && !savedContractId && !selectedOrderId)"
+            :title="(!route.params.id && !savedContractId && !selectedOrderId) ? 'Select an order first' : 'Preview Contract PDF'"
+          >
+            <span v-if="generatingPdf" class="spinner"></span>
+            <svg v-else xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+            {{ generatingPdf ? 'Generating...' : 'Preview PDF' }}
+          </button>
         </div>
 
         <!-- Horizontal Tabs -->
@@ -221,6 +232,8 @@ import { useAppOptionStore } from '@/stores/app-option'
 import { useAuthStore } from '@/stores/auth'
 import Swal from 'sweetalert2'
 import ContractVersions from './ContractVersions.vue'
+import { jsPDF } from 'jspdf'
+import autoTable from 'jspdf-autotable'
 
 const router = useRouter()
 const route = useRoute()
@@ -241,6 +254,7 @@ const contractStatuses = computed(() => contractStore.contractStatuses)
 const isEdit = computed(() => !!route.params.id)
 const saving = ref(false)
 const savedContractId = ref<number | null>(null)
+const lastUpdated = ref<string | null>(null)
 
 const form = reactive({
   contractNumber: '',
@@ -344,7 +358,21 @@ const onOrderSelect = async () => {
     form.status = 'DRAFT'
     form.startDate = order.order_date ? order.order_date.split('T')[0] : new Date().toISOString().split('T')[0]
     form.endDate = order.expected_date ? order.expected_date.split('T')[0] : ''
-    form.financialSummary = `Order #${order.order_number}: ${order.total || 0}`// DEPLOYMENT DEBUG: Verify fields are actually set in the form object)// Get parties from DATABASE - map exactly as returned by API
+    // Calculate real total from order items + logistics
+    const orderItems = order.items || order.order_items || []
+    const orderLogistics = order.logistics || []
+    const calcTotal = orderItems.reduce((s: number, it: any) => {
+      const qty = Number(it.quantity || it.qty || 0)
+      const rate = Number(it.rate || it.unit_price || it.price || 0)
+      const disc = Number(it.discount || 0)
+      return s + (Number(it.amount || it.total || it.line_total || 0) || (qty * rate - disc))
+    }, 0)
+    const calcLogistics = orderLogistics.reduce((s: number, l: any) => s + Number(l.estimated_amount || l.amount || 0), 0)
+    const calcVat = Number(order.vat_amount || 0) || (order.vat ? (calcTotal * Number(order.vat) / 100) : 0)
+    const grandTotal = Number(order.total || order.grand_total || 0) || (calcTotal + calcLogistics + calcVat + Number(order.expense_included || 0))
+    const fmtTotal = grandTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    form.financialSummary = `Order #${order.order_number} — Grand Total: ${fmtTotal}`
+    // Get parties from DATABASE - map exactly as returned by API
     form.parties = []
     if (order.parties && Array.isArray(order.parties)) {
       form.parties = order.parties.map((party: any) => ({
@@ -489,7 +517,11 @@ const submit = async () => {
               text: `${form.title} has been created successfully.`,
               confirmButtonColor: '#2563eb'
             }).then(() => {
-              router.push({ name: 'contracts-list' })
+              if (createdId) {
+                router.push({ name: 'contracts-view', params: { id: createdId } })
+              } else {
+                router.push({ name: 'contracts-list' })
+              }
             })
           } catch (error: any) {
             console.error('❌ Contract Creation Error:', error)
@@ -529,6 +561,403 @@ const submit = async () => {
 
 const goBack = () => {
   router.back()
+}
+
+// ─── Contract Preview PDF ───
+const generatingPdf = ref(false)
+
+const displayOrDash = (val: any): string => {
+  if (val === null || val === undefined || val === '') return '-'
+  return String(val)
+}
+
+const fmtPdfCurrency = (val: any): string => {
+  const n = Number(val)
+  if (isNaN(n) || val === null || val === undefined || val === '') return '-'
+  return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+const downloadPreviewPdf = async () => {
+  if (!selectedOrder.value && !selectedOrderId.value && !route.params.id) {
+    Swal.fire({ icon: 'info', title: 'No Order Selected', text: 'Please select an order first to preview the contract.', confirmButtonColor: '#2563eb' })
+    return
+  }
+  generatingPdf.value = true
+  try {
+    const pdf = new jsPDF({ unit: 'pt', format: 'a4' })
+    const pageWidth = pdf.internal.pageSize.getWidth()
+    const pageHeight = pdf.internal.pageSize.getHeight()
+    const margin = 36
+    const tableWidth = pageWidth - margin * 2
+    let cursorY = 40
+
+    const headStyles = { fillColor: [245, 245, 245] as [number, number, number], textColor: 50 as any, fontStyle: 'bold' as const }
+
+    const checkPageBreak = (needed: number = 120) => {
+      if (cursorY > pageHeight - needed) { pdf.addPage(); cursorY = 40 }
+    }
+
+    // ── Header ──
+    pdf.setFontSize(16)
+    pdf.setFont('helvetica', 'bold')
+    pdf.text('CONTRACT PREVIEW', pageWidth / 2, cursorY, { align: 'center' })
+    cursorY += 20
+    pdf.setDrawColor(0)
+    pdf.setLineWidth(0.5)
+    pdf.line(margin, cursorY, pageWidth - margin, cursorY)
+    cursorY += 14
+
+    // ── Contract Meta ──
+    const order = selectedOrder.value || {} as any
+    const contractType = contractTypes.value?.find((t: any) => String(t.id) === String(form.contractTypeId))
+
+    const metaRows = [
+      ['Contract Number:', displayOrDash(form.contractNumber || '(Auto-generated)'), 'Status:', displayOrDash(form.status)],
+      ['Title:', displayOrDash(form.title), 'Type:', displayOrDash(contractType?.name || form.contractTypeId)],
+      ['Start Date:', displayOrDash(form.startDate), 'End Date:', displayOrDash(form.endDate)],
+      ['Signed Date:', displayOrDash(form.signedDate), 'Reference:', displayOrDash(form.referenceExternal)]
+    ]
+    autoTable(pdf, {
+      startY: cursorY,
+      body: metaRows,
+      theme: 'grid',
+      styles: { fontSize: 9, cellPadding: 5 },
+      columnStyles: {
+        0: { cellWidth: 90, fontStyle: 'bold', fillColor: [245, 245, 245] },
+        1: { cellWidth: tableWidth / 2 - 90 },
+        2: { cellWidth: 90, fontStyle: 'bold', fillColor: [245, 245, 245] },
+        3: { cellWidth: tableWidth / 2 - 90 }
+      }
+    })
+    cursorY = (pdf as any).lastAutoTable.finalY + 16
+
+    // ── Order Information ──
+    if (order.order_number) {
+      pdf.setFontSize(12)
+      pdf.setFont('helvetica', 'bold')
+      pdf.text('Order Information', margin, cursorY)
+      cursorY += 8
+
+      const orderMetaRows = [
+        ['Order Number:', displayOrDash(order.order_number), 'Order Date:', displayOrDash(order.order_date ? order.order_date.split('T')[0] : '')],
+        ['Order Status:', displayOrDash(order.status), 'Currency:', displayOrDash(order.currency?.name || order.currency_code || order.currency?.code || '')],
+        ['Expected Date:', displayOrDash(order.expected_date ? order.expected_date.split('T')[0] : ''), '', '']
+      ]
+      autoTable(pdf, {
+        startY: cursorY,
+        body: orderMetaRows,
+        theme: 'grid',
+        styles: { fontSize: 9, cellPadding: 5 },
+        columnStyles: {
+          0: { cellWidth: 90, fontStyle: 'bold', fillColor: [245, 245, 245] },
+          1: { cellWidth: tableWidth / 2 - 90 },
+          2: { cellWidth: 90, fontStyle: 'bold', fillColor: [245, 245, 245] },
+          3: { cellWidth: tableWidth / 2 - 90 }
+        }
+      })
+      cursorY = (pdf as any).lastAutoTable.finalY + 16
+    }
+
+    // ── Order Items ──
+    const items = order.items || order.order_items || []
+    if (items.length > 0) {
+      checkPageBreak()
+      pdf.setFontSize(12)
+      pdf.setFont('helvetica', 'bold')
+      pdf.text(`Order Items (${items.length})`, margin, cursorY)
+      cursorY += 8
+
+      const itemRows = items.map((it: any, idx: number) => {
+        const qty = Number(it.quantity || it.qty || 0)
+        const unitPrice = Number(it.rate || it.unit_price || it.price || 0)
+        const discount = Number(it.discount || 0)
+        const lineTotal = Number(it.amount || it.total || it.line_total || 0) || (qty * unitPrice - discount)
+        return [
+          String(idx + 1),
+          it.name || it.item_name || it.description || '-',
+          it.category || '-',
+          String(qty),
+          fmtPdfCurrency(unitPrice),
+          fmtPdfCurrency(discount),
+          fmtPdfCurrency(lineTotal)
+        ]
+      })
+
+      const itemsSubtotal = items.reduce((sum: number, it: any) => {
+        const qty = Number(it.quantity || it.qty || 0)
+        const unitPrice = Number(it.rate || it.unit_price || it.price || 0)
+        const discount = Number(it.discount || 0)
+        return sum + (Number(it.amount || it.total || it.line_total || 0) || (qty * unitPrice - discount))
+      }, 0)
+
+      autoTable(pdf, {
+        startY: cursorY,
+        head: [['#', 'Name', 'Category', 'Qty', 'Unit Price', 'Discount', 'Total']],
+        body: itemRows,
+        theme: 'grid',
+        tableWidth,
+        margin: { left: margin, right: margin },
+        styles: { fontSize: 9 },
+        headStyles,
+        columnStyles: {
+          0: { cellWidth: 26, halign: 'center' },
+          1: { cellWidth: 'auto' },
+          2: { cellWidth: 70 },
+          3: { cellWidth: 36, halign: 'center' },
+          4: { cellWidth: 80, halign: 'right' },
+          5: { cellWidth: 65, halign: 'right' },
+          6: { cellWidth: 80, halign: 'right' }
+        }
+      })
+      // Total row
+      cursorY = (pdf as any).lastAutoTable.finalY
+      autoTable(pdf, {
+        startY: cursorY,
+        body: [['', '', '', '', '', 'TOTAL:', fmtPdfCurrency(itemsSubtotal)]],
+        theme: 'grid',
+        tableWidth,
+        margin: { left: margin, right: margin },
+        styles: { fontSize: 9, fontStyle: 'bold' },
+        columnStyles: {
+          0: { cellWidth: 26 }, 1: { cellWidth: 'auto' }, 2: { cellWidth: 70 },
+          3: { cellWidth: 36 }, 4: { cellWidth: 80 },
+          5: { cellWidth: 65, halign: 'right', fillColor: [245, 245, 245] },
+          6: { cellWidth: 80, halign: 'right', fillColor: [245, 245, 245] }
+        }
+      })
+      cursorY = (pdf as any).lastAutoTable.finalY + 16
+    }
+
+    // ── Contract Parties ──
+    checkPageBreak()
+    pdf.setFontSize(12)
+    pdf.setFont('helvetica', 'bold')
+    pdf.text(`Parties (${form.parties.length})`, margin, cursorY)
+    cursorY += 8
+    if (form.parties.length > 0) {
+      const partyRows = form.parties.map((p: any) => [
+        (p.role || '-').toUpperCase(),
+        p.entityName || p.entity?.full_name || p.entity_name || '-',
+        p.contactName || p.contact_name || '-',
+        p.contactPhone || p.contact_phone || '-',
+        p.contactEmail || p.contact_email || '-'
+      ])
+      autoTable(pdf, {
+        startY: cursorY,
+        head: [['Role', 'Entity Name', 'Contact Person', 'Phone', 'Email']],
+        body: partyRows,
+        theme: 'grid',
+        tableWidth,
+        margin: { left: margin, right: margin },
+        styles: { fontSize: 9 },
+        headStyles,
+        columnStyles: {
+          0: { cellWidth: 70 },
+          1: { cellWidth: 'auto' },
+          2: { cellWidth: 100 },
+          3: { cellWidth: 90 },
+          4: { cellWidth: 120 }
+        }
+      })
+      cursorY = (pdf as any).lastAutoTable.finalY + 16
+    } else {
+      pdf.setFontSize(9); pdf.setFont('helvetica', 'normal')
+      pdf.text('No parties added.', margin, cursorY + 6)
+      cursorY += 20
+    }
+
+    // ── Logistics ──
+    const logistics = order.logistics || []
+    if (logistics.length > 0) {
+      checkPageBreak()
+      pdf.setFontSize(12)
+      pdf.setFont('helvetica', 'bold')
+      pdf.text(`Logistics (${logistics.length})`, margin, cursorY)
+      cursorY += 8
+      const logRows = logistics.map((l: any) => {
+        let details = ''
+        if (l.logistics_type === 'HOTEL') {
+          details = `${l.hotel_name || '-'} (${l.room_type || '-'}), ${l.rooms || 0} room(s), ${l.nights || 0} night(s)`
+        } else if (l.logistics_type === 'CHARTER') {
+          details = `${l.from_airport || '-'} → ${l.to_airport || '-'}, ${l.seats || 0} seat(s)`
+        } else if (l.logistics_type === 'TRANSFER' || l.logistics_type === 'AIRPORT') {
+          details = `${l.from_location || '-'} → ${l.to_location || '-'}`
+        } else {
+          details = l.description || l.notes || l.item_name || '-'
+        }
+        const dateRange = [
+          l.start_datetime ? new Date(l.start_datetime).toLocaleDateString() : '',
+          l.end_datetime ? new Date(l.end_datetime).toLocaleDateString() : ''
+        ].filter(Boolean).join(' → ') || '-'
+        return [l.logistics_type || 'OTHER', details, dateRange, fmtPdfCurrency(l.estimated_amount), l.status || '-']
+      })
+      autoTable(pdf, {
+        startY: cursorY,
+        head: [['Type', 'Details', 'Dates', 'Amount', 'Status']],
+        body: logRows,
+        theme: 'grid',
+        tableWidth,
+        margin: { left: margin, right: margin },
+        styles: { fontSize: 9, overflow: 'linebreak' as const },
+        headStyles,
+        columnStyles: {
+          0: { cellWidth: 65, fontStyle: 'bold' },
+          1: { cellWidth: 'auto' },
+          2: { cellWidth: 100 },
+          3: { cellWidth: 80, halign: 'right' },
+          4: { cellWidth: 60, halign: 'center' }
+        }
+      })
+      cursorY = (pdf as any).lastAutoTable.finalY + 16
+    }
+
+    // ── Financial Summary ──
+    checkPageBreak()
+    const calcItemsTotal = items.reduce((s: number, it: any) => {
+      const qty = Number(it.quantity || it.qty || 0)
+      const rate = Number(it.rate || it.unit_price || it.price || 0)
+      const disc = Number(it.discount || 0)
+      return s + (Number(it.amount || it.total || it.line_total || 0) || (qty * rate - disc))
+    }, 0)
+    const calcLogTotal = logistics.reduce((s: number, l: any) => s + Number(l.estimated_amount || l.amount || 0), 0)
+    const calcVat = Number(order.vat_amount || 0) || (order.vat ? (calcItemsTotal * Number(order.vat) / 100) : 0)
+    const calcExpense = Number(order.expense_included || 0)
+    const calcGrandTotal = Number(order.total || order.grand_total || 0) || (calcItemsTotal + calcLogTotal + calcVat + calcExpense)
+
+    if (calcItemsTotal > 0 || calcGrandTotal > 0) {
+      pdf.setFontSize(12)
+      pdf.setFont('helvetica', 'bold')
+      pdf.text('Financial Summary', margin, cursorY)
+      cursorY += 8
+
+      const summaryRows: string[][] = []
+      if (calcItemsTotal > 0) summaryRows.push(['Items Subtotal', fmtPdfCurrency(calcItemsTotal)])
+      if (calcLogTotal > 0) summaryRows.push(['Logistics Total', fmtPdfCurrency(calcLogTotal)])
+      if (calcVat > 0) summaryRows.push([`VAT`, `+ ${fmtPdfCurrency(calcVat)}`])
+      if (calcExpense > 0) summaryRows.push(['Expense Included', `+ ${fmtPdfCurrency(calcExpense)}`])
+      summaryRows.push(['GRAND TOTAL', fmtPdfCurrency(calcGrandTotal)])
+
+      autoTable(pdf, {
+        startY: cursorY,
+        body: summaryRows.map(r => ({ label: r[0], amount: r[1] })),
+        theme: 'grid',
+        styles: { fontSize: 10 },
+        columns: [{ header: '', dataKey: 'label' }, { header: '', dataKey: 'amount' }],
+        columnStyles: {
+          0: { cellWidth: 300, fontStyle: 'bold' },
+          1: { cellWidth: tableWidth - 300, halign: 'right', fontStyle: 'bold' }
+        },
+        didParseCell: (data: any) => {
+          if (data.row.index === summaryRows.length - 1) {
+            data.cell.styles.fillColor = [245, 245, 245]
+            data.cell.styles.textColor = 50
+            data.cell.styles.fontSize = 12
+          }
+        }
+      })
+      cursorY = (pdf as any).lastAutoTable.finalY + 16
+    }
+
+    // ── Payment Plan ──
+    const installments = order.payment_schedule || order.installments || order.payment_plan || []
+    if (installments.length > 0) {
+      checkPageBreak()
+      pdf.setFontSize(12)
+      pdf.setFont('helvetica', 'bold')
+      pdf.text(`Payment Plan (${installments.length})`, margin, cursorY)
+      cursorY += 8
+      const instRows = installments.map((inst: any, idx: number) => {
+        const pct = Number(inst.percentage || 0)
+        const calcAmt = Number(inst.calculatedAmount || inst.calculated_amount || inst.amount_due || inst.amount || 0)
+        const finalAmt = calcAmt > 0 ? calcAmt : (pct > 0 ? calcGrandTotal * pct / 100 : 0)
+        return [
+          String(inst.sequenceNo || inst.sequence_no || idx + 1),
+          inst.name || inst.narration || inst.description || `Installment ${idx + 1}`,
+          `${pct}%`,
+          fmtPdfCurrency(finalAmt),
+          `${inst.dueDays || inst.due_days || 0} days`,
+          (inst.isDeposit || inst.is_deposit) ? 'Yes' : 'No'
+        ]
+      })
+      autoTable(pdf, {
+        startY: cursorY,
+        head: [['#', 'Description', '%', 'Amount', 'Due', 'Deposit']],
+        body: instRows,
+        theme: 'grid',
+        tableWidth,
+        margin: { left: margin, right: margin },
+        styles: { fontSize: 9 },
+        headStyles,
+        columnStyles: {
+          0: { cellWidth: 26, halign: 'center' },
+          1: { cellWidth: 'auto' },
+          2: { cellWidth: 50, halign: 'center' },
+          3: { cellWidth: 85, halign: 'right' },
+          4: { cellWidth: 75 },
+          5: { cellWidth: 50, halign: 'center' }
+        }
+      })
+      cursorY = (pdf as any).lastAutoTable.finalY + 16
+    }
+
+    // ── Additional Terms ──
+    const hasAdditional = form.governingLaw || form.jurisdiction || form.specialTerms || form.additionalNote || form.financialSummary
+    if (hasAdditional) {
+      checkPageBreak(100)
+      pdf.setFontSize(12)
+      pdf.setFont('helvetica', 'bold')
+      pdf.text('Additional Terms', margin, cursorY)
+      cursorY += 8
+
+      const termRows: string[][] = []
+      if (form.governingLaw) termRows.push(['Governing Law:', form.governingLaw])
+      if (form.jurisdiction) termRows.push(['Jurisdiction:', form.jurisdiction])
+      if (form.financialSummary) termRows.push(['Financial Summary:', form.financialSummary])
+      if (form.specialTerms) termRows.push(['Special Terms:', form.specialTerms])
+      if (form.additionalNote) termRows.push(['Additional Note:', form.additionalNote])
+
+      autoTable(pdf, {
+        startY: cursorY,
+        head: [['Field', 'Details']],
+        body: termRows.map(r => ({ k: r[0], v: r[1] })),
+        theme: 'grid',
+        tableWidth,
+        margin: { left: margin, right: margin },
+        styles: { fontSize: 9 },
+        headStyles,
+        columns: [{ header: 'Field', dataKey: 'k' }, { header: 'Details', dataKey: 'v' }],
+        columnStyles: { 0: { cellWidth: 140, fontStyle: 'bold' }, 1: { cellWidth: tableWidth - 140, overflow: 'linebreak' as const } }
+      })
+      cursorY = (pdf as any).lastAutoTable.finalY + 16
+    }
+
+    // ── Footer ──
+    const pageCount = pdf.getNumberOfPages()
+    for (let i = 1; i <= pageCount; i++) {
+      pdf.setPage(i)
+      pdf.setFontSize(8)
+      pdf.setFont('helvetica', 'normal')
+      pdf.setTextColor(150)
+      pdf.text(
+        `Generated on ${new Date().toLocaleString()} — Page ${i} of ${pageCount}`,
+        pageWidth / 2,
+        pageHeight - 20,
+        { align: 'center' }
+      )
+      pdf.setTextColor(0)
+    }
+
+    // Open in new tab
+    const pdfBlob = pdf.output('blob')
+    const pdfUrl = URL.createObjectURL(pdfBlob)
+    window.open(pdfUrl, '_blank')
+    init({ message: 'Preview PDF opened in new tab', color: 'success' })
+  } catch (err: any) {
+    console.error('Error generating contract preview PDF:', err)
+    Swal.fire({ icon: 'error', title: 'PDF Error', text: 'Failed to generate preview PDF: ' + (err.message || ''), confirmButtonColor: '#dc2626' })
+  } finally {
+    generatingPdf.value = false
+  }
 }
 
 const resetForm = () => {
@@ -599,6 +1028,7 @@ onMounted(async () => {
       const response = await contractStore.getContract(Number(route.params.id))
       const contract = response.data.data || response.data
       
+      lastUpdated.value = contract.updated_at || contract.modified_at || null
       Object.assign(form, {
         contractNumber: contract.contract_number,
         contractTypeId: String(contract.contract_type_id),
@@ -677,6 +1107,39 @@ onUnmounted(() => {
         margin: 4px 0 0;
         font-size: 14px;
         color: #64748b;
+      }
+    }
+
+    .head-info-boxes {
+      display: flex;
+      gap: 12px;
+      flex-shrink: 0;
+
+      .head-info-box {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 8px 18px;
+        background: #f0f6ff;
+        border: 1px solid #dbeafe;
+        border-radius: 8px;
+        min-width: 120px;
+
+        .head-info-label {
+          font-size: 10px;
+          font-weight: 600;
+          color: #64748b;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          margin-bottom: 2px;
+        }
+
+        .head-info-value {
+          font-size: 13px;
+          font-weight: 700;
+          color: #0f172a;
+          white-space: nowrap;
+        }
       }
     }
 
@@ -775,6 +1238,46 @@ onUnmounted(() => {
           font-size: 12px;
           color: #64748b;
         }
+      }
+
+      .btn-preview-pdf {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 7px 14px;
+        font-size: 12px;
+        font-weight: 600;
+        border: 1.5px solid #2563eb;
+        background: white;
+        color: #2563eb;
+        border-radius: 8px;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: all 0.2s ease;
+
+        &:hover:not(:disabled) {
+          background: #2563eb;
+          color: white;
+        }
+
+        &:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+
+        .spinner {
+          display: inline-block;
+          width: 14px;
+          height: 14px;
+          border: 2px solid rgba(37, 99, 235, 0.3);
+          border-top-color: #2563eb;
+          border-radius: 50%;
+          animation: spin 0.6s linear infinite;
+        }
+      }
+
+      @keyframes spin {
+        to { transform: rotate(360deg); }
       }
     }
   }

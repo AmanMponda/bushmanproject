@@ -50,6 +50,14 @@ export const previewPdfFromBase64 = (base64Pdf: string) => {
 }
 
 /**
+ * Get authorization headers for fetch requests
+ */
+const getAuthHeaders = (): Record<string, string> => {
+  const token = localStorage.getItem('token')
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
+/**
  * Fetch and download a quotation PDF
  * @param pricingId - ID of the pricing/quotation
  * @returns Promise that resolves when download is complete
@@ -62,7 +70,7 @@ export const downloadQuotationPdf = async (pricingId: string | number) => {
   try {
     const response = await fetch(
       `${import.meta.env.VITE_APP_BASE_URL}sales-enquiries/pricing/${pricingId}/quotation-pdf`,
-      { headers: { 'Content-Type': 'application/json' } }
+      { headers: { 'Content-Type': 'application/json', ...getAuthHeaders() } }
     )
 
     const data = await response.json()
@@ -90,7 +98,7 @@ export const downloadOrderPdf = async (orderId: string | number) => {
   try {
     const response = await fetch(
       `${import.meta.env.VITE_APP_BASE_URL}orders/${orderId}/order-pdf`,
-      { headers: { 'Content-Type': 'application/json' } }
+      { headers: { 'Content-Type': 'application/json', ...getAuthHeaders() } }
     )
 
     const data = await response.json()
@@ -122,7 +130,7 @@ export const downloadContractPdf = async (contractId: string | number, versionId
       : `${import.meta.env.VITE_APP_BASE_URL}contract-management/${contractId}/contract-pdf`
 
     const response = await fetch(endpoint, {
-      headers: { 'Content-Type': 'application/json' }
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }
     })
 
     const data = await response.json()
@@ -133,6 +141,38 @@ export const downloadContractPdf = async (contractId: string | number, versionId
     }
   } catch (error) {
     console.error('Error downloading contract PDF:', error)
+    throw error
+  }
+}
+
+/**
+ * Fetch and preview a contract PDF in a new browser tab (same pattern as order PDF)
+ * @param contractId - ID of the contract
+ * @param versionId - Optional version ID of the contract
+ * @returns Promise that resolves when preview is opened
+ */
+export const previewContractPdf = async (contractId: string | number, versionId?: string | number) => {
+  if (!contractId) {
+    throw new Error('Contract ID is required')
+  }
+
+  try {
+    const endpoint = versionId
+      ? `${import.meta.env.VITE_APP_BASE_URL}contract-management/${contractId}/versions/${versionId}/contract-pdf`
+      : `${import.meta.env.VITE_APP_BASE_URL}contract-management/${contractId}/contract-pdf`
+
+    const response = await fetch(endpoint, {
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }
+    })
+
+    const data = await response.json()
+    if (data?.success && data?.pdf) {
+      previewPdfFromBase64(data.pdf)
+    } else {
+      throw new Error(data?.message || 'Failed to generate contract PDF')
+    }
+  } catch (error) {
+    console.error('Error previewing contract PDF:', error)
     throw error
   }
 }

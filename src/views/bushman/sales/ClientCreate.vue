@@ -44,20 +44,13 @@
           </FormSection>
 
           <FormSection :columns="2">
-            <FormField label="Date of Birth" required>
-              <div class="vueform-date-wrapper">
-                <Vueform size="sm" :display-errors="false" :endpoint="false">
-                  <DateElement
-                    name="dob"
-                    v-model="clientForm.individual_profile.date_of_birth"
-                    @change="clientForm.individual_profile.date_of_birth = $event"
-                    :display-format="'MMM D, YYYY'"
-                    :value-format="'YYYY-MM-DD'"
-                    placeholder="Select date of birth..."
-                    :add-class="{ DateElement: { input: 'form-control' } }"
-                  />
-                </Vueform>
-              </div>
+            <FormField label="Date of Birth" optional>
+                <input
+                  type="date"
+                  class="form-control"
+                  v-model="clientForm.individual_profile.date_of_birth"
+                  placeholder="Select date of birth..."
+                />
             </FormField>
             <FormField label="Gender" required>
               <Multiselect
@@ -121,7 +114,7 @@ const router = useRouter()
 const apiBaseUrl = import.meta.env.VITE_APP_BASE_URL
 const countriesEndpoint = import.meta.env.VITE_APP_COUNTRIES_URL
 const currenciesEndpoint = import.meta.env.VITE_APP_CURRENCIES_URL
-const clientMetadataEndpoint = 'client-metadata'
+const clientMetadataEndpoint = 'supplier-metadata'
 
 const saving = ref(false)
 const metadataLoaded = ref(false)
@@ -281,12 +274,18 @@ const saveClient = async () => {
       contacts.push({ type: 'address', contact: clientForm.individual_profile.address, contactable: false })
     }
 
+    // Get current user ID from localStorage
+    const userData = localStorage.getItem('user')
+    const currentUserId = userData ? JSON.parse(userData)?.id : null
+
     const payload: any = {
       full_name: clientForm.full_name,
       type: 'INDIVIDUAL',
       status: 'ACTIVE',
       country_id: resolveId(clientForm.country_id),
       nationality_id: resolveId(clientForm.nationality_id),
+      user_id: currentUserId,
+      categories: buildCategoryPayload(),
       contacts: contacts
     }
 
@@ -333,7 +332,6 @@ const fetchClientMetadata = async () => {
     const data = response.data?.data || response.data || {}
 
     countries.value = Array.isArray(data.countries) ? data.countries : []
-    nationalities.value = Array.isArray(data.nationalities) ? data.nationalities : []
     currencies.value = Array.isArray(data.currencies) ? data.currencies : []
     categories.value = Array.isArray(data.categories) ? data.categories : []
     classificationCategories.value = Array.isArray(data.classification_categories)
@@ -349,6 +347,8 @@ const fetchClientMetadata = async () => {
   if (!countries.value.length && countriesEndpoint) {
     await fetchCountries()
   }
+  // Fetch real nationalities from settings endpoint
+  await fetchNationalities()
   if (!currencies.value.length && currenciesEndpoint) {
     await fetchCurrencies()
   }
@@ -366,6 +366,18 @@ const fetchCountries = async () => {
     countries.value = Array.isArray(data) ? data : []
   } catch (error: any) {
     console.error('Failed to load countries', error)
+  }
+}
+
+const fetchNationalities = async () => {
+  try {
+    const response = await axios.get(`${apiBaseUrl}settings/nationalities`, {
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }
+    })
+    const data = response.data?.data || response.data || []
+    nationalities.value = Array.isArray(data) ? data : []
+  } catch (error: any) {
+    console.error('Failed to load nationalities', error)
   }
 }
 
