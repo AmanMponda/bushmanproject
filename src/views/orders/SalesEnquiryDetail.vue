@@ -261,6 +261,8 @@ const convertToOrder = async () => {
       entity_id: enquiry.value.entity_id,
       order_date: new Date().toISOString().split('T')[0],
       currency_id: 1, // Will be updated from quotation
+      sales_enquiry_id: enquiry.value.id,
+      enquiry_id: enquiry.value.id,
       sales_enquiry_pricing_id: selectedQuotationId.value,
       notes: `Converted from enquiry ${enquiry.value.code}`,
       

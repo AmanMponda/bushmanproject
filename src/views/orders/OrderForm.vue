@@ -24,34 +24,6 @@
       </div>
     </div>
 
-    <!-- PAYMENT SUMMARY BANNER (Only show when editing) -->
-    <div v-if="isEdit && paymentSummary" class="payment-summary-banner">
-      <div class="summary-card">
-        <div class="summary-item">
-          <div class="summary-label">Total Due</div>
-          <div class="summary-value">{{ formatCurrency(paymentSummary.total_due) }}</div>
-        </div>
-        <div class="summary-item">
-          <div class="summary-label">Total Paid</div>
-          <div class="summary-value paid">{{ formatCurrency(paymentSummary.total_paid) }}</div>
-        </div>
-        <div class="summary-item">
-          <div class="summary-label">Remaining</div>
-          <div class="summary-value remaining">{{ formatCurrency(paymentSummary.total_remaining) }}</div>
-        </div>
-        <div class="summary-item">
-          <div class="summary-label">Status</div>
-          <div class="summary-badge" :style="{ backgroundColor: getStatusColor(paymentSummary.status) }">
-            {{ getStatusLabel(paymentSummary.status) }}
-          </div>
-        </div>
-      </div>
-      <div class="progress-bar">
-        <div class="progress" :style="{ width: paymentSummary.payment_percentage + '%' }"></div>
-      </div>
-      <div class="progress-text">{{ paymentSummary.payment_percentage }}% Paid</div>
-    </div>
-
     <!-- 2-Column Grid Layout -->
     <section class="grid">
       <!-- LEFT PANEL: Order Details -->
@@ -192,14 +164,6 @@
 
             <div class="financial-grid">
               <label class="field">
-                <span class="lbl">Expense Included</span>
-                <div class="input-wrapper">
-                  <span class="input-icon">➕</span>
-                  <input v-model.number="form.expenseIncluded" type="number" placeholder="0.00" step="0.01" min="0" />
-                </div>
-              </label>
-
-              <label class="field">
                 <span class="lbl">VAT (%)</span>
                 <div class="input-wrapper">
                   <span class="input-icon">%</span>
@@ -210,13 +174,12 @@
             </div>
 
             <!-- Grand Total Display -->
-            <div v-if="form.expenseIncluded > 0 || form.vat > 0" style="margin-top: 12px; padding: 14px; background: linear-gradient(135deg, #e8f5e9, #c8e6c9); border-radius: 8px; border-left: 4px solid #2e7d32;">
+            <div v-if="form.vat > 0" style="margin-top: 12px; padding: 14px; background: linear-gradient(135deg, #e8f5e9, #c8e6c9); border-radius: 8px; border-left: 4px solid #2e7d32;">
               <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
                 <div style="font-size: 12px; color: #555;">
                   <div>Items Subtotal: <strong>{{ formatCurrency(itemsSubtotal) }}</strong></div>
                   <div>Logistics Total: <strong>{{ formatCurrency(logisticsTotal) }}</strong></div>
-                  <div v-if="form.vat > 0">VAT ({{ form.vat }}% on items): <strong>+{{ formatCurrency(vatAmount) }}</strong></div>
-                  <div v-if="form.expenseIncluded > 0">Expense Included: <strong>+{{ formatCurrency(form.expenseIncluded) }}</strong></div>
+                  <div>VAT ({{ form.vat }}% on items): <strong>+{{ formatCurrency(vatAmount) }}</strong></div>
                 </div>
                 <div style="text-align: right;">
                   <div style="font-size: 11px; color: #2e7d32; font-weight: 600; text-transform: uppercase;">Grand Total</div>
@@ -3232,6 +3195,8 @@ const submit = async () => {
       notes: form.notes || null,
       enquiry_id: form.enquiryId ? parseInt(form.enquiryId as string) : null,
       quotation_id: form.quotationId ? parseInt(form.quotationId as string) : null,
+      sales_enquiry_id: form.enquiryId ? parseInt(form.enquiryId as string) : null,
+      sales_enquiry_pricing_id: form.quotationId ? parseInt(form.quotationId as string) : null,
       items: normalizedItems,
       parties: form.parties.map(party => ({
         role: (party.role || 'CUSTOMER').toUpperCase(),

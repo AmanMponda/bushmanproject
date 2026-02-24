@@ -137,7 +137,7 @@ export const useOrderStore = defineStore('order', {
           method: 'get',
           url: `${API_BASE}/${id}`,
           params: {
-            include: 'parties,parties.entity,items,logistics,sales_details,order_payments,payment_schedule,documents,preferences'
+            include: 'parties,parties.entity,items,items.item,logistics,sales_details,sales_details.salesEnquiry,sales_details.salesEnquiry.pricings,order_payments,payment_schedule,documents,preferences'
           },
           headers: {
             'Content-Type': 'application/json'

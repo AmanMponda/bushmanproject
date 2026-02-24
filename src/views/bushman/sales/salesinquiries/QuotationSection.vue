@@ -1404,6 +1404,13 @@ const duplicatePricing = async (pricing: Pricing) => {
     const response = await salesStore.addPricing(props.enquiryId, payload)
 
     if (response.status === 200 || response.status === 201) {
+      // Update enquiry status to IN_PROGRESS after creating/duplicating a quotation
+      try {
+        await salesEnquiryService.update(props.enquiryId, { status: 'IN_PROGRESS' })
+      } catch (e) {
+        console.warn('Could not update enquiry status:', e)
+      }
+
       Swal.fire({
         title: 'Quotation Duplicated',
         text: `Created a new quotation with ${items.length} item${items.length === 1 ? '' : 's'}.`,
@@ -1705,6 +1712,13 @@ const savePricingWithItems = async () => {
         const response = await salesStore.addPricing(props.enquiryId, payload)
 
         if (response.status === 200 || response.status === 201) {
+          // Update enquiry status to IN_PROGRESS after creating a quotation
+          try {
+            await salesEnquiryService.update(props.enquiryId, { status: 'IN_PROGRESS' })
+          } catch (e) {
+            console.warn('Could not update enquiry status:', e)
+          }
+
           Swal.fire({ title: 'Success!', text: `Quotation created with ${itemsToCreate.length} items`, icon: 'success', timer: 2000 })
           closeAddPricingModal()
           await loadPricings(true)
@@ -1808,6 +1822,15 @@ const savePricing = async () => {
     }
 
     if (response.status === 200 || response.status === 201) {
+      // Update enquiry status to IN_PROGRESS when creating a quotation
+      if (!editingPricing.value) {
+        try {
+          await salesEnquiryService.update(props.enquiryId, { status: 'IN_PROGRESS' })
+        } catch (e) {
+          console.warn('Could not update enquiry status:', e)
+        }
+      }
+
       Swal.fire({
         title: 'Success!',
         text: `Quotation ${editingPricing.value ? 'updated' : 'created'} successfully`,
@@ -1869,6 +1892,13 @@ const confirmLockPricing = (pricing: Pricing) => {
       try {
         const response = await salesStore.lockPricing(pricing.id)
         if (response.status === 200) {
+          // Update enquiry status to QUOTED after locking a quotation
+          try {
+            await salesEnquiryService.update(props.enquiryId, { status: 'QUOTED' })
+          } catch (e) {
+            console.warn('Could not update enquiry status:', e)
+          }
+
           Swal.fire('Locked!', 'Quotation has been locked.', 'success')
           await loadPricings()
           emit('update')

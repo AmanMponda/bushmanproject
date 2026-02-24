@@ -214,13 +214,16 @@ const downloadVersionFile = async (version: any) => {
 	}
 }
 
+const emit = defineEmits(['contract-updated'])
+
 const signVersion = async (version: any) => {
 	if (!version.id) return init({ message: 'Save version to sign', color: 'warning' })
 	try {
 		if (!confirm(`Sign version #${version.versionNo}? This will mark it as SIGNED.`)) return
 		await store.signVersion(Number(props.contractId), Number(version.id))
-		init({ message: `Version ${version.versionNo} signed`, color: 'success' })
+		init({ message: `Version ${version.versionNo} signed. Contract is now ACTIVE.`, color: 'success' })
 		await fetchVersions()
+		emit('contract-updated')
 	} catch (error) {
 		console.error('Sign failed', error)
 		init({ message: 'Signing failed', color: 'danger' })

@@ -17,10 +17,10 @@
               <i v-else class="fa fa-file-pdf me-1"></i>
               {{ downloadingPdf ? 'Downloading...' : 'Download PDF' }}
             </button>
-            <button v-if="contract.status === 'DRAFT'" @click="editContract" class="btn btn-outline-success btn-sm">
+            <button v-if="contract.status === 'DRAFT' || contract.status === 'PENDING_SIGNATURE'" @click="editContract" class="btn btn-outline-success btn-sm">
               <i class="fa fa-edit me-1"></i> Edit
             </button>
-            <button v-if="contract.status === 'DRAFT'" @click="activateContract" class="btn btn-success btn-sm">
+            <button v-if="contract.status === 'DRAFT' || contract.status === 'PENDING_SIGNATURE'" @click="activateContract" class="btn btn-success btn-sm">
               <i class="fa fa-check-circle me-1"></i> Activate
             </button>
             <button v-if="contract.status === 'ACTIVE'" @click="suspendContract" class="btn btn-warning btn-sm">
@@ -110,7 +110,7 @@
             <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 16px;">
               <div>
                 <small class="text-muted d-block">Contract Number</small>
-                <strong>{{ contract.contract_number || 'N/A' }}</strong>
+                <strong>{{ contract.contract_number || '-' }}</strong>
               </div>
               <div>
                 <small class="text-muted d-block">Status</small>
@@ -126,27 +126,47 @@
               </div>
             </div>
 
-            <!-- Row 2: Start Date | End Date | Created | Last Updated -->
+            <!-- Row 2: Package | Hunting Type | Hunting Area | Start Date -->
             <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 16px;">
+              <div>
+                <small class="text-muted d-block">Package Name</small>
+                <strong>{{ contractPackageName }}</strong>
+              </div>
+              <div>
+                <small class="text-muted d-block">Hunting Type</small>
+                <strong>{{ contractHuntingType }}</strong>
+              </div>
+              <div>
+                <small class="text-muted d-block">Hunting Area</small>
+                <strong>{{ contractHuntingArea }}</strong>
+              </div>
               <div>
                 <small class="text-muted d-block">Start Date</small>
                 <strong>{{ formatDate(contract.start_date) }}</strong>
               </div>
+            </div>
+
+            <!-- Row 3: End Date | Created | Last Updated | Governing Law -->
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 16px;">
               <div>
                 <small class="text-muted d-block">End Date</small>
                 <strong>{{ formatDate(contract.end_date) }}</strong>
               </div>
               <div>
                 <small class="text-muted d-block">Created</small>
-                <strong style="font-size: 13px;">{{ contract.created_at ? formatDateTime(contract.created_at) : 'N/A' }}</strong>
+                <strong style="font-size: 13px;">{{ contract.created_at ? formatDateTime(contract.created_at) : '-' }}</strong>
               </div>
               <div>
                 <small class="text-muted d-block">Last Updated</small>
-                <strong style="font-size: 13px;">{{ contract.updated_at ? formatDateTime(contract.updated_at) : 'N/A' }}</strong>
+                <strong style="font-size: 13px;">{{ contract.updated_at ? formatDateTime(contract.updated_at) : '-' }}</strong>
+              </div>
+              <div>
+                <small class="text-muted d-block">Governing Law</small>
+                <strong>{{ contract.governing_law || '-' }}</strong>
               </div>
             </div>
 
-            <!-- Row 3: Financial Summary | Linked Order | Party | Governing Law -->
+            <!-- Row 4: Financial Summary | Linked Order | Party -->
             <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 16px;">
               <div>
                 <small class="text-muted d-block">Financial Summary</small>
@@ -163,20 +183,17 @@
                     </a>
                   </div>
                 </div>
-                <strong v-else>N/A</strong>
+                <strong v-else>-</strong>
               </div>
               <div>
                 <small class="text-muted d-block">{{ partiesList.length > 0 ? (partiesList[0].role || 'Party') : 'Party' }}</small>
                 <div v-if="partiesList.length > 0">
-                  <strong style="font-size: 13px;">{{ getPartyName(partiesList[0]) || 'N/A' }}</strong>
+                  <strong style="font-size: 13px;">{{ getPartyName(partiesList[0]) || '-' }}</strong>
                   <div v-if="partiesList[0].contact_name" style="font-size: 12px; color: #64748b;">{{ partiesList[0].contact_name }}</div>
                 </div>
-                <strong v-else>N/A</strong>
+                <strong v-else>-</strong>
               </div>
-              <div>
-                <small class="text-muted d-block">Governing Law</small>
-                <strong>{{ contract.governing_law || 'N/A' }}</strong>
-              </div>
+              <div></div>
             </div>
           </div>
 
@@ -405,13 +422,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useContractStore } from '@/stores/bushman/contract-store'
 import { useOrderStore } from '@/stores/bushman/order-store'
 import { useToast } from '@/composables/useToast'
-import { useAppOptionStore } from '@/stores/app-option'
 import { previewContractPdf } from '@/services/pdfService'
+import { salesEnquiryService } from '@/stores/bushman/salesEnquiryService'
 import Swal from 'sweetalert2'
 
 const route = useRoute()
@@ -419,13 +436,12 @@ const router = useRouter()
 const { init } = useToast()
 const contractStore = useContractStore()
 const orderStore = useOrderStore()
-const appOptionStore = useAppOptionStore()
 
 // State
 const activeTab = ref('summary')
 const downloadingPdf = ref(false)
-const originalSidebarState = ref(false)
 const linkedOrder = ref<any>(null)
+const enquiryForContract = ref<any>(null)
 
 // Computed
 const contract = computed(() => contractStore.currentContract)
@@ -465,7 +481,7 @@ const linkedObjects = computed(() => contract.value?.links || [])
 // ── Real Financial Summary from linked order ──
 const realFinancialSummary = computed(() => {
   const order = linkedOrder.value
-  if (!order) return contract.value?.financial_summary || 'N/A'
+  if (!order) return contract.value?.financial_summary || '-'
   const items = order.items || order.order_items || []
   const logistics = order.logistics || []
   const itemsTotal = items.reduce((s: number, it: any) => {
@@ -514,20 +530,20 @@ const contractDuration = computed(() => {
 
 // ── Helper Methods ──
 const formatDate = (date: string | null | undefined) => {
-  if (!date) return 'N/A'
+  if (!date) return '-'
   try {
     return new Date(date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
-  } catch { return 'N/A' }
+  } catch { return '-' }
 }
 
 const formatDateTime = (dateTime: string | null | undefined) => {
-  if (!dateTime) return 'N/A'
+  if (!dateTime) return '-'
   try {
     return new Date(dateTime).toLocaleString('en-US', {
       year: 'numeric', month: 'short', day: 'numeric',
       hour: '2-digit', minute: '2-digit'
     })
-  } catch { return 'N/A' }
+  } catch { return '-' }
 }
 
 const getStatusBadge = (status: string) => {
@@ -557,7 +573,7 @@ const getPartyName = (party: any) => {
 
 const getContractTypeName = () => {
   const type = contractTypes.value?.find((t: any) => t.id === contract.value?.contract_type_id)
-  return type?.name || contract.value?.contract_type?.name || 'N/A'
+  return type?.name || contract.value?.contract_type?.name || '-'
 }
 
 const getLinkIcon = (objectType: string) => {
@@ -566,6 +582,115 @@ const getLinkIcon = (objectType: string) => {
     'INVOICE': 'fa fa-receipt text-success', 'ENQUIRY': 'fa fa-search text-warning'
   }
   return map[objectType?.toUpperCase()] || 'fa fa-link text-secondary'
+}
+
+// ── Package / Hunting Type / Hunting Area helpers ──
+const extractPackageName = (e: any): string | null => {
+  if (!e) return null
+  return e.price_structure_detail?.name
+    || e.package_details?.package_name
+    || e.package_details?.name
+    || e.pricings?.[0]?.price_structure_detail?.name
+    || e.package_name
+    || null
+}
+
+const extractHuntingType = (e: any): string | null => {
+  if (!e) return null
+  return e.package_details?.hunting_type_name
+    || e.pricings?.[0]?.price_structure_detail?.hunting_type?.name
+    || e.pricings?.[0]?.hunting_type
+    || e.hunting_type_name
+    || e.hunting_type
+    || null
+}
+
+const extractHuntingArea = (e: any): string | null => {
+  if (!e) return null
+  return e.package_details?.area_name
+    || e.pricings?.[0]?.price_structure_detail?.hunting_area?.name
+    || e.hunting_area_name
+    || e.hunting_area
+    || null
+}
+
+const contractPackageName = computed(() => {
+  return extractPackageName(enquiryForContract.value) || '-'
+})
+
+const contractHuntingType = computed(() => {
+  return extractHuntingType(enquiryForContract.value) || '-'
+})
+
+const contractHuntingArea = computed(() => {
+  return extractHuntingArea(enquiryForContract.value) || '-'
+})
+
+// Fetch enquiry data by tracing: contract → linked order → enquiry, or by customer entity
+const fetchEnquiryForContract = async () => {
+  try {
+    const c = contractStore.currentContract as any
+    if (!c) return
+
+    // Step 1: If we already loaded a linked order, trace its enquiry
+    const orderData = linkedOrder.value
+    if (orderData) {
+      // Check sales_details / sales_order_detail for nested enquiry
+      const sd = orderData.sales_details || orderData.sales_order_detail
+      const sdObj = Array.isArray(sd) ? sd[0] : sd
+      const nested = sdObj?.sales_enquiry || sdObj?.salesEnquiry || sdObj?.enquiry
+      if (nested) {
+        enquiryForContract.value = nested
+        return
+      }
+      // Check enquiry_id / sales_enquiry_id on order
+      const enquiryId = orderData.enquiry_id || orderData.sales_enquiry_id || sdObj?.sales_enquiry_id || sdObj?.enquiry_id
+      if (enquiryId) {
+        try {
+          const eRes = await salesEnquiryService.get(Number(enquiryId))
+          enquiryForContract.value = eRes?.data || eRes
+          return
+        } catch { /* continue */ }
+      }
+    }
+
+    // Step 2: Parse order number from financial_summary and fetch order if not already loaded
+    if (!orderData && c.financial_summary) {
+      const match = c.financial_summary.match(/Order\s*#(\S+)/i)
+      if (match) {
+        try {
+          // Try to search orders by order_number (use order store list if available)
+          const orderNum = match[1]
+          console.log('[Contract→Enquiry] Parsed order number from financial_summary:', orderNum)
+        } catch { /* continue */ }
+      }
+    }
+
+    // Step 3: Search enquiries by customer entity_id from contract parties
+    const parties = c.parties || []
+    const customerParty = parties.find((p: any) =>
+      p.role === 'CUSTOMER' || p.role === 'BUYER' || p.role === 'CLIENT'
+    ) || parties[0]
+    const entityId = customerParty?.entity_id || customerParty?.entity?.id
+    if (entityId) {
+      try {
+        const listRes = await salesEnquiryService.list({ entity_id: entityId })
+        const enquiries = listRes?.data?.data || listRes?.data || []
+        const arr = Array.isArray(enquiries) ? enquiries : []
+        if (arr.length > 0) {
+          // Pick the most recent quoted/converted enquiry
+          const quoted = arr.find((e: any) => e.status === 'CONVERTED' || e.status === 'QUOTED') || arr[0]
+          const eRes = await salesEnquiryService.get(Number(quoted.id))
+          enquiryForContract.value = eRes?.data || eRes
+          return
+        }
+      } catch { /* continue */ }
+    }
+
+    console.warn('[Contract→Enquiry] Could not find linked enquiry for contract', c.id)
+  } catch (err) {
+    console.warn('[Contract→Enquiry] Error fetching enquiry:', err)
+  }
 }
 
 // ── Actions ──
@@ -756,7 +881,7 @@ const signVersion = async (version: any) => {
     try {
       await contractStore.signVersion(contract.value.id, version.id)
       await contractStore.getContract(contract.value.id)
-      init({ message: `Version v${version.version_no || version.versionNo} signed`, color: 'success' })
+      init({ message: `Version v${version.version_no || version.versionNo} signed — contract is now ACTIVE`, color: 'success' })
     } catch (err: any) {
       init({ message: err?.message || 'Signing failed', color: 'danger' })
     }
@@ -791,9 +916,6 @@ const deleteVersion = async (version: any) => {
 
 // ── Lifecycle ──
 onMounted(async () => {
-  originalSidebarState.value = appOptionStore.appSidebarMinified
-  appOptionStore.appSidebarMinified = true
-
   try {
     await contractStore.fetchContractTypes()
   } catch (err) {
@@ -810,16 +932,18 @@ onMounted(async () => {
         try {
           const res = await orderStore.getOrder(Number(orderLink.object_id))
           linkedOrder.value = res.data?.data || res.data
-        } catch { /* order may not exist */ }
+        } catch (orderErr: any) {
+          console.warn(`Linked order #${orderLink.object_id} not found — it may have been deleted or the link is stale.`)
+          linkedOrder.value = null
+        }
       }
+
+      // ── Fetch enquiry data for Package / Hunting Type / Hunting Area ──
+      await fetchEnquiryForContract()
     } catch (e: any) {
       init({ message: e?.response?.data?.message || 'Error loading contract', color: 'danger' })
     }
   }
-})
-
-onUnmounted(() => {
-  appOptionStore.appSidebarMinified = originalSidebarState.value
 })
 </script>
 

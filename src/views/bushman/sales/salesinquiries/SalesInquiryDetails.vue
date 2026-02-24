@@ -27,7 +27,7 @@
             <div class="d-flex align-items-center justify-content-between mb-3 stats-row">
               <div class="stat text-center">
                 <div class="stat-icon mb-1"><i class="fa fa-calendar text-primary"></i></div>
-                <div class="stat-value h5 mb-0">{{ item?.preference?.no_of_days || 'N/A' }}</div>
+                <div class="stat-value h5 mb-0">{{ item?.preference?.no_of_days || '-' }}</div>
                 <small class="text-muted">Days</small>
               </div>
               <div class="stat text-center">
@@ -37,50 +37,84 @@
               </div>
               <div class="stat text-center">
                 <div class="stat-icon mb-1"><i class="fa fa-dollar-sign text-warning"></i></div>
-                <div class="stat-value h5 mb-0">{{ item?.preference?.budget_min ? formatCurrency(item.preference.budget_min) : 'N/A' }}</div>
+                <div class="stat-value h5 mb-0">{{ item?.preference?.budget_min ? formatCurrency(item.preference.budget_min) : '-' }}</div>
                 <small class="text-muted">Budget Min</small>
               </div>
               <div class="stat text-center">
                 <div class="stat-icon mb-1"><i class="fa fa-dollar-sign text-info"></i></div>
-                <div class="stat-value h5 mb-0">{{ item?.preference?.budget_max ? formatCurrency(item.preference.budget_max) : 'N/A' }}</div>
+                <div class="stat-value h5 mb-0">{{ item?.preference?.budget_max ? formatCurrency(item.preference.budget_max) : '-' }}</div>
                 <small class="text-muted">Budget Max</small>
               </div>
             </div>
 
             <hr />
 
-            <!-- Condensed details grid -->
+            <!-- Condensed details grid: 3 rows x 4 columns -->
             <div class="details-grid">
-              <div class="row g-3">
-                <div class="col-md-6">
-                  <div class="d-flex mb-2 align-items-start"><strong class="me-2 label">Full Name:</strong><div class="value">{{ safeString(item?.entity?.full_name) }}</div></div>
-                  <div class="d-flex mb-2 align-items-start"><strong class="me-2 label">Contacts:</strong>
-                    <div class="value">
-                      <div v-for="(contact, index) in safeArray(item?.entity?.contacts)" :key="index" class="contact-line">
-                        <i :class="'fa fa-' + getContactIcon(contact.type || contact.contact_type_id)" class="me-2"></i>
-                        <span>{{ contact.contact }}</span>
-                      </div>
-                    </div>
+              <!-- Row 1: Full Name | Nationality | Country | Contacts -->
+              <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 16px;">
+                <div>
+                  <small class="text-muted d-block">Full Name</small>
+                  <strong>{{ safeString(item?.entity?.full_name) }}</strong>
+                </div>
+                <div>
+                  <small class="text-muted d-block">Nationality</small>
+                  <strong>{{ safeString(item?.entity?.nationality) }}</strong>
+                </div>
+                <div>
+                  <small class="text-muted d-block">Country</small>
+                  <strong>{{ safeString(item?.entity?.country) }}</strong>
+                </div>
+                <div>
+                  <small class="text-muted d-block">Contacts</small>
+                  <div v-for="(contact, index) in safeArray(item?.entity?.contacts)" :key="index" class="contact-line">
+                    <i :class="'fa fa-' + getContactIcon(contact.type || contact.contact_type_id)" class="me-1"></i>
+                    <span style="font-weight: 600; font-size: 13px;">{{ contact.contact }}</span>
                   </div>
-                </div>
-
-                <div class="col-md-6">
-                  <div class="d-flex mb-2 align-items-start"><strong class="me-2 label">Nationality:</strong><div class="value">{{ safeString(item?.entity?.nationality) }}</div></div>
-                  <div class="d-flex mb-2 align-items-start"><strong class="me-2 label">Country:</strong><div class="value">{{ safeString(item?.entity?.country) }}</div></div>
-                </div>
-
-                <div class="col-md-6">
-                  <div class="d-flex mb-2 align-items-start"><strong class="me-2 label">Preferred Date:</strong><div class="value">{{ formatDate(item?.preference?.preferred_start_date) }}</div></div>
-                  <div class="d-flex mb-2 align-items-start"><strong class="me-2 label">Duration:</strong><div class="value">{{ item?.preference?.no_of_days || 'N/A' }} days</div></div>
-                </div>
-
-                <div class="col-md-6">
-                  <div class="d-flex mb-2 align-items-start"><strong class="me-2 label">Budget Range:</strong><div class="value">{{ item?.preference?.budget_min ? formatCurrency(item.preference.budget_min) : 'N/A' }} - {{ item?.preference?.budget_max ? formatCurrency(item.preference.budget_max) : 'N/A' }}</div></div>
-                  <div class="d-flex mb-2 align-items-start"><strong class="me-2 label">Previous Experience:</strong><div class="value">{{ item?.preference?.prev_experience || 'N/A' }}</div></div>
                 </div>
               </div>
 
-              <div class="mt-3 d-flex align-items-center justify-content-between">
+              <!-- Row 2: Preferred Date | Duration | Budget Range | Previous Experience -->
+              <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 16px;">
+                <div>
+                  <small class="text-muted d-block">Preferred Date</small>
+                  <strong>{{ formatDate(item?.preference?.preferred_start_date) }}</strong>
+                </div>
+                <div>
+                  <small class="text-muted d-block">Duration</small>
+                  <strong>{{ item?.preference?.no_of_days ? item.preference.no_of_days + ' days' : '-' }}</strong>
+                </div>
+                <div>
+                  <small class="text-muted d-block">Budget Range</small>
+                  <strong>{{ item?.preference?.budget_min ? formatCurrency(item.preference.budget_min) : '-' }} - {{ item?.preference?.budget_max ? formatCurrency(item.preference.budget_max) : '-' }}</strong>
+                </div>
+                <div>
+                  <small class="text-muted d-block">Previous Experience</small>
+                  <strong>{{ item?.preference?.prev_experience || '-' }}</strong>
+                </div>
+              </div>
+
+              <!-- Row 3: Package | Hunting Type | Hunting Area | Created -->
+              <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 16px;">
+                <div>
+                  <small class="text-muted d-block">Package</small>
+                  <strong>{{ enquiryPackageName }}</strong>
+                </div>
+                <div>
+                  <small class="text-muted d-block">Hunting Type</small>
+                  <strong>{{ enquiryHuntingType }}</strong>
+                </div>
+                <div>
+                  <small class="text-muted d-block">Hunting Area</small>
+                  <strong>{{ enquiryHuntingArea }}</strong>
+                </div>
+                <div>
+                  <small class="text-muted d-block">Created</small>
+                  <strong>{{ formatDate(item?.created_at) }}</strong>
+                </div>
+              </div>
+
+              <div class="mt-3 d-flex align-items-center">
                 <div>
                   <span class="badge" :class="{
                     'bg-success': item?.status === 'NEW',
@@ -93,7 +127,6 @@
                   <span class="badge bg-primary ms-2">Season: {{ item?.season?.name || 'N/A' }}</span>
                   <span v-if="item?.user" class="badge bg-secondary ms-2">Agent: {{ item.user.full_name }}</span>
                 </div>
-                <div class="text-muted small">Created: {{ formatDate(item?.created_at) }}</div>
               </div>
 
               <div v-if="item?.preference?.special_requests" class="mt-3">
@@ -482,6 +515,39 @@ const clientSafariExtras = ref<any[]>([])
 const accommodations = ref<any[]>([])
 const chartersPrices = ref<any[]>([])
 
+// Package, Hunting Type, Hunting Area computed from enquiry data
+const enquiryPackageName = computed(() => {
+  const e = item.value as any
+  if (!e) return '-'
+  return e.price_structure_detail?.name
+    || e.package_details?.package_name
+    || e.package_details?.name
+    || e.pricings?.[0]?.price_structure_detail?.name
+    || e.package_name
+    || '-'
+})
+
+const enquiryHuntingType = computed(() => {
+  const e = item.value as any
+  if (!e) return '-'
+  return e.package_details?.hunting_type_name
+    || e.pricings?.[0]?.price_structure_detail?.hunting_type?.name
+    || e.pricings?.[0]?.hunting_type
+    || e.hunting_type_name
+    || e.hunting_type
+    || '-'
+})
+
+const enquiryHuntingArea = computed(() => {
+  const e = item.value as any
+  if (!e) return '-'
+  return e.package_details?.area_name
+    || e.pricings?.[0]?.price_structure_detail?.hunting_area?.name
+    || e.hunting_area_name
+    || e.hunting_area
+    || '-'
+})
+
 const tabs = computed(() => {
   const tabList = [
     {
@@ -674,7 +740,7 @@ const downloadInquiryPdf = async () => {
 }
 
 const formatDate = (dateString: string | number | Date | undefined) => {
-  return dateString ? new Date(dateString).toLocaleDateString() : 'Not provided'
+  return dateString ? new Date(dateString).toLocaleDateString() : '-'
 }
 
 const formatCurrency = (amount: any) => {
@@ -705,7 +771,7 @@ const safeArray = (arr: any) => {
   return arr || []
 }
 
-const safeString = (str: any, fallback = 'Not provided') => {
+const safeString = (str: any, fallback = '-') => {
   return str || fallback
 }
 

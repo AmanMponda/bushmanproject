@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { defineStore } from 'pinia'
 import axios from 'axios'
+import { useAuthStore } from '@/stores/auth'
 
 const getApiBase = () => (import.meta.env.VITE_APP_BASE_URL || '').replace(/\/+$/, '')
 const CM_BASE = () => `${getApiBase()}/contract-management`
@@ -159,7 +160,9 @@ export const useContractStore = defineStore('contract', {
       this.loading = true
       this.error = null
       try {
-        const response: any = await axios.put(`${CONTRACTS_BASE()}/${id}`, payload, { headers: { 'Content-Type': 'application/json' } })
+        const authStore = useAuthStore()
+        const enrichedPayload = { ...payload, updated_by: payload.updated_by || authStore.user?.id || null }
+        const response: any = await axios.put(`${CONTRACTS_BASE()}/${id}`, enrichedPayload, { headers: { 'Content-Type': 'application/json' } })
         const updatedContract = response.data.data || response.data
         const index = this.contracts.findIndex((c: any) => c.id === id)
         if (index !== -1) this.contracts[index] = updatedContract
@@ -212,6 +215,13 @@ export const useContractStore = defineStore('contract', {
         const response: any = await axios.post(
           `${CONTRACTS_BASE()}/${contractId}/versions/${versionId}/sign`
         )
+
+        // Also update the parent contract status to ACTIVE after signing
+        await this.updateContract(contractId, {
+          status: 'ACTIVE',
+          signed_date: new Date().toISOString().slice(0, 19).replace('T', ' ')
+        })
+
         return response
       } catch (err: any) {
         this.error = err?.response?.data?.message || 'Error signing contract version'

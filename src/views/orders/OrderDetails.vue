@@ -62,7 +62,7 @@
             <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 16px;">
               <div>
                 <small class="text-muted d-block">Order Number</small>
-                <strong>{{ order.order_number || 'N/A' }}</strong>
+                <strong>{{ order.order_number || '-' }}</strong>
               </div>
               <div>
                 <small class="text-muted d-block">Status</small>
@@ -70,7 +70,7 @@
               </div>
               <div>
                 <small class="text-muted d-block">Order Type</small>
-                <strong>{{ order.type || 'N/A' }}</strong>
+                <strong>{{ order.type || '-' }}</strong>
               </div>
               <div>
                 <small class="text-muted d-block">Order Date</small>
@@ -78,24 +78,41 @@
               </div>
             </div>
 
-            <!-- Row 2: VAT Rate | Currency | Created | Last Updated -->
+            <!-- Row 2: Package | Hunting Type | Hunting Area | Currency -->
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 16px;">
+              <div>
+                <small class="text-muted d-block">Package</small>
+                <strong>{{ orderPackageName }}</strong>
+              </div>
+              <div>
+                <small class="text-muted d-block">Hunting Type</small>
+                <strong>{{ orderHuntingType }}</strong>
+              </div>
+              <div>
+                <small class="text-muted d-block">Hunting Area</small>
+                <strong>{{ orderHuntingArea }}</strong>
+              </div>
+              <div>
+                <small class="text-muted d-block">Currency</small>
+                <strong>{{ order.currency?.code || order.currency_code || 'USD' }}</strong>
+              </div>
+            </div>
+
+            <!-- Row 3: VAT Rate | Created | Last Updated | (empty) -->
             <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 16px;">
               <div>
                 <small class="text-muted d-block">VAT Rate</small>
                 <strong>{{ order.vat || 0 }}%</strong>
               </div>
               <div>
-                <small class="text-muted d-block">Currency</small>
-                <strong>{{ order.currency?.code || order.currency_code || 'USD' }}</strong>
-              </div>
-              <div>
                 <small class="text-muted d-block">Created</small>
-                <strong style="font-size: 13px;">{{ order.created_at ? formatDateTime(order.created_at) : 'N/A' }}</strong>
+                <strong style="font-size: 13px;">{{ order.created_at ? formatDateTime(order.created_at) : '-' }}</strong>
               </div>
               <div>
                 <small class="text-muted d-block">Last Updated</small>
-                <strong style="font-size: 13px;">{{ order.updated_at ? formatDateTime(order.updated_at) : 'N/A' }}</strong>
+                <strong style="font-size: 13px;">{{ order.updated_at ? formatDateTime(order.updated_at) : '-' }}</strong>
               </div>
+              <div></div>
             </div>
 
             <!-- Row 3: Financial Summary | Parties | Expected Date | Remarks -->
@@ -217,34 +234,26 @@
             <h5 class="mb-3" style="border-bottom: 2px solid #e9ecef; padding-bottom: 10px; font-weight: 600;">
               <i class="fa fa-calculator me-2 text-success"></i>Financial Summary
             </h5>
-            <div class="row g-4">
-              <div class="col-md-3">
-                <div style="text-align: center;">
-                  <i class="fa fa-shopping-cart fa-lg text-primary mb-2"></i>
-                  <div class="h5 mb-1">{{ formatCurrency(orderFinancial.subtotal) }}</div>
-                  <small class="text-muted">Subtotal</small>
-                </div>
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;">
+              <div style="text-align: center;">
+                <i class="fa fa-shopping-cart fa-lg text-primary mb-2"></i>
+                <div class="h5 mb-1">{{ formatCurrency(orderFinancial.subtotal) }}</div>
+                <small class="text-muted">Subtotal</small>
               </div>
-              <div class="col-md-3">
-                <div style="text-align: center;">
-                  <i class="fa fa-percent fa-lg text-warning mb-2"></i>
-                  <div class="h5 mb-1">{{ formatCurrency(orderFinancial.vat) }}</div>
-                  <small class="text-muted">VAT</small>
-                </div>
+              <div style="text-align: center;">
+                <i class="fa fa-truck fa-lg text-info mb-2"></i>
+                <div class="h5 mb-1">{{ formatCurrency(orderFinancial.logisticsTotal) }}</div>
+                <small class="text-muted">Logistics</small>
               </div>
-              <div class="col-md-3">
-                <div style="text-align: center;">
-                  <i class="fa fa-tag fa-lg text-info mb-2"></i>
-                  <div class="h5 mb-1">{{ formatCurrency(orderFinancial.expenseIncluded) }}</div>
-                  <small class="text-muted">Expense Included</small>
-                </div>
+              <div style="text-align: center;">
+                <i class="fa fa-percent fa-lg text-warning mb-2"></i>
+                <div class="h5 mb-1">{{ formatCurrency(orderFinancial.vat) }}</div>
+                <small class="text-muted">VAT</small>
               </div>
-              <div class="col-md-3">
-                <div style="text-align: center;">
-                  <i class="fa fa-dollar-sign fa-lg text-success mb-2"></i>
-                  <div class="h5 mb-1">{{ formatCurrency(orderFinancial.grandTotal) }}</div>
-                  <small class="text-muted">Grand Total</small>
-                </div>
+              <div style="text-align: center;">
+                <i class="fa fa-dollar-sign fa-lg text-success mb-2"></i>
+                <div class="h5 mb-1" style="color: #059669; font-weight: 700;">{{ formatCurrency(orderFinancial.grandTotal) }}</div>
+                <small class="text-muted">Grand Total</small>
               </div>
             </div>
           </div>
@@ -266,7 +275,7 @@
                 <div style="text-align: center;">
                   <i class="fa fa-exclamation-circle fa-lg text-warning mb-2"></i>
                   <div class="h5 mb-1">{{ formatCurrency(paymentStatus.balanceDue) }}</div>
-                  <small class="text-muted">Balance Due</small>
+                  <small class="text-muted">Outstanding Amount</small>
                 </div>
               </div>
               <div class="col-md-3">
@@ -411,7 +420,7 @@
                 </thead>
                 <tbody>
                   <tr v-for="(logistics, idx) in logisticsTimeline" :key="idx">
-                    <td style="text-align: center; color: #94a3b8;">{{ idx + 1 }}</td>
+                    <td style="text-align: center; color: #94a3b8;">{{ (idx as number) + 1 }}</td>
                     <td>
                       <div style="display: flex; align-items: center; gap: 6px;">
                         <i :class="getLogisticsIcon(logistics.type)" style="color: #2563eb;"></i>
@@ -453,11 +462,11 @@
                         }}</span>
                       <div style="margin-top: 4px;">
                         <button v-if="logistics.status === 'PLANNED'" class="btn btn-outline-info btn-sm"
-                          @click="updateLogisticsStatus(idx, 'BOOKED')" style="font-size: 10px; padding: 2px 8px;">
+                          @click="updateLogisticsStatus(idx as number, 'BOOKED')" style="font-size: 10px; padding: 2px 8px;">
                           <i class="fa fa-arrow-right me-1"></i>Book
                         </button>
                         <button v-else-if="logistics.status === 'BOOKED'" class="btn btn-outline-success btn-sm"
-                          @click="updateLogisticsStatus(idx, 'COMPLETED')" style="font-size: 10px; padding: 2px 8px;">
+                          @click="updateLogisticsStatus(idx as number, 'COMPLETED')" style="font-size: 10px; padding: 2px 8px;">
                           <i class="fa fa-check me-1"></i>Complete
                         </button>
                         <span v-else-if="logistics.status === 'COMPLETED'" style="color: #10b981; font-size: 11px;">
@@ -506,6 +515,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useOrderStore } from '@/stores/bushman/order-store'
+import { salesEnquiryService } from '@/stores/bushman/salesEnquiryService'
 import { useToast } from '@/composables/useToast'
 import Swal from 'sweetalert2'
 
@@ -521,14 +531,93 @@ const loading = computed(() => orderStore.loading)
 const error = computed(() => orderStore.error)
 const order = computed(() => orderStore.currentOrder)
 
+// Enquiry data for package/hunting details
+const enquiryData = ref<any>(null)
+
+// Package, Hunting Type, Hunting Area computed
+const extractPackageName = (e: any): string | null => {
+  if (!e) return null
+  return e.price_structure_detail?.name
+    || e.package_details?.package_name
+    || e.package_details?.name
+    || e.pricings?.[0]?.price_structure_detail?.name
+    || e.package_name
+    || null
+}
+
+const extractHuntingType = (e: any): string | null => {
+  if (!e) return null
+  return e.package_details?.hunting_type_name
+    || e.pricings?.[0]?.price_structure_detail?.hunting_type?.name
+    || e.pricings?.[0]?.hunting_type
+    || e.hunting_type_name
+    || e.hunting_type
+    || null
+}
+
+const extractHuntingArea = (e: any): string | null => {
+  if (!e) return null
+  return e.package_details?.area_name
+    || e.pricings?.[0]?.price_structure_detail?.hunting_area?.name
+    || e.hunting_area_name
+    || e.hunting_area
+    || null
+}
+
+const orderPackageName = computed(() => {
+  const fromEnquiry = extractPackageName(enquiryData.value)
+  if (fromEnquiry) return fromEnquiry
+  const o = order.value as any
+  if (!o) return '-'
+  // Try nested enquiry from sales_details
+  const sd = o.sales_details || o.sales_order_detail
+  const sdObj = Array.isArray(sd) ? sd[0] : sd
+  const nested = sdObj?.sales_enquiry || sdObj?.salesEnquiry || sdObj?.enquiry
+  const fromNested = extractPackageName(nested)
+  if (fromNested) return fromNested
+  // Fallback to order items
+  if (o.items?.length) {
+    const pkgItem = o.items.find((i: any) => i.item_type === 'PACKAGE' || i.item?.item_type === 'PACKAGE')
+    if (pkgItem) return pkgItem.description || pkgItem.name || pkgItem.item?.name || '-'
+    return o.items[0]?.description || o.items[0]?.name || '-'
+  }
+  return '-'
+})
+
+const orderHuntingType = computed(() => {
+  const fromEnquiry = extractHuntingType(enquiryData.value)
+  if (fromEnquiry) return fromEnquiry
+  const o = order.value as any
+  if (!o) return '-'
+  const sd = o.sales_details || o.sales_order_detail
+  const sdObj = Array.isArray(sd) ? sd[0] : sd
+  const nested = sdObj?.sales_enquiry || sdObj?.salesEnquiry || sdObj?.enquiry
+  const fromNested = extractHuntingType(nested)
+  if (fromNested) return fromNested
+  return '-'
+})
+
+const orderHuntingArea = computed(() => {
+  const fromEnquiry = extractHuntingArea(enquiryData.value)
+  if (fromEnquiry) return fromEnquiry
+  const o = order.value as any
+  if (!o) return '-'
+  const sd = o.sales_details || o.sales_order_detail
+  const sdObj = Array.isArray(sd) ? sd[0] : sd
+  const nested = sdObj?.sales_enquiry || sdObj?.salesEnquiry || sdObj?.enquiry
+  const fromNested = extractHuntingArea(nested)
+  if (fromNested) return fromNested
+  return '-'
+})
+
 // Helper Methods
 const formatDate = (date: string) => {
-  if (!date) return 'N/A'
+  if (!date) return '-'
   return new Date(date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
 }
 
 const formatDateTime = (date: string) => {
-  if (!date) return 'N/A'
+  if (!date) return '-'
   return new Date(date).toLocaleString('en-US', {
     year: 'numeric',
     month: 'short',
@@ -935,6 +1024,88 @@ onMounted(async () => {
   if (route.params.id) {
     try {
       await orderStore.getOrder(Number(route.params.id))
+      const o = orderStore.currentOrder as any
+      if (o) {
+        console.log('[OrderDetails] All keys:', Object.keys(o))
+        console.log('[OrderDetails] sales_details:', o.sales_details)
+        console.log('[OrderDetails] sales_order_detail:', o.sales_order_detail)
+        console.log('[OrderDetails] preferences:', JSON.stringify(o.preferences))
+        console.log('[OrderDetails] enquiry_id:', o.enquiry_id, '| sales_enquiry_id:', o.sales_enquiry_id)
+        console.log('[OrderDetails] quotation_id:', o.quotation_id, '| sales_enquiry_pricing_id:', o.sales_enquiry_pricing_id)
+
+        // Try to find enquiry from nested sales_details / sales_order_detail
+        const sd = o.sales_details || o.sales_order_detail
+        const sdObj = Array.isArray(sd) ? sd[0] : sd
+        const nested = sdObj?.sales_enquiry || sdObj?.salesEnquiry || sdObj?.enquiry
+        if (nested) {
+          enquiryData.value = nested
+          console.log('[OrderDetails] ✓ Got nested enquiry from sales_details')
+        }
+
+        // Try direct enquiry ID fields
+        if (!enquiryData.value) {
+          const enquiryId = sdObj?.sales_enquiry_id || sdObj?.enquiry_id
+            || o.sales_enquiry_id || o.enquiry_id || o.inquiry_id
+            || o.preferences?.sales_enquiry_id || o.preferences?.enquiry_id
+          if (enquiryId) {
+            try {
+              const eRes = await salesEnquiryService.get(Number(enquiryId))
+              enquiryData.value = eRes?.data || eRes
+              console.log('[OrderDetails] ✓ Fetched enquiry by ID:', enquiryId)
+            } catch { /* */ }
+          }
+        }
+
+        // Try via pricing/quotation ID
+        if (!enquiryData.value) {
+          const pricingId = sdObj?.sales_enquiry_pricing_id || sdObj?.pricing_id
+            || o.quotation_id || o.sales_enquiry_pricing_id
+            || o.preferences?.quotation_id || o.preferences?.sales_enquiry_pricing_id
+          if (pricingId) {
+            console.log('[OrderDetails] Trying pricing ID:', pricingId)
+            try {
+              const pRes = await salesEnquiryService.getPricing(Number(pricingId))
+              const pricing = pRes?.data || pRes
+              console.log('[OrderDetails] Pricing response:', JSON.stringify(pricing))
+              const eId = pricing?.sales_enquiry_id || pricing?.enquiry_id
+              if (eId) {
+                const eRes = await salesEnquiryService.get(Number(eId))
+                enquiryData.value = eRes?.data || eRes
+                console.log('[OrderDetails] ✓ Got enquiry via pricing:', eId)
+              }
+            } catch (err) {
+              console.warn('[OrderDetails] Pricing lookup failed:', err)
+            }
+          }
+        }
+
+        // Last resort: find enquiry by customer entity_id
+        if (!enquiryData.value) {
+          const customerParty = o.parties?.find((p: any) => p.role === 'CUSTOMER' || p.is_primary)
+          const entityId = customerParty?.entity_id || customerParty?.entity?.id
+          if (entityId) {
+            console.log('[OrderDetails] Searching enquiries by entity_id:', entityId)
+            try {
+              const listRes = await salesEnquiryService.list({ entity_id: entityId })
+              const enquiries = listRes?.data || listRes
+              if (Array.isArray(enquiries) && enquiries.length > 0) {
+                // Pick the most recent enquiry with status QUOTED or latest
+                const quoted = enquiries.find((e: any) => e.status === 'QUOTED') || enquiries[0]
+                // Now fetch full details
+                const eRes = await salesEnquiryService.get(Number(quoted.id))
+                enquiryData.value = eRes?.data || eRes
+                console.log('[OrderDetails] ✓ Found enquiry by customer entity:', quoted.id)
+              }
+            } catch (err) {
+              console.warn('[OrderDetails] Entity search failed:', err)
+            }
+          }
+        }
+
+        if (!enquiryData.value) {
+          console.warn('[OrderDetails] ✗ No enquiry link found on this order')
+        }
+      }
     } catch (e: any) {
       init({ message: e?.response?.data?.message || 'Error loading order', color: 'danger' })
     }

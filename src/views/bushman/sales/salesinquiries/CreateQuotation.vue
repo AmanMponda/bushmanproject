@@ -91,20 +91,20 @@
         <div v-if="isCreateMode && !loadingPreview" class="card mb-4 quotation-summary-card text-white">
           <div class="card-body">
             <div class="row text-center">
-              <div class="col-md-3">
+              <div :class="trophyFeesIncluded ? 'col-md-3' : 'col-md-4'">
                 <h3 class="mb-0">{{ enquiryTotalItems }}</h3>
                 <small>Total Items</small>
               </div>
-              <div class="col-md-3">
+              <div v-if="trophyFeesIncluded" class="col-md-3">
                 <h3 class="mb-0">{{ currencySymbol }} {{ formatCurrency(enquiryTrophyTotal) }}</h3>
                 <small>Trophy Fees</small>
               </div>
-              <div class="col-md-3">
+              <div :class="trophyFeesIncluded ? 'col-md-3' : 'col-md-4'">
                 <h3 class="mb-0">{{ currencySymbol }} {{ formatCurrency(enquiryExtrasTotal) }}</h3>
                 <small>Extras</small>
               </div>
-              <div class="col-md-3">
-                <h3 class="mb-0">{{ currencySymbol }} {{ formatCurrency(enquiryGrandTotal) }}</h3>
+              <div :class="trophyFeesIncluded ? 'col-md-3' : 'col-md-4'">
+                <h3 class="mb-0">{{ currencySymbol }} {{ formatCurrency(trophyFeesIncluded ? enquiryGrandTotal : (enquiryGrandTotal - enquiryTrophyTotal)) }}</h3>
                 <small>Grand Total</small>
               </div>
             </div>
@@ -135,7 +135,22 @@
         </div>
 
         <!-- Existing Items by Type -->
-        <div v-for="(items, itemType) in existingItemsByType" :key="itemType" class="card mb-4">
+        <div v-for="(items, itemType) in existingItemsByType" :key="itemType" class="card mb-4"
+          :class="{ 'trophy-fees-dimmed': itemType === 'TROPHY' && !trophyFeesIncluded }"
+        >
+          <!-- Trophy Fees Toggle Banner -->
+          <div v-if="itemType === 'TROPHY'" class="trophy-toggle-banner">
+            <div class="d-flex align-items-center justify-content-between px-3 py-2">
+              <div class="d-flex align-items-center gap-2">
+                <i class="fa fa-trophy text-warning fs-16px"></i>
+                <span class="fw-semibold">Trophy Fees</span>
+              </div>
+              <button type="button" class="trophy-chip" :class="{ included: trophyFeesIncluded }" @click="trophyFeesIncluded = !trophyFeesIncluded">
+                <i class="fa" :class="trophyFeesIncluded ? 'fa-check-circle' : 'fa-plus-circle'"></i>
+                {{ trophyFeesIncluded ? 'Included' : 'Include' }}
+              </button>
+            </div>
+          </div>
           <div class="card-header bg-white d-flex justify-content-between align-items-center quotation-section-header">
             <div class="d-flex align-items-center gap-2 flex-wrap">
               <span class="badge" :class="getItemTypeBadgeClass(itemType)">
@@ -148,7 +163,7 @@
               v-if="(itemType === 'TROPHY' || itemType === 'EXTRA') && !isLocked"
               class="btn btn-sm btn-outline-primary"
               @click="openInlineAdd(itemType as string)"
-              :disabled="addingInlineType === itemType"
+              :disabled="addingInlineType === itemType || (itemType === 'TROPHY' && !trophyFeesIncluded)"
             >
               <i class="fa fa-plus me-1"></i> Add
             </button>
@@ -383,13 +398,28 @@
               Loading package rates...
             </div>
             <div v-else-if="availablePriceableItems.length > 0">
-              <div v-for="category in availablePriceableItems" :key="category.category" class="mb-4">
+              <div v-for="category in availablePriceableItems" :key="category.category" class="mb-4"
+                :class="{ 'trophy-fees-dimmed': category.category === 'Species (Trophy Fees)' && !trophyFeesIncluded }"
+              >
+                <!-- Trophy Fees Toggle Banner (create mode) -->
+                <div v-if="category.category === 'Species (Trophy Fees)'" class="trophy-toggle-banner mb-2">
+                  <div class="d-flex align-items-center justify-content-between px-3 py-2">
+                    <div class="d-flex align-items-center gap-2">
+                      <i class="fa fa-trophy text-warning fs-16px"></i>
+                      <span class="fw-semibold">Trophy Fees</span>
+                    </div>
+                    <button type="button" class="trophy-chip" :class="{ included: trophyFeesIncluded }" @click="trophyFeesIncluded = !trophyFeesIncluded">
+                      <i class="fa" :class="trophyFeesIncluded ? 'fa-check-circle' : 'fa-plus-circle'"></i>
+                      {{ trophyFeesIncluded ? 'Included' : 'Include' }}
+                    </button>
+                  </div>
+                </div>
                 <div class="d-flex justify-content-between align-items-center mb-2">
                   <h6 class="text-muted mb-0">
                     <i class="fa fa-tag me-1"></i>
                     {{ category.category }}
                   </h6>
-                  <div class="form-check">
+                  <div v-if="category.category !== 'Species (Trophy Fees)' || trophyFeesIncluded" class="form-check">
                     <input 
                       type="checkbox" 
                       class="form-check-input"
@@ -416,13 +446,17 @@
                       </tr>
                     </thead>
                     <tbody>
-                      <tr v-for="item in category.items" :key="item.id" :class="{'table-success': selectedItems[`${category.category}_${item.id}`]}">
+                      <tr v-for="item in category.items" :key="item.id" :class="{
+                        'table-success': selectedItems[`${category.category}_${item.id}`],
+                        'trophy-row-dimmed': category.category === 'Species (Trophy Fees)' && !trophyFeesIncluded
+                      }">
                         <td class="text-center">
                           <input 
                             type="checkbox" 
                             class="form-check-input"
                             v-model="selectedItems[`${category.category}_${item.id}`]"
                             @change="initializeItemPrice(category.category, item)"
+                            :disabled="category.category === 'Species (Trophy Fees)' && !trophyFeesIncluded"
                           >
                         </td>
                         <td>
@@ -690,6 +724,7 @@ const initialLoadComplete = ref(false)
 const selectedItems = ref<Record<string, boolean>>({})
 const itemPrices = ref<Record<string, any>>({})
 const discountItems = ref<Record<string, boolean>>({})
+const trophyFeesIncluded = ref(false)
 
 // ---- Inline Add state for existing quotation sections ----
 const addingInlineType = ref<string | null>(null) // 'TROPHY' | 'EXTRA' | null
@@ -918,6 +953,7 @@ const existingItemsByType = computed(() => {
   const customIds = customizedItemIdSet.value
   const deletedIds = localDeletedItemIds.value
   const result: Record<string, any[]> = {}
+  let trophyItems: any[] | null = null
   
   for (const [type, items] of Object.entries(itemsByType)) {
     if (!Array.isArray(items) || items.length === 0) continue
@@ -931,15 +967,30 @@ const existingItemsByType = computed(() => {
       filtered = filtered.filter((item: any) => !customIds.has(item.id))
     }
     if (filtered.length > 0) {
-      result[type] = filtered
+      // Defer TROPHY to the end
+      if (type === 'TROPHY') {
+        trophyItems = filtered
+      } else {
+        result[type] = filtered
+      }
     }
   }
 
   // Merge locally-added items (edit mode) into their respective type groups
   for (const item of localAddedItems.value) {
     const type = item.item_type || 'EXTRA'
-    if (!result[type]) result[type] = []
-    result[type].push(item)
+    if (type === 'TROPHY') {
+      if (!trophyItems) trophyItems = []
+      trophyItems.push(item)
+    } else {
+      if (!result[type]) result[type] = []
+      result[type].push(item)
+    }
+  }
+
+  // Add TROPHY at the very end so it renders last
+  if (trophyItems && trophyItems.length > 0) {
+    result['TROPHY'] = trophyItems
   }
   
   return result
@@ -1237,6 +1288,13 @@ const availablePriceableItems = computed(() => {
         }
       })
     })
+  }
+
+  // Reorder: move Species (Trophy Fees) to last position
+  const trophyIdx = items.findIndex(c => c.category === 'Species (Trophy Fees)')
+  if (trophyIdx !== -1) {
+    const [trophyCat] = items.splice(trophyIdx, 1)
+    items.push(trophyCat)
   }
 
   return items
@@ -1644,6 +1702,19 @@ watch(() => enquiryDays.value, () => {
   schedulePricingRecalc()
 })
 
+// When trophy fees toggle is turned off, deselect all trophy items
+watch(trophyFeesIncluded, (included) => {
+  if (!included) {
+    const trophyCat = availablePriceableItems.value.find((c: any) => c.category === 'Species (Trophy Fees)')
+    if (trophyCat) {
+      trophyCat.items.forEach((item: any) => {
+        const key = `Species (Trophy Fees)_${item.id}`
+        selectedItems.value[key] = false
+      })
+    }
+  }
+})
+
 const toggleCategorySelection = (category: any) => {
   const isSelected = isCategorySelected(category)
   category.items.forEach((item: any) => {
@@ -1663,8 +1734,9 @@ const isCategorySelected = (category: any) => {
 }
 
 const selectAllSystemItems = async () => {
-  // Select all system items first
+  // Select all system items first (skip trophy fees — they require explicit opt-in)
   availablePriceableItems.value.forEach((category: any) => {
+    if (category.category === 'Species (Trophy Fees)') return // Trophy fees are opt-in only
     category.items.forEach((item: any) => {
       const key = `${category.category}_${item.id}`
       if (!selectedItems.value[key]) {
@@ -2278,6 +2350,13 @@ const createPricingWithItems = async () => {
     if (response.status === 200 || response.status === 201) {
       const newPricing = response.data?.data || response.data?.pricing || response.data
       const newPricingId = newPricing?.id || newPricing?.pricing?.id
+
+      // Update enquiry status to IN_PROGRESS after creating a quotation
+      try {
+        await salesEnquiryService.update(enquiryId.value, { status: 'IN_PROGRESS' })
+      } catch (e) {
+        console.warn('Could not update enquiry status:', e)
+      }
 
       Swal.fire({
         title: 'Success!',
@@ -3179,4 +3258,58 @@ onMounted(() => {
   background: #ffffff;
 }
 .steps-card .card-body { background: transparent; }
+
+/* Trophy Fees - optional section styling */
+.trophy-fees-dimmed {
+  opacity: 0.55;
+}
+.trophy-fees-dimmed .table tbody {
+  pointer-events: none;
+}
+.trophy-toggle-banner {
+  background: #f8f9fa;
+  border-bottom: 1px solid #e9ecef;
+  padding: 2px 0;
+}
+.trophy-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 16px;
+  border-radius: 50px;
+  border: 1.5px solid #d1d5db;
+  background: #fff;
+  color: #6b7280;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  outline: none;
+}
+.trophy-chip:hover {
+  border-color: #9ca3af;
+  background: #f9fafb;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+}
+.trophy-chip.included {
+  background: #ecfdf5;
+  border-color: #10b981;
+  color: #059669;
+}
+.trophy-chip.included:hover {
+  background: #d1fae5;
+  border-color: #059669;
+}
+.trophy-chip i {
+  font-size: 14px;
+}
+.trophy-row-dimmed td {
+  color: #9ca3af !important;
+  font-style: italic;
+}
+.trophy-row-dimmed strong {
+  font-weight: normal;
+  color: #9ca3af;
+}
 </style>
