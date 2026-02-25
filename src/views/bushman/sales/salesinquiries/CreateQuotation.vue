@@ -91,20 +91,24 @@
         <div v-if="isCreateMode && !loadingPreview" class="card mb-4 quotation-summary-card text-white">
           <div class="card-body">
             <div class="row text-center">
-              <div :class="trophyFeesIncluded ? 'col-md-3' : 'col-md-4'">
+              <div :class="enquiryCompanionTotal > 0 ? 'col' : 'col-md-3'">
                 <h3 class="mb-0">{{ enquiryTotalItems }}</h3>
                 <small>Total Items</small>
               </div>
-              <div v-if="trophyFeesIncluded" class="col-md-3">
-                <h3 class="mb-0">{{ currencySymbol }} {{ formatCurrency(enquiryTrophyTotal) }}</h3>
-                <small>Trophy Fees</small>
+              <div :class="enquiryCompanionTotal > 0 ? 'col' : 'col-md-3'">
+                <h3 class="mb-0">{{ currencySymbol }} {{ formatCurrency(enquiryPackageTotal) }}</h3>
+                <small>Package</small>
               </div>
-              <div :class="trophyFeesIncluded ? 'col-md-3' : 'col-md-4'">
+              <div :class="enquiryCompanionTotal > 0 ? 'col' : 'col-md-3'">
                 <h3 class="mb-0">{{ currencySymbol }} {{ formatCurrency(enquiryExtrasTotal) }}</h3>
                 <small>Extras</small>
               </div>
-              <div :class="trophyFeesIncluded ? 'col-md-3' : 'col-md-4'">
-                <h3 class="mb-0">{{ currencySymbol }} {{ formatCurrency(trophyFeesIncluded ? enquiryGrandTotal : (enquiryGrandTotal - enquiryTrophyTotal)) }}</h3>
+              <div v-if="enquiryCompanionTotal > 0" class="col">
+                <h3 class="mb-0">{{ currencySymbol }} {{ formatCurrency(enquiryCompanionTotal) }}</h3>
+                <small>Companion Hunters</small>
+              </div>
+              <div :class="enquiryCompanionTotal > 0 ? 'col' : 'col-md-3'">
+                <h3 class="mb-0">{{ currencySymbol }} {{ formatCurrency(enquiryPackageTotal + enquiryExtrasTotal + enquiryCompanionTotal) }}</h3>
                 <small>Grand Total</small>
               </div>
             </div>
@@ -114,29 +118,33 @@
         <div v-if="!isCreateMode" class="card mb-4 quotation-summary-card text-white">
           <div class="card-body">
             <div class="row text-center">
-              <div class="col-md-3">
+              <div :class="(pricingSummary.logistics_total || 0) > 0 ? 'col' : 'col-md-3'">
                 <h3 class="mb-0">{{ pricingSummary.total_items || 0 }}</h3>
                 <small>Total Items</small>
               </div>
-              <div class="col-md-3">
-                <h3 class="mb-0">{{ currencySymbol }} {{ formatCurrency(pricingSummary.trophy_total || 0) }}</h3>
-                <small>Trophy Fees</small>
+              <div :class="(pricingSummary.logistics_total || 0) > 0 ? 'col' : 'col-md-3'">
+                <h3 class="mb-0">{{ currencySymbol }} {{ formatCurrency(pricingSummary.package_total || 0) }}</h3>
+                <small>Package</small>
               </div>
-              <div class="col-md-3">
+              <div :class="(pricingSummary.logistics_total || 0) > 0 ? 'col' : 'col-md-3'">
                 <h3 class="mb-0">{{ currencySymbol }} {{ formatCurrency(pricingSummary.extra_total || 0) }}</h3>
                 <small>Extras</small>
               </div>
-              <div class="col-md-3">
-                <h3 class="mb-0">{{ currencySymbol }} {{ formatCurrency(pricingSummary.subtotal || 0) }}</h3>
+              <div v-if="(pricingSummary.logistics_total || 0) > 0" class="col">
+                <h3 class="mb-0">{{ currencySymbol }} {{ formatCurrency(pricingSummary.logistics_total || 0) }}</h3>
+                <small>Companion Hunters</small>
+              </div>
+              <div :class="(pricingSummary.logistics_total || 0) > 0 ? 'col' : 'col-md-3'">
+                <h3 class="mb-0">{{ currencySymbol }} {{ formatCurrency((pricingSummary.package_total || 0) + (pricingSummary.extra_total || 0) + (pricingSummary.logistics_total || 0)) }}</h3>
                 <small>Grand Total</small>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- Existing Items by Type -->
+        <!-- Existing Items by Type (non-TROPHY rendered first; TROPHY rendered last after all other sections) -->
         <div v-for="(items, itemType) in existingItemsByType" :key="itemType" class="card mb-4"
-          :class="{ 'trophy-fees-dimmed': itemType === 'TROPHY' && !trophyFeesIncluded }"
+          v-show="itemType !== 'TROPHY'"
         >
           <!-- Trophy Fees Toggle Banner -->
           <div v-if="itemType === 'TROPHY'" class="trophy-toggle-banner">
@@ -146,14 +154,14 @@
                 <span class="fw-semibold">Trophy Fees</span>
               </div>
               <button type="button" class="trophy-chip" :class="{ included: trophyFeesIncluded }" @click="trophyFeesIncluded = !trophyFeesIncluded">
-                <i class="fa" :class="trophyFeesIncluded ? 'fa-check-circle' : 'fa-plus-circle'"></i>
-                {{ trophyFeesIncluded ? 'Included' : 'Include' }}
+                <i class="fa" :class="trophyFeesIncluded ? 'fa-pencil-square-o' : 'fa-list'"></i>
+                {{ trophyFeesIncluded ? 'Managing' : 'Manage Species' }}
               </button>
             </div>
           </div>
           <div class="card-header bg-white d-flex justify-content-between align-items-center quotation-section-header">
             <div class="d-flex align-items-center gap-2 flex-wrap">
-              <span class="badge" :class="getItemTypeBadgeClass(itemType)">
+              <span v-if="itemType !== 'LOGISTICS'" class="badge" :class="getItemTypeBadgeClass(itemType)">
                 {{ formatItemType(itemType) }}
               </span>
               <span class="fw-semibold">{{ getItemTypeLabel(itemType) }}</span>
@@ -179,17 +187,17 @@
                     <th class="border-top-0 pt-0 pb-2 text-end" style="width: 150px;">Unit Price</th>
                     <th class="border-top-0 pt-0 pb-2 text-end" style="width: 150px;">Total</th>
                     <th class="border-top-0 pt-0 pb-2 text-center" style="width: 100px;">Optional</th>
-                    <th v-if="!isLocked" class="border-top-0 pt-0 pb-2 text-center" style="width: 80px;">Actions</th>
+                    <th v-if="!isLocked && itemType !== 'PACKAGE'" class="border-top-0 pt-0 pb-2 text-center" style="width: 80px;">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr v-for="item in items" :key="item.id">
                     <td class="align-middle">
                       <div>
-                        <strong>{{ item.item_name || item.description }}</strong>
+                        <strong>{{ formatItemDisplayName(item, itemType) }}</strong>
                         <span v-if="item.item_code" class="text-muted small ms-2">({{ item.item_code }})</span>
                       </div>
-                      <small class="text-muted">{{ item.description }}</small>
+                      <small class="text-muted">{{ formatItemDisplayName(item, itemType) }}</small>
                     </td>
                     <td class="text-center align-middle">
                       {{ item.quantity }}
@@ -210,7 +218,7 @@
                       <span v-if="item.is_optional" class="badge bg-primary bg-opacity-20 text-primary px-2 pt-5px pb-5px rounded fs-12px">Optional</span>
                       <span v-else class="text-muted">-</span>
                     </td>
-                    <td v-if="!isLocked" class="text-center align-middle">
+                    <td v-if="!isLocked && itemType !== 'PACKAGE'" class="text-center align-middle">
                       <button class="btn btn-danger btn-sm" @click="removeItem(item)" :disabled="removingItem === item.id">
                         <i class="fa fa-trash"></i>
                       </button>
@@ -409,8 +417,8 @@
                       <span class="fw-semibold">Trophy Fees</span>
                     </div>
                     <button type="button" class="trophy-chip" :class="{ included: trophyFeesIncluded }" @click="trophyFeesIncluded = !trophyFeesIncluded">
-                      <i class="fa" :class="trophyFeesIncluded ? 'fa-check-circle' : 'fa-plus-circle'"></i>
-                      {{ trophyFeesIncluded ? 'Included' : 'Include' }}
+                      <i class="fa" :class="trophyFeesIncluded ? 'fa-pencil-square-o' : 'fa-list'"></i>
+                      {{ trophyFeesIncluded ? 'Managing' : 'Manage Species' }}
                     </button>
                   </div>
                 </div>
@@ -419,7 +427,7 @@
                     <i class="fa fa-tag me-1"></i>
                     {{ category.category }}
                   </h6>
-                  <div v-if="category.category !== 'Species (Trophy Fees)' || trophyFeesIncluded" class="form-check">
+                  <div v-if="category.category !== 'Species (Trophy Fees)'" class="form-check">
                     <input 
                       type="checkbox" 
                       class="form-check-input"
@@ -447,22 +455,27 @@
                     </thead>
                     <tbody>
                       <tr v-for="item in category.items" :key="item.id" :class="{
-                        'table-success': selectedItems[`${category.category}_${item.id}`],
+                        'table-success': category.category !== 'Species (Trophy Fees)' && selectedItems[`${category.category}_${item.id}`],
                         'trophy-row-dimmed': category.category === 'Species (Trophy Fees)' && !trophyFeesIncluded
                       }">
                         <td class="text-center">
-                          <input 
-                            type="checkbox" 
-                            class="form-check-input"
-                            v-model="selectedItems[`${category.category}_${item.id}`]"
-                            @change="initializeItemPrice(category.category, item)"
-                            :disabled="category.category === 'Species (Trophy Fees)' && !trophyFeesIncluded"
-                          >
+                          <!-- Trophy fees: no checkbox (informational only, not part of quotation) -->
+                          <template v-if="category.category === 'Species (Trophy Fees)'">
+                            <i class="fa fa-trophy text-warning opacity-50" style="font-size: 12px;"></i>
+                          </template>
+                          <template v-else>
+                            <input 
+                              type="checkbox" 
+                              class="form-check-input"
+                              v-model="selectedItems[`${category.category}_${item.id}`]"
+                              @change="initializeItemPrice(category.category, item)"
+                            >
+                          </template>
                         </td>
                         <td>
                           <div>
                             <strong>{{ cleanItemName(item.name) }}</strong>
-                            <span class="badge ms-2 small" :class="getItemTypeBadgeClass(item.type)">{{ formatItemType(item.type) }}</span>
+                            <span v-if="item.type !== 'LOGISTICS'" class="badge ms-2 small" :class="getItemTypeBadgeClass(item.type)">{{ formatItemType(item.type) }}</span>
 
                             <!-- allocation / source / pending badges for selected items -->
                             <template v-if="selectedItems[`${category.category}_${item.id}`]">
@@ -476,7 +489,22 @@
                           <small v-if="item.priority" class="text-muted">{{ formatPriority(item.priority) }}</small>
                         </td>
                         <td class="text-center">
-                          <template v-if="selectedItems[`${category.category}_${item.id}`]">
+                          <!-- Trophy species: qty editable when Included is toggled (no selection needed) -->
+                          <template v-if="category.category === 'Species (Trophy Fees)'">
+                            <input 
+                              v-if="trophyFeesIncluded"
+                              type="number" 
+                              class="form-control form-control-sm text-center"
+                              :class="{ 'border-danger': item.regulatory_qty > 0 && (speciesQtyOverrides[item.id] ?? item.quantity) > item.regulatory_qty }"
+                              :value="speciesQtyOverrides[item.id] ?? item.quantity"
+                              @input="onSpeciesQtyChange(item, $event)"
+                              min="1"
+                              :max="item.regulatory_qty > 0 ? item.regulatory_qty : undefined"
+                            >
+                            <span v-else class="text-muted">{{ speciesQtyOverrides[item.id] ?? item.quantity }}</span>
+                          </template>
+                          <!-- Other categories: qty editable only when selected -->
+                          <template v-else-if="selectedItems[`${category.category}_${item.id}`]">
                             <input 
                               v-if="item.type !== 'PACKAGE'"
                               type="number" 
@@ -492,9 +520,11 @@
                           <span v-else class="text-muted">{{ item.quantity }}</span>
                           <!-- Regulatory licence warning – only shown when qty exceeds limit -->
                           <div v-if="item.type === 'TROPHY' && item.regulatory_qty > 0
-                            && (selectedItems[`${category.category}_${item.id}`]
-                              ? ensureItemPrice(category.category, item).quantity
-                              : item.quantity) > item.regulatory_qty"
+                            && (category.category === 'Species (Trophy Fees)'
+                              ? (speciesQtyOverrides[item.id] ?? item.quantity)
+                              : selectedItems[`${category.category}_${item.id}`]
+                                ? ensureItemPrice(category.category, item).quantity
+                                : item.quantity) > item.regulatory_qty"
                             class="mt-1"
                           >
                             <small class="text-danger fw-semibold"
@@ -502,9 +532,11 @@
                             >
                               <i class="fa fa-id-card-o fa-fw"></i> Licence: {{ item.regulatory_qty }}
                               <span class="ms-1">
-                                <i class="fa fa-exclamation-triangle"></i> Exceeded by {{ (selectedItems[`${category.category}_${item.id}`]
-                                  ? ensureItemPrice(category.category, item).quantity
-                                  : item.quantity) - item.regulatory_qty }}!
+                                <i class="fa fa-exclamation-triangle"></i> Exceeded by {{ (category.category === 'Species (Trophy Fees)'
+                                  ? (speciesQtyOverrides[item.id] ?? item.quantity)
+                                  : selectedItems[`${category.category}_${item.id}`]
+                                    ? ensureItemPrice(category.category, item).quantity
+                                    : item.quantity) - item.regulatory_qty }}!
                               </span>
                             </small>
                           </div>
@@ -530,43 +562,61 @@
                             <span class="text-muted">-</span>
                           </div>
                         </td>                        <td>
-                          <div v-if="selectedItems[`${category.category}_${item.id}`]" class="d-flex align-items-center justify-content-end gap-1">
-                            <input 
-                              v-if="discountItems[`${category.category}_${item.id}`] && item.type !== 'PACKAGE'"
-                              type="number" 
-                              class="form-control form-control-sm text-end"
-                              v-model.number="ensureItemPrice(category.category, item).unit_amount"
-                              step="0.01"
-                              min="0"
-                              @input="updateItemTotal(category.category, item.id)"
-                              style="width: 110px"
-                            >
-                            <span v-else class="text-end">{{ formatCurrency(ensureItemPrice(category.category, item).unit_amount) }}</span>
-                            <button 
-                              v-if="item.type !== 'PACKAGE'"
-                              class="btn btn-sm btn-outline-warning p-0 px-1"
-                              @click="discountItems[`${category.category}_${item.id}`] = !discountItems[`${category.category}_${item.id}`]"
-                              :title="discountItems[`${category.category}_${item.id}`] ? 'Lock price' : 'Apply discount'"
-                            >
-                              <i class="fa fa-sm" :class="discountItems[`${category.category}_${item.id}`] ? 'fa-lock' : 'fa-percent'"></i>
-                            </button>
-                          </div>
-                          <span v-else class="text-muted text-end d-block">{{ formatCurrency(item.suggested_price) }}</span>
+                          <!-- Trophy fees: read-only unit price (not part of quotation) -->
+                          <template v-if="category.category === 'Species (Trophy Fees)'">
+                            <span class="text-muted text-end d-block">{{ formatCurrency(item.suggested_price) }}</span>
+                          </template>
+                          <template v-else>
+                            <div v-if="selectedItems[`${category.category}_${item.id}`]" class="d-flex align-items-center justify-content-end gap-1">
+                              <input 
+                                v-if="discountItems[`${category.category}_${item.id}`] && item.type !== 'PACKAGE'"
+                                type="number" 
+                                class="form-control form-control-sm text-end"
+                                v-model.number="ensureItemPrice(category.category, item).unit_amount"
+                                step="0.01"
+                                min="0"
+                                @input="updateItemTotal(category.category, item.id)"
+                                style="width: 110px"
+                              >
+                              <span v-else class="text-end">{{ formatCurrency(ensureItemPrice(category.category, item).unit_amount) }}</span>
+                              <button 
+                                v-if="item.type !== 'PACKAGE'"
+                                class="btn btn-sm btn-outline-warning p-0 px-1"
+                                @click="discountItems[`${category.category}_${item.id}`] = !discountItems[`${category.category}_${item.id}`]"
+                                :title="discountItems[`${category.category}_${item.id}`] ? 'Lock price' : 'Apply discount'"
+                              >
+                                <i class="fa fa-sm" :class="discountItems[`${category.category}_${item.id}`] ? 'fa-lock' : 'fa-percent'"></i>
+                              </button>
+                            </div>
+                            <span v-else class="text-muted text-end d-block">{{ formatCurrency(item.suggested_price) }}</span>
+                          </template>
                         </td>
                         <td class="text-end">
-                          <strong v-if="selectedItems[`${category.category}_${item.id}`]" class="text-success">
-                            {{ formatCurrency(itemPrices[`${category.category}_${item.id}`]?.total_amount || 0) }}
-                          </strong>
-                          <span v-else class="text-muted">{{ formatCurrency(item.quantity * item.suggested_price * (category.category === 'Safari Extras' && item.item_durations ? item.item_durations : 1)) }}</span>
+                          <!-- Trophy fees: dynamic total based on qty override (informational, not in grand total) -->
+                          <template v-if="category.category === 'Species (Trophy Fees)'">
+                            <span class="text-muted">{{ formatCurrency((speciesQtyOverrides[item.id] ?? item.quantity) * item.suggested_price) }}</span>
+                          </template>
+                          <template v-else>
+                            <strong v-if="selectedItems[`${category.category}_${item.id}`]" class="text-success">
+                              {{ formatCurrency(itemPrices[`${category.category}_${item.id}`]?.total_amount || 0) }}
+                            </strong>
+                            <span v-else class="text-muted">{{ formatCurrency(item.quantity * item.suggested_price * (category.category === 'Safari Extras' && item.item_durations ? item.item_durations : 1)) }}</span>
+                          </template>
                         </td>
                         <td class="text-center">
-                          <input 
-                            v-if="selectedItems[`${category.category}_${item.id}`]"
-                            type="checkbox" 
-                            class="form-check-input"
-                            v-model="ensureItemPrice(category.category, item).is_optional"
-                          >
-                          <span v-else class="text-muted">-</span>
+                          <!-- Trophy fees: no optional toggle -->
+                          <template v-if="category.category === 'Species (Trophy Fees)'">
+                            <span class="text-muted">-</span>
+                          </template>
+                          <template v-else>
+                            <input 
+                              v-if="selectedItems[`${category.category}_${item.id}`]"
+                              type="checkbox" 
+                              class="form-check-input"
+                              v-model="ensureItemPrice(category.category, item).is_optional"
+                            >
+                            <span v-else class="text-muted">-</span>
+                          </template>
                         </td>
                       </tr>
                     </tbody>
@@ -612,6 +662,142 @@
           </div>
         </div>
 
+        <!-- Trophy Fees Section (always rendered LAST, after all other sections) -->
+        <div v-if="existingItemsByType['TROPHY'] && existingItemsByType['TROPHY'].length > 0"
+          class="card mb-4"
+          :class="{ 'trophy-fees-dimmed': !trophyFeesIncluded }"
+        >
+          <!-- Trophy Fees Toggle Banner -->
+          <div class="trophy-toggle-banner">
+            <div class="d-flex align-items-center justify-content-between px-3 py-2">
+              <div class="d-flex align-items-center gap-2">
+                <i class="fa fa-trophy text-warning fs-16px"></i>
+                <span class="fw-semibold">Trophy Fees</span>
+              </div>
+              <button type="button" class="trophy-chip" :class="{ included: trophyFeesIncluded }" @click="trophyFeesIncluded = !trophyFeesIncluded">
+                <i class="fa" :class="trophyFeesIncluded ? 'fa-pencil-square-o' : 'fa-list'"></i>
+                {{ trophyFeesIncluded ? 'Managing' : 'Manage Species' }}
+              </button>
+            </div>
+          </div>
+          <div class="card-header bg-white d-flex justify-content-between align-items-center quotation-section-header">
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+              <span class="badge" :class="getItemTypeBadgeClass('TROPHY')">
+                {{ formatItemType('TROPHY') }}
+              </span>
+              <span class="fw-semibold">{{ getItemTypeLabel('TROPHY') }}</span>
+              <span class="badge bg-light text-dark">{{ existingItemsByType['TROPHY'].length }} items</span>
+            </div>
+            <button
+              v-if="!isLocked"
+              class="btn btn-sm btn-outline-primary"
+              @click="openInlineAdd('TROPHY')"
+              :disabled="addingInlineType === 'TROPHY' || !trophyFeesIncluded"
+            >
+              <i class="fa fa-plus me-1"></i> Add
+            </button>
+          </div>
+          <div class="card-body p-0">
+            <div class="table-responsive">
+              <table class="table table-hover text-nowrap mb-0">
+                <thead>
+                  <tr>
+                    <th class="border-top-0 pt-0 pb-2">Item</th>
+                    <th class="border-top-0 pt-0 pb-2 text-center" style="width: 100px;">Qty</th>
+                    <th class="border-top-0 pt-0 pb-2 text-end" style="width: 150px;">Unit Price</th>
+                    <th class="border-top-0 pt-0 pb-2 text-end" style="width: 150px;">Total</th>
+                    <th class="border-top-0 pt-0 pb-2 text-center" style="width: 100px;">Optional</th>
+                    <th v-if="!isLocked" class="border-top-0 pt-0 pb-2 text-center" style="width: 80px;">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="item in existingItemsByType['TROPHY']" :key="item.id">
+                    <td class="align-middle">
+                      <div>
+                        <strong>{{ formatItemDisplayName(item, 'TROPHY') }}</strong>
+                        <span v-if="item.item_code" class="text-muted small ms-2">({{ item.item_code }})</span>
+                      </div>
+                      <small class="text-muted">{{ formatItemDisplayName(item, 'TROPHY') }}</small>
+                    </td>
+                    <td class="text-center align-middle">
+                      {{ item.quantity }}
+                    </td>
+                    <td class="text-end align-middle">{{ formatCurrency(item.unit_amount) }}</td>
+                    <td class="text-end align-middle">
+                      <strong class="text-success">{{ formatCurrency(item.total_amount) }}</strong>
+                    </td>
+                    <td class="text-center align-middle py-1">
+                      <span v-if="item.is_optional" class="badge bg-primary bg-opacity-20 text-primary px-2 pt-5px pb-5px rounded fs-12px">Optional</span>
+                      <span v-else class="text-muted">-</span>
+                    </td>
+                    <td v-if="!isLocked" class="text-center align-middle">
+                      <button class="btn btn-danger btn-sm" @click="removeItem(item)" :disabled="removingItem === item.id">
+                        <i class="fa fa-trash"></i>
+                      </button>
+                    </td>
+                  </tr>
+                  <!-- Inline Add Row for Trophy -->
+                  <tr v-if="addingInlineType === 'TROPHY'" class="table-info">
+                    <td class="align-middle">
+                      <select
+                        class="form-select form-select-sm"
+                        v-model="inlineAddSelectedId"
+                        @change="onInlineItemSelected"
+                      >
+                        <option value="">-- Select Species --</option>
+                        <option
+                          v-for="opt in inlineAddOptions"
+                          :key="opt.id"
+                          :value="opt.id"
+                        >
+                          {{ opt.name }} {{ opt.amount ? `(${formatCurrency(opt.amount)})` : '' }}
+                        </option>
+                      </select>
+                      <small v-if="inlineAddWarning" class="text-danger d-block mt-1">
+                        <i class="fa fa-exclamation-triangle me-1"></i>{{ inlineAddWarning }}
+                      </small>
+                    </td>
+                    <td class="text-center align-middle">
+                      <input
+                        type="number"
+                        class="form-control form-control-sm text-center"
+                        v-model.number="inlineAddQty"
+                        min="1"
+                        @input="recalcInlineTotal"
+                      >
+                    </td>
+                    <td class="text-end align-middle">
+                      {{ formatCurrency(inlineAddUnitPrice) }}
+                    </td>
+                    <td class="text-end align-middle">
+                      <strong class="text-success">{{ formatCurrency(inlineAddTotal) }}</strong>
+                    </td>
+                    <td class="text-center align-middle">
+                      <input type="checkbox" class="form-check-input" v-model="inlineAddOptional">
+                    </td>
+                    <td class="text-center align-middle">
+                      <div class="d-flex gap-1 justify-content-center">
+                        <button
+                          class="btn btn-success btn-sm"
+                          @click="confirmInlineAdd"
+                          :disabled="!inlineAddSelectedId || !!inlineAddWarning || savingInlineAdd"
+                          title="Add item"
+                        >
+                          <span v-if="savingInlineAdd" class="spinner-border spinner-border-sm"></span>
+                          <i v-else class="fa fa-check"></i>
+                        </button>
+                        <button class="btn btn-secondary btn-sm" @click="cancelInlineAdd" title="Cancel">
+                          <i class="fa fa-times"></i>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
         <!-- Edit-mode action bar (always visible when viewing an existing quotation) -->
         <div v-if="!isCreateMode && !isLocked" class="card bg-light sticky-bottom quotation-selection-bar">
           <div class="card-body py-2">
@@ -620,9 +806,9 @@
                 <h6 class="mb-0">
                   <i class="fa fa-file-text-o me-2 text-primary"></i>
                   Total Items: <strong>{{ existingItemsCount }}</strong>
-                  <span v-if="localDeletedItemIds.size > 0 || localAddedItems.length > 0" class="ms-2 badge bg-warning text-dark fs-11px">
+                  <span v-if="hasLocalChanges" class="ms-2 badge bg-warning text-dark fs-11px">
                     <i class="fa fa-pencil me-1"></i>
-                    {{ localDeletedItemIds.size > 0 ? `-${localDeletedItemIds.size}` : '' }}{{ localDeletedItemIds.size > 0 && localAddedItems.length > 0 ? ' / ' : '' }}{{ localAddedItems.length > 0 ? `+${localAddedItems.length}` : '' }} unsaved
+                    {{ localDeletedItemIds.size > 0 ? `-${localDeletedItemIds.size}` : '' }}{{ localDeletedItemIds.size > 0 && (localAddedItems.length > 0 || selectedItemsCount > 0) ? ' / ' : '' }}{{ (localAddedItems.length + selectedItemsCount) > 0 ? `+${localAddedItems.length + selectedItemsCount}` : '' }} unsaved
                   </span>
                 </h6>
               </div>
@@ -633,7 +819,7 @@
                 <button class="btn btn-outline-secondary" @click="goBack">
                   <i class="fa fa-arrow-left me-1"></i> Back
                 </button>
-                <button class="btn btn-success" @click="saveQuotationChanges" :disabled="saving || !hasLocalChanges">
+                <button class="btn btn-success" @click="saveQuotationChanges()" :disabled="saving || !hasLocalChanges">
                   <span v-if="saving" class="spinner-border spinner-border-sm me-1"></span>
                   <i v-else class="fa fa-save me-1"></i> Save Changes
                 </button>
@@ -725,6 +911,7 @@ const selectedItems = ref<Record<string, boolean>>({})
 const itemPrices = ref<Record<string, any>>({})
 const discountItems = ref<Record<string, boolean>>({})
 const trophyFeesIncluded = ref(false)
+const speciesQtyOverrides = ref<Record<number, number>>({})
 
 // ---- Inline Add state for existing quotation sections ----
 const addingInlineType = ref<string | null>(null) // 'TROPHY' | 'EXTRA' | null
@@ -742,6 +929,7 @@ const savingInlineAdd = ref(false)
 const loadingCustomPackages = ref(false)
 const allPackagesList = ref<any[]>([]) // all packages from creation-metadata
 const packageItemsCache = ref<Record<number, any[]>>({}) // cache: packageId -> items
+const fullPackageSpeciesCache = ref<Record<number, any[]>>({}) // cache: salesPackageSetId -> full species list
 let customRowUid = 0
 const customRows = ref<any[]>([]) // each row: { _uid, packageId, itemId, quantity, unitPrice, total, isOptional, ... }
 const localSavedCustomItems = ref<any[]>([]) // items saved locally in create mode (before quotation exists)
@@ -802,14 +990,59 @@ const removeCustomItemId = (id: number) => {
   persistCustomItemIds()
 }
 
-// Get summary from pricing API
+// Get summary from pricing API – recalculated from visible items so it
+// reflects local additions / deletions immediately.
 const pricingSummary = computed(() => {
-  return existingPricing.value?.summary || {
+  const serverSummary = existingPricing.value?.summary || {
     total_items: 0,
+    package_total: 0,
     trophy_total: 0,
     extra_total: 0,
     logistics_total: 0,
+    companion_total: 0,
     subtotal: 0,
+  }
+
+  // If there are no local changes, return the server summary as-is
+  if (localDeletedItemIds.value.size === 0 && localAddedItems.value.length === 0) {
+    return serverSummary
+  }
+
+  // Recalculate from the filtered items that are actually visible
+  let totalItems = 0
+  let packageTotal = 0
+  let trophyTotal = 0
+  let extraTotal = 0
+  let logisticsTotal = 0
+
+  for (const [type, items] of Object.entries(existingItemsByType.value)) {
+    const list = items as any[]
+    totalItems += list.length
+    for (const item of list) {
+      const amount = Number(item.total_amount) || 0
+      switch (type) {
+        case 'PACKAGE': packageTotal += amount; break
+        case 'TROPHY': trophyTotal += amount; break
+        case 'EXTRA': extraTotal += amount; break
+        case 'LOGISTICS': logisticsTotal += amount; break
+      }
+    }
+  }
+
+  // Include customized items (trophy overrides etc.)
+  for (const item of allCustomizedItems.value) {
+    totalItems += 1
+    trophyTotal += Number(item.total_amount || item.total) || 0
+  }
+
+  return {
+    total_items: totalItems,
+    package_total: packageTotal,
+    trophy_total: trophyTotal,
+    extra_total: extraTotal,
+    logistics_total: logisticsTotal,
+    companion_total: logisticsTotal,
+    subtotal: packageTotal + trophyTotal + extraTotal + logisticsTotal,
   }
 })
 
@@ -1008,14 +1241,14 @@ const existingItemsCount = computed(() => {
 
 const existingGrandTotal = computed(() => {
   let total = 0
-  for (const items of Object.values(existingItemsByType.value)) {
+  for (const [type, items] of Object.entries(existingItemsByType.value)) {
+    // Trophy fees are informational only — never included in the grand total
+    if (type === 'TROPHY') continue
     for (const item of items as any[]) {
       total += Number(item.total_amount) || 0
     }
   }
-  for (const item of allCustomizedItems.value) {
-    total += Number(item.total_amount || item.total) || 0
-  }
+  // Customized items are trophy-based — excluded from grand total (informational only)
   return total
 })
 
@@ -1197,11 +1430,12 @@ const availablePriceableItems = computed(() => {
   const noOfDays = packageDetail?.hunt_length_days || hunterPref?.no_of_days
   if (needsHuntingDays.value && noOfDays && noOfDays > 0) {
     const packageAmount = parseFloat(packageDetail?.amount) || 0
+    const pkgName = packageDetail?.name || enquiryData.value?.package_name || ''
     items.push({
       category: 'Package',
       items: [{
         id: 'hunting_days',
-        name: `Hunting Days (${noOfDays} days)`,
+        name: pkgName ? `${pkgName} — ${noOfDays} days` : `Hunting Days (${noOfDays} days)`,
         code: '',
         quantity: 1, // Quantity is 1 because package amount is for ALL days
         type: 'PACKAGE',
@@ -1274,17 +1508,21 @@ const availablePriceableItems = computed(() => {
 
   // Add companion hunters as LOGISTICS costs (Observers are Safari Extras, not LOGISTICS)
   if (enquiryParticipants.value.length > 0) {
+    // Match companion cost to hunt length (same logic as QuotationSection)
+    const companionCosts = pricePreviewData.value?.companion_costs || []
+    const huntDays = enquiryDays.value
+    const matchedCost = companionCosts.find((c: any) => Number(c.hunt_length_days) === Number(huntDays))
+    const companionAmount = parseFloat(matchedCost?.amount || companionCosts[0]?.amount) || 0
     items.push({
       category: 'Companion Hunters',
       items: enquiryParticipants.value.map((part: any) => {
-        const cost = parseFloat(pricePreviewData.value?.companion_costs?.[0]?.amount) || 0
         return {
           id: `participant_${part.type}`,
           name: part.label,
           code: '',
           quantity: part.count,
           type: 'LOGISTICS',
-          suggested_price: cost,
+          suggested_price: companionAmount,
         }
       })
     })
@@ -1364,6 +1602,8 @@ const getLiveItemTotal = (category: string, item: any) => {
   if (selectedItems.value[key] && itemPrices.value[key]) {
     return itemPrices.value[key].total_amount || 0
   }
+  // If not selected, return 0 so deselected items don't count in totals
+  if (!selectedItems.value[key]) return 0
   // Fallback to suggested price calculation
   const qty = item.quantity || 1
   const price = item.suggested_price || 0
@@ -1374,7 +1614,22 @@ const getLiveItemTotal = (category: string, item: any) => {
 // Auto-calculated totals from all enquiry items (for create mode summary)
 // These use live edited values so the summary card stays in sync with the items table
 const enquiryTotalItems = computed(() => {
-  return availablePriceableItems.value.reduce((sum: number, cat: any) => sum + cat.items.length, 0) + allCustomizedItems.value.length
+  let count = 0
+  for (const cat of availablePriceableItems.value) {
+    for (const item of cat.items) {
+      const key = `${cat.category}_${item.id}`
+      if (selectedItems.value[key]) count++
+    }
+  }
+  return count + allCustomizedItems.value.length
+})
+
+const enquiryPackageTotal = computed(() => {
+  const pkgCat = availablePriceableItems.value.find((c: any) => c.category === 'Package')
+  if (!pkgCat) return 0
+  return pkgCat.items.reduce((sum: number, item: any) => {
+    return sum + getLiveItemTotal('Package', item)
+  }, 0)
 })
 
 const enquiryTrophyTotal = computed(() => {
@@ -1394,6 +1649,14 @@ const enquiryExtrasTotal = computed(() => {
   if (!extrasCat) return 0
   return extrasCat.items.reduce((sum: number, item: any) => {
     return sum + getLiveItemTotal('Safari Extras', item)
+  }, 0)
+})
+
+const enquiryCompanionTotal = computed(() => {
+  const companionCat = availablePriceableItems.value.find((c: any) => c.category === 'Companion Hunters')
+  if (!companionCat) return 0
+  return companionCat.items.reduce((sum: number, item: any) => {
+    return sum + getLiveItemTotal('Companion Hunters', item)
   }, 0)
 })
 
@@ -1427,6 +1690,25 @@ const formatDate = (dateValue?: string) => {
 }
 
 const downloadQuotationPdf = async () => {
+  // Prevent downloading stale PDF when there are unsaved local changes
+  if (hasLocalChanges.value) {
+    const result = await Swal.fire({
+      title: 'Unsaved Changes',
+      text: 'You have unsaved changes. Please save your changes first so the PDF reflects the latest quotation.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Save & Download',
+      cancelButtonText: 'Cancel',
+    })
+    if (result.isConfirmed) {
+      await saveQuotationChanges({ skipConfirm: true, navigateBack: false })
+      // After saving, if there are still local changes (partial failure), abort
+      if (hasLocalChanges.value) return
+    } else {
+      return
+    }
+  }
+
   const pricingId = existingPricing.value?.id || pricingIdFromRoute.value
   if (!pricingId) return
 
@@ -1446,12 +1728,26 @@ const cleanItemName = (name: string) => {
   return name.replace(/\s*\([A-Z]+-[A-Z0-9-]+\)\s*/g, '').trim()
 }
 
+/**
+ * For LOGISTICS items like "Companion Hunters (2)", dynamically replace the
+ * baked-in count with the item's actual quantity so the display stays in sync
+ * when the user changes qty.
+ */
+const formatItemDisplayName = (item: any, itemType?: string) => {
+  const name = item.item_name || item.description || ''
+  if (itemType === 'LOGISTICS' || item.item_type === 'LOGISTICS') {
+    // Replace trailing (N) with the actual quantity
+    return name.replace(/\(\d+\)\s*$/, `(${item.quantity || 1})`)
+  }
+  return name
+}
+
 const formatItemType = (type: string) => {
   const types: Record<string, string> = {
     PACKAGE: 'Hunting Package',
     TROPHY: 'Trophy Fee',
     EXTRA: 'Safari Extra',
-    LOGISTICS: 'Accommodation & Transport',
+    LOGISTICS: 'Companion Hunter',
     ADJUSTMENT: 'Price Adjustment',
   }
   return types[type] || type
@@ -1571,6 +1867,16 @@ const updateItemTotal = (category: string, itemId: any) => {
       itemPrices.value[key].total_amount = qty * unit
     }
   }
+}
+
+/**
+ * Handle species qty change for Trophy Fees.
+ * Trophy fees are informational only — they are never part of the quotation total.
+ * This just tracks qty overrides for display and PDF species management.
+ */
+const onSpeciesQtyChange = (item: any, event: Event) => {
+  const val = Math.max(1, Math.floor(Number((event.target as HTMLInputElement).value) || 1))
+  speciesQtyOverrides.value[item.id] = val
 }
 
 // Handle duration input for add-items table
@@ -1703,16 +2009,9 @@ watch(() => enquiryDays.value, () => {
 })
 
 // When trophy fees toggle is turned off, deselect all trophy items
-watch(trophyFeesIncluded, (included) => {
-  if (!included) {
-    const trophyCat = availablePriceableItems.value.find((c: any) => c.category === 'Species (Trophy Fees)')
-    if (trophyCat) {
-      trophyCat.items.forEach((item: any) => {
-        const key = `Species (Trophy Fees)_${item.id}`
-        selectedItems.value[key] = false
-      })
-    }
-  }
+// trophyFeesIncluded only controls qty editability and dimming — trophy fees are never part of quotation total
+watch(trophyFeesIncluded, (_included) => {
+  // No selection changes needed — trophy items are informational only
 })
 
 const toggleCategorySelection = (category: any) => {
@@ -2014,6 +2313,12 @@ const loadPricing = async () => {
         // Load packages list early so regulatory_package data is available for baseSpeciesQtyMap
         await loadCustomPackagesList()
 
+        // Pre-fetch full package species (Main + Normal) for the TROPHY add dropdown
+        const _pkgId = currentPriceStructureDetailId.value
+        const _pkg = _pkgId ? allPackagesList.value.find((p: any) => p.id === _pkgId) : null
+        const _spSetId = _pkg?.sales_package?.id
+        if (_spSetId) loadFullPackageSpecies(_spSetId)
+
         initialLoadComplete.value = true
 
         // Auto-select all items & run regulatory auto-split immediately
@@ -2059,6 +2364,12 @@ const loadPricing = async () => {
 
       // Load packages list early so regulatory_package data is available for baseSpeciesQtyMap
       await loadCustomPackagesList()
+
+      // Pre-fetch full package species (Main + Normal) for the TROPHY add dropdown
+      const _pkgId2 = currentPriceStructureDetailId.value
+      const _pkg2 = _pkgId2 ? allPackagesList.value.find((p: any) => p.id === _pkgId2) : null
+      const _spSetId2 = _pkg2?.sales_package?.id
+      if (_spSetId2) loadFullPackageSpecies(_spSetId2)
 
       // Mark load complete; now user-driven changes can trigger server recalculation
       initialLoadComplete.value = true
@@ -2297,6 +2608,28 @@ const createPricingWithItems = async () => {
       })
     }
 
+    // Always include trophy fee items (they are informational / for PDF species management,
+    // not part of the quotation grand total, but must be persisted with correct quantities)
+    const trophyCat = availablePriceableItems.value.find((c: any) => c.category === 'Species (Trophy Fees)')
+    if (trophyCat) {
+      for (const tItem of trophyCat.items) {
+        const qty = speciesQtyOverrides.value[tItem.id] ?? tItem.quantity ?? 1
+        const unitPrice = Number(tItem.suggested_price) || 0
+        items.push({
+          item_type: 'TROPHY',
+          item_id: tItem.id,
+          description: tItem.name || '',
+          quantity: qty,
+          unit_amount: unitPrice,
+          total_amount: qty * unitPrice,
+          rate_direction: 'INCREASE',
+          amount_source: 'SYSTEM',
+          is_estimate: false,
+          is_optional: false,
+        })
+      }
+    }
+
   const priceStructureDetailId = enquiryData.value?._resolved_price_structure_detail_id
       || enquiryData.value?.price_structure_detail_id
       || enquiryData.value?.price_structure_detail?.id
@@ -2514,6 +2847,34 @@ const loadCustomPackagesList = async () => {
   } finally {
     loadingCustomPackages.value = false
   }
+}
+
+// Load ALL species for a sales package set (Main + Normal) with caching
+const loadFullPackageSpecies = async (salesPackageSetId: number) => {
+  if (fullPackageSpeciesCache.value[salesPackageSetId]) return fullPackageSpeciesCache.value[salesPackageSetId]
+  try {
+    const apiBase = String(import.meta.env.VITE_APP_BASE_URL || '').replace(/\/+$/, '')
+    const response = await axios.get(
+      `${apiBase}/settings/sales-package-sets/${salesPackageSetId}`,
+      { headers: { 'Content-Type': 'application/json' } }
+    )
+    const fullPkgData = response.data?.data || response.data
+    if (fullPkgData?.species && Array.isArray(fullPkgData.species)) {
+      fullPackageSpeciesCache.value[salesPackageSetId] = fullPkgData.species.map((item: any) => ({
+        id: item.id,
+        species_id: item.species?.id || item.species_id,
+        name: item.species?.name || item.name,
+        subtype: item.species?.subtype || item.subtype || 'MAIN_SPECIE',
+        quantity: item.quantity || 1,
+      }))
+    } else {
+      fullPackageSpeciesCache.value[salesPackageSetId] = []
+    }
+  } catch (error) {
+    console.error('Error fetching full package species:', error)
+    fullPackageSpeciesCache.value[salesPackageSetId] = []
+  }
+  return fullPackageSpeciesCache.value[salesPackageSetId]
 }
 
 // Load items for a specific package (with caching)
@@ -2885,14 +3246,114 @@ const inlineAddOptions = computed(() => {
   }
 
   if (addingInlineType.value === 'TROPHY') {
-    const allTrophies = pricePreviewData.value?.trophy_fees || []
-    return allTrophies
-      .map((tf: any) => ({
-        id: tf.item_id || tf.species_id || tf.id,
-        name: cleanItemName(tf.item_name || tf.species_name || tf.name || 'Unknown'),
-        amount: parseFloat(tf.amount) || 0,
-        type: 'TROPHY',
-      }))
+    // Build complete set of species from ALL available sources
+    const packageSpeciesIds = new Set<number>()
+    const packageSpeciesNames = new Map<number, string>()
+
+    // Source 1: fullPackageSpeciesCache (fetched from sales-package-sets/{id} — has ALL species incl. NORMAL_SPECIE)
+    const currentId = currentPriceStructureDetailId.value
+    const basePkg = currentId ? allPackagesList.value.find((p: any) => p.id === currentId) : null
+    const salesPkgSetId = basePkg?.sales_package?.id
+    if (salesPkgSetId && fullPackageSpeciesCache.value[salesPkgSetId]) {
+      for (const sp of fullPackageSpeciesCache.value[salesPkgSetId]) {
+        const id = Number(sp.species_id || sp.id)
+        if (id) {
+          packageSpeciesIds.add(id)
+          packageSpeciesNames.set(id, cleanItemName(sp.name || 'Unknown'))
+        }
+      }
+    }
+
+    // Source 2: regulatory_package.species_by_category (Main species with qty)
+    const regPkg = basePkg?.regulatory_package
+    if (regPkg?.species_by_category && Array.isArray(regPkg.species_by_category)) {
+      for (const catGroup of regPkg.species_by_category) {
+        for (const sp of (catGroup.species || [])) {
+          const id = Number(sp.id || sp.item_id)
+          if (id) {
+            packageSpeciesIds.add(id)
+            if (!packageSpeciesNames.has(id)) {
+              packageSpeciesNames.set(id, cleanItemName(sp.name || sp.item_name || sp.species_name || 'Unknown'))
+            }
+          }
+        }
+      }
+    }
+
+    // Source 3: pricePreviewData.species
+    const previewSpecies = pricePreviewData.value?.species || []
+    for (const sp of previewSpecies) {
+      const id = Number(sp.item_id || sp.id)
+      if (id) {
+        packageSpeciesIds.add(id)
+        if (!packageSpeciesNames.has(id)) {
+          packageSpeciesNames.set(id, cleanItemName(sp.item_name || sp.species_name || sp.name || 'Unknown'))
+        }
+      }
+    }
+
+    // Source 4: enquiry species_preferences
+    const speciesPrefs = enquiryData.value?.species_preferences || enquiryData.value?.item_preferences || []
+    for (const sp of speciesPrefs) {
+      const id = Number(sp.item_id || sp.species_id || sp.id)
+      if (id) {
+        packageSpeciesIds.add(id)
+        if (!packageSpeciesNames.has(id)) {
+          packageSpeciesNames.set(id, cleanItemName(sp.item_name || sp.species_name || sp.name || 'Unknown'))
+        }
+      }
+    }
+
+    // Source 5: existing saved TROPHY items
+    const savedTrophies = existingPricing.value?.items_by_type?.TROPHY || []
+    for (const t of savedTrophies) {
+      const id = Number(t.item_id)
+      if (id) {
+        packageSpeciesIds.add(id)
+        if (!packageSpeciesNames.has(id)) {
+          packageSpeciesNames.set(id, cleanItemName(t.item_name || t.description?.item_name || 'Unknown'))
+        }
+      }
+    }
+
+    // Build price lookup from trophy_fees
+    const trophyFees = pricePreviewData.value?.trophy_fees || []
+    const priceLookup = new Map<number, { name: string; amount: number }>()
+    for (const tf of trophyFees) {
+      const id = Number(tf.item_id || tf.species_id || tf.id)
+      if (id) {
+        priceLookup.set(id, {
+          name: cleanItemName(tf.item_name || tf.species_name || tf.name || 'Unknown'),
+          amount: parseFloat(tf.amount) || 0,
+        })
+      }
+    }
+
+    // Build final options from all collected species
+    const trophyMap = new Map<number, any>()
+    if (packageSpeciesIds.size > 0) {
+      for (const speciesId of packageSpeciesIds) {
+        const priceInfo = priceLookup.get(speciesId)
+        trophyMap.set(speciesId, {
+          id: speciesId,
+          name: priceInfo?.name || packageSpeciesNames.get(speciesId) || `Species #${speciesId}`,
+          amount: priceInfo?.amount || 0,
+          type: 'TROPHY',
+        })
+      }
+    } else {
+      // Fallback: no package species data, show all trophy_fees
+      for (const [id, info] of priceLookup) {
+        trophyMap.set(id, { id, name: info.name, amount: info.amount, type: 'TROPHY' })
+      }
+    }
+
+    // If fullPackageSpecies not yet loaded, trigger async fetch for next render
+    if (salesPkgSetId && !fullPackageSpeciesCache.value[salesPkgSetId]) {
+      loadFullPackageSpecies(salesPkgSetId)
+    }
+
+    return Array.from(trophyMap.values())
       .filter((opt: any) => isDuplicateAllowed(opt.name) || !existingIds.has(opt.id))
   }
 
@@ -3118,13 +3579,18 @@ const goBack = async () => {
 // Save current items as a NEW quotation (duplicate) and navigate back to the list
 // Computed: whether there are unsaved local changes
 const hasLocalChanges = computed(() => {
-  return localDeletedItemIds.value.size > 0 || localAddedItems.value.length > 0
+  return localDeletedItemIds.value.size > 0
+    || localAddedItems.value.length > 0
+    || (!isCreateMode.value && selectedItemsCount.value > 0)
 })
 
 // Save local changes (deletions + additions) to the EXISTING draft quotation
-const saveQuotationChanges = async () => {
+// When skipConfirm=true and navigateBack=false, the function saves silently (used by PDF download flow)
+const saveQuotationChanges = async (options?: { skipConfirm?: boolean; navigateBack?: boolean }) => {
+  const { skipConfirm = false, navigateBack = true } = options || {}
+
   if (!hasLocalChanges.value) {
-    Swal.fire({ title: 'No Changes', text: 'There are no changes to save.', icon: 'info' })
+    if (!skipConfirm) Swal.fire({ title: 'No Changes', text: 'There are no changes to save.', icon: 'info' })
     return
   }
 
@@ -3137,17 +3603,41 @@ const saveQuotationChanges = async () => {
   const deletions = Array.from(localDeletedItemIds.value)
   const additions = [...localAddedItems.value]
 
-  const confirm = await Swal.fire({
-    title: 'Save Changes?',
-    html: `This will update the existing draft quotation:<br>` +
-      (deletions.length > 0 ? `<strong>${deletions.length}</strong> item(s) removed<br>` : '') +
-      (additions.length > 0 ? `<strong>${additions.length}</strong> item(s) added` : ''),
-    icon: 'question',
-    showCancelButton: true,
-    confirmButtonText: 'Save',
-    cancelButtonText: 'Cancel',
-  })
-  if (!confirm.isConfirmed) return
+  // Collect selected items from "Items enquired by the client" section
+  const selectedEnquiryItems: any[] = []
+  if (selectedItemsCount.value > 0) {
+    for (const key in selectedItems.value) {
+      if (!selectedItems.value[key]) continue
+      let price = itemPrices.value[key]
+      if (!price) {
+        const parts = key.split('_')
+        const categoryName = parts.slice(0, parts.length - 1).join('_')
+        const id = parts[parts.length - 1]
+        const cat = availablePriceableItems.value.find((c: any) => c.category === categoryName)
+        const srcItem = cat?.items?.find((it: any) => String(it.id) === String(id))
+        if (srcItem) price = ensureItemPrice(categoryName, srcItem)
+      }
+      if (price) {
+        selectedEnquiryItems.push({ ...price, description: descriptionWithDuration(price.description || '', price.item_durations) })
+      }
+    }
+  }
+
+  if (!skipConfirm) {
+    const parts: string[] = []
+    if (deletions.length > 0) parts.push(`<strong>${deletions.length}</strong> item(s) removed`)
+    if (additions.length > 0) parts.push(`<strong>${additions.length}</strong> item(s) added`)
+    if (selectedEnquiryItems.length > 0) parts.push(`<strong>${selectedEnquiryItems.length}</strong> selected item(s) added`)
+    const confirm = await Swal.fire({
+      title: 'Save Changes?',
+      html: `This will update the existing draft quotation:<br>` + parts.join('<br>'),
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Save',
+      cancelButtonText: 'Cancel',
+    })
+    if (!confirm.isConfirmed) return
+  }
 
   saving.value = true
   try {
@@ -3163,13 +3653,17 @@ const saveQuotationChanges = async () => {
       }
     }
 
-    // 2. Add new items on the server
+    // 2. Add new items on the server (from inline + Add)
     for (const item of additions) {
       try {
+        // For LOGISTICS items, ensure description reflects actual quantity
+        const itemDesc = item.item_type === 'LOGISTICS'
+          ? formatItemDisplayName(item)
+          : (item.description || item.item_name || '')
         const payload: any = {
           item_type: item.item_type,
           item_id: item.item_id ?? null,
-          description: descriptionWithDuration(item.description || item.item_name || '', item.item_durations),
+          description: descriptionWithDuration(itemDesc, item.item_durations),
           quantity: item.quantity || 1,
           unit_amount: item.unit_amount || 0,
           is_optional: !!item.is_optional,
@@ -3184,16 +3678,43 @@ const saveQuotationChanges = async () => {
       }
     }
 
-    // 3. Reset local tracking state
+    // 3. Add selected items from "Items enquired by the client" section
+    for (const item of selectedEnquiryItems) {
+      try {
+        const payload: any = {
+          item_type: item.item_type,
+          item_id: item.item_id ?? null,
+          description: item.description || '',
+          quantity: item.quantity || 1,
+          unit_amount: item.unit_amount || 0,
+          is_optional: !!item.is_optional,
+        }
+        if (item.item_durations) {
+          payload.item_durations = item.item_durations
+        }
+        await salesEnquiryService.addPricingItem(pricingId, payload)
+      } catch (e: any) {
+        console.error(`Error adding selected item ${item.description}:`, e)
+        errors++
+      }
+    }
+
+    // 4. Reset local tracking state
     localDeletedItemIds.value = new Set()
     localAddedItems.value = []
+    selectedItems.value = {}
+    itemPrices.value = {}
 
     if (errors > 0) {
       Swal.fire({ title: 'Partial Save', text: `Changes saved with ${errors} error(s). Please review the quotation.`, icon: 'warning' })
     } else {
       await Swal.fire({ title: 'Saved!', text: 'Quotation updated successfully.', icon: 'success', timer: 1500 })
-      // Navigate back to the enquiry detail page (Quotations tab)
-      goBack()
+      // Reload pricing so the UI reflects the server state
+      await loadPricing()
+      if (navigateBack) {
+        // Navigate back to the enquiry detail page (Quotations tab)
+        goBack()
+      }
     }
   } catch (error: any) {
     console.error('Error saving quotation changes:', error)

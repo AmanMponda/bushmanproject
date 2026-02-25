@@ -772,15 +772,19 @@ const handleProceed = async () => {
   const countryObj = countries.value.find((c: any) => c.value === form.country)
   const nationalityObj = nationalities.value.find((n: any) => n.value === form.nationality)
 
+  // Fallback: for existing customers, use the resolved name from the entity's selfItem
+  const existingCountryName = selectedCustomerData.value?.country
+  const existingNationalityName = selectedCustomerData.value?.nationality
+
   const customerData = {
     customerType: customerType.value,
     entity_id: entityId,
     full_name: form.full_name,
     nick_name: form.nick_name,
     country: form.country,
-    country_name: countryObj?.text || '',
+    country_name: countryObj?.text || (existingCountryName && existingCountryName !== 'N/A' ? existingCountryName : ''),
     nationality: form.nationality,
-    nationality_name: nationalityObj?.text || '',
+    nationality_name: nationalityObj?.text || (existingNationalityName && existingNationalityName !== 'N/A' ? existingNationalityName : ''),
     email: form.email,
     phone: fullPhone,
     phone_additional: fullPhoneAdditional,

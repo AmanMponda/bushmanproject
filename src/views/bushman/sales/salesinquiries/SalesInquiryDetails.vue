@@ -514,6 +514,24 @@ const companions = ref<any[]>([])
 const clientSafariExtras = ref<any[]>([])
 const accommodations = ref<any[]>([])
 const chartersPrices = ref<any[]>([])
+const priceStructureDetail = ref<any>(null)
+
+// Fetch price structure detail to get hunting type and area
+const fetchPriceStructureDetail = async () => {
+  const e = item.value as any
+  if (!e) return
+  const detailId = e.price_structure_detail_id || e.pricings?.[0]?.price_structure_detail_id
+  if (!detailId) return
+  try {
+    const response = await salesEnquiryService.previewPriceItems(detailId)
+    const data = response?.data || response
+    if (data?.price_structure_detail) {
+      priceStructureDetail.value = data.price_structure_detail
+    }
+  } catch (error) {
+    console.error('Error fetching price structure detail:', error)
+  }
+}
 
 // Package, Hunting Type, Hunting Area computed from enquiry data
 const enquiryPackageName = computed(() => {
@@ -524,6 +542,7 @@ const enquiryPackageName = computed(() => {
     || e.package_details?.name
     || e.pricings?.[0]?.price_structure_detail?.name
     || e.package_name
+    || priceStructureDetail.value?.name
     || '-'
 })
 
@@ -531,20 +550,29 @@ const enquiryHuntingType = computed(() => {
   const e = item.value as any
   if (!e) return '-'
   return e.package_details?.hunting_type_name
+    || e.price_structure_detail?.hunting_type?.name
+    || e.price_structure_detail?.hunting_type_name
     || e.pricings?.[0]?.price_structure_detail?.hunting_type?.name
+    || e.pricings?.[0]?.price_structure_detail?.hunting_type_name
     || e.pricings?.[0]?.hunting_type
     || e.hunting_type_name
     || e.hunting_type
+    || priceStructureDetail.value?.hunting_type
     || '-'
 })
 
 const enquiryHuntingArea = computed(() => {
   const e = item.value as any
   if (!e) return '-'
-  return e.package_details?.area_name
+  return e.areas?.[0]?.location?.name
+    || e.package_details?.area_name
+    || e.price_structure_detail?.hunting_area?.name
+    || e.price_structure_detail?.area_name
     || e.pricings?.[0]?.price_structure_detail?.hunting_area?.name
+    || e.pricings?.[0]?.price_structure_detail?.area_name
     || e.hunting_area_name
     || e.hunting_area
+    || priceStructureDetail.value?.location
     || '-'
 })
 
@@ -680,15 +708,17 @@ const getChartersPrice = async (enquiryId: number) => {
 }
 
 const loadItemIfNeeded = async () => {
-  if (localItem.value) return
-  const id = props.itemId || item.value?.id
+  const id = props.itemId || localItem.value?.id || props.item?.id
   if (!id) return
   try {
     const response = await salesEnquiryService.get(id)
     const data = response?.data?.data || response?.data || response
     if (data) localItem.value = data as SalesEnquiry
   } catch (error) {
-    notify({ message: 'Failed to load enquiry details', color: 'danger' })
+    // Keep existing prop data if fetch fails
+    if (!localItem.value) {
+      notify({ message: 'Failed to load enquiry details', color: 'danger' })
+    }
   }
 }
 
@@ -783,6 +813,7 @@ onMounted(async () => {
     getClienSafariExtras(item.value.id)
     getAccommodation(item.value.id)
     getChartersPrice(item.value.id)
+    fetchPriceStructureDetail()
   }
 })
 </script>

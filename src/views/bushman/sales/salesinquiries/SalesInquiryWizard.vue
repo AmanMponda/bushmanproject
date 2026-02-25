@@ -741,9 +741,9 @@
                 <div class="review-grid">
                   <div class="review-item"><span class="label">Client Name:</span><span class="value">{{ displayOrNotProvided(form.full_name || props.customerData?.full_name) }}</span></div>
                   <div class="review-item"><span class="label">Phone:</span><span class="value">{{ displayOrNotProvided(form.phone || props.customerData?.phone) }}</span></div>
-                  <div class="review-item"><span class="label">Country:</span><span class="value">{{ displayOrNotProvided(props.customerData?.country_name || getItemLabel(countryItems, form.country)) }}</span></div>
+                  <div class="review-item"><span class="label">Country:</span><span class="value">{{ displayOrNotProvided(props.customerData?.country_name || form.country_name || getItemLabel(countryItems, form.country)) }}</span></div>
                   <div class="review-item"><span class="label">Email:</span><span class="value">{{ displayOrNotProvided(form.email || props.customerData?.email) }}</span></div>
-                  <div class="review-item"><span class="label">Nationality:</span><span class="value">{{ displayOrNotProvided(props.customerData?.nationality_name || getItemLabel(nationalityItems, form.nationality)) }}</span></div>
+                  <div class="review-item"><span class="label">Nationality:</span><span class="value">{{ displayOrNotProvided(props.customerData?.nationality_name || form.nationality_name || getItemLabel(nationalityItems, form.nationality)) }}</span></div>
                   <div class="review-item"><span class="label">Address:</span><span class="value">{{ displayOrNotProvided(form.address || props.customerData?.address) }}</span></div>
                 </div>
               </div>
@@ -1085,7 +1085,9 @@ const form = reactive({
   full_name: '',
   nick_name: '',
   country: null as any,
+  country_name: '',
   nationality: null as any,
+  nationality_name: '',
   email: '',
   phone: '',
   phone_additional: '',
@@ -1454,9 +1456,9 @@ const downloadPreviewPdf = async () => {
     const clientRows = [
       ['Client Name:', displayOrNotProvided(form.full_name || props.customerData?.full_name)],
       ['Phone:', displayOrNotProvided(form.phone || props.customerData?.phone)],
-      ['Country:', displayOrNotProvided(props.customerData?.country_name || getItemLabel(countryItems.value, form.country))],
+      ['Country:', displayOrNotProvided(props.customerData?.country_name || form.country_name || getItemLabel(countryItems.value, form.country))],
       ['Email:', displayOrNotProvided(form.email || props.customerData?.email)],
-      ['Nationality:', displayOrNotProvided(props.customerData?.nationality_name || getItemLabel(nationalityItems.value, form.nationality))],
+      ['Nationality:', displayOrNotProvided(props.customerData?.nationality_name || form.nationality_name || getItemLabel(nationalityItems.value, form.nationality))],
       ['Address:', displayOrNotProvided(form.address || props.customerData?.address)]
     ]
     autoTable(pdf, {
@@ -1528,7 +1530,7 @@ const downloadPreviewPdf = async () => {
     if (participants.value.length > 0) {
       const participantRows = participants.value.map((p: any, i: number) => {
         const role = p.participant_type === 'primary' ? 'Primary' : `Hunter #${i + 1}`
-        const name = p.entity_name || '-'
+        const name = p.entity_name || (p.participant_type === 'primary' ? (form.full_name || props.customerData?.full_name || '-') : '-')
         const status = p.is_independent ? 'Independent' : 'Dependent'
         const dependentOn = getDependentOnLabel(p)
         return [role, name, status, dependentOn, `${p.share_percentage}%`]
@@ -3006,6 +3008,7 @@ const submit = async () => {
     // Participants
     participants: participants.value.map(p => ({
       entity_id: p.entity_id,
+      entity_name: p.entity_name || (p.participant_type === 'primary' ? (form.full_name || props.customerData?.full_name || '') : ''),
       participant_type: p.participant_type,
       is_independent: p.is_independent,
       dependent_on_participant_id: !p.is_independent ? (p.dependent_on_participant_id || null) : null,
@@ -3268,19 +3271,37 @@ const loadInquiryForEdit = (rowData: any) => {
   const countryId = item.entity?.country_id
   if (countryId) {
     const countryOption = countries.value.find((c: any) => c.value === countryId)
-    if (countryOption) form.country = countryOption.value
+    if (countryOption) {
+      form.country = countryOption.value
+      form.country_name = countryOption.text || ''
+    }
   } else if (item.entity?.country) {
     const countryOption = countries.value.find((c: any) => c.text === item.entity.country)
-    if (countryOption) form.country = countryOption.value
+    if (countryOption) {
+      form.country = countryOption.value
+      form.country_name = countryOption.text || ''
+    } else {
+      // Use entity country name directly as fallback
+      form.country_name = typeof item.entity.country === 'string' ? item.entity.country : (item.entity.country?.name || '')
+    }
   }
 
   const nationalityId = item.entity?.nationality_id
   if (nationalityId) {
     const nationalityOption = nationality.value.find((n: any) => n.value === nationalityId)
-    if (nationalityOption) form.nationality = nationalityOption.value
+    if (nationalityOption) {
+      form.nationality = nationalityOption.value
+      form.nationality_name = nationalityOption.text || ''
+    }
   } else if (item.entity?.nationality) {
     const nationalityOption = nationality.value.find((n: any) => n.text === item.entity.nationality)
-    if (nationalityOption) form.nationality = nationalityOption.value
+    if (nationalityOption) {
+      form.nationality = nationalityOption.value
+      form.nationality_name = nationalityOption.text || ''
+    } else {
+      // Use entity nationality name directly as fallback
+      form.nationality_name = typeof item.entity.nationality === 'string' ? item.entity.nationality : (item.entity.nationality?.name || '')
+    }
   }
 
   // Load contacts from entity (contact_type_id: 1=email, 2=phone, 3=address)
@@ -3472,7 +3493,9 @@ const initializeFromCustomerData = () => {
   form.full_name = data.full_name || ''
   form.nick_name = data.nick_name || ''
   form.country = data.country || null
+  form.country_name = data.country_name || ''
   form.nationality = data.nationality || null
+  form.nationality_name = data.nationality_name || ''
   form.email = data.email || ''
   form.phone = data.phone || ''
   form.phone_additional = data.phone_additional || ''

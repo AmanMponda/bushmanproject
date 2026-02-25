@@ -57,7 +57,7 @@
                   </td>
                   <td class="text-end align-middle">
                     <strong class="text-success">
-                      {{ typeof pricing.currency === 'string' ? '$' : ((pricing.currency as any)?.symbol || '$') }}{{ formatCurrency(pricing.total_amount || (pricing as any).summary?.subtotal || 0) }}
+                      {{ typeof pricing.currency === 'string' ? '$' : ((pricing.currency as any)?.symbol || '$') }}{{ formatCurrency(getTotalExcludingTrophy(pricing)) }}
                     </strong>
                   </td>
                   <td class="text-center align-middle">
@@ -242,7 +242,7 @@
                         <td>
                           <div>
                             <strong>{{ cleanItemName(item.name) }}</strong>
-                            <span class="badge ms-2" :class="getItemTypeBadgeClass(item.type)">{{
+                            <span v-if="item.type !== 'LOGISTICS'" class="badge ms-2" :class="getItemTypeBadgeClass(item.type)">{{
                               formatItemType(item.type) }}</span>
                           </div>
                           <small v-if="item.priority" class="text-muted d-block">{{ formatPriority(item.priority)
@@ -1187,6 +1187,25 @@ const getItemsCount = (pricing: Pricing) => {
   return (pricing as any).summary?.total_items || 0
 }
 
+// Get total amount excluding trophy fees (trophy fees are informational only)
+const getTotalExcludingTrophy = (pricing: Pricing) => {
+  const summary = (pricing as any).summary
+  if (summary) {
+    const subtotal = summary.subtotal || 0
+    const trophyTotal = summary.trophy_total || 0
+    return subtotal - trophyTotal
+  }
+  // Fallback: subtract trophy items manually if summary not available
+  const total = pricing.total_amount || 0
+  if (pricing.items && pricing.items.length > 0) {
+    const trophySum = pricing.items
+      .filter((i: any) => i.item_type === 'TROPHY')
+      .reduce((sum: number, i: any) => sum + (i.total_amount || 0), 0)
+    return total - trophySum
+  }
+  return total
+}
+
 const getItemTypeBadgeClass = (type: string) => {
   const classes: Record<string, string> = {
     PACKAGE: 'bg-primary',
@@ -1203,7 +1222,7 @@ const formatItemType = (type: string) => {
     PACKAGE: 'Hunting Package',
     TROPHY: 'Trophy Fee',
     EXTRA: 'Safari Extra',
-    LOGISTICS: 'Accommodation & Transport',
+    LOGISTICS: 'Companion Hunter',
     ADJUSTMENT: 'Price Adjustment',
   }
   return types[type] || type
@@ -1317,10 +1336,13 @@ const loadEnrichedPricingData = async (pricingId: number) => {
       // Update the pricing in the list with enriched data
       const idx = pricings.value.findIndex(p => p.id === pricingId)
       if (idx !== -1) {
+        const summary = response.data.summary || {}
+        const subtotal = summary.subtotal || 0
+        const trophyTotal = summary.trophy_total || 0
         const enrichedPricing = {
           ...pricings.value[idx],
           items: response.data.items || [],
-          total_amount: response.data.summary?.subtotal || 0,
+          total_amount: subtotal - trophyTotal,
         } as any
         if (response.data.summary) {
           enrichedPricing.summary = response.data.summary
@@ -1870,6 +1892,16 @@ const confirmDeletePricing = (pricing: Pricing) => {
           expandedPricings.value = expandedPricings.value.filter((id) => id !== pricing.id)
           Swal.fire('Deleted!', 'Quotation has been deleted.', 'success')
           await loadPricings(true)
+
+          // If no quotations remain, revert enquiry status to NEW
+          if (pricings.value.length === 0) {
+            try {
+              await salesEnquiryService.update(props.enquiryId, { status: 'NEW' })
+            } catch (e) {
+              console.error('Failed to revert enquiry status:', e)
+            }
+          }
+
           emit('update')
         }
       } catch (error: any) {
