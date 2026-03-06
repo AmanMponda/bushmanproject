@@ -8,7 +8,7 @@ import { useAppOptionStore } from '@/stores/app-option'
 import { useAuthStore } from '@/stores/auth'
 import Swal from 'sweetalert2'
 
-type FundDirection = 'WITHDRAW' | 'DIRECT_PAYMENT'
+type FundDirection = 'WITHDRAW' | 'EXPENSE'
 type TaxMethod = 'EXCLUSIVE' | 'INCLUSIVE' | 'EXEMPT'
 
 const route = useRoute()

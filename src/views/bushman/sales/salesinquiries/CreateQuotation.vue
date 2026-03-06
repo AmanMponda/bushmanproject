@@ -407,6 +407,7 @@
             </div>
             <div v-else-if="availablePriceableItems.length > 0">
               <div v-for="category in availablePriceableItems" :key="category.category" class="mb-4"
+                v-show="!(category.category === 'Species (Trophy Fees)' && !isCreateMode)"
                 :class="{ 'trophy-fees-dimmed': category.category === 'Species (Trophy Fees)' && !trophyFeesIncluded }"
               >
                 <!-- Trophy Fees Toggle Banner (create mode) -->
@@ -1003,9 +1004,14 @@ const pricingSummary = computed(() => {
     subtotal: 0,
   }
 
-  // If there are no local changes, return the server summary as-is
+  // If there are no local changes, return the server summary with trophy-excluded count
   if (localDeletedItemIds.value.size === 0 && localAddedItems.value.length === 0) {
-    return serverSummary
+    // Compute trophy count from actual items since server may not provide trophy_fees_count
+    const trophyCount = (existingPricing.value?.items_by_type?.TROPHY || []).length
+    return {
+      ...serverSummary,
+      total_items: (serverSummary.total_items || 0) - trophyCount,
+    }
   }
 
   // Recalculate from the filtered items that are actually visible
@@ -1017,7 +1023,8 @@ const pricingSummary = computed(() => {
 
   for (const [type, items] of Object.entries(existingItemsByType.value)) {
     const list = items as any[]
-    totalItems += list.length
+    // Exclude TROPHY from item count — they are informational only
+    if (type !== 'TROPHY') totalItems += list.length
     for (const item of list) {
       const amount = Number(item.total_amount) || 0
       switch (type) {
@@ -1029,9 +1036,8 @@ const pricingSummary = computed(() => {
     }
   }
 
-  // Include customized items (trophy overrides etc.)
+  // Include customized items in trophy total only (not in count)
   for (const item of allCustomizedItems.value) {
-    totalItems += 1
     trophyTotal += Number(item.total_amount || item.total) || 0
   }
 
@@ -1095,6 +1101,15 @@ const baseSpeciesQtyMap = computed(() => {
     })
   }
   return map
+})
+
+// All species from the current base package (MAIN + NORMAL) via fullPackageSpeciesCache
+const currentFullPackageSpecies = computed(() => {
+  const pkgId = currentPriceStructureDetailId.value
+  const pkg = pkgId ? allPackagesList.value.find((p: any) => p.id === pkgId) : null
+  const spSetId = pkg?.sales_package?.id
+  if (!spSetId) return []
+  return fullPackageSpeciesCache.value[spSetId] || []
 })
 
 // TROPHY items that are customized (from other packages):
@@ -1221,9 +1236,56 @@ const existingItemsByType = computed(() => {
     }
   }
 
-  // Add TROPHY at the very end so it renders last
+  // Add missing package species to the TROPHY section (ensures ALL species from the package
+  // are shown in edit/view mode, not just the ones that were originally saved)
+  // Only add virtual items for species that are truly missing (not already in saved trophy items)
+  if (!isCreateMode.value && currentFullPackageSpecies.value.length > 0) {
+    const existingTrophyItemIds = new Set(
+      (trophyItems || []).map((t: any) => Number(t.item_id)).filter(Boolean)
+    )
+    // Also exclude customized items' item_ids
+    for (const ci of customizedSavedItems.value) {
+      if (ci.item_id) existingTrophyItemIds.add(Number(ci.item_id))
+    }
+    // Also check against the full saved TROPHY list (before customized filtering)
+    const allSavedTrophyItemIds = new Set(
+      (itemsByType['TROPHY'] || []).map((t: any) => Number(t.item_id)).filter(Boolean)
+    )
+    for (const pkgSp of currentFullPackageSpecies.value) {
+      const specId = Number(pkgSp.species_id || pkgSp.id)
+      // Skip if already present in either filtered or saved trophy lists
+      if (!specId || existingTrophyItemIds.has(specId) || allSavedTrophyItemIds.has(specId)) continue
+      if (!trophyItems) trophyItems = []
+      const trophyFee = pricePreviewData.value?.trophy_fees?.find(
+        (tf: any) => Number(tf.item_id) === specId || Number(tf.species_id) === specId
+      )
+      trophyItems.push({
+        id: `_virtual_${specId}`,
+        item_id: specId,
+        item_type: 'TROPHY',
+        description: pkgSp.name || 'Unknown Species',
+        item_name: pkgSp.name || 'Unknown Species',
+        quantity: pkgSp.quantity || 1,
+        unit_amount: parseFloat(trophyFee?.amount) || 0,
+        total_amount: (pkgSp.quantity || 1) * (parseFloat(trophyFee?.amount) || 0),
+        is_optional: false,
+        _isVirtualPackageSpecies: true,
+      })
+    }
+  }
+
+  // Deduplicate trophy items by item_id (server may have saved duplicates)
   if (trophyItems && trophyItems.length > 0) {
-    result['TROPHY'] = trophyItems
+    const seenItemIds = new Set<number>()
+    const uniqueTrophyItems: any[] = []
+    for (const t of trophyItems) {
+      const tId = Number(t.item_id)
+      if (tId && seenItemIds.has(tId)) continue
+      if (tId) seenItemIds.add(tId)
+      uniqueTrophyItems.push(t)
+    }
+    // Add TROPHY at the very end so it renders last
+    result['TROPHY'] = uniqueTrophyItems
   }
   
   return result
@@ -1232,10 +1294,12 @@ const existingItemsByType = computed(() => {
 // Totals for the existing (saved) pricing in edit mode
 const existingItemsCount = computed(() => {
   let count = 0
-  for (const items of Object.values(existingItemsByType.value)) {
+  for (const [type, items] of Object.entries(existingItemsByType.value)) {
+    // Exclude TROPHY items from count — they are informational only
+    if (type === 'TROPHY') continue
     count += (items as any[]).length
   }
-  count += allCustomizedItems.value.length
+  // Customized items are trophy-based, don't count them either
   return count
 })
 
@@ -1444,11 +1508,30 @@ const availablePriceableItems = computed(() => {
     })
   }
 
-  // Add species from enquiry preferences (TROPHY fees)
-  if (enquirySpecies.value.length > 0) {
+  // Add species from enquiry preferences + full package (TROPHY fees)
+  // Merge enquiry species_preferences with ALL package species (Main + Normal) so no species is left out
+  const prefsList = enquirySpecies.value
+  const prefsMap = new Map<number, any>()
+  for (const sp of prefsList) {
+    prefsMap.set(Number(sp.item_id), sp)
+  }
+  // Build combined list: start with preferences, then add missing package species
+  const allTrophySpecies: any[] = [...prefsList]
+  for (const pkgSp of currentFullPackageSpecies.value) {
+    const specId = Number(pkgSp.species_id || pkgSp.id)
+    if (!prefsMap.has(specId)) {
+      allTrophySpecies.push({
+        item_id: specId,
+        item_name: pkgSp.name,
+        desired_quantity: pkgSp.quantity || 1,
+        priority: 'NICE_TO_HAVE',
+      })
+    }
+  }
+  if (allTrophySpecies.length > 0) {
     items.push({
       category: 'Species (Trophy Fees)',
-      items: enquirySpecies.value.map((sp: any) => {
+      items: allTrophySpecies.map((sp: any) => {
         const trophyFee = pricePreviewData.value?.trophy_fees?.find(
           (tf: any) => tf.item_id === sp.item_id || tf.species_id === sp.item_id
         )
@@ -1616,12 +1699,14 @@ const getLiveItemTotal = (category: string, item: any) => {
 const enquiryTotalItems = computed(() => {
   let count = 0
   for (const cat of availablePriceableItems.value) {
+    // Skip trophy fees — they are informational only, not counted
+    if (cat.category === 'Species (Trophy Fees)') continue
     for (const item of cat.items) {
       const key = `${cat.category}_${item.id}`
       if (selectedItems.value[key]) count++
     }
   }
-  return count + allCustomizedItems.value.length
+  return count
 })
 
 const enquiryPackageTotal = computed(() => {
@@ -2612,7 +2697,12 @@ const createPricingWithItems = async () => {
     // not part of the quotation grand total, but must be persisted with correct quantities)
     const trophyCat = availablePriceableItems.value.find((c: any) => c.category === 'Species (Trophy Fees)')
     if (trophyCat) {
+      // Collect item_ids already in the items array to avoid duplicates
+      const existingTrophyIds = new Set(
+        items.filter((i: any) => i.item_type === 'TROPHY').map((i: any) => String(i.item_id))
+      )
       for (const tItem of trophyCat.items) {
+        if (existingTrophyIds.has(String(tItem.id))) continue
         const qty = speciesQtyOverrides.value[tItem.id] ?? tItem.quantity ?? 1
         const unitPrice = Number(tItem.suggested_price) || 0
         items.push({
@@ -2629,6 +2719,16 @@ const createPricingWithItems = async () => {
         })
       }
     }
+
+    // Final dedup: ensure no duplicate TROPHY items by item_id
+    const seenTrophyIds = new Set<string>()
+    items = items.filter((i: any) => {
+      if (i.item_type !== 'TROPHY') return true
+      const tid = String(i.item_id)
+      if (seenTrophyIds.has(tid)) return false
+      seenTrophyIds.add(tid)
+      return true
+    })
 
   const priceStructureDetailId = enquiryData.value?._resolved_price_structure_detail_id
       || enquiryData.value?.price_structure_detail_id
@@ -2691,9 +2791,10 @@ const createPricingWithItems = async () => {
         console.warn('Could not update enquiry status:', e)
       }
 
+      const nonTrophyCount = items.filter((i: any) => i.item_type !== 'TROPHY').length
       Swal.fire({
         title: 'Success!',
-        text: `Quotation created with ${items.length} items`,
+        text: `Quotation created with ${nonTrophyCount} items`,
         icon: 'success',
         timer: 2000,
       })
@@ -3577,11 +3678,18 @@ const goBack = async () => {
 }
 
 // Save current items as a NEW quotation (duplicate) and navigate back to the list
+// Computed: virtual package species that are not yet saved on the server
+const unsavedVirtualTrophyItems = computed(() => {
+  const trophyItems = existingItemsByType.value['TROPHY'] || []
+  return trophyItems.filter((t: any) => t._isVirtualPackageSpecies)
+})
+
 // Computed: whether there are unsaved local changes
 const hasLocalChanges = computed(() => {
   return localDeletedItemIds.value.size > 0
     || localAddedItems.value.length > 0
     || (!isCreateMode.value && selectedItemsCount.value > 0)
+    || unsavedVirtualTrophyItems.value.length > 0
 })
 
 // Save local changes (deletions + additions) to the EXISTING draft quotation
@@ -3602,6 +3710,7 @@ const saveQuotationChanges = async (options?: { skipConfirm?: boolean; navigateB
   const pricingId = existingPricing.value.id
   const deletions = Array.from(localDeletedItemIds.value)
   const additions = [...localAddedItems.value]
+  const virtualTrophies = unsavedVirtualTrophyItems.value
 
   // Collect selected items from "Items enquired by the client" section
   const selectedEnquiryItems: any[] = []
@@ -3628,6 +3737,7 @@ const saveQuotationChanges = async (options?: { skipConfirm?: boolean; navigateB
     if (deletions.length > 0) parts.push(`<strong>${deletions.length}</strong> item(s) removed`)
     if (additions.length > 0) parts.push(`<strong>${additions.length}</strong> item(s) added`)
     if (selectedEnquiryItems.length > 0) parts.push(`<strong>${selectedEnquiryItems.length}</strong> selected item(s) added`)
+    if (virtualTrophies.length > 0) parts.push(`<strong>${virtualTrophies.length}</strong> missing trophy species added`)
     const confirm = await Swal.fire({
       title: 'Save Changes?',
       html: `This will update the existing draft quotation:<br>` + parts.join('<br>'),
@@ -3699,7 +3809,25 @@ const saveQuotationChanges = async (options?: { skipConfirm?: boolean; navigateB
       }
     }
 
-    // 4. Reset local tracking state
+    // 4. Add missing package trophy species (virtual items not yet saved)
+    for (const item of virtualTrophies) {
+      try {
+        const payload: any = {
+          item_type: 'TROPHY',
+          item_id: item.item_id ?? null,
+          description: item.description || item.item_name || '',
+          quantity: item.quantity || 1,
+          unit_amount: item.unit_amount || 0,
+          is_optional: false,
+        }
+        await salesEnquiryService.addPricingItem(pricingId, payload)
+      } catch (e: any) {
+        console.error(`Error adding virtual trophy species ${item.description}:`, e)
+        errors++
+      }
+    }
+
+    // 5. Reset local tracking state
     localDeletedItemIds.value = new Set()
     localAddedItems.value = []
     selectedItems.value = {}

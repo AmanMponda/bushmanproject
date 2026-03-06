@@ -178,7 +178,6 @@
               <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
                 <div style="font-size: 12px; color: #555;">
                   <div>Items Subtotal: <strong>{{ formatCurrency(itemsSubtotal) }}</strong></div>
-                  <div>Logistics Total: <strong>{{ formatCurrency(logisticsTotal) }}</strong></div>
                   <div>VAT ({{ form.vat }}% on items): <strong>+{{ formatCurrency(vatAmount) }}</strong></div>
                 </div>
                 <div style="text-align: right;">
@@ -791,8 +790,11 @@
                         <tr v-for="(inst, idx) in perParticipantData[getParticipantKey(g.primary)]?.installments || []" :key="'pi-' + idx">
                           <td class="text-center"><span class="badge bg-primary">{{ inst.sequenceNo }}</span></td>
                           <td>{{ inst.name || inst.narration || `Installment ${inst.sequenceNo}` }}</td>
-                          <td class="text-center"><span class="badge bg-warning" style="font-size: 12px;">{{ inst.percentage }}%</span></td>
-                          <td class="text-center"><span class="badge bg-info" style="font-size: 12px;">{{ formatCurrency(inst.calculatedAmount || Math.round(((inst.percentage || 0) / 100 * orderGrandTotal) * 100) / 100) }}</span></td>
+                          <td class="text-center">
+                            <span v-if="inst.isTrophyDeposit" class="badge bg-success" style="font-size: 12px;">FIXED</span>
+                            <span v-else class="badge bg-warning" style="font-size: 12px;">{{ inst.percentage }}%</span>
+                          </td>
+                          <td class="text-center"><span class="badge bg-info" style="font-size: 12px;">{{ formatCurrency(inst.calculatedAmount || (inst.isTrophyDeposit ? (inst.fixedAmount || 0) : Math.round(((inst.percentage || 0) / 100 * orderGrandTotal) * 100) / 100)) }}</span></td>
                           <td class="text-center">{{ inst.dueDays }}</td>
                           <td>{{ inst.dueDaysType }}</td>
                           <td class="text-center">
@@ -920,7 +922,8 @@
                       </td>
                       <td>{{ inst.name || inst.narration || `Installment ${inst.sequenceNo}` }}</td>
                       <td class="text-center">
-                        <span class="badge bg-warning" style="font-size: 12px;">{{ inst.percentage }}%</span>
+                        <span v-if="inst.isTrophyDeposit" class="badge bg-success" style="font-size: 12px;">FIXED</span>
+                        <span v-else class="badge bg-warning" style="font-size: 12px;">{{ inst.percentage }}%</span>
                       </td>
                       <td class="text-center">
                         <span class="badge bg-info" style="font-size: 12px;">{{ formatCurrency(inst.calculatedAmount) }}</span>
@@ -1448,6 +1451,7 @@ import { ref, reactive, computed, onMounted, watch, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useOrderStore } from '@/stores/bushman/order-store'
 import { useAppOptionStore } from '@/stores/app-option'
+import { useSettingsStore } from '@/stores/bushman/settings-store'
 import { useToast } from '@/composables/useToast'
 import { useAuthStore } from '@/stores/auth'
 import Swal from 'sweetalert2'
@@ -1458,6 +1462,7 @@ const router = useRouter()
 const route = useRoute()
 const orderStore = useOrderStore()
 const appOptionStore = useAppOptionStore()
+const settingsStore = useSettingsStore()
 const toast = useToast()
 const authStore = useAuthStore()
 const currentUserId = computed(() => authStore.user?.id)
@@ -1929,8 +1934,8 @@ const participantTypes = computed(() =>
 const installmentAmountTypes = computed(() => orderStore.installmentAmountTypes || [])
 const installmentDaysTypes = computed(() => orderStore.installmentDaysTypes || [])
 
-// Available payment plan templates for quick setup
-const availablePaymentPlanTemplates = computed(() => orderStore.getPaymentPlanTemplates())
+// Available payment plan templates fetched from backend installment-setups API
+const availablePaymentPlanTemplates = computed(() => orderStore.getPaymentPlanTemplatesFromState || [])
 
 // ─── Dynamic Grand Total Calculation ───
 const itemsSubtotal = computed((): number => {
@@ -1956,7 +1961,7 @@ const vatAmount = computed((): number => {
 })
 
 const orderGrandTotal = computed((): number => {
-  const total = itemsSubtotal.value + logisticsTotal.value + vatAmount.value + (Number(form.expenseIncluded) || 0)
+  const total = itemsSubtotal.value + vatAmount.value + (Number(form.expenseIncluded) || 0)
   return Math.round(total * 100) / 100
 })
 
@@ -1969,6 +1974,10 @@ const hasExistingPayments = computed((): boolean => {
 /** Compute the calculated amount for each installment from its percentage */
 const computedInstallments = computed(() => {
   return form.installments.map((inst: any) => {
+    // Trophy deposit is a fixed amount — do not recalculate from percentage
+    if (inst.isTrophyDeposit || inst.fixedAmount != null) {
+      return { ...inst, calculatedAmount: inst.fixedAmount || inst.calculatedAmount || 0 }
+    }
     const pct = Number(inst.percentage) || 0
     const calculatedAmount = Math.round(((pct / 100) * orderGrandTotal.value) * 100) / 100
     return { ...inst, calculatedAmount }
@@ -2023,6 +2032,48 @@ const isQuotationLocked = computed(() => {
   const status = selectedQuotation.value.status
   return status === 'LOCKED'
 })
+
+/**
+ * Extract safari duration (hunt length in days) from the selected quotation's price structure.
+ * Used for looking up the trophy fee deposit from the Safari Fee Deposits settings table.
+ */
+const safariDurationFromQuotation = computed((): string | null => {
+  const q = selectedQuotation.value
+  if (!q) return null
+  // Try price_structure_detail first, then hunt_length, then enquiry preferences
+  const detail = q.price_structure_detail || q.priceStructureDetail || {}
+  const days = detail.hunt_length_days || detail.no_of_days || q.hunt_length_days || q.no_of_days
+  if (days) return String(days)
+  // Try to extract from hunt_length string e.g. "10 days"
+  const huntLength = detail.hunt_length || q.hunt_length || ''
+  if (huntLength) {
+    const match = String(huntLength).match(/(\d+)/)
+    if (match) return match[1]
+  }
+  return null
+})
+
+/**
+ * Look up the trophy fee deposit amount from Safari Fee Deposits settings table
+ * based on safari duration from the selected quotation.
+ */
+const lookupTrophyFeeDeposit = (): { amount: number; duration: string } | null => {
+  const durationStr = safariDurationFromQuotation.value
+  if (!durationStr) return null
+  const deposits = settingsStore.safariFeeDeposits || []
+  if (deposits.length === 0) return null
+  // Try exact match first (e.g. "10" matches "10" or "10 Days")
+  const daysNum = parseInt(durationStr)
+  const match = deposits.find((d: any) => {
+    const depDuration = String(d.safari_duration || '')
+    const depDays = parseInt(depDuration)
+    return depDays === daysNum
+  })
+  if (match) {
+    return { amount: parseFloat(match.trophy_fee_deposit) || 0, duration: match.safari_duration }
+  }
+  return null
+}
 
 // Installment summary computed properties (kept for template compatibility)
 const hasPercentageInstallments = computed(() => form.installments.length > 0)
@@ -2319,23 +2370,53 @@ const addInstallment = () => {
 
 const applyPaymentPlanTemplateToForm = (template: any) => {
   const gt = orderGrandTotal.value
+  // Fallback: look up trophy fee deposit locally if the backend didn't pre-fill it
+  const trophyLookup = lookupTrophyFeeDeposit()
+
   const newInstallments = template.stages.map((stage: any) => {
-    const pct = Number(stage.amountDue) || 0 // templates store percentage in amountDue
+    const isTrophy = !!(stage.isTrophyDeposit || stage.is_trophy_deposit)
+    const isFixed = stage.amountDueType === 'FIXED'
+    const pct = (isTrophy || isFixed) ? 0 : (Number(stage.amountDue) || 0)
+    let calculatedAmount = Math.round(((pct / 100) * gt) * 100) / 100
+
+    // For Trophy / FIXED stages: backend may have already set amountDue via ?price_structure_id&days params
+    if (isTrophy || isFixed) {
+      const backendAmount = Number(stage.amountDue) || 0
+      if (backendAmount > 0) {
+        // Backend pre-filled the trophy deposit from deposit_fees lookup
+        calculatedAmount = backendAmount
+      } else if (trophyLookup) {
+        // Fallback: use local Safari Fee Deposits lookup
+        calculatedAmount = trophyLookup.amount
+      }
+    }
+
     return {
       sequenceNo: stage.sequenceNo,
       name: stage.name,
       narration: stage.narration || stage.name,
       percentage: pct,
-      calculatedAmount: Math.round(((pct / 100) * gt) * 100) / 100,
+      calculatedAmount: calculatedAmount,
+      fixedAmount: (isTrophy || isFixed) ? calculatedAmount : null,
       dueDays: stage.dueDays,
       dueDaysType: stage.dueDaysType,
       isDeposit: stage.isDeposit,
+      isTrophyDeposit: isTrophy,
       description: stage.description || ''
     }
   })
 
   form.installments = newInstallments
-  toast.success(`${template.name} applied! ${form.installments.length} installments (Grand Total: ${formatCurrency(gt)})`)
+
+  // Build informative toast message
+  let msg = `${template.name} applied! ${form.installments.length} installments (Grand Total: ${formatCurrency(gt)})`
+  const trophyStage = newInstallments.find((i: any) => i.isTrophyDeposit)
+  if (trophyStage && trophyStage.calculatedAmount > 0) {
+    msg += ` | Trophy Deposit: ${formatCurrency(trophyStage.calculatedAmount)}`
+  } else if (trophyStage && trophyStage.calculatedAmount === 0) {
+    msg += ' | ⚠️ Trophy Deposit: amount not resolved — please set manually'
+  }
+  toast.success(msg)
   showInstallmentForm.value = false
   resetInstallmentForm()
 }
@@ -2345,22 +2426,48 @@ const applyPaymentPlanTemplateForParticipant = (entityId: string, template: any)
   const data = perParticipantData[entityId]
   if (!data) return
   const gt = orderGrandTotal.value
+  // Look up trophy fee deposit from Safari Fee Deposits settings based on safari duration
+  const trophyLookup = lookupTrophyFeeDeposit()
+
   data.installments = template.stages.map((stage: any) => {
-    const pct = Number(stage.amountDue) || 0
+    const isTrophy = !!(stage.isTrophyDeposit || stage.is_trophy_deposit)
+    const isFixed = stage.amountDueType === 'FIXED'
+    const pct = (isTrophy || isFixed) ? 0 : (Number(stage.amountDue) || 0)
+    let calculatedAmount = Math.round(((pct / 100) * gt) * 100) / 100
+
+    // For Trophy / FIXED stages: backend may have already set amountDue via query params
+    if (isTrophy || isFixed) {
+      const backendAmount = Number(stage.amountDue) || 0
+      if (backendAmount > 0) {
+        calculatedAmount = backendAmount
+      } else if (trophyLookup) {
+        calculatedAmount = trophyLookup.amount
+      }
+    }
+
     return {
       sequenceNo: stage.sequenceNo,
       name: stage.name,
       narration: stage.narration || stage.name,
       percentage: pct,
-      calculatedAmount: Math.round(((pct / 100) * gt) * 100) / 100,
+      calculatedAmount: calculatedAmount,
+      fixedAmount: (isTrophy || isFixed) ? calculatedAmount : null,
       dueDays: stage.dueDays,
       dueDaysType: stage.dueDaysType,
       isDeposit: stage.isDeposit,
+      isTrophyDeposit: isTrophy || false,
       description: stage.description || ''
     }
   })
   data.showInstallmentForm = false
-  toast.success(`${template.name} applied for ${getParticipantName(entityId)}!`)
+
+  let msg = `${template.name} applied for ${getParticipantName(entityId)}!`
+  if (trophyLookup) {
+    msg += ` | Trophy Deposit: ${formatCurrency(trophyLookup.amount)} (${trophyLookup.duration})`
+  } else if (template.id === 'four_stage') {
+    msg += ' | ⚠️ Trophy Deposit: could not find amount for safari duration — please set manually'
+  }
+  toast.success(msg)
 }
 
 const resetInstallmentForm = () => {
@@ -2800,7 +2907,6 @@ const downloadPreviewPdf = async (target: string = 'all') => {
     cursorY += 8
     const totalRows: string[][] = [
       ['Items Subtotal', fmtPdfCurrency(itemsSubtotal.value)],
-      ['Logistics Total', fmtPdfCurrency(logisticsTotal.value)],
     ]
     if (Number(form.vat) > 0) totalRows.push([`VAT (${form.vat}% on items)`, `+ ${fmtPdfCurrency(vatAmount.value)}`])
     if (Number(form.expenseIncluded) > 0) totalRows.push(['Expense Included', `+ ${fmtPdfCurrency(form.expenseIncluded)}`])
@@ -2976,7 +3082,6 @@ const downloadPreviewPdf = async (target: string = 'all') => {
         const instLabel = isSingleParticipant ? `Payment Plan (${instData.length})` : `Payment Plan — ${participantName} (${instData.length})`
         const prefLabel = isSingleParticipant ? 'Preferences & Special Requests' : `Preferences — ${participantName}`
 
-        renderLogisticsTable(logData, logLabel)
         renderInstallmentsTable(instData, instLabel)
         renderPreferencesTable(prefData, prefLabel)
 
@@ -2991,7 +3096,6 @@ const downloadPreviewPdf = async (target: string = 'all') => {
       }
     } else {
       // Single-order mode: original flat layout
-      renderLogisticsTable(form.logistics, `Logistics (${form.logistics.length})`)
       renderInstallmentsTable(form.installments, `Payment Plan (${form.installments.length} installments)`)
       renderPreferencesTable(form.preferences, 'Preferences & Special Requests')
     }
@@ -3207,7 +3311,7 @@ const submit = async () => {
         contact_email: party.email || party.contact_email || null,
       })),
       participants: participantsData,
-      logistics: normalizedLogistics.map(log => ({
+      logistics: normalizedLogistics.map((log: any) => ({
         logistics_type: log.logistics_type,
         hotel_name: log.hotel_name || null,
         location: log.location || null,
@@ -3227,17 +3331,18 @@ const submit = async () => {
         vehicle_type: log.vehicle_type || null,
         estimated_amount: log.estimated_amount || 0,
         status: log.status || 'PLANNED',
-        notes: log.description || log.notes || null
+        notes: log.description || log.notes || null,
       })),
       preferences: form.preferences,
       installments: computedInstallments.value.map(inst => ({
         sequence_no: inst.sequenceNo,
         percentage: inst.percentage,
         amount_due: inst.calculatedAmount,
-        amount_due_type: 'PERCENTAGE',
+        amount_due_type: inst.isTrophyDeposit || inst.fixedAmount != null ? 'FIXED' : 'PERCENTAGE',
         due_days: inst.dueDays,
         due_days_type: inst.dueDaysType,
         is_deposit: inst.isDeposit ? 1 : 0,
+        is_trophy_deposit: inst.isTrophyDeposit ? 1 : 0,
         currency_id: form.currency ? parseInt(form.currency as string) : null,
         name: inst.name || inst.narration || `Installment ${inst.sequenceNo}`,
         narration: inst.narration || inst.name || `Installment ${inst.sequenceNo}`,
@@ -3342,10 +3447,11 @@ const submit = async () => {
             sequence_no: inst.sequenceNo,
             percentage: inst.percentage,
             amount_due: inst.calculatedAmount || Math.round(((inst.percentage || 0) / 100 * orderGrandTotal.value) * 100) / 100,
-            amount_due_type: 'PERCENTAGE',
+            amount_due_type: inst.isTrophyDeposit || inst.fixedAmount != null ? 'FIXED' : 'PERCENTAGE',
             due_days: inst.dueDays,
             due_days_type: inst.dueDaysType,
             is_deposit: inst.isDeposit ? 1 : 0,
+            is_trophy_deposit: inst.isTrophyDeposit ? 1 : 0,
             currency_id: form.currency ? parseInt(form.currency as string) : null,
             name: inst.name || inst.narration || `Installment ${inst.sequenceNo}`,
             narration: inst.narration || inst.name || `Installment ${inst.sequenceNo}`,
@@ -3374,6 +3480,19 @@ const submit = async () => {
           if (newId) {
             try {
               await orderStore.submitOrder(newId)
+              // Backend may recalculate total_amount during submit from linked quotation
+              // (which includes TROPHY items). Override with correct total excluding TROPHY fees.
+              // IMPORTANT: Only send total fields — do NOT spread the full payload
+              // as it would reset the status back to DRAFT.
+              try {
+                await orderStore.updateOrder(newId, {
+                  total_amount: orderGrandTotal.value,
+                  grand_total: orderGrandTotal.value,
+                  items: normalizedItems,
+                })
+              } catch (_updateErr) {
+                console.warn('Could not override order total after submit:', _updateErr)
+              }
             } catch (submitErr) {
               // Creation succeeded, submit failed — still track as created
             }
@@ -3420,6 +3539,20 @@ const submit = async () => {
       if (newOrderId) {
         try {
           await orderStore.submitOrder(newOrderId)
+          // Backend may recalculate total_amount during submit from the linked quotation
+          // (which includes TROPHY items). Override with our correct total that excludes TROPHY fees.
+          // IMPORTANT: Only send total fields — do NOT spread the full payload as it would
+          // reset the status back to DRAFT (the original form status).
+          try {
+            await orderStore.updateOrder(newOrderId, {
+              total_amount: orderGrandTotal.value,
+              grand_total: orderGrandTotal.value,
+              items: normalizedItems,
+            })
+          } catch (_updateErr) {
+            // Non-critical: order was created & submitted, total override failed
+            console.warn('Could not override order total after submit:', _updateErr)
+          }
           // Refresh orders list to ensure new order is displayed with updated status
           await orderStore.listOrders()
           Swal.fire('Success!', 'Order created and submitted successfully', 'success').then(() => {
@@ -3529,6 +3662,7 @@ const loadDropdownData = async () => {
       orderStore.fetchLogisticsStatuses(),
       orderStore.fetchInstallmentDaysTypes(),
       orderStore.fetchInstallmentAmountTypes(),
+      orderStore.fetchPaymentPlanTemplates(),
     ])
   } catch (error) {
     // Silently fail - use empty data
@@ -3556,7 +3690,12 @@ const loadExistingOrder = async () => {
       form.quotationId = order.quotationId
       form.remarks = order.remarks || ''
       form.notes = order.notes || ''
-      form.items = order.items || []
+      form.items = (order.items || []).filter((it: any) => {
+        const itemType = (it.item_type || it.category || it.item?.item_type || it.item?.category || '').toUpperCase()
+        const desc = (it.description || it.name || it.item?.name || '').toUpperCase()
+        const isTrophyByDesc = desc.includes('TROPHY FEE') || desc.includes('(TROPHY')
+        return itemType !== 'TROPHY' && !isTrophyByDesc
+      })
       form.parties = order.parties || []
       form.participants = order.participants || []
       form.logistics = (order.logistics || []).map((log: any) => ({
@@ -3594,6 +3733,8 @@ watch(orderGrandTotal, (newGT) => {
   if (hasExistingPayments.value) return
   // Recalculate each installment's amount from its percentage
   form.installments.forEach((inst: any) => {
+    // Trophy deposit is a fixed amount — do not recalculate from percentage
+    if (inst.isTrophyDeposit || inst.fixedAmount != null) return
     const pct = Number(inst.percentage) || 0
     inst.calculatedAmount = Math.round(((pct / 100) * newGT) * 100) / 100
   })
@@ -3625,16 +3766,23 @@ watch(
         if (quotationObj?.items || quotationObj?.pricing_items) {
           pricingItems = quotationObj.items || quotationObj.pricing_items
         } else if (quotationObj?.items_by_type) {
-          // Items might be grouped by type
+          // Items might be grouped by type — skip TROPHY (informational only, not part of order)
           const itemsByType = quotationObj.items_by_type
-          // Flatten all items from all types
-          Object.values(itemsByType).forEach((typeItems: any) => {
+          Object.entries(itemsByType).forEach(([type, typeItems]: [string, any]) => {
+            if (type === 'TROPHY') return
             pricingItems.push(...(Array.isArray(typeItems) ? typeItems : []))
           })
         } else {
           // If not embedded, fetch from API
           pricingItems = await orderStore.fetchPricingItems(pricingId)
         }
+        
+        // Exclude TROPHY items — they are informational only, not part of the order
+        // LOGISTICS items (Companion Hunters) ARE included in order items
+        pricingItems = pricingItems.filter((pItem: any) => {
+          const itemType = (pItem.item_type || pItem.category || '').toUpperCase()
+          return itemType !== 'TROPHY'
+        })
         
         // Log the first item to see all available fields
         // Transform pricing items to order items format - extract quantity and rate from line items
@@ -3655,11 +3803,11 @@ watch(
           
           const discount = pItem.discount || pItem.discount_amount || pItem.line_discount || 0
           
-          // For Companion Hunters, don't display category
+          // For Companion Hunters (LOGISTICS type), show a friendly category name
           const description = pItem.item_name || pItem.description || ''
           let category = pItem.item_type || pItem.category || ''
-          if (description.toLowerCase().includes('companion')) {
-            category = '' // Leave category empty for Companion Hunters
+          if (category.toUpperCase() === 'LOGISTICS' || description.toLowerCase().includes('companion')) {
+            category = 'COMPANION'
           }
           
           return {
@@ -3909,6 +4057,19 @@ watch(
           // Silently fail - form will remain with partially populated data
         }
         
+        // Re-fetch payment plan templates WITH trophy deposit params now that we know the quotation
+        const safariDays = safariDurationFromQuotation.value
+        const enquiryIdForTemplates = form.enquiryId ? Number(form.enquiryId) : undefined
+        const orderIdForTemplates = id.value ? Number(id.value) : undefined
+        if (safariDays || pricingId || enquiryIdForTemplates || orderIdForTemplates) {
+          orderStore.fetchPaymentPlanTemplates({
+            price_structure_id: pricingId,
+            days: safariDays ? Number(safariDays) : undefined,
+            sales_inquiry_id: enquiryIdForTemplates,
+            order_id: orderIdForTemplates
+          }).catch(() => {})
+        }
+
         // Auto-open Items & Parties section after quotation data is loaded
         if (form.items.length > 0 || form.parties.length > 0) {
           showSections.items = true
@@ -3937,6 +4098,9 @@ onMounted(() => {
 
   loadDropdownData()
   loadExistingOrder()
+
+  // Load safari fee deposits for trophy deposit lookups in payment plan templates
+  settingsStore.getSafariFeeDeposits().catch(() => {})
 
   // Pre-fill enquiry from query params (e.g. from pipeline)
   const queryEnquiryId = route.query.enquiry_id as string

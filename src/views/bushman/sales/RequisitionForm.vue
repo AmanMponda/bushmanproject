@@ -1030,7 +1030,7 @@ const onItemAccountSelect = (line: any, value: any, multiselectRef?: any) => {
                     <span class="form-input-icon"><i class="fa fa-exchange"></i></span>
                     <select v-model="form.fundDirection">
                       <option :value="null">Select...</option>
-                      <option value="DIRECT_PAYMENT">Direct payment</option>
+                      <option value="EXPENSE">Direct Payment</option>
                       <option value="WITHDRAW">Withdraw</option>
                     </select>
                   </div>
@@ -1307,10 +1307,10 @@ const onItemAccountSelect = (line: any, value: any, multiselectRef?: any) => {
           <div class="form-body p-4" v-if="activeFormTab === 'sources'">
             <div class="form-section">
               <h4 class="form-section-title mb-3">
-                {{ form.fundDirection === 'DIRECT_PAYMENT' ? 'Direct Payment' : 'Withdraw Funds' }}
+                {{ form.fundDirection === 'EXPENSE' ? 'Direct Payment' : 'Withdraw Funds' }}
               </h4>
 
-              <div v-if="form.fundDirection === 'DIRECT_PAYMENT'" class="form-detail-card">
+              <div v-if="form.fundDirection === 'EXPENSE'" class="form-detail-card">
                 <label class="form-field">
                   <span class="form-label">Payment Mode</span>
                   <div class="form-input-wrapper has-v-select">

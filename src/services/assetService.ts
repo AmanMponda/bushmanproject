@@ -13,7 +13,7 @@ const getAuthHeaders = () => {
 export type AssetClass = 'VEHICLE' | 'EQUIPMENT' | 'BUILDING' | 'IT' | 'FURNITURE' | 'TIRE' | 'OTHER'
 export type AssetStatus = 'DRAFT' | 'ACTIVE' | 'IN_REPAIR' | 'DISPOSED' | 'SOLD' | 'LOST'
 export type OwnershipType = 'OWNED' | 'LEASED' | 'HIRED' | 'CUSTOMER'
-export type VehicleType = 'CAR' | 'TRUCK' | 'BUS' | 'MOTORBIKE' | 'TRACTOR' | 'OTHER'
+export type VehicleType = 'CAR' | 'TRUCK' | 'BUS' | 'MOTORBIKE' | 'TRACTOR' | 'TRAILER' | 'OTHER'
 export type SubjectType = 'ASSET' | 'COST_CENTER' | 'LOCATION' | 'STORE_POSITION' | 'ENTITY'
 export type ReadingType = 'ODOMETER' | 'HOURS' | 'FUEL_DIP' | 'METER' | 'OTHER'
 export type ReadingDirection = 'INCREASING' | 'ANY'

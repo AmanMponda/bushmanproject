@@ -161,7 +161,7 @@
             <div>
               <h3 style="font-size: 13px; font-weight: 600; color: #1f2937; margin-bottom: 15px; padding-bottom: 8px; border-bottom: 2px solid #fee2e2;">TO (Debit)</h3>
               <div style="display: flex; flex-direction: column; gap: 12px;">
-                <div v-if="form.fund_direction === 'DIRECT_PAYMENT'">
+                <div v-if="form.fund_direction === 'EXPENSE'">
                   <label style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 12px;">Payee</label>
                   <Multiselect 
                     ref="payeeSelect" 
@@ -216,22 +216,37 @@
                   <td style="padding: 8px; font-weight: 500; color: #1f2937; font-size: 11px;">{{ req.requisition_number }}</td>
                   <td style="padding: 8px; color: #6b7280; font-size: 11px;">{{ req.description }}</td>
                   <td style="padding: 8px; text-align: center; font-size: 10px;">
-                    <span style="background: #bfdbfe; color: #1e40af; padding: 2px 4px; border-radius: 3px; font-weight: 500;">{{ req.cost_center }}</span>
+                    <span v-if="req._loadingDetails" style="color:#2563eb;"><i class="fa fa-spinner fa-spin"></i></span>
+                    <span v-else style="background: #bfdbfe; color: #1e40af; padding: 2px 4px; border-radius: 3px; font-weight: 500;">
+              {{ req.cost_center }}
+              <span v-if="req.cost_center==='Multiple'" style="font-size:10px;color:#475569;margin-left:4px;"></span>
+            </span>
                   </td>
-                  <td style="padding: 8px; text-align: right; font-weight: 500; color: #1f2937; font-size: 11px;">{{ formatCurrency(req.total_amount || 0) }}</td>
+                  <td style="padding: 8px; text-align: right; font-weight: 500; color: #1f2937; font-size: 11px;">
+                    {{ formatCurrency(req.total_amount || 0) }}
+                    <div v-if="req.prior_paid > 0" style="font-size: 9px; color: #f59e0b; font-weight: 600;">
+                      Paid: {{ formatCurrency(req.prior_paid) }}
+                    </div>
+                  </td>
                   <td style="padding: 8px; text-align: right;">
                     <input 
                       v-model.number="req.amount_to_pay" 
                       @input="onAmountToPay(idx)"
                       type="number" 
                       step="0.01"
-                      :max="req.total_amount"
+                      :max="req.balance_remaining || req.total_amount"
                       :min="0"
                       style="width: 100%; padding: 4px; border: 1px solid #d1d5db; border-radius: 3px; font-size: 11px; text-align: right;" 
                     />
                   </td>
-                  <td style="padding: 8px; text-align: right; color: #059669; font-weight: 500; font-size: 11px;">{{ formatCurrency((req.balance_remaining || req.total_amount) - (req.amount_to_pay || 0)) }}</td>
-                  <td style="padding: 8px; text-align: center;">
+                  <td style="padding: 8px; text-align: right; font-weight: 500; font-size: 11px;"
+                      :style="{ color: (req.balance_remaining || req.total_amount) - (req.amount_to_pay || 0) <= 0 ? '#dc2626' : '#059669' }">
+                    {{ formatCurrency((req.balance_remaining || req.total_amount) - (req.amount_to_pay || 0)) }}
+                  </td>
+                  <td style="padding: 8px; text-align: center; display: flex; gap:4px; justify-content:center;">
+                    <button type="button" @click="viewRequisitionDetails(req, idx)" title="View items" style="background: #edf2ff; color: #3b82f6; border: 1px solid #93c5fd; padding: 3px 6px; border-radius: 3px; cursor: pointer; font-size: 10px;" onmouseover="this.style.background='#e0e7ff'" onmouseout="this.style.background='#edf2ff'">
+                      <i class="fa fa-eye"></i>
+                    </button>
                     <button type="button" @click="removePayeeRequisition(idx)" style="background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; padding: 3px 6px; border-radius: 3px; cursor: pointer; font-size: 10px;" onmouseover="this.style.background='#fecaca'" onmouseout="this.style.background='#fee2e2'">
                       <i class="fa fa-trash"></i>
                     </button>
@@ -347,6 +362,121 @@
       </div>
     </div>
   </div>
+
+  <!-- ═══════ Requisition Details Modal ═══════ -->
+  <div v-if="showRequisitionDetailsModal" class="req-modal-backdrop" @click.self="showRequisitionDetailsModal = false">
+    <div class="req-modal-container">
+      <!-- Header -->
+      <div class="req-modal-header">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="width:36px;height:36px;background:#eff6ff;border-radius:8px;display:flex;align-items:center;justify-content:center;">
+            <i class="fa fa-file-invoice" style="color:#2563eb;font-size:16px;"></i>
+          </div>
+          <div>
+            <h2 style="margin:0;font-size:16px;font-weight:700;color:#111827;">Requisition Details</h2>
+            <p style="margin:0;font-size:12px;color:#6b7280;" v-if="selectedRequisitionDetails">{{ selectedRequisitionDetails.requisition_number }}</p>
+          </div>
+        </div>
+        <button @click="showRequisitionDetailsModal = false" class="req-modal-close-btn">
+          <i class="fa fa-times"></i>
+        </button>
+      </div>
+
+      <!-- Body -->
+      <div class="req-modal-body">
+        <!-- Loading -->
+        <div v-if="loadingRequisitionDetails" style="text-align:center;padding:60px 20px;">
+          <i class="fa fa-spinner fa-spin" style="font-size:28px;color:#2563eb;"></i>
+          <p style="color:#6b7280;margin-top:14px;font-size:13px;">Loading requisition details...</p>
+        </div>
+
+        <div v-else-if="selectedRequisitionDetails">
+          <!-- Info Cards Row -->
+          <div class="req-info-grid">
+            <div class="req-info-card">
+              <div class="req-info-label"><i class="fa fa-align-left" style="margin-right:6px;font-size:11px;"></i>Description</div>
+              <div class="req-info-value">{{ selectedRequisitionDetails.description || '—' }}</div>
+            </div>
+            <div class="req-info-card">
+              <div class="req-info-label"><i class="fa fa-dollar-sign" style="margin-right:6px;font-size:11px;"></i>Total Amount</div>
+              <div class="req-info-value" style="color:#059669;font-weight:700;">{{ formatCurrency(selectedRequisitionDetails.total_amount) }}</div>
+            </div>
+            <div class="req-info-card">
+              <div class="req-info-label"><i class="fa fa-money-bill-wave" style="margin-right:6px;font-size:11px;"></i>Amount to Pay</div>
+              <div class="req-info-value" style="color:#2563eb;font-weight:700;">{{ formatCurrency(selectedRequisitionDetails.amount_to_pay) }}</div>
+            </div>
+          </div>
+
+          <!-- Cost Centers -->
+          <div class="req-cost-center-section">
+            <div class="req-section-title"><i class="fa fa-sitemap" style="margin-right:6px;"></i>Cost Center{{ selectedRequisitionDetails.cost_centers && selectedRequisitionDetails.cost_centers.length > 1 ? 's' : '' }}</div>
+            <div v-if="selectedRequisitionDetails.cost_centers && selectedRequisitionDetails.cost_centers.length > 0" class="req-cc-tags">
+              <span v-for="(cc, i) in selectedRequisitionDetails.cost_centers" :key="i" class="req-cc-tag">
+                <i class="fa fa-circle" style="font-size:6px;margin-right:6px;opacity:0.5;"></i>{{ cc }}
+              </span>
+            </div>
+            <div v-else style="color:#9ca3af;font-size:13px;padding:4px 0;">No cost centers assigned</div>
+          </div>
+
+          <!-- Items Table -->
+          <div class="req-items-section">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+              <div class="req-section-title" style="margin-bottom:0;"><i class="fa fa-list" style="margin-right:6px;"></i>Line Items</div>
+              <span style="font-size:11px;color:#6b7280;background:#f3f4f6;padding:3px 8px;border-radius:10px;">{{ selectedRequisitionDetails.items.filter((i: any) => i.selected).length }} / {{ selectedRequisitionDetails.items.length }} selected</span>
+            </div>
+            <div class="req-items-table-wrapper">
+              <table class="req-items-table">
+                <thead>
+                  <tr>
+                    <th style="width:36px;text-align:center;">
+                      <input type="checkbox"
+                        @change="(e: Event) => { selectedRequisitionDetails.items.forEach((i: any) => i.selected = (e.target as HTMLInputElement).checked) }"
+                        :checked="selectedRequisitionDetails.items.every((i: any) => i.selected)"
+                        style="cursor:pointer;width:15px;height:15px;accent-color:#2563eb;" />
+                    </th>
+                    <th style="text-align:left;">Description</th>
+                    <th style="text-align:center;width:60px;">Qty</th>
+                    <th style="text-align:right;width:100px;">Unit Price</th>
+                    <th style="text-align:right;width:110px;">Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(item, i) in selectedRequisitionDetails.items" :key="i" :class="{ 'req-row-deselected': !item.selected }">
+                    <td style="text-align:center;">
+                      <input type="checkbox" v-model="item.selected" style="cursor:pointer;width:15px;height:15px;accent-color:#2563eb;" />
+                    </td>
+                    <td>{{ item.description }}</td>
+                    <td style="text-align:center;">{{ item.quantity }}</td>
+                    <td style="text-align:right;">{{ formatCurrency(item.unit_price) }}</td>
+                    <td style="text-align:right;font-weight:600;">{{ formatCurrency(item.amount) }}</td>
+                  </tr>
+                </tbody>
+                <tfoot>
+                  <tr class="req-items-total-row">
+                    <td colspan="4" style="text-align:right;font-weight:700;">Selected Total</td>
+                    <td style="text-align:right;font-weight:700;color:#059669;">
+                      {{ formatCurrency(selectedRequisitionDetails.items.filter((i: any) => i.selected).reduce((s: number, i: any) => s + (i.amount || 0), 0)) }}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="req-modal-footer">
+        <button @click="showRequisitionDetailsModal = false" class="req-btn-secondary">
+          <i class="fa fa-times" style="margin-right:4px;"></i> Close
+        </button>
+        <button @click="confirmRequisitionDetails" class="req-btn-primary">
+          <i class="fa fa-check" style="margin-right:4px;"></i> Apply Selection
+        </button>
+      </div>
+    </div>
+  </div>
+
 </template>
 
 <script setup lang="ts">
@@ -406,7 +536,7 @@ const form = ref({
   payment_method: '',
   payee_id: '',
   payee_account: '',
-  payee_account_id: null,
+  payee_account_id: null as number | null,
   payee_account_code: '',
   fund_direction: '',
   total_amount: 0
@@ -421,10 +551,233 @@ const selectedRequisitions = ref<any[]>([])
 // Single Selected Requisition (for linking)
 const selectedRequisition = ref<any>(null)
 
+// ──────────────────────────────────────────────────────────
+// Partial-payment tracking  (localStorage-backed)
+// ──────────────────────────────────────────────────────────
+const PAID_STORAGE_KEY = 'bushman_paid_requisitions'
+const PAID_MAX_AGE_MS  = 30 * 24 * 60 * 60 * 1000 // auto-purge entries older than 30 days
+
+interface PaidEntry {
+  id: number        // requisition_id
+  amount: number    // amount paid in this voucher
+  total: number     // requisition total at time of payment
+  ts: number        // timestamp
+  voucher?: string  // voucher number
+}
+
+// Map: requisition_id → cumulative amount paid so far
+const paidAmounts = ref<Map<number, number>>(new Map())
+let   paidEntries: PaidEntry[] = []
+
+function loadPaidRequisitions() {
+  try {
+    const raw = localStorage.getItem(PAID_STORAGE_KEY)
+    if (raw) {
+      const parsed: PaidEntry[] = JSON.parse(raw)
+      const now = Date.now()
+      // purge stale entries (older than 30 days)
+      paidEntries = parsed.filter(e => now - (e.ts || 0) < PAID_MAX_AGE_MS)
+      // Build cumulative amounts per requisition
+      const map = new Map<number, number>()
+      paidEntries.forEach(e => {
+        const id = Number(e.id)
+        map.set(id, (map.get(id) || 0) + (e.amount || 0))
+      })
+      paidAmounts.value = map
+      localStorage.setItem(PAID_STORAGE_KEY, JSON.stringify(paidEntries))
+    }
+  } catch { /* ignore corrupt data */ }
+}
+
+function savePaidRequisitions() {
+  try {
+    localStorage.setItem(PAID_STORAGE_KEY, JSON.stringify(paidEntries))
+  } catch { /* ignore */ }
+}
+
+/**
+ * Record amounts paid against requisitions.
+ * @param items Array of { id, amount, total } for each requisition in the voucher
+ */
+function markRequisitionsAsPaid(items: { id: number | string; amount: number; total: number }[], voucherNumber?: string) {
+  const ts = Date.now()
+  items.forEach(item => {
+    const id = Number(item.id)
+    if (!id || !item.amount) return
+    paidEntries.push({ id, amount: item.amount, total: item.total, ts, voucher: voucherNumber })
+    paidAmounts.value.set(id, (paidAmounts.value.get(id) || 0) + item.amount)
+  })
+  savePaidRequisitions()
+}
+
+/** Get the cumulative amount already paid for a requisition */
+function getAmountAlreadyPaid(reqId: number | string): number {
+  return paidAmounts.value.get(Number(reqId)) || 0
+}
+
+/** Check if a requisition is FULLY paid (paid >= total) */
+function isRequisitionFullyPaid(reqId: number | string, reqTotal: number): boolean {
+  const paid = getAmountAlreadyPaid(reqId)
+  return paid > 0 && paid >= reqTotal
+}
+
+/** Get the remaining payable balance for a requisition */
+function getRemainingBalance(reqId: number | string, reqTotal: number): number {
+  const paid = getAmountAlreadyPaid(reqId)
+  return Math.max(0, reqTotal - paid)
+}
+
+loadPaidRequisitions()
+
+// helper to normalise cost center information (may come as string, code, array, or embedded in items)
+function parseCostCenters(req: any) {
+  // The API may return { requisition: {...}, items: [...] } or { items: [...] }
+  const inner = req.requisition || req
+  const set = new Set<string>()
+
+  // Top-level cost center fields (check both wrapper and inner)
+  for (const src of [req, inner]) {
+    if (src?.cost_center) set.add(String(src.cost_center))
+    if (src?.cost_center_code) set.add(String(src.cost_center_code))
+    if (src?.cost_center_name) set.add(String(src.cost_center_name))
+  }
+
+  // Find items: could be req.items, inner.items, or req.requisition_items
+  const itemsArr = req.items || inner.items || req.requisition_items || inner.requisition_items || []
+
+  // Walk items
+  if (Array.isArray(itemsArr)) {
+    itemsArr.forEach((item: any) => {
+      // items[].cost_centers[] – the primary nested structure
+      if (Array.isArray(item.cost_centers)) {
+        item.cost_centers.forEach((cc: any) => {
+          // prefer human-readable name, fall back to code
+          const label = cc.cost_center_name || cc.name || cc.cost_center || cc.code || cc.activity_type_name || ''
+          if (label) set.add(String(label))
+        })
+      }
+      // item-level flat fields
+      if (item.cost_center) set.add(String(item.cost_center))
+      if (item.cost_center_name) set.add(String(item.cost_center_name))
+      if (item.cost_center_code) set.add(String(item.cost_center_code))
+      if (item.activity_type_name) set.add(String(item.activity_type_name))
+      if (item.activity_type) set.add(String(item.activity_type))
+
+      // dimensions that encode cost centres
+      if (Array.isArray(item.dimensions)) {
+        item.dimensions.forEach((dim: any) => {
+          // dimension_type can be a string ("Activity Type") or an object ({ code, name })
+          const typeStr = typeof dim.dimension_type === 'string'
+            ? dim.dimension_type.toLowerCase()
+            : String(dim.dimension_type?.code || dim.dimension_type?.name || '').toLowerCase()
+          if (typeStr.includes('cost') || typeStr.includes('activity')) {
+            // dimension_value can be a string ("Maintenance") or an object ({ name, code })
+            const val = typeof dim.dimension_value === 'string'
+              ? dim.dimension_value
+              : (dim.dimension_value?.name || dim.dimension_value?.code || '')
+            if (val) set.add(String(val))
+          }
+        })
+      }
+    })
+  }
+
+  // Also check top-level dimensions array (the getRequisitionDetails response puts it here)
+  const dimsArr = req.dimensions || inner.dimensions || []
+  if (Array.isArray(dimsArr)) {
+    dimsArr.forEach((dim: any) => {
+      // dimension_type can be a string ("Activity Type") or an object ({ code, name })
+      const typeStr = typeof dim.dimension_type === 'string'
+        ? dim.dimension_type.toLowerCase()
+        : String(dim.dimension_type?.code || dim.dimension_type?.name || '').toLowerCase()
+      if (typeStr.includes('cost') || typeStr.includes('activity')) {
+        // dimension_value can be a string ("Maintenance") or an object ({ name, code })
+        const val = typeof dim.dimension_value === 'string'
+          ? dim.dimension_value
+          : (dim.dimension_value?.name || dim.dimension_value?.code || '')
+        if (val) set.add(String(val))
+      }
+    })
+  }
+
+  const list = Array.from(set).filter(Boolean)
+  const display = list.length > 1 ? 'Multiple' : (list[0] || 'N/A')
+  return { display, list }
+}
+
+// helper that mirrors the logic used in the details modal to flatten a requisition's
+// line items into a uniform structure with `amount` values. Used when computing
+// row totals during background fetch.
+function flattenRequisitionItems(req: any): Array<any> {
+  // The API may return { requisition: {...}, items: [...] } — items as sibling
+  const inner = req.requisition || req
+  const items = req.items || inner.items || req.requisition_items || inner.requisition_items || []
+  const allItems: any[] = []
+
+  function pushMaterial(material: any) {
+    allItems.push({
+      description: material.description || material.material_description || material.item_name || material.material_name || material.name || material.item?.name || material.code || 'Material',
+      quantity: parseFloat(material.quantity || material.qty || 0),
+      unit_price: parseFloat(material.rate || material.unit_price || material.price || 0),
+      amount: parseFloat(material.line_total || material.amount || material.total || (parseFloat(material.quantity || 0) * parseFloat(material.rate || material.unit_price || 0)) || 0),
+      selected: true
+    })
+  }
+
+  function pushAccount(account: any) {
+    allItems.push({
+      description: account.description || account.account_description || account.account_name || account.account?.name || account.account?.code || account.name || account.code || 'Account',
+      quantity: 1,
+      unit_price: parseFloat(account.amount || account.total || account.debit || account.credit || 0),
+      amount: parseFloat(account.amount || account.total || account.debit || account.credit || 0),
+      selected: true
+    })
+  }
+
+  items.forEach((item: any) => {
+    let handledViaCostCenters = false
+
+    // ── First, walk cost_centers[].accounts[] / cost_centers[].materials[] ──
+    if (Array.isArray(item.cost_centers) && item.cost_centers.length > 0) {
+      item.cost_centers.forEach((cc: any) => {
+        if (Array.isArray(cc.materials) && cc.materials.length > 0) {
+          cc.materials.forEach(pushMaterial)
+          handledViaCostCenters = true
+        }
+        if (Array.isArray(cc.accounts) && cc.accounts.length > 0) {
+          cc.accounts.forEach(pushAccount)
+          handledViaCostCenters = true
+        }
+      })
+    }
+
+    if (handledViaCostCenters) return // already captured all items from nested cost_centers
+
+    // ── Fallback: materials / accounts directly on the item ──
+    if (item.materials && Array.isArray(item.materials) && item.materials.length > 0) {
+      item.materials.forEach(pushMaterial)
+    } else if (item.accounts && Array.isArray(item.accounts) && item.accounts.length > 0) {
+      item.accounts.forEach(pushAccount)
+    } else {
+      // last resort: use item-level properties
+      allItems.push({
+        description: item.description || item.item_description || item.narration || item.remarks || item.name || item.code || `Item`,
+        quantity: parseFloat(item.quantity || item.qty || 0),
+        unit_price: parseFloat(item.rate || item.unit_price || item.price || 0),
+        amount: parseFloat(item.line_total || item.amount || item.total || (parseFloat(item.quantity || 0) * parseFloat(item.rate || item.unit_price || 0)) || 0),
+        selected: true
+      })
+    }
+  })
+  return allItems
+}
+
+
 // Requisition Details Modal
 const loadingRequisitionDetails = ref(false)
 const showRequisitionDetailsModal = ref(false)
 const selectedRequisitionDetails = ref<any>(null)
+const currentViewedRequisitionIndex = ref<number|null>(null)
 
 // Loaded Voucher (for edit mode)
 const loadedVoucher = ref<any>(null)
@@ -518,21 +871,8 @@ const flatBankCashAccounts = computed(() => {
   return flattened
 })
 
-const flatPayableAccounts = computed(() => {
-  const flattened: any[] = []
-  const flatten = (acc: any) => {
-    flattened.push(acc)
-    if (acc.children && acc.children.length > 0) {
-      acc.children.forEach((child: any) => flatten(child))
-    }
-  }
-  ;(payableAccounts.value || []).forEach(flatten)
-  return flattened
-})
-
 // Grouped account options for dropdowns
 const groupedBankCashAccountOptions = computed(() => flattenAccountsWithGroups(bankCashAccounts.value || []))
-const groupedPayableAccountOptions = computed(() => flattenAccountsWithGroups(payableAccounts.value || []))
 
 // Multiselect selection computed properties
 const fromAccountSelection = computed({
@@ -546,18 +886,7 @@ const fromAccountSelection = computed({
   }
 })
 
-const payeeAccountSelection = computed({
-  get() {
-    const accountId = form.value.payee_account || form.value.payee_account_id
-    if (!accountId) return null
-    return groupedPayableAccountOptions.value.find((opt: any) => opt.value === Number(accountId)) || null
-  },
-  set(selected: any) {
-    form.value.payee_account = selected?.value ? String(selected.value) : ''
-    form.value.payee_account_id = selected?.value || null
-    form.value.payee_account_code = selected?.code || ''
-  }
-})
+
 
 // Voucher Number options
 const voucherNumberOptions = [
@@ -597,7 +926,7 @@ const branchSelection = computed({
 
 // Fund Direction options
 const fundDirectionOptions = [
-  { label: 'Direct payment', value: 'DIRECT_PAYMENT' },
+  { label: 'Direct Payment', value: 'EXPENSE' },
   { label: 'Withdraw', value: 'WITHDRAW' }
 ]
 
@@ -653,7 +982,6 @@ const requisitionsForLinking = computed(() => accountingStore.requisitionsForLin
 const branches = ref<any[]>([])
 const bankCashAccounts = ref<any[]>([])
 const payees = ref<any[]>([])
-const payableAccounts = ref<any[]>([])
 const paymentMethods = ref<string[]>(['Bank', 'Cash', 'Cheque', 'Wire Transfer', 'Deposit', 'Mobile Money'])
 
 // Balance Summary
@@ -1471,8 +1799,8 @@ async function submitJournalVoucher() {
 // ==================== PAYMENT VOUCHER METHODS ====================
 
 async function fetchEligibleRequisitions() {
-  // Validation: Payee must be selected
-  if (!form.value.payee_id) {
+  // Validation: Payee must be selected for expense vouchers
+  if (form.value.fund_direction === 'EXPENSE' && !form.value.payee_id) {
     init({
       message: 'Please select a payee first',
       color: 'warning'
@@ -1493,6 +1821,11 @@ async function fetchEligibleRequisitions() {
         const resolved: any[] = []
 
         for (const token of tokens) {
+          // Check if this requisition was already paid
+          const numericCheck = Number(token.replace(/\D/g, ''))
+          // We can't check fully-paid here without knowing the total, so skip
+          // The full check happens after we fetch the requisition details below
+
           // Try local store first (requisitionsForLinking)
           const localMatch = (requisitionsForLinking.value || []).find((r: any) => {
             if (!r) return false
@@ -1535,21 +1868,28 @@ async function fetchEligibleRequisitions() {
               if (Array.isArray(requisitions) && requisitions.length > 0) {
                 const req = requisitions[0] // Should only be one result
                 
+                // Check if fully paid (partial payments still allowed)
+                const reqTotal = parseFloat(String(req.total_amount || 0))
+                if (isRequisitionFullyPaid(Number(req.requisition_id), reqTotal)) {
+                  const priorPaid = getAmountAlreadyPaid(req.requisition_id)
+                  init({ message: `Requisition ${req.requisition_number || token} has already been fully paid (${formatCurrency(priorPaid)} of ${formatCurrency(reqTotal)})`, color: 'warning' })
+                  continue
+                }
+                
                 // Get first source for payee info and funding account
                 const source = req.sources?.[0] || {}
                 
                 // Get cost center from items.cost_centers if available
-                let costCenter = 'N/A'
-                if (req.items?.length > 0 && req.items[0].cost_centers?.length > 0) {
-                  costCenter = req.items[0].cost_centers[0].code || req.items[0].cost_centers[0].name || 'N/A'
-                }
+                // determine cost centre(s) for display
+                const ccInfo = parseCostCenters(req)
                 
                 resolved.push({
                   requisition_id: req.requisition_id,
                   id: req.requisition_id,
                   requisition_number: req.requisition_number,
                   total_amount: parseFloat(String(req.total_amount || 0)),
-                  cost_center: costCenter,
+                  cost_center: ccInfo.display,
+                  cost_center_list: ccInfo.list,
                   status: 'APPROVED',
                   payee_name: source.payee || '',
                   funding_account_id: source.funding_account_id,
@@ -1585,10 +1925,40 @@ async function fetchEligibleRequisitions() {
           requisition_id: req.id,
           requisition_number: req.requisition_number || `REQ-${String(req.id).padStart(4, '0')}`,
           description: req.description || req.narrative || req.narration || req.remarks || 'General requisition',
-          cost_center: req.cost_center || req.cost_center_code || 'N/A',
-          total_amount: parseFloat(String(req.total_amount || req.total || 0)),
-          balance_remaining: parseFloat(String(req.balance_remaining || req.total_amount || req.total || 0)),
-          amount_to_pay: parseFloat(String(req.amount_to_pay || req.total_amount || req.total || 0)),
+          // determine cost center display and list
+          cost_center_list: Array.isArray(req.cost_center_list) ? req.cost_center_list : (req.cost_center_list ? [req.cost_center_list] : []),
+          cost_center: (() => {
+            const list = Array.isArray(req.cost_center_list) ? req.cost_center_list : (req.cost_center_list ? [req.cost_center_list] : [])
+            if (list.length > 1) return 'Multiple'
+            return list[0] || 'N/A'
+          })(),
+          // compute amounts from flattened items (handles nested cost_centers structure)
+          total_amount: (() => {
+            const flat = flattenRequisitionItems(req)
+            if (flat.length > 0) {
+              const sum = flat.reduce((s: number, i: any) => s + (i.amount || 0), 0)
+              if (sum > 0) return sum
+            }
+            return parseFloat(String(req.total_amount || req.total || 0))
+          })(),
+          balance_remaining: (() => {
+            const flat = flattenRequisitionItems(req)
+            if (flat.length > 0) {
+              const sum = flat.reduce((s: number, i: any) => s + (i.amount || 0), 0)
+              if (sum > 0) return sum
+            }
+            if (typeof req.balance_remaining === 'number') return req.balance_remaining
+            return parseFloat(String(req.total_amount || req.total || 0))
+          })(),
+          amount_to_pay: (() => {
+            if (typeof req.amount_to_pay === 'number') return req.amount_to_pay
+            const flat = flattenRequisitionItems(req)
+            if (flat.length > 0) {
+              const sum = flat.reduce((s: number, i: any) => s + (i.amount || 0), 0)
+              if (sum > 0) return sum
+            }
+            return parseFloat(String(req.total_amount || req.total || 0))
+          })(),
           status: req.status || 'APPROVED',
           payee_id: req.payee_id || form.value.payee_id,
           posting_date: req.posting_date || req.date || new Date().toISOString().split('T')[0]
@@ -1596,6 +1966,41 @@ async function fetchEligibleRequisitions() {
 
         // Update total amount
         form.value.total_amount = totalAmountToPay.value
+
+        // fetch full details for each row so cost centres/amounts are accurate
+        await Promise.all(payeeRequisitions.value.map(async (row: any) => {
+          try {
+            const respDtl = await accountingStore.getRequisitionDetails(row.requisition_id)
+            const full = respDtl.data?.data || respDtl.data || {}
+            const ccInfo = parseCostCenters(full)
+            row.cost_center_list = ccInfo.list
+            row.cost_center = ccInfo.display
+            // try to compute total by flattening items with fallback
+            const all = flattenRequisitionItems(full)
+            if (all.length > 0) {
+              const sum = all.reduce((s, i) => s + (i.amount || 0), 0)
+              if (sum > 0) {
+                row.total_amount = sum
+                row.amount_to_pay = sum
+                row.balance_remaining = sum
+              }
+            } else if (Array.isArray(full.items) && full.items.length > 0) {
+              // as a last resort use any top-level amounts
+              const sum2 = full.items.reduce((s: number, i: any) => {
+                return s + (parseFloat(String(i.amount || i.line_total || i.total || 0)) || 0)
+              }, 0)
+              if (sum2 > 0) {
+                row.total_amount = sum2
+                row.amount_to_pay = sum2
+                row.balance_remaining = sum2
+              }
+            }
+          } catch (__) {
+            // ignore, original row values stay
+          } finally {
+            row._loadingDetails = false
+          }
+        }))
 
         init({ message: `Found ${payeeRequisitions.value.length} requisition(s)`, color: 'success' })
         loadingRequisitions.value = false
@@ -1628,27 +2033,55 @@ async function fetchEligibleRequisitions() {
       return
     }
 
-    // Transform requisitions for the payment table using the new response structure
-    // The new endpoint returns: requisition_id, requisition_number, total_amount, sources[], items[]
-    payeeRequisitions.value = requisitions.map((req: any) => {
+    // Filter out FULLY-paid requisitions; partially-paid ones stay with reduced balance
+    const totalFromApi = requisitions.length
+    const eligibleReqs = requisitions.filter((req: any) => {
+      const flat = flattenRequisitionItems(req)
+      const computedTotal = flat.length > 0 ? flat.reduce((s: number, i: any) => s + (i.amount || 0), 0) : 0
+      const reqTotal = computedTotal > 0 ? computedTotal : parseFloat(String(req.total_amount || 0))
+      return !isRequisitionFullyPaid(Number(req.requisition_id), reqTotal)
+    })
+    const skippedCount = totalFromApi - eligibleReqs.length
+
+    if (skippedCount > 0 && eligibleReqs.length > 0) {
+      init({ message: `${skippedCount} requisition(s) skipped — already fully paid`, color: 'info' })
+    }
+
+    // ALL returned requisitions have been fully paid → block
+    if (totalFromApi > 0 && eligibleReqs.length === 0) {
+      payeeRequisitions.value = []
+      init({
+        message: `All ${totalFromApi} requisition(s) returned have already been fully paid.`,
+        color: 'warning'
+      })
+      loadingRequisitions.value = false
+      return
+    }
+
+    // Transform requisitions for the payment table
+    payeeRequisitions.value = eligibleReqs.map((req: any) => {
       // Get first source for payee info and funding account
       const source = req.sources?.[0] || {}
       
-      // Get cost center from items.cost_centers if available
-      let costCenter = 'N/A'
-      if (req.items?.length > 0 && req.items[0].cost_centers?.length > 0) {
-        costCenter = req.items[0].cost_centers[0].code || req.items[0].cost_centers[0].name || 'N/A'
-      }
+      // Get cost center(s) from items using parseCostCenters helper
+      const ccInfo = parseCostCenters(req)
+
+      // Compute accurate total from nested items (cost_centers[].accounts[]/materials[])
+      const flat = flattenRequisitionItems(req)
+      const computedTotal = flat.length > 0 ? flat.reduce((s: number, i: any) => s + (i.amount || 0), 0) : 0
+      const finalTotal = computedTotal > 0 ? computedTotal : parseFloat(String(req.total_amount || 0))
 
       return {
         id: req.requisition_id,
         requisition_id: req.requisition_id,
         requisition_number: req.requisition_number || `REQ-${String(req.requisition_id).padStart(4, '0')}`,
         description: req.items?.[0]?.remarks || source.payee || 'General requisition',
-        cost_center: costCenter,
-        total_amount: parseFloat(String(req.total_amount || 0)),
-        balance_remaining: parseFloat(String(req.balance_remaining || req.total_amount || 0)),
-        amount_to_pay: parseFloat(String(req.total_amount || 0)),
+        cost_center: ccInfo.display,
+        cost_center_list: ccInfo.list,
+        total_amount: finalTotal,
+        prior_paid: getAmountAlreadyPaid(req.requisition_id),
+        balance_remaining: getRemainingBalance(req.requisition_id, finalTotal),
+        amount_to_pay: getRemainingBalance(req.requisition_id, finalTotal),
         status: 'APPROVED',
         payee_id: source.entity_id || form.value.payee_id,
         payee_name: source.payee || '',
@@ -1668,8 +2101,9 @@ async function fetchEligibleRequisitions() {
     form.value.total_amount = totalAmountToPay.value
 
     if (payeeRequisitions.value.length === 0) {
+      // Only show this if the API itself returned nothing (paid ones handled above)
       init({
-        message: `No approved requisitions found for the selected payee`,
+        message: 'No approved requisitions found for the selected payee',
         color: 'info'
       })
     } else {
@@ -1691,10 +2125,10 @@ async function fetchEligibleRequisitions() {
 }
 
 function onAmountToPay(index: number) {
-  // Clamp amount_to_pay between 0 and total_amount
+  // Clamp amount_to_pay between 0 and remaining balance (accounts for prior partial payments)
   if (index >= 0 && index < payeeRequisitions.value.length) {
     const req = payeeRequisitions.value[index]
-    const maxAmount = req.total_amount || 0
+    const maxAmount = req.balance_remaining || req.total_amount || 0
     
     // Clamp to range [0, maxAmount]
     if (req.amount_to_pay < 0) {
@@ -1721,7 +2155,9 @@ function removePayeeRequisition(index: number) {
   }
 }
 
-async function viewRequisitionDetails(requisition: any) {
+async function viewRequisitionDetails(requisition: any, index: number) {
+  // remember which row we are showing
+  currentViewedRequisitionIndex.value = index
   try {
     loadingRequisitionDetails.value = true
     showRequisitionDetailsModal.value = true
@@ -1730,41 +2166,15 @@ async function viewRequisitionDetails(requisition: any) {
     // Fetch full requisition details from backend
     const response = await accountingStore.getRequisitionDetails(requisition.requisition_id || requisition.id)
     
-    const reqData = response.data?.data || response.data// Extract items - they can be nested in different ways
-    let allItems: any[] = []
-    
-    if (reqData?.items && Array.isArray(reqData.items)) {
-      // Process each item and check for nested materials or accounts
-      reqData.items.forEach((item: any, index: number) => {// First priority: Materials
-        if (item.materials && Array.isArray(item.materials) && item.materials.length > 0) {item.materials.forEach((material: any) => {allItems.push({
-              description: material.description || material.material_description || material.item_name || material.material_name || material.name || material.item?.name || material.code || 'Material',
-              quantity: parseFloat(material.quantity || material.qty || 0),
-              unit_price: parseFloat(material.rate || material.unit_price || material.price || 0),
-              amount: parseFloat(material.line_total || material.amount || material.total || (parseFloat(material.quantity || 0) * parseFloat(material.rate || material.unit_price || 0)) || 0)
-            })
-          })
-        }
-        // Second priority: Accounts
-        else if (item.accounts && Array.isArray(item.accounts) && item.accounts.length > 0) {item.accounts.forEach((account: any) => {allItems.push({
-              description: account.description || account.account_description || account.account_name || account.account?.name || account.account?.code || account.name || account.code || 'Account',
-              quantity: 1,
-              unit_price: parseFloat(account.amount || account.total || account.debit || account.credit || 0),
-              amount: parseFloat(account.amount || account.total || account.debit || account.credit || 0)
-            })
-          })
-        }
-        // Fallback: Use item properties directly
-        else {allItems.push({
-            description: item.description || item.item_description || item.narration || item.remarks || item.name || item.code || `Item ${index + 1}`,
-            quantity: parseFloat(item.quantity || item.qty || 0),
-            unit_price: parseFloat(item.rate || item.unit_price || item.price || 0),
-            amount: parseFloat(item.line_total || item.amount || item.total || item.item_total || (parseFloat(item.quantity || 0) * parseFloat(item.rate || item.unit_price || 0)) || 0)
-          })
-        }
-      })
-    }selectedRequisitionDetails.value = {
+    const reqData = response.data?.data || response.data
+
+    // Use the same flattenRequisitionItems helper that now handles nested
+    // item.cost_centers[].accounts[] and item.cost_centers[].materials[]
+    let allItems = flattenRequisitionItems(reqData)
+    const ccInfo = parseCostCenters(reqData)
+    selectedRequisitionDetails.value = {
       requisition_number: requisition.requisition_number,
-      cost_center: requisition.cost_center,
+      cost_centers: ccInfo.list,
       description: requisition.description,
       total_amount: requisition.total_amount,
       amount_to_pay: requisition.amount_to_pay,
@@ -1779,6 +2189,33 @@ async function viewRequisitionDetails(requisition: any) {
   } finally {
     loadingRequisitionDetails.value = false
   }
+}
+
+function confirmRequisitionDetails() {
+  // apply selected items back to row
+  if (currentViewedRequisitionIndex.value === null) return
+  const idx = currentViewedRequisitionIndex.value
+  const reqRow = payeeRequisitions.value[idx]
+  if (!reqRow || !selectedRequisitionDetails.value) return
+
+  const selectedItems = selectedRequisitionDetails.value.items.filter((i: any) => i.selected)
+  // compute new total from chosen lines
+  const total = selectedItems.reduce((sum: number, i: any) => sum + (i.amount || 0), 0)
+  reqRow.amount_to_pay = total
+  reqRow.total_amount = total
+  // update balance (assuming nothing paid yet)
+  reqRow.balance_remaining = total - (reqRow.amount_to_pay || 0)
+  // update cost centres on the row as well
+  const ccs = selectedRequisitionDetails.value.cost_centers || []
+  reqRow.cost_center_list = ccs
+  reqRow.cost_center = ccs.length > 1 ? 'Multiple' : (ccs[0] || 'N/A')
+
+  // store items if needed for later reference
+  reqRow.selected_items = selectedItems
+
+  // update overall total
+  form.value.total_amount = totalAmountToPay.value
+  showRequisitionDetailsModal.value = false
 }
 
 async function saveDraft() {
@@ -1800,7 +2237,8 @@ async function saveDraft() {
     return
   }
 
-  if (!form.value.payee_id) {
+  // payee not required for withdraw (backend will default debit account to from_account)
+  if (form.value.fund_direction === 'EXPENSE' && !form.value.payee_id) {
     init({
       message: 'Please select a payee',
       color: 'warning'
@@ -1829,8 +2267,9 @@ async function saveDraft() {
       exchange_rate: form.value.exchange_rate || 1.0,
       from_account_id: Number(form.value.from_account_id),
       payment_method: form.value.payment_method,
-      payee_id: Number(form.value.payee_id),
-      payee_account: form.value.payee_account,
+      // when withdrawing there might be no payee; backend will fill
+      payee_id: form.value.payee_id ? Number(form.value.payee_id) : null,
+      payee_account: form.value.payee_account || (form.value.fund_direction === 'WITHDRAW' ? String(form.value.from_account_id) : ''),
       total_amount: form.value.total_amount || payeeRequisitions.value.reduce((sum, r) => sum + r.amount_to_pay, 0),
       narration: form.value.narration,
       status: 'DRAFT',
@@ -1889,22 +2328,30 @@ async function postVoucher(voucherId?: number) {
     }
 
     // Validation: Required fields
-    if (!form.value.from_account_id || !form.value.payee_id || !form.value.currency_id) {
+    // required fields: payee is only mandatory for expense-type vouchers
+  if (!form.value.from_account_id || !form.value.currency_id ||
+      (form.value.fund_direction === 'EXPENSE' && !form.value.payee_id)) {
       init({
-        message: 'Please fill all required fields (From Account, Payee, Currency)',
+        message: 'Please fill all required fields (From Account, Currency' +
+                 (form.value.fund_direction === 'EXPENSE' ? ', Payee' : '') + ')',
         color: 'warning'
       })
       return
     }
 
-    // Show confirmation
+    // Show confirmation — include partial payment info
+    const partialReqs = payeeRequisitions.value.filter(r => (r.prior_paid || 0) > 0)
+    const partialNote = partialReqs.length > 0
+      ? `<p style="color: #f59e0b; margin-top: 8px;"><strong>${partialReqs.length} requisition(s) have prior partial payments.</strong></p>`
+      : ''
     const result = await Swal.fire({
       title: 'Confirm Payment Voucher',
       html: `
         <div style="text-align: left; font-size: 14px;">
-          <p><strong>Payee:</strong> ${form.value.payee_id}</p>
+          <p><strong>Payee:</strong> ${form.value.payee_id || '(none)'}${form.value.fund_direction === 'WITHDRAW' ? ' (withdrawal)' : ''}</p>
           <p><strong>Total Amount:</strong> ${formatCurrency(form.value.total_amount || payeeRequisitions.value.reduce((sum, r) => sum + r.amount_to_pay, 0))}</p>
           <p><strong>Requisitions:</strong> ${payeeRequisitions.value.length}</p>
+          ${partialNote}
           <p style="color: #dc2626; margin-top: 16px;"><strong>This action will create accounting entries and cannot be undone.</strong></p>
         </div>
       `,
@@ -1917,6 +2364,26 @@ async function postVoucher(voucherId?: number) {
     })
 
     if (!result.isConfirmed) return
+
+    // ── Last-line guard: re-check that no requisition exceeds its remaining balance ──
+    const overPaid: string[] = []
+    for (const r of payeeRequisitions.value) {
+      const remaining = getRemainingBalance(r.requisition_id, r.total_amount)
+      if (remaining <= 0) {
+        overPaid.push(`${r.requisition_number || r.requisition_id} (fully paid)`)
+      } else if ((r.amount_to_pay || 0) > remaining + 0.01) {
+        overPaid.push(`${r.requisition_number || r.requisition_id} (paying ${formatCurrency(r.amount_to_pay)} but only ${formatCurrency(remaining)} remaining)`)
+      }
+    }
+    if (overPaid.length > 0) {
+      await Swal.fire({
+        icon: 'error',
+        title: 'Payment Exceeds Balance',
+        html: `<p>The following requisition(s) cannot be paid as requested:</p><ul style="text-align:left;color:#dc2626;font-weight:600">${overPaid.map(s => `<li>${s}</li>`).join('')}</ul><p>Please adjust the pay amounts or remove them.</p>`,
+        confirmButtonColor: '#dc2626'
+      })
+      return
+    }
 
     try {
       saving.value = true
@@ -1945,6 +2412,17 @@ async function postVoucher(voucherId?: number) {
       // Save and post to backend
       const response = await accountingStore.postPaymentVoucher(payload)
       
+      // Record amounts paid per requisition to track partial/full payments
+      const postedVoucherNum = response.data?.voucher_number || response.data?.data?.voucher_number || payload.voucher_number || ''
+      markRequisitionsAsPaid(
+        payeeRequisitions.value.map(r => ({
+          id: Number(r.requisition_id),
+          amount: r.amount_to_pay || 0,
+          total: r.total_amount || 0
+        })),
+        postedVoucherNum
+      )
+
       // Show success SweetAlert
       await Swal.fire({
         icon: 'success',
@@ -1955,7 +2433,7 @@ async function postVoucher(voucherId?: number) {
       })
 
       // Redirect to vouchers list
-      router.push({ name: 'payment-vouchers' })
+      router.push({ name: 'journal-vouchers' })
     } catch (error: any) {
       console.error('Error posting payment voucher:', error)
       init({
@@ -1975,6 +2453,17 @@ async function postVoucher(voucherId?: number) {
         status: 'POSTED'
       })
 
+      // Record amounts paid per requisition to track partial/full payments
+      const draftVoucherNum = response.data?.voucher_number || response.data?.data?.voucher_number || ''
+      markRequisitionsAsPaid(
+        payeeRequisitions.value.map(r => ({
+          id: Number(r.requisition_id),
+          amount: r.amount_to_pay || 0,
+          total: r.total_amount || 0
+        })),
+        draftVoucherNum
+      )
+
       init({
         message: 'Payment voucher posted successfully',
         color: 'success'
@@ -1982,7 +2471,7 @@ async function postVoucher(voucherId?: number) {
 
       // Redirect to vouchers list
       setTimeout(() => {
-        router.push({ name: 'payment-vouchers' })
+        router.push({ name: 'journal-vouchers' })
       }, 1500)
     } catch (error: any) {
       console.error('Error posting payment voucher:', error)
@@ -2010,11 +2499,11 @@ function closeForm() {
       cancelButtonText: 'Cancel'
     }).then((result) => {
       if (result.isConfirmed) {
-        router.push({ name: 'payment-vouchers' })
+        router.push({ name: 'journal-vouchers' })
       }
     })
   } else {
-    router.push({ name: 'payment-vouchers' })
+    router.push({ name: 'journal-vouchers' })
   }
 }
 
@@ -2128,9 +2617,7 @@ async function loadPaymentVoucherData() {
     const payeesResponse = await accountingStore.fetchPayees(accountingStore.companyId)
     payees.value = payeesResponse.data?.data || payeesResponse.data || []
     
-    // Fetch payable accounts from API
-    const payableAccountsResponse = await accountingStore.fetchPayableAccounts()
-    payableAccounts.value = payableAccountsResponse.data?.data || payableAccountsResponse.data || []} catch (error: any) {
+  } catch (error: any) {
     console.error('Error loading payment voucher data:', error)
     init({
       message: 'Some dropdown data could not be loaded. Please try again.',
@@ -2146,35 +2633,8 @@ function onFromAccountChange() {// Clear payee requisitions when account changes
 
 // Handle Payee selection change
 async function onPayeeChange() {
-  console.log('Payee changed to:', form.value.payee_id)
   // Clear payee requisitions when payee changes
   payeeRequisitions.value = []
-
-  // Auto-populate Payable Account based on payee
-  if (form.value.payee_id) {
-    try {
-      const response = await accountingStore.fetchPayeeAccount(
-        Number(form.value.payee_id),
-        1
-      )
-
-      if (response.success && response.data) {
-        // Auto-populate Payable Account field with default account ID
-        form.value.payee_account_id = response.data.id
-        form.value.payee_account_code = response.data.code
-        form.value.payee_account = String(response.data.id) // Store as string for dropdown
-        console.log('Payable account auto-populated:', response.data.id, response.data.label)
-      }
-    } catch (error) {
-      console.error('Error fetching payee account:', error)
-      // Don't show error to user, field can be filled manually if needed
-    }
-  } else {
-    // Clear account if payee is cleared
-    form.value.payee_account_id = null
-    form.value.payee_account_code = ''
-    form.value.payee_account = ''
-  }
 }
 
 // Lifecycle
@@ -2279,6 +2739,32 @@ onMounted(async () => {
 
   // Store the event listener reference for cleanup
   ;(window as any).__jvFormClickOutside = handleClickOutside
+})
+
+// watch for fund_direction changes so UI and payload behave correctly
+watch(() => form.value.fund_direction, (newDir) => {
+  if (newDir === 'WITHDRAW') {
+    // clear any selected payee, backend doesn't require one
+    form.value.payee_id = ''
+    // default the debit account to the same as the credit
+    if (form.value.from_account_id) {
+      form.value.payee_account = String(form.value.from_account_id)
+      form.value.payee_account_id = Number(form.value.from_account_id)
+      // try to preserve code from the grouped options
+      const match = groupedBankCashAccountOptions.value.find((opt: any) => opt.value === Number(form.value.from_account_id))
+      form.value.payee_account_code = match?.code || ''
+    }
+  }
+})
+
+// ensure payee_account follows from_account when withdrawing
+watch(() => form.value.from_account_id, (newId) => {
+  if (form.value.fund_direction === 'WITHDRAW') {
+    form.value.payee_account = newId ? String(newId) : ''
+    form.value.payee_account_id = newId ? Number(newId) : null
+    const match = groupedBankCashAccountOptions.value.find((opt: any) => opt.value === Number(newId))
+    form.value.payee_account_code = match?.code || ''
+  }
 })
 
 // Restore sidebar on unmount
@@ -3325,4 +3811,162 @@ h1 {
 .multiselect__content {
   width: 100%;
 }
+
+/* ═══════ Requisition Details Modal ═══════ */
+.req-modal-backdrop {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  z-index: 10000;
+  display: flex; align-items: center; justify-content: center;
+  animation: reqFadeIn 0.2s ease;
+}
+@keyframes reqFadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes reqSlideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+.req-modal-container {
+  background: #fff;
+  border-radius: 12px;
+  width: 95%; max-width: 820px; max-height: 88vh;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.2), 0 0 0 1px rgba(0,0,0,0.05);
+  display: flex; flex-direction: column;
+  animation: reqSlideUp 0.25s ease;
+}
+
+.req-modal-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex; justify-content: space-between; align-items: center;
+  background: linear-gradient(to bottom, #fafbfc, #fff);
+}
+
+.req-modal-close-btn {
+  width: 32px; height: 32px;
+  border-radius: 8px; border: 1px solid #e5e7eb;
+  background: #fff; color: #6b7280;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  font-size: 14px; transition: all 0.15s;
+}
+.req-modal-close-btn:hover { background: #fee2e2; color: #dc2626; border-color: #fca5a5; }
+
+.req-modal-body {
+  padding: 20px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.req-info-grid {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.req-info-card {
+  background: #f9fafb;
+  border: 1px solid #f3f4f6;
+  border-radius: 8px;
+  padding: 12px;
+}
+.req-info-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-bottom: 4px;
+}
+.req-info-value {
+  font-size: 14px;
+  color: #111827;
+}
+
+.req-cost-center-section {
+  margin-bottom: 16px;
+  padding: 14px;
+  background: #fefce8;
+  border: 1px solid #fef08a;
+  border-radius: 8px;
+}
+.req-section-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #374151;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 8px;
+}
+.req-cc-tags {
+  display: flex; flex-wrap: wrap; gap: 6px;
+}
+.req-cc-tag {
+  display: inline-flex; align-items: center;
+  background: #fff; border: 1px solid #fde68a;
+  color: #92400e; font-size: 12px; font-weight: 500;
+  padding: 4px 10px; border-radius: 6px;
+}
+
+.req-items-section {
+  margin-top: 4px;
+}
+.req-items-table-wrapper {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.req-items-table {
+  width: 100%; border-collapse: collapse; font-size: 13px;
+}
+.req-items-table thead tr {
+  background: #f9fafb;
+}
+.req-items-table th {
+  padding: 10px 12px;
+  font-size: 11px; font-weight: 700;
+  color: #6b7280;
+  text-transform: uppercase; letter-spacing: 0.04em;
+  border-bottom: 1px solid #e5e7eb;
+}
+.req-items-table td {
+  padding: 10px 12px;
+  color: #1f2937;
+  border-bottom: 1px solid #f3f4f6;
+}
+.req-items-table tbody tr:hover { background: #f9fafb; }
+.req-items-table tbody tr.req-row-deselected {
+  opacity: 0.45;
+  text-decoration: line-through;
+  background: #fafafa;
+}
+.req-items-total-row td {
+  padding: 12px;
+  background: #f0fdf4;
+  border-top: 2px solid #d1fae5;
+  border-bottom: none;
+}
+
+.req-modal-footer {
+  padding: 14px 20px;
+  border-top: 1px solid #e5e7eb;
+  display: flex; justify-content: flex-end; gap: 8px;
+  background: #fafbfc;
+}
+.req-btn-secondary {
+  padding: 8px 18px;
+  background: #fff; color: #374151;
+  border: 1px solid #d1d5db;
+  border-radius: 8px; cursor: pointer;
+  font-weight: 500; font-size: 13px;
+  transition: all 0.15s;
+}
+.req-btn-secondary:hover { background: #f3f4f6; }
+.req-btn-primary {
+  padding: 8px 18px;
+  background: #2563eb; color: #fff;
+  border: none; border-radius: 8px;
+  cursor: pointer; font-weight: 600; font-size: 13px;
+  box-shadow: 0 1px 3px rgba(37,99,235,0.3);
+  transition: all 0.15s;
+}
+.req-btn-primary:hover { background: #1d4ed8; box-shadow: 0 2px 6px rgba(37,99,235,0.4); }
 </style>

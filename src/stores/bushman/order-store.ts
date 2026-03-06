@@ -7,6 +7,7 @@ const API_BASE = `${import.meta.env.VITE_APP_BASE_URL}orders`
 interface OrderState {
   orders: any[]
   currentOrder: any
+  currentOrderTotals: any
   orderTypes: any[]
   orderStatuses: any[]
   enquiries: any[]
@@ -24,6 +25,7 @@ interface OrderState {
   installmentSetups: any[]
   installmentDaysTypes: any[]
   installmentAmountTypes: any[]
+  paymentPlanTemplates: any[]
   loading: boolean
   error: string | null
   filters: {
@@ -39,6 +41,7 @@ export const useOrderStore = defineStore('order', {
   state: (): OrderState => ({
     orders: [] as any[],
     currentOrder: null as any,
+    currentOrderTotals: null as any,
     orderTypes: [] as any[],
     orderStatuses: [] as any[],
     enquiries: [] as any[],
@@ -56,6 +59,7 @@ export const useOrderStore = defineStore('order', {
     installmentSetups: [] as any[],
     installmentDaysTypes: [] as any[],
     installmentAmountTypes: [] as any[],
+    paymentPlanTemplates: [] as any[],
     loading: false,
     error: null as string | null,
     filters: {
@@ -87,6 +91,7 @@ export const useOrderStore = defineStore('order', {
     getInstallmentSetups: (state: OrderState) => state.installmentSetups,
     getInstallmentDaysTypes: (state: OrderState) => state.installmentDaysTypes,
     getInstallmentAmountTypes: (state: OrderState) => state.installmentAmountTypes,
+    getPaymentPlanTemplatesFromState: (state: OrderState) => state.paymentPlanTemplates,
     isLoading: (state: OrderState) => state.loading,
     getError: (state: OrderState) => state.error
   },
@@ -137,7 +142,7 @@ export const useOrderStore = defineStore('order', {
           method: 'get',
           url: `${API_BASE}/${id}`,
           params: {
-            include: 'parties,parties.entity,items,items.item,logistics,sales_details,sales_details.salesEnquiry,sales_details.salesEnquiry.pricings,order_payments,payment_schedule,documents,preferences'
+            include: 'parties,parties.entity,items,items.item,logistics,sales_details,sales_details.salesEnquiry,sales_details.salesEnquiry.pricings,sales_details.salesEnquiry.pricings.priceStructureDetail,sales_details.salesEnquiry.areas,sales_details.salesEnquiry.areas.location,order_payments,payment_schedule,documents,preferences'
           },
           headers: {
             'Content-Type': 'application/json'
@@ -146,6 +151,7 @@ export const useOrderStore = defineStore('order', {
 
         const response: any = await axios.request(config)
         this.currentOrder = response.data.data || response.data
+        this.currentOrderTotals = response.data.totals || null
         return response
       } catch (err: any) {
         this.error = err?.response?.data?.message || 'Error loading order'
@@ -188,6 +194,9 @@ export const useOrderStore = defineStore('order', {
           method: 'put',
           url: `${API_BASE}/${id}`,
           data: payload,
+          params: {
+            include: 'parties,parties.entity,items,items.item,logistics,sales_details,order_payments,payment_schedule,documents,preferences'
+          },
           headers: {
             'Content-Type': 'application/json'
           }
@@ -486,6 +495,55 @@ export const useOrderStore = defineStore('order', {
         this.logisticsStatuses = []
       } finally {
         this.loading = false
+      }
+    },
+
+    // ==================== ORDER LOGISTICS CRUD ====================
+
+    async createOrderLogistics(orderId: number, payload: any): Promise<any> {
+      try {
+        const config = {
+          method: 'post',
+          url: `${API_BASE}/${orderId}/logistics`,
+          data: payload,
+          headers: { 'Content-Type': 'application/json' }
+        }
+        const response: any = await axios.request(config)
+        return response.data.data || response.data
+      } catch (err: any) {
+        this.error = err?.response?.data?.message || 'Error creating logistics'
+        throw err
+      }
+    },
+
+    async updateOrderLogistics(orderId: number, logisticsId: number, payload: any): Promise<any> {
+      try {
+        const config = {
+          method: 'put',
+          url: `${API_BASE}/${orderId}/logistics/${logisticsId}`,
+          data: payload,
+          headers: { 'Content-Type': 'application/json' }
+        }
+        const response: any = await axios.request(config)
+        return response.data.data || response.data
+      } catch (err: any) {
+        this.error = err?.response?.data?.message || 'Error updating logistics'
+        throw err
+      }
+    },
+
+    async deleteOrderLogistics(orderId: number, logisticsId: number): Promise<any> {
+      try {
+        const config = {
+          method: 'delete',
+          url: `${API_BASE}/${orderId}/logistics/${logisticsId}`,
+          headers: { 'Content-Type': 'application/json' }
+        }
+        const response: any = await axios.request(config)
+        return response.data
+      } catch (err: any) {
+        this.error = err?.response?.data?.message || 'Error deleting logistics'
+        throw err
       }
     },
 
@@ -1216,140 +1274,100 @@ export const useOrderStore = defineStore('order', {
     // ==================== PAYMENT PLAN TEMPLATES ====================
 
     /**
-     * Get all available payment plan templates
-     * Used for quick setup of installment plans
+     * Fetch payment plan templates from the backend installment-setups API.
+     * Optionally pass price_structure_id and days to auto-fill trophy deposit amounts.
+     *
+     * @param params.price_structure_id - Quotation / pricing ID for trophy deposit lookup
+     * @param params.days              - Safari duration in days for trophy deposit lookup
+     */
+    async fetchPaymentPlanTemplates(params?: { price_structure_id?: number | string; days?: number | string; order_id?: number | string; sales_inquiry_id?: number | string }): Promise<any> {
+      try {
+        const baseUrl = import.meta.env.VITE_APP_BASE_URL || ''
+        const queryParams: Record<string, string> = {}
+        if (params?.price_structure_id) queryParams.price_structure_id = String(params.price_structure_id)
+        if (params?.days) queryParams.days = String(params.days)
+        if (params?.order_id) queryParams.order_id = String(params.order_id)
+        if (params?.sales_inquiry_id) queryParams.sales_inquiry_id = String(params.sales_inquiry_id)
+        const qs = new URLSearchParams(queryParams).toString()
+        const url = `${baseUrl}installment-setups/templates${qs ? '?' + qs : ''}`
+        const response: any = await axios.get(url)
+        const data = response.data?.data || response.data || []
+
+        // Normalise backend shape → frontend shape expected by the template selector.
+        // The backend may return a flat list of stages grouped by a parent template,
+        // or an array of template objects with nested stages – handle both.
+        if (Array.isArray(data) && data.length > 0) {
+          // If the first element already has a `stages` array it's properly grouped.
+          if (data[0].stages) {
+            this.paymentPlanTemplates = data.map((t: any) => ({
+              id: t.id ?? t.code ?? t.name,
+              name: t.name || t.title || `Template ${t.id}`,
+              description: t.description || '',
+              stages: (t.stages || []).map((s: any, idx: number) => ({
+                sequenceNo: s.sequence_no ?? s.sequenceNo ?? idx + 1,
+                name: s.name || s.narration || `Stage ${idx + 1}`,
+                narration: s.narration || s.name || '',
+                amountDue: Number(s.amount_due ?? s.amountDue ?? 0),
+                amountDueType: (s.amount_due_type || s.amountDueType || 'PERCENTAGE').toUpperCase(),
+                dueDays: Number(s.due_days ?? s.dueDays ?? 0),
+                dueDaysType: (s.due_days_type || s.dueDaysType || 'AFTER_CONFIRMATION').toUpperCase(),
+                isDeposit: !!(s.is_deposit || s.isDeposit),
+                isTrophyDeposit: !!(s.is_trophy_deposit || s.isTrophyDeposit),
+                description: s.description || ''
+              }))
+            }))
+          } else {
+            // Flat list of stage records – group by template_id / template_name
+            const grouped: Record<string, any> = {}
+            data.forEach((s: any) => {
+              const key = s.template_id || s.template_name || s.group || 'default'
+              if (!grouped[key]) {
+                grouped[key] = {
+                  id: key,
+                  name: s.template_name || s.group || `Template ${key}`,
+                  description: s.template_description || '',
+                  stages: []
+                }
+              }
+              grouped[key].stages.push({
+                sequenceNo: s.sequence_no ?? s.sequenceNo ?? grouped[key].stages.length + 1,
+                name: s.name || s.narration || `Stage ${grouped[key].stages.length + 1}`,
+                narration: s.narration || s.name || '',
+                amountDue: Number(s.amount_due ?? s.amountDue ?? 0),
+                amountDueType: (s.amount_due_type || s.amountDueType || 'PERCENTAGE').toUpperCase(),
+                dueDays: Number(s.due_days ?? s.dueDays ?? 0),
+                dueDaysType: (s.due_days_type || s.dueDaysType || 'AFTER_CONFIRMATION').toUpperCase(),
+                isDeposit: !!(s.is_deposit || s.isDeposit),
+                isTrophyDeposit: !!(s.is_trophy_deposit || s.isTrophyDeposit),
+                description: s.description || ''
+              })
+            })
+            this.paymentPlanTemplates = Object.values(grouped)
+          }
+        } else {
+          this.paymentPlanTemplates = []
+        }
+        return response
+      } catch (err: any) {
+        console.warn('[order-store] Could not fetch payment plan templates from backend – no templates available.', err?.message)
+        this.paymentPlanTemplates = []
+      }
+    },
+
+    /**
+     * Get all available payment plan templates.
+     * Returns templates fetched from the backend (state).
+     * Call fetchPaymentPlanTemplates() first to populate.
      */
     getPaymentPlanTemplates(): any[] {
-      return [
-        {
-          id: 'four_stage',
-          name: '4-Stage Payment Plan',
-          description: 'Standard 4-stage payment plan for trophy hunt bookings',
-          stages: [
-            {
-              sequenceNo: 1,
-              name: 'Total Deposit',
-              narration: 'Initial deposit upon booking confirmation',
-              amountDue: 15,
-              amountDueType: 'PERCENTAGE',
-              dueDays: 0,
-              dueDaysType: 'AFTER_CONFIRMATION',
-              isDeposit: true,
-              description: 'Due immediately upon booking confirmation. This secures your booking slot.'
-            },
-            {
-              sequenceNo: 2,
-              name: '2nd Deposit',
-              narration: 'Second deposit payment',
-              amountDue: 20,
-              amountDueType: 'PERCENTAGE',
-              dueDays: 365,
-              dueDaysType: 'AFTER_CONFIRMATION',
-              isDeposit: true,
-              description: 'Due one year prior to departure. This confirms your commitment and helps with planning.'
-            },
-            {
-              sequenceNo: 3,
-              name: 'Final Payment',
-              narration: 'Final payment due before departure',
-              amountDue: 50,
-              amountDueType: 'PERCENTAGE',
-              dueDays: 90,
-              dueDaysType: 'AFTER_DELIVERY',
-              isDeposit: false,
-              description: 'Due 90 days prior to your trip departure. This is the main payment for the hunt.'
-            },
-            {
-              sequenceNo: 4,
-              name: 'Trophy Deposit',
-              narration: 'Trophy mounting and shipping deposit',
-              amountDue: 15,
-              amountDueType: 'PERCENTAGE',
-              dueDays: 45,
-              dueDaysType: 'AFTER_CONFIRMATION',
-              isDeposit: true,
-              description: 'Due 45 days prior to departure. Covers trophy mounting, shipping, and insurance costs.'
-            }
-          ]
-        },
-        {
-          id: 'three_stage',
-          name: '3-Stage Payment Plan',
-          description: 'Simplified 3-stage payment plan',
-          stages: [
-            {
-              sequenceNo: 1,
-              name: 'Deposit',
-              narration: 'Initial deposit',
-              amountDue: 30,
-              amountDueType: 'PERCENTAGE',
-              dueDays: 0,
-              dueDaysType: 'AFTER_CONFIRMATION',
-              isDeposit: true,
-              description: 'Due upon booking.'
-            },
-            {
-              sequenceNo: 2,
-              name: 'Second Payment',
-              narration: 'Second payment',
-              amountDue: 30,
-              amountDueType: 'PERCENTAGE',
-              dueDays: 180,
-              dueDaysType: 'AFTER_CONFIRMATION',
-              isDeposit: false,
-              description: 'Due 6 months before departure.'
-            },
-            {
-              sequenceNo: 3,
-              name: 'Final Payment',
-              narration: 'Final payment',
-              amountDue: 40,
-              amountDueType: 'PERCENTAGE',
-              dueDays: 30,
-              dueDaysType: 'AFTER_DELIVERY',
-              isDeposit: false,
-              description: 'Due 30 days before departure.'
-            }
-          ]
-        },
-        {
-          id: 'two_stage',
-          name: '50-50 Payment Plan',
-          description: 'Simple split payment: 50% deposit and 50% final payment',
-          stages: [
-            {
-              sequenceNo: 1,
-              name: 'Deposit',
-              narration: 'Initial 50% deposit',
-              amountDue: 50,
-              amountDueType: 'PERCENTAGE',
-              dueDays: 0,
-              dueDaysType: 'AFTER_CONFIRMATION',
-              isDeposit: true,
-              description: 'Due upon booking.'
-            },
-            {
-              sequenceNo: 2,
-              name: 'Final Payment',
-              narration: 'Final 50% payment',
-              amountDue: 50,
-              amountDueType: 'PERCENTAGE',
-              dueDays: 30,
-              dueDaysType: 'AFTER_DELIVERY',
-              isDeposit: false,
-              description: 'Due 30 days before departure.'
-            }
-          ]
-        }
-      ]
+      return this.paymentPlanTemplates
     },
 
     /**
      * Get a specific payment plan template by ID
      */
     getPaymentPlanTemplate(templateId: string): any | null {
-      const templates = this.getPaymentPlanTemplates()
-      return templates.find((t: any) => t.id === templateId) || null
+      return this.paymentPlanTemplates.find((t: any) => (t.id ?? t.code) === templateId) || null
     },
 
     /**
@@ -1357,7 +1375,7 @@ export const useOrderStore = defineStore('order', {
      * Calculates fixed amounts from percentages if needed
      */
     applyPaymentPlanTemplate(template: any, totalAmount: number = 0): any[] {
-      return template.stages.map((stage: any) => {
+      return (template.stages || []).map((stage: any) => {
         let finalAmount = stage.amountDue
 
         // Calculate fixed amount if using percentage

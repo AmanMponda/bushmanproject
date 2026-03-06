@@ -606,6 +606,7 @@ const showOverflowAllocationModal = ref(false)
 const overflowAllocations = ref<any[]>([])
 const allPackagesList = ref<any[]>([])
 const packageItemsCache = ref<Record<number, any[]>>({})
+const fullPackageSpeciesCache = ref<Record<number, any[]>>({}) // cache: salesPackageSetId -> full species list
 const loadingPackages = ref(false)
 
 // Selection state for quotation items
@@ -776,6 +777,44 @@ const loadPackageItemsForPackage = async (packageId: number): Promise<any[]> => 
     return []
   }
 }
+
+// Load ALL species (Main + Normal) from a sales-package-set
+const loadFullPackageSpecies = async (salesPackageSetId: number) => {
+  if (fullPackageSpeciesCache.value[salesPackageSetId]) return fullPackageSpeciesCache.value[salesPackageSetId]
+  try {
+    const apiBase = String(import.meta.env.VITE_APP_BASE_URL || '').replace(/\/+$/, '')
+    const resp = await fetch(`${apiBase}/settings/sales-package-sets/${salesPackageSetId}`, {
+      headers: { 'Content-Type': 'application/json' },
+    })
+    const json = await resp.json()
+    const fullPkgData = json?.data || json
+    if (fullPkgData?.species && Array.isArray(fullPkgData.species)) {
+      fullPackageSpeciesCache.value[salesPackageSetId] = fullPkgData.species.map((item: any) => ({
+        id: item.id,
+        species_id: item.species?.id || item.species_id,
+        name: item.species?.name || item.name,
+        subtype: item.species?.subtype || item.subtype || 'MAIN_SPECIE',
+        quantity: item.quantity || 1,
+      }))
+    } else {
+      fullPackageSpeciesCache.value[salesPackageSetId] = []
+    }
+  } catch (error) {
+    console.error('loadFullPackageSpecies error:', error)
+    fullPackageSpeciesCache.value[salesPackageSetId] = []
+  }
+  return fullPackageSpeciesCache.value[salesPackageSetId]
+}
+
+// All species from the current package (MAIN + NORMAL)
+const currentFullPackageSpecies = computed(() => {
+  const detailId = props.enquiryData?.price_structure_detail?.id
+    || props.enquiryData?.price_structure_detail_id
+  const pkg = detailId ? allPackagesList.value.find((p: any) => p.id === detailId) : null
+  const spSetId = pkg?.sales_package?.id
+  if (!spSetId) return []
+  return fullPackageSpeciesCache.value[spSetId] || []
+})
 
 // Prepare overflow allocation suggestions for selected items (returns array of allocations)
 const prepareOverflowAllocations = async (itemsToCheck: any[]) => {
@@ -1003,10 +1042,26 @@ const availablePriceableItems = computed(() => {
     })
   }
 
-  // Add species — only the ones the client chose in the enquiry, with prices from preview data
+  // Add species — merge enquiry preferences with ALL package species (Main + Normal)
   const previewSpecies = pricePreviewData.value?.species || []
   const enquirySpeciesIds = new Set(enquirySpecies.value.map((sp: any) => String(sp.item_id)))
-  const speciesItems = enquirySpecies.value.map((sp: any) => {
+
+  // Start with enquiry preferences
+  const allSpecies: any[] = [...enquirySpecies.value]
+  // Add any package species not already in preferences
+  for (const pkgSp of currentFullPackageSpecies.value) {
+    const specId = String(pkgSp.species_id || pkgSp.id)
+    if (!enquirySpeciesIds.has(specId)) {
+      allSpecies.push({
+        item_id: pkgSp.species_id || pkgSp.id,
+        item_name: pkgSp.name,
+        desired_quantity: pkgSp.quantity || 1,
+        priority: 'NICE_TO_HAVE',
+      })
+    }
+  }
+
+  const speciesItems = allSpecies.map((sp: any) => {
     // Look up pricing from preview data
     const previewMatch = previewSpecies.find((ps: any) => String(ps.item_id) === String(sp.item_id))
     const trophyFee = pricePreviewData.value?.trophy_fees?.find(
@@ -1183,8 +1238,18 @@ const formatDate = (dateValue?: string) => {
 }
 
 const getItemsCount = (pricing: Pricing) => {
-  if (pricing.items && pricing.items.length > 0) return pricing.items.length
-  return (pricing as any).summary?.total_items || 0
+  if (pricing.items && pricing.items.length > 0) {
+    // Exclude TROPHY items from count — they are informational only
+    return pricing.items.filter((i: any) => i.item_type !== 'TROPHY').length
+  }
+  const summary = (pricing as any).summary
+  if (summary) {
+    const totalItems = summary.total_items || 0
+    // Compute trophy count from actual items since server may not provide trophy_fees_count
+    const trophyCount = ((pricing as any).items_by_type?.TROPHY || []).length
+    return totalItems - trophyCount
+  }
+  return 0
 }
 
 // Get total amount excluding trophy fees (trophy fees are informational only)
@@ -1675,7 +1740,7 @@ const savePricingWithItems = async () => {
   savingPricing.value = true
   try {
     // Prepare items array
-    const items: any[] = []
+    let items: any[] = []
     const missingDescriptions: string[] = []
 
     for (const key in selectedItems.value) {
@@ -1720,6 +1785,37 @@ const savePricingWithItems = async () => {
       return
     }
 
+    // Always include all trophy fee items from the package (informational, not in grand total)
+    const trophyCat = availablePriceableItems.value.find((c: any) => c.category === 'Species (Trophy Fees)')
+    if (trophyCat) {
+      const existingTrophyItemIds = new Set(items.filter((i: any) => i.item_type === 'TROPHY').map((i: any) => String(i.item_id)))
+      for (const tItem of trophyCat.items) {
+        if (existingTrophyItemIds.has(String(tItem.id))) continue
+        items.push({
+          item_type: 'TROPHY',
+          item_id: tItem.id,
+          description: tItem.name || '',
+          quantity: tItem.quantity || 1,
+          unit_amount: tItem.suggested_price || 0,
+          total_amount: (tItem.quantity || 1) * (tItem.suggested_price || 0),
+          rate_direction: 'INCREASE',
+          amount_source: 'SYSTEM',
+          is_estimate: false,
+          is_optional: false,
+        })
+      }
+    }
+
+    // Final dedup: ensure no duplicate TROPHY items by item_id
+    const seenTrophyIds = new Set<string>()
+    items = items.filter((i: any) => {
+      if (i.item_type !== 'TROPHY') return true
+      const tid = String(i.item_id)
+      if (seenTrophyIds.has(tid)) return false
+      seenTrophyIds.add(tid)
+      return true
+    })
+
     // Helper to finalize creation (shared so we can defer when allocations are required)
     const doCreate = async (itemsToCreate: any[]) => {
       try {
@@ -1741,7 +1837,8 @@ const savePricingWithItems = async () => {
             console.warn('Could not update enquiry status:', e)
           }
 
-          Swal.fire({ title: 'Success!', text: `Quotation created with ${itemsToCreate.length} items`, icon: 'success', timer: 2000 })
+          const nonTrophyCount = itemsToCreate.filter((i: any) => i.item_type !== 'TROPHY').length
+          Swal.fire({ title: 'Success!', text: `Quotation created with ${nonTrophyCount} items`, icon: 'success', timer: 2000 })
           closeAddPricingModal()
           await loadPricings(true)
           emit('update')
@@ -2111,10 +2208,17 @@ watch(() => props.enquiryId, () => {
   loadPricings()
 })
 
-// Watch for modal opening to load preview
-watch(() => showAddPricingModal.value, (newVal) => {
+// Watch for modal opening to load preview + full package species
+watch(() => showAddPricingModal.value, async (newVal) => {
   if (newVal && !editingPricing.value && enquiryPriceStructureDetailId.value) {
     loadPricePreview(Number(enquiryPriceStructureDetailId.value))
+    // Pre-fetch full package species (Main + Normal) for trophy fees
+    await loadAllPackagesList()
+    const detailId = props.enquiryData?.price_structure_detail?.id
+      || props.enquiryData?.price_structure_detail_id
+    const pkg = detailId ? allPackagesList.value.find((p: any) => p.id === detailId) : null
+    const spSetId = pkg?.sales_package?.id
+    if (spSetId) loadFullPackageSpecies(spSetId)
   }
 })
 

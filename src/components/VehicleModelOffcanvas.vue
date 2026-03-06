@@ -67,6 +67,7 @@
             <option value="BUS">Bus</option>
             <option value="MOTORBIKE">Motorbike</option>
             <option value="TRACTOR">Tractor</option>
+            <option value="TRAILER">Trailer</option>
             <option value="OTHER">Other</option>
           </select>
         </div>

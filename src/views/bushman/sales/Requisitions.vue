@@ -20,7 +20,7 @@ type RequisitionStatus =
   | 'CANCELLED'
   | 'CLOSED'
 
-type FundDirection = 'WITHDRAW' | 'DIRECT_PAYMENT'
+type FundDirection = 'WITHDRAW' | 'EXPENSE'
 type SourceType = 'CASH' | 'STORE' | 'PARTIES' | 'VENDOR' | 'SERVICE_PROVIDER'
 type ModeOfPayment = 'CASH' | 'TT' | 'CREDIT'
 type TaxMethod = 'EXCLUSIVE' | 'INCLUSIVE' | 'EXEMPT'
@@ -302,6 +302,9 @@ const form = reactive({
 
   // Requisition items (each manages its own materials/accounts/dimensions)
   items: [] as RequisitionItemForm[],
+
+  // Cost centers (alternative to direct items mode)
+  costCenters: [] as any[],
 })
 
 // Avoid v-model assignment to a const reactive object (Vue compiler generates `form = $event` otherwise).
@@ -1553,6 +1556,32 @@ const viewRequisition = (req: any) => {
   router.push(`/sales/requisitions/${id}`)
 }
 
+const deleteRequisition = async (req: any) => {
+  const id = Number(req?.id)
+  if (!id) return
+
+  const result = await Swal.fire({
+    title: 'Delete Requisition?',
+    html: `Are you sure you want to delete <b>${req.code || 'this requisition'}</b>?<br>This will also remove all its items and funding sources.`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#d33',
+    cancelButtonColor: '#6c757d',
+    confirmButtonText: 'Yes, delete it!',
+  })
+
+  if (!result.isConfirmed) return
+
+  try {
+    await requisitionService.delete(id)
+    Swal.fire({ title: 'Deleted!', text: `${req.code || 'Requisition'} has been deleted.`, icon: 'success', timer: 2000, showConfirmButton: false })
+    await loadRequisitions()
+  } catch (error: any) {
+    const msg = error?.response?.data?.message || error?.message || 'Failed to delete requisition'
+    Swal.fire({ title: 'Error', text: msg, icon: 'error' })
+  }
+}
+
 const handleRouteQuery = async (query: any) => {
   const editId = query?.editId
   if (!editId) return
@@ -1690,6 +1719,13 @@ onUnmounted(() => {
                     >
                       <i class="fa fa-eye"></i>
                     </button>
+                    <!-- <button
+                      class="btn btn-danger btn-sm"
+                      title="Delete Requisition"
+                      @click="deleteRequisition(row as any)"
+                    >
+                      <i class="fa fa-trash"></i>
+                    </button> -->
                   </template>
                 </StandardDataTable>
               </div>

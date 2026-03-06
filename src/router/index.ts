@@ -86,6 +86,20 @@ const InvoiceForm = () => import('@/views/bushman/accounting/Invoices/InvoiceFor
 const ChartOfAccounts = () => import('@/views/bushman/accounting/ChartOfAccounts.vue');
 const CreatePaymentAdvice = () => import('@/views/bushman/accounting/Payments/CreatePaymentAdvice.vue');
 
+// Inspections routes
+const InspectionList = () => import('@/views/bushman/inspections/InspectionList.vue');
+const InspectionCreate = () => import('@/views/bushman/inspections/InspectionCreate.vue');
+const InspectionDetails = () => import('@/views/bushman/inspections/InspectionDetails.vue');
+const InspectionPdfView = () => import('@/views/bushman/inspections/InspectionPdfView.vue');
+
+// Inspection Templates routes
+const InspectionTemplateList = () => import('@/views/bushman/inspections/TemplateList.vue');
+
+// Maintenance Settings routes (index / create / view)
+const MaintenanceSettingsIndex  = () => import('@/views/bushman/mantainance/index.vue');
+const MaintenanceSettingsCreate = () => import('@/views/bushman/mantainance/create.vue');
+const MaintenanceSettingsView   = () => import('@/views/bushman/mantainance/view.vue');
+
 const router = createRouter({
   history: createWebHashHistory(import.meta.env.BASE_URL),
   scrollBehavior() {
@@ -627,7 +641,7 @@ const router = createRouter({
     {
       path: "/module-settings/account-dimensions",
       name: "account-dimensions",
-      component: ModuleComingSoon,
+      component: ManageCostCenters,
       meta: { requiresAuth: true }
     },
     {
@@ -951,6 +965,66 @@ const router = createRouter({
       path: "/preferences",
       name: "preferences-main",
       component: ComingSoon,
+      meta: { requiresAuth: true }
+    },
+
+    // Inspections
+    {
+      path: "/inspections",
+      name: "inspections",
+      component: InspectionList,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/inspections/create",
+      name: "inspection-create",
+      component: InspectionCreate,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/inspections/:id",
+      name: "inspection-details",
+      component: InspectionDetails,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/inspections/:id/print",
+      name: "inspection-print",
+      component: InspectionPdfView,
+      meta: { requiresAuth: true }
+    },
+
+    // Inspection Templates
+    {
+      path: "/inspections/templates",
+      name: "inspection-templates",
+      component: InspectionTemplateList,
+      meta: { requiresAuth: true }
+    },
+
+    // Maintenance Settings (Categories, Parameters, Symptoms, etc.)
+    {
+      path: "/module-settings/inspection-settings",
+      name: "inspection-settings",
+      component: MaintenanceSettingsIndex,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/module-settings/inspection-settings/create",
+      name: "inspection-settings-create",
+      component: MaintenanceSettingsCreate,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/module-settings/inspection-settings/edit/:id",
+      name: "inspection-settings-edit",
+      component: MaintenanceSettingsCreate,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: "/module-settings/inspection-settings/view/:id",
+      name: "inspection-settings-view",
+      component: MaintenanceSettingsView,
       meta: { requiresAuth: true }
     },
 

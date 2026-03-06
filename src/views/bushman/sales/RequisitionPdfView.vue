@@ -34,13 +34,20 @@ const hasGeneratedPdf = ref(false)
 const pdfUrl = ref<string | null>(null)
 const approvalStages = ref<any[]>([])
 
-const companyName = 'Bushman Safari Trackers'
-const companyAddress = 'P.O Box 127, Morogoro Tanzania | Mob: +255 748 771 551 | Email: info@bushman-safaris.co.tz'
+const companyName = 'BUSHMAN SAFARI TRACKERS LTD.'
+const companyAddressLines = [
+  'Plot 61-64, Block E,',
+  'Kihonda Industrial Complex,',
+  'P.O Box 678, Morogoro, Tanzania',
+  'Tel       : +255 677 775 888',
+  'Email   : info@bushman.co.tz',
+  'Website : www.bushman.co.tz',
+]
 
 const requisitionId = computed(() => Number(route.params.id))
 
 const formatAmount = (value: number) => {
-  return Number(value || 0).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+  return Number(value || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
 const formatMoney = (value: number, currencySymbol?: string) => {
@@ -164,7 +171,10 @@ const latestStageApproval = () => {
 const approverPositions = computed(() => {
   const stages = approvalStages.value || []
   const positions = stages
-    .map((s: any) => s?.position?.role_name || s?.position?.short)
+    .map((s: any) => {
+      const name = s?.position?.role_name || s?.position?.short || ''
+      return name.toLowerCase().includes('store') ? 'Head of Department' : name
+    })
     .filter(Boolean)
   return positions
 })
@@ -177,6 +187,45 @@ const totalCurrencySymbol = computed(() => {
   const first = detailRows.value.find((row) => row.currencySymbol)
   return first?.currencySymbol || ''
 })
+
+/** Convert number to words (supports up to trillions, with decimals) */
+const numberToWords = (num: number): string => {
+  if (num === 0) return 'Zero'
+  const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine',
+    'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen',
+    'Seventeen', 'Eighteen', 'Nineteen']
+  const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety']
+  const scales = ['', 'Thousand', 'Million', 'Billion', 'Trillion']
+
+  const convertChunk = (n: number): string => {
+    if (n === 0) return ''
+    if (n < 20) return ones[n]
+    if (n < 100) return tens[Math.floor(n / 10)] + (n % 10 ? '-' + ones[n % 10] : '')
+    return ones[Math.floor(n / 100)] + ' Hundred' + (n % 100 ? ' and ' + convertChunk(n % 100) : '')
+  }
+
+  const parts = num.toFixed(2).split('.')
+  let intPart = parseInt(parts[0], 10)
+  const decPart = parseInt(parts[1], 10)
+  const chunks: string[] = []
+  let scaleIdx = 0
+
+  while (intPart > 0) {
+    const chunk = intPart % 1000
+    if (chunk > 0) {
+      const word = convertChunk(chunk)
+      chunks.unshift(scales[scaleIdx] ? word + ' ' + scales[scaleIdx] : word)
+    }
+    intPart = Math.floor(intPart / 1000)
+    scaleIdx++
+  }
+
+  let result = chunks.join(', ') || 'Zero'
+  if (decPart > 0) {
+    result += ' Point ' + convertChunk(decPart)
+  }
+  return result
+}
 
 const fetchRequisition = async () => {
   loading.value = true
@@ -276,167 +325,418 @@ const buildPdf = async () => {
     const margin = 40
     let y = margin
 
-    // Company Header - centered
+    // ── Company Header (centered like reference document) ──
     pdf.setFont('helvetica', 'bold')
-    pdf.setFontSize(14)
+    pdf.setFontSize(11)
+    pdf.setTextColor(0, 0, 0)
     pdf.text(companyName, pageWidth / 2, y, { align: 'center' })
-    y += 14
-    
-    pdf.setFontSize(9)
+    y += 13
     pdf.setFont('helvetica', 'normal')
-    pdf.text(companyAddress, pageWidth / 2, y, { align: 'center' })
-    y += 16
-    
+    pdf.setFontSize(8)
+    companyAddressLines.forEach((line) => {
+      pdf.text(line, pageWidth / 2, y, { align: 'center' })
+      y += 10
+    })
+    y += 4
+
     // Horizontal line
     pdf.setDrawColor(0)
     pdf.setLineWidth(0.5)
     pdf.line(margin, y, pageWidth - margin, y)
-    y += 24
-
-    // Title
-    pdf.setFont('helvetica', 'bold')
-    pdf.setFontSize(14)
-    // pdf.text('PURCHASE REQUISITION', pageWidth / 2, y, { align: 'center' })
-    // Image aligns "This purchase..." left. But form title usually centered.
-    // Let's stick to Centered Title.
-    pdf.text('PURCHASE REQUISITION', pageWidth / 2, y, { align: 'center' })
-    y += 30
-
-    // Basic Info in simple text or autoTable?
-    // Image doesn't show top info, but previous PDF had it. I should keep it but simple.
-    
-    const reqCode = requisition.value.code || `REQ-${requisition.value.id}`
-    const requestedBy = userLabel(requisition.value.requested_by_user || requisition.value.user)
-    const reqDate = formatDisplayDate(requisition.value.date)
-    const reqType = requisition.value.requisition_type?.name || '--'
-    
-    // Two columns info
-    pdf.setFontSize(10)
-    pdf.setFont('helvetica', 'normal')
-
-    const infoRightX = pageWidth - margin - 220 // move right column inward
-
-    pdf.text(`Requisition No: ${reqCode}`, margin, y)
-    pdf.text(`Date: ${reqDate}`, infoRightX, y)
-    y += 14
-    pdf.text(`Requested By: ${requestedBy}`, margin, y)
-    pdf.text(`Type: ${reqType}`, infoRightX, y)
     y += 20
 
-    // Items Table
-    const tableRows = detailRows.value.map((row, idx) => [
-      String(idx + 1),
-      row.name,
-      String(row.quantity),
-      row.unit,
-      formatMoney(row.rate, row.currencySymbol),
-      formatMoney(row.amount, row.currencySymbol)
-    ])
-    
-    // Fill with empty rows
-    const minRows = 12
-    while (tableRows.length < minRows) {
-      tableRows.push(['', '', '', '', '', ''])
-    }
-
-    const totalAmount = formatMoney(grandTotal.value, totalCurrencySymbol.value)
-
-    autoTable(pdf, {
-      startY: y,
-      theme: 'grid',
-      styles: { 
-        fontSize: 10, 
-        cellPadding: 5, 
-        lineColor: [0, 0, 0], 
-        lineWidth: 0.5,
-        textColor: [0, 0, 0]
-      },
-      headStyles: { 
-        fillColor: [240, 240, 240], 
-        textColor: [0, 0, 0], 
-        fontStyle: 'bold',
-        lineWidth: 0.5,
-        lineColor: [0, 0, 0],
-        halign: 'center',
-        valign: 'middle'
-      },
-      footStyles: {
-        fillColor: [255, 255, 255],
-        textColor: [0, 0, 0],
-        fontStyle: 'bold',
-        lineWidth: 0.5,
-        lineColor: [0, 0, 0]
-      },
-      head: [['#', 'Description', 'Quantity', 'Unit', 'Unit Price', 'Amount']],
-      body: tableRows,
-      foot: [[
-        { content: 'Grand Total', colSpan: 5, styles: { halign: 'right', fontStyle: 'bold' } },
-        { content: totalAmount, styles: { halign: 'right', fontStyle: 'bold' } }
-      ]],
-      columnStyles: {
-        0: { cellWidth: 30, halign: 'center' },
-        1: { cellWidth: 200 },
-        2: { cellWidth: 50, halign: 'center' },
-        3: { cellWidth: 60 },
-        4: { cellWidth: 80, halign: 'right' },
-        5: { cellWidth: 80, halign: 'right' }
-      }
-    })
-
-    // Emphasize Grand Total beneath the table
-    const tableBottomY = (pdf as any).lastAutoTable.finalY
-    const grandY = tableBottomY + 10
+    // ── Title (dynamic from requisition type) ──
+    const reqTypeName = (requisition.value.requisition_type?.name || 'REQUISITION').toUpperCase()
     pdf.setFont('helvetica', 'bold')
-    pdf.setFontSize(11)
+    pdf.setFontSize(13)
+    pdf.text(reqTypeName, pageWidth / 2, y, { align: 'center' })
+    y += 8
+    // Full-width underline (margin to margin)
+    pdf.setLineWidth(0.5)
+    pdf.line(margin, y, pageWidth - margin, y)
+    y += 18
 
-    y = tableBottomY + 26
-    
+    // ── Data preparation ──
+    const reqCode = requisition.value.code || `REQ-${String(requisition.value.id).padStart(4, '0')}`
+    const requestedBy = userLabel(requisition.value.requested_by_user || requisition.value.user)
+    const createdBy = userLabel(requisition.value.user)
+    const reqDate = formatDisplayDate(requisition.value.date)
+    const source = primarySource.value
+    const sourcePayee = source?.payee || source?.source_name || ''
+    const modeOfPayment = source?.mode_of_payment || ''
+    const currencyCode = source?.currency?.code || source?.currency?.name || totalCurrencySymbol.value || ''
+    const sourceDescription = source?.description || ''
+    const remarks = requisition.value.remarks || sourceDescription || ''
 
+    // ── BILL PAYABLE (left) + Info box (right) ──
+    const billBoxX = margin
+    const billBoxW = (pageWidth - margin * 2) * 0.52
+    const dividerX = billBoxX + billBoxW + 5  // vertical dashed line position
+    const infoContentW = 180
+    const infoStartX = dividerX + 5  // right box starts just after the dashed line
 
-    // Signatures
-    // Image style: Line, then text "Authorized by..." below it.
-    
-    // Left: Requested By
-    // Right: Authorized By
-    
-    // Move signature block to the bottom of the page
-    const positions = approverPositions.value
-    const approvalsCount = positions.length || 1
-    const columnGap = 24
-    const signatureCellWidth = Math.max(120, Math.floor((pageWidth - (margin * 2) - (columnGap * approvalsCount)) / (approvalsCount + 1)))
-    const totalSignaturesWidth = (signatureCellWidth * (approvalsCount + 1)) + (columnGap * approvalsCount)
-    const sigStartX = Math.max(margin, margin + Math.max(0, (pageWidth - (margin * 2) - totalSignaturesWidth) / 2) - 16)
-    const rowGap = 36
-    const positionsBlockHeight = rowGap
-    const sigBlockHeight = 60 + (positionsBlockHeight ? positionsBlockHeight + 6 : 0)
-    let sigY = pageHeight - margin - sigBlockHeight
+    // Reset all draw state before this section
+    pdf.setDrawColor(255, 255, 255)
+    pdf.setLineWidth(0)
 
-    // If there's not enough space on current page for signatures, add a new page
-    if ((pdf as any).lastAutoTable && (pdf as any).lastAutoTable.finalY + 40 > sigY) {
-      pdf.addPage()
-      sigY = pageHeight - margin - sigBlockHeight
-    }
-
-    const lineLen = signatureCellWidth
-
-    // Requested By (first slot)
-    pdf.line(sigStartX, sigY, sigStartX + lineLen, sigY)
+    // Bill Payable header (bold text)
     pdf.setFont('helvetica', 'bold')
     pdf.setFontSize(9)
-    pdf.text('Requested By', sigStartX, sigY + 12)
-    pdf.text(`Date: ${reqDate}`, sigStartX, sigY + 26)
+    pdf.setTextColor(0, 0, 0)
+    pdf.text('BILL PAYABLE', billBoxX + 6, y + 11)
 
-    // Approval chain slots (one per position), aligned on same row
-    const listStartY = sigY
-    if (positions.length) {
+    // Bill payable fields
+    const billFieldsY = y + 18
+    const billFields: [string, string][] = [
+      ['Name', sourcePayee],
+      ['Address', source?.entity?.address || ''],
+      ['City', source?.entity?.city || ''],
+      ['Phone', source?.entity?.phone || ''],
+      ['TIN', source?.entity?.tin || ''],
+      ['VRN', source?.entity?.vrn || ''],
+    ]
+    const bfRowH = 14
+    const bfLabelW = 55
+    billFields.forEach(([label, value], i) => {
+      const fy = billFieldsY + i * bfRowH
       pdf.setFont('helvetica', 'bold')
+      pdf.setFontSize(8)
+      pdf.setTextColor(0, 0, 0)
+      pdf.text(label, billBoxX + 6, fy + 10)
+      pdf.setFont('helvetica', 'normal')
+      pdf.text(String(value || ''), billBoxX + bfLabelW + 6, fy + 10)
+      // thin underline under value area
+      pdf.setDrawColor(160, 160, 160)
+      pdf.setLineWidth(0.3)
+      pdf.line(billBoxX + bfLabelW + 2, fy + bfRowH - 1, billBoxX + billBoxW - 4, fy + bfRowH - 1)
+    })
+
+    const sectionTopY = y
+    const headerBottomY = y + 16
+    const sectionBottomY = billFieldsY + billFields.length * bfRowH + 4
+
+    // Bill Payable HEADER box only — open on left (top, right, bottom of header)
+    pdf.setDrawColor(0)
+    pdf.setLineWidth(0.5)
+    // Top line
+    pdf.line(billBoxX, sectionTopY, billBoxX + billBoxW, sectionTopY)
+    // Right line (header height only)
+    pdf.line(billBoxX + billBoxW, sectionTopY, billBoxX + billBoxW, headerBottomY)
+    // Bottom line
+    pdf.line(billBoxX, headerBottomY, billBoxX + billBoxW, headerBottomY)
+
+    // Vertical dashed line separating left and right
+    pdf.setDrawColor(160, 160, 160)
+    pdf.setLineWidth(0.3)
+    const dashLen = 4
+    const gapLen = 3
+    let dashY = sectionTopY
+    while (dashY < sectionBottomY) {
+      const endY = Math.min(dashY + dashLen, sectionBottomY)
+      pdf.line(dividerX, dashY, dividerX, endY)
+      dashY += dashLen + gapLen
+    }
+
+    // Right side info — small outer box, no internal lines
+    const infoFields: [string, string][] = [
+      ['REQ :', reqCode],
+      ['REQ DATE:', reqDate],
+      ['CREATED BY:', createdBy],
+      ['REQUESTED BY:', requestedBy],
+      ['PAYMENT MODE:', modeOfPayment],
+      ['CURRENCY:', currencyCode],
+    ]
+    const ifRowH = 12
+    const ifLabelW = 80
+    const infoPadding = 4
+    const infoStartY = y + 16
+    const infoTotalH = infoFields.length * ifRowH + infoPadding * 2
+
+    // Dashed outer border — small compact box
+    pdf.setDrawColor(0)
+    pdf.setLineWidth(0.3)
+    const boxX = infoStartX
+    const boxY = infoStartY
+    const boxW = infoContentW
+    const boxH = infoTotalH
+    const bDash = 4
+    const bGap = 3
+    // Top edge
+    let dx = boxX
+    while (dx < boxX + boxW) { const end = Math.min(dx + bDash, boxX + boxW); pdf.line(dx, boxY, end, boxY); dx += bDash + bGap }
+    // Bottom edge
+    dx = boxX
+    while (dx < boxX + boxW) { const end = Math.min(dx + bDash, boxX + boxW); pdf.line(dx, boxY + boxH, end, boxY + boxH); dx += bDash + bGap }
+    // Left edge
+    let dy = boxY
+    while (dy < boxY + boxH) { const end = Math.min(dy + bDash, boxY + boxH); pdf.line(boxX, dy, boxX, end); dy += bDash + bGap }
+    // Right edge
+    dy = boxY
+    while (dy < boxY + boxH) { const end = Math.min(dy + bDash, boxY + boxH); pdf.line(boxX + boxW, dy, boxX + boxW, end); dy += bDash + bGap }
+
+    // Plain text rows inside — no row or column lines
+    infoFields.forEach(([label, value], i) => {
+      const fy = infoStartY + infoPadding + i * ifRowH
+      pdf.setFont('helvetica', 'bold')
+      pdf.setFontSize(7)
+      pdf.setTextColor(0, 0, 0)
+      pdf.text(label, infoStartX + 4, fy + 9)
+      pdf.setFont('helvetica', 'normal')
+      pdf.text(String(value || ''), infoStartX + ifLabelW + 4, fy + 9)
+    })
+
+    // Reset draw state after section
+    pdf.setDrawColor(0)
+    pdf.setLineWidth(0.5)
+
+    y = Math.max(billFieldsY + billFields.length * bfRowH, infoStartY + infoTotalH) + 10
+
+    // ── COST CENTER bar ──
+    const costCenter = requisition.value.branch?.name || ''
+    pdf.setDrawColor(0)
+    pdf.rect(margin, y, pageWidth - margin * 2, 16, 'S')
+    pdf.setFont('helvetica', 'bold')
+    pdf.setFontSize(9)
+    pdf.text(`  COST CENTER: ${costCenter.toUpperCase()}`, margin + 4, y + 11)
+    y += 16
+
+    // ── Items Table ──
+    const tableW = pageWidth - margin * 2
+    const colWidths = [35, 250, 60, 85, tableW - 35 - 250 - 60 - 85] // No. | DESC | QTY | PRICE | AMOUNT
+    const headerLabels = ['No.', 'DESCRIPTION', 'QUANTITY', 'PRICE', 'AMOUNT']
+    const rowH = 20
+
+    pdf.setDrawColor(0)
+    pdf.setLineWidth(0.5)
+
+    // ── Table Header ──
+    pdf.setFont('helvetica', 'bold')
+    pdf.setFontSize(9)
+    let hx = margin
+    headerLabels.forEach((label, i) => {
+      pdf.rect(hx, y, colWidths[i], rowH, 'S')
+      pdf.text(label, hx + colWidths[i] / 2, y + 13, { align: 'center' })
+      hx += colWidths[i]
+    })
+    y += rowH
+
+    // ── Remarks/Description row (spans first 4 cols, vertical line before AMOUNT only) ──
+    if (remarks) {
+      pdf.setFont('helvetica', 'bold')
+      pdf.setFontSize(8)
+      const remarkSpanW = colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3]
+      const remarkLines = pdf.splitTextToSize(remarks.toUpperCase(), remarkSpanW - 10)
+      const remarkH = Math.max(28, remarkLines.length * 11 + 10)
+      // Top and bottom horizontal lines (full width)
+      pdf.line(margin, y, margin + tableW, y)
+      pdf.line(margin, y + remarkH, margin + tableW, y + remarkH)
+      // Left border
+      pdf.line(margin, y, margin, y + remarkH)
+      // Right border
+      pdf.line(margin + tableW, y, margin + tableW, y + remarkH)
+      // Vertical line before AMOUNT column only
+      const amountLineX = margin + remarkSpanW
+      pdf.line(amountLineX, y, amountLineX, y + remarkH)
+      pdf.text(remarkLines, margin + 5, y + 12)
+      y += remarkH
+    }
+
+    // ── Item rows ──
+    const itemRowH = 40  // taller rows for multi-line descriptions
+    const itemStartY = y
+
+    // Draw items
+    detailRows.value.forEach((row, idx) => {
+      const ry = y
+      pdf.setFont('helvetica', 'normal')
       pdf.setFontSize(9)
-      positions.forEach((pos, idx) => {
-        const x = sigStartX + (idx + 1) * (lineLen + columnGap)
-        pdf.line(x, listStartY, x + lineLen, listStartY)
-        pdf.text(String(pos), x, listStartY + 12)
-        pdf.text('Date: ............', x, listStartY + 26)
-      })
+
+      // No.
+      pdf.text(String(idx + 1), margin + colWidths[0] / 2, ry + 14, { align: 'center' })
+
+      // Description (bold name, then details on lines below)
+      const descText = row.name || ''
+      const unitText = row.unit && row.unit !== '--' ? `(${row.unit})` : ''
+      pdf.setFont('helvetica', 'bold')
+      pdf.setFontSize(8)
+      // Wrap description text within column width
+      const descColW = colWidths[1] - 8
+      const descLines = pdf.splitTextToSize(descText, descColW)
+      pdf.text(descLines, margin + colWidths[0] + 4, ry + 12)
+      if (unitText) {
+        pdf.setFont('helvetica', 'normal')
+        pdf.setFontSize(7)
+        pdf.text(unitText, margin + colWidths[0] + 4, ry + 12 + descLines.length * 10)
+      }
+
+      // Quantity
+      pdf.setFont('helvetica', 'normal')
+      pdf.setFontSize(9)
+      pdf.text(String(row.quantity), margin + colWidths[0] + colWidths[1] + colWidths[2] / 2, ry + 14, { align: 'center' })
+
+      // Price
+      pdf.text(formatAmount(row.rate), margin + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] - 4, ry + 14, { align: 'right' })
+
+      // Amount
+      pdf.text(formatAmount(row.amount), margin + tableW - 4, ry + 14, { align: 'right' })
+
+      y += itemRowH
+    })
+
+    // Empty rows to fill minimum
+    const minRows = 6
+    const emptyRowsNeeded = Math.max(0, minRows - detailRows.value.length)
+    for (let i = 0; i < emptyRowsNeeded; i++) {
+      y += itemRowH
+    }
+
+    const subtotal = grandTotal.value
+    const vatAmount = detailRows.value.reduce((sum, row: any) => {
+      return sum + Number(row.vatAmount || 0)
+    }, 0)
+    const grandTotalWithVat = subtotal + vatAmount
+
+    // ── TOTAL / VAT / GRAND TOTAL rows (inside the same table) ──
+    const totRowH = 18
+    const priceColX = margin + colWidths[0] + colWidths[1] + colWidths[2]
+    const amountColX = priceColX + colWidths[3]
+    const tableEndX = margin + tableW
+
+    pdf.setFont('helvetica', 'bold')
+    pdf.setFontSize(9)
+    pdf.setDrawColor(0)
+    pdf.setLineWidth(0.5)
+
+    // TOTAL row
+    pdf.line(margin, y, tableEndX, y)  // horizontal line across full width
+    pdf.text('TOTAL', amountColX - 4, y + 12, { align: 'right' })
+    pdf.text(formatAmount(subtotal), tableEndX - 4, y + 12, { align: 'right' })
+    y += totRowH
+
+    // VAT row
+    pdf.line(priceColX, y, tableEndX, y)  // horizontal line (price+amount only)
+    pdf.text('VAT', amountColX - 4, y + 12, { align: 'right' })
+    pdf.text(formatAmount(vatAmount), tableEndX - 4, y + 12, { align: 'right' })
+    y += totRowH
+
+    // GRAND TOTAL row
+    pdf.line(priceColX, y, tableEndX, y)  // horizontal line (price+amount only)
+    pdf.text('GRAND TOTAL', amountColX - 4, y + 12, { align: 'right' })
+    pdf.text(formatAmount(grandTotalWithVat), tableEndX - 4, y + 12, { align: 'right' })
+    y += totRowH
+
+    // Draw outer border around entire table (items + totals, from itemStartY to y)
+    pdf.setDrawColor(0)
+    pdf.setLineWidth(0.5)
+    pdf.rect(margin, itemStartY, tableW, y - itemStartY, 'S')
+
+    // Draw vertical column lines through item rows area only (up to first total line)
+    const itemsEndY = itemStartY + (detailRows.value.length + emptyRowsNeeded) * itemRowH
+    let cx = margin
+    colWidths.forEach((cw, i) => {
+      if (i > 0) {
+        pdf.line(cx, itemStartY, cx, itemsEndY)
+      }
+      cx += cw
+    })
+
+    // Vertical divider between PRICE and AMOUNT in totals area (continuous, no gap)
+    const totalsStartY = itemsEndY
+    pdf.line(amountColX, totalsStartY, amountColX, y)
+    // Left border of totals area (close the left side at priceColX)
+    pdf.line(priceColX, totalsStartY, priceColX, y)
+
+    y += 10
+
+    // ── Amount in words ──
+    const currencyWord = (source?.currency?.name || currencyCode || '').toUpperCase()
+    const amountWords = `(${numberToWords(grandTotalWithVat).toUpperCase()} ${currencyWord} only.)`
+    pdf.setFont('helvetica', 'italic')
+    pdf.setFontSize(8)
+    const wordLines = pdf.splitTextToSize(amountWords, pageWidth - margin * 2)
+    pdf.text(wordLines, margin, y)
+    y += wordLines.length * 10 + 16
+
+    // ── Signatures ──
+    const positions = approverPositions.value
+    // "Prepared By" + all approval positions + "Managing Director"
+    const sigLabels = ['Prepared By', ...positions]
+    const sigCount = sigLabels.length
+    const sigGap = 8
+    const sigCellW = Math.floor((pageWidth - margin * 2 - sigGap * (sigCount - 1)) / sigCount)
+    const sigBlockH = 50
+    let sigY = pageHeight - margin - sigBlockH - 10
+
+    // If not enough room, add a page
+    if (y + 20 > sigY) {
+      pdf.addPage()
+      sigY = pageHeight - margin - sigBlockH - 10
+    }
+
+    pdf.setFontSize(8)
+    const stages = approvalStages.value || []
+    sigLabels.forEach((label, idx) => {
+      const sx = margin + idx * (sigCellW + sigGap)
+      // Signature line
+      pdf.setDrawColor(0)
+      pdf.line(sx, sigY, sx + sigCellW, sigY)
+
+      // Try to find approver name for this slot
+      let sigName = ''
+      let sigDate = ''
+      if (idx === 0) {
+        // Prepared By = requester
+        sigName = userLabel(requisition.value.requested_by_user || requisition.value.user)
+        sigDate = reqDate
+      } else if (idx <= stages.length) {
+        const stage = stages[idx - 1]
+        const stageApproval = stage?.approvals?.find((a: any) => a.status === 'APPROVED')
+        if (stageApproval) {
+          sigName = stageApproval.approved_by?.full_name
+            || stageApproval.handled_by?.full_name
+            || userLabel(stageApproval.approved_by || stageApproval.handled_by)
+          sigDate = formatDisplayDate(stageApproval.date)
+        }
+      }
+
+      // Name above line
+      if (sigName && sigName !== '--') {
+        pdf.setFont('helvetica', 'normal')
+        pdf.text(sigName, sx, sigY - 5)
+      }
+
+      // Label below line
+      pdf.setFont('helvetica', 'bold')
+      pdf.text(label, sx, sigY + 12)
+
+      // Date below label
+      pdf.setFont('helvetica', 'normal')
+      pdf.text(sigDate ? `Date: ${sigDate}` : 'Date: ............', sx, sigY + 24)
+    })
+
+    // ── APPROVED watermark (diagonal across entire page, well centered) ──
+    const reqStatus = (requisition.value.status || '').toUpperCase()
+    if (reqStatus === 'APPROVED' || reqStatus === 'COMPLETED' || reqStatus === 'FULLY_APPROVED' || reqStatus.includes('APPROV')) {
+      const totalPages = pdf.getNumberOfPages()
+      for (let p = 1; p <= totalPages; p++) {
+        pdf.setPage(p)
+        pdf.saveGraphicsState()
+        pdf.setTextColor(190, 190, 190)
+        pdf.setFont('helvetica', 'bold')
+        pdf.setFontSize(82)
+        // @ts-ignore – setGState for opacity
+        const gState = new (pdf as any).GState({ opacity: 0.22 })
+        pdf.setGState(gState)
+        // Center of page, shifted down so full word is visible
+        const pcx = pageWidth / 2
+        const pcy = (pageHeight / 2) + 80
+        pdf.text('APPROVED', pcx, pcy, {
+          align: 'center',
+          angle: 45,
+        })
+        pdf.restoreGraphicsState()
+      }
+      pdf.setPage(totalPages)
     }
 
     const blob = pdf.output('blob')

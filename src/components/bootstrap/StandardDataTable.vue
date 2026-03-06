@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, withDefaults } from 'vue'
+import { ref, computed, watch } from 'vue'
 
 interface TableColumn {
   key: string

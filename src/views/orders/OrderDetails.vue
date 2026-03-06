@@ -11,11 +11,41 @@
           </div>
           <!-- Quick Actions on the Right -->
           <div style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end;">
-            <button @click="previewOrderPdf" :disabled="downloadingPdf" class="btn btn-outline-primary btn-sm">
-              <span v-if="downloadingPdf" class="spinner-border spinner-border-sm me-1"></span>
-              <i v-else class="fa fa-file-pdf me-1"></i>
-              {{ downloadingPdf ? 'Downloading...' : 'Download PDF' }}
-            </button>
+            <div class="btn-group">
+              <button @click="previewOrderPdf" :disabled="downloadingPdf" class="btn btn-outline-primary btn-sm">
+                <span v-if="downloadingPdf" class="spinner-border spinner-border-sm me-1"></span>
+                <i v-else class="fa fa-file-pdf me-1"></i>
+                {{ downloadingPdf ? 'Generating...' : 'Download PDF' }}
+              </button>
+              <button
+                type="button"
+                class="btn btn-outline-primary btn-sm dropdown-toggle dropdown-toggle-split"
+                data-bs-toggle="dropdown"
+                aria-expanded="false"
+                :disabled="downloadingPdf"
+              >
+                <span class="visually-hidden">Toggle Dropdown</span>
+              </button>
+              <ul class="dropdown-menu dropdown-menu-end">
+                <li>
+                  <a class="dropdown-item" href="#" @click.prevent="previewOrderPdf">
+                    <i class="fa fa-file-pdf me-2"></i> Order PDF
+                  </a>
+                </li>
+                <li><hr class="dropdown-divider"></li>
+                <li class="dropdown-header">Sales Confirmation</li>
+                <li>
+                  <a class="dropdown-item" href="#" @click.prevent="previewSalesConfirmationPdf('both')">
+                    <i class="fa fa-file-pdf me-2"></i> Both Pages
+                  </a>
+                </li>
+                <li>
+                  <a class="dropdown-item" href="#" @click.prevent="previewSalesConfirmationPdf('1')">
+                    <i class="fa fa-file me-2"></i> First Page Only
+                  </a>
+                </li>
+              </ul>
+            </div>
             <button v-if="order.status !== 'APPROVED'" @click="editOrder" class="btn btn-outline-success btn-sm">
               <i class="fa fa-edit me-1"></i> Edit Order
             </button>
@@ -402,98 +432,180 @@
         <!-- LOGISTICS TAB -->
         <div id="logistics" class="tab-pane fade" :class="{ 'show active': activeTab === 'logistics' }"
           style="margin-bottom: 20px;">
-          <div v-if="logisticsTimeline.length > 0">
-            <h5 class="mb-3" style="border-bottom: 2px solid #e9ecef; padding-bottom: 10px; font-weight: 600;">
+
+          <!-- Header with Add button -->
+          <div class="d-flex justify-content-between align-items-center mb-3" style="border-bottom: 2px solid #e9ecef; padding-bottom: 10px;">
+            <h5 class="mb-0" style="font-weight: 600;">
               <i class="fa fa-truck me-2 text-primary"></i>Logistics & Accommodation
             </h5>
-            <div class="table-responsive">
-              <table class="table table-hover table-layout align-middle mb-0">
-                <thead style="background: #f8fafc;">
-                  <tr>
-                    <th style="width: 5%; text-align: center;">#</th>
-                    <th style="width: 12%;">Type</th>
-                    <th style="width: 25%;">Details</th>
-                    <th style="width: 20%;">Period</th>
-                    <th style="width: 14%; text-align: right;">Cost</th>
-                    <th style="width: 12%; text-align: center;">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="(logistics, idx) in logisticsTimeline" :key="idx">
-                    <td style="text-align: center; color: #94a3b8;">{{ (idx as number) + 1 }}</td>
-                    <td>
-                      <div style="display: flex; align-items: center; gap: 6px;">
-                        <i :class="getLogisticsIcon(logistics.type)" style="color: #2563eb;"></i>
-                        <span class="badge" :class="{
-                          'bg-primary': logistics.type === 'HOTEL',
-                          'bg-info': logistics.type === 'CHARTER',
-                          'bg-warning text-dark': logistics.type === 'TRANSFER' || logistics.type === 'AIRPORT',
-                          'bg-secondary': !['HOTEL', 'CHARTER', 'TRANSFER', 'AIRPORT'].includes(logistics.type)
-                        }">{{ logistics.type || 'OTHER' }}</span>
-                      </div>
-                    </td>
-                    <td>
-                      <strong style="font-size: 13px;">{{ logistics.title || getLogisticsTypeLabel(logistics.type)
-                        }}</strong>
-                      <div v-if="logistics.details" style="font-size: 11px; color: #64748b; margin-top: 2px;">{{
-                        logistics.details }}</div>
-                      <div v-if="logistics.hotel_name" style="font-size: 11px; color: #64748b; margin-top: 2px;">{{
-                        logistics.hotel_name }}</div>
-                      <div v-if="logistics.rooms" style="font-size: 11px; color: #64748b;">{{ logistics.rooms }}
-                        room(s), {{ logistics.nights }} night(s)</div>
-                      <div v-if="logistics.from_airport" style="font-size: 11px; color: #64748b;">{{
-                        logistics.from_airport }} → {{ logistics.to_airport }} ({{ logistics.seats }} seats)</div>
-                      <div v-if="logistics.from_location" style="font-size: 11px; color: #64748b;">{{
-                        logistics.from_location }} → {{ logistics.to_location }}</div>
-                    </td>
-                    <td>
-                      <div v-if="logistics.start_date || logistics.end_date" style="font-size: 12px;">
-                        <div v-if="logistics.start_date">{{ formatDate(logistics.start_date) }}</div>
-                        <div v-if="logistics.end_date" style="color: #64748b;">→ {{ formatDate(logistics.end_date) }}
-                        </div>
-                      </div>
-                      <span v-else style="color: #94a3b8; font-size: 12px;">—</span>
-                    </td>
-                    <td style="text-align: right;">
-                      <strong style="font-size: 13px;">{{ formatCurrency(logistics.estimated_amount || 0) }}</strong>
-                    </td>
-                    <td style="text-align: center;">
-                      <span :class="getLogisticsStatusBadge(logistics.status)" class="badge mb-1">{{ logistics.status
-                        }}</span>
-                      <div style="margin-top: 4px;">
-                        <button v-if="logistics.status === 'PLANNED'" class="btn btn-outline-info btn-sm"
-                          @click="updateLogisticsStatus(idx as number, 'BOOKED')" style="font-size: 10px; padding: 2px 8px;">
-                          <i class="fa fa-arrow-right me-1"></i>Book
-                        </button>
-                        <button v-else-if="logistics.status === 'BOOKED'" class="btn btn-outline-success btn-sm"
-                          @click="updateLogisticsStatus(idx as number, 'COMPLETED')" style="font-size: 10px; padding: 2px 8px;">
-                          <i class="fa fa-check me-1"></i>Complete
-                        </button>
-                        <span v-else-if="logistics.status === 'COMPLETED'" style="color: #10b981; font-size: 11px;">
-                          <i class="fa fa-check-circle"></i>
-                        </span>
-                      </div>
-                    </td>
-                  </tr>
-                </tbody>
-                <tfoot style="background: #f0fdf4; border-top: 2px solid #e2e8f0;">
-                  <tr>
-                    <td colspan="4" style="text-align: right; font-weight: 600; font-size: 13px; color: #334155;">
-                      Total ({{ logisticsTimeline.length }} items) &mdash;
-                      <span class="text-success">{{ logisticsSummary.booked }} booked</span>,
-                      <span class="text-warning">{{ logisticsSummary.pending }} pending</span>
-                    </td>
-                    <td style="text-align: right;">
-                      <strong style="font-size: 15px; color: #16a34a;">{{ logisticsSummary.totalCost }}</strong>
-                    </td>
-                    <td></td>
-                  </tr>
-                </tfoot>
-              </table>
+            <div>
+              <button v-if="editingLogistics.length > 0 || logisticsTimeline.length > 0" @click="saveLogisticsToServer"
+                class="btn btn-success btn-sm me-2" :disabled="savingLogistics || editingLogistics.length > 0">
+                <i class="fa fa-save me-1"></i>{{ savingLogistics ? 'Saving...' : 'Save' }}
+              </button>
+              <button @click="addNewLogistic" class="btn btn-primary btn-sm">
+                <i class="fa fa-plus me-1"></i>Add Logistics
+              </button>
             </div>
           </div>
-          <div v-else class="alert alert-info">
-            <i class="fa fa-inbox me-2"></i> No logistics records for this order
+
+          <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+              <thead style="background: #f8fafc;">
+                <tr>
+                  <th style="width: 5%; text-align: center;">#</th>
+                  <th style="width: 12%;">Type</th>
+                  <th style="width: 25%;">Details</th>
+                  <th style="width: 18%;">Period</th>
+                  <th style="width: 12%; text-align: right;">Cost</th>
+                  <th style="width: 12%; text-align: center;">Status</th>
+                  <th style="width: 10%; text-align: center;">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <!-- ─── Inline Add Form Rows ─── -->
+                <tr v-for="(editLog, eIdx) in editingLogistics" :key="`editing-${eIdx}`" style="background: #fffbeb;">
+                  <td style="text-align: center; color: #94a3b8;">
+                    <i class="fa fa-plus-circle text-primary"></i>
+                  </td>
+                  <td>
+                    <select v-model="editLog.logistics_type" class="form-select form-select-sm">
+                      <option value="">-- Type --</option>
+                      <option v-for="type in logisticsTypes" :key="type.id || type.key" :value="type.key || type.name || type.id">
+                        {{ type.key || type.name || type.id }}
+                      </option>
+                    </select>
+                  </td>
+                  <td>
+                    <!-- HOTEL -->
+                    <div v-if="editLog.logistics_type === 'HOTEL'" style="display: flex; gap: 6px; flex-direction: column;">
+                      <input v-model="editLog.hotel_name" placeholder="Hotel name" class="form-control form-control-sm" />
+                      <div style="display: flex; gap: 6px;">
+                        <input v-model="editLog.room_type" placeholder="Room type" class="form-control form-control-sm" style="flex:1;" />
+                        <input v-model.number="editLog.rooms" type="number" placeholder="Rooms" min="1" class="form-control form-control-sm" style="width:70px;" />
+                        <input v-model.number="editLog.nights" type="number" placeholder="Nights" min="1" class="form-control form-control-sm" style="width:70px;" />
+                      </div>
+                    </div>
+                    <!-- CHARTER -->
+                    <div v-else-if="editLog.logistics_type === 'CHARTER'" style="display: flex; gap: 6px;">
+                      <input v-model="editLog.from_location" placeholder="From (e.g., DAR)" class="form-control form-control-sm" style="flex:1;" />
+                      <input v-model="editLog.to_location" placeholder="To (e.g., ARK)" class="form-control form-control-sm" style="flex:1;" />
+                    </div>
+                    <!-- TRANSFER / AIRPORT -->
+                    <div v-else-if="['TRANSFER', 'AIRPORT'].includes(editLog.logistics_type)" style="display: flex; gap: 6px;">
+                      <input v-model="editLog.from_location" placeholder="From" class="form-control form-control-sm" style="flex:1;" />
+                      <input v-model="editLog.to_location" placeholder="To" class="form-control form-control-sm" style="flex:1;" />
+                    </div>
+                    <!-- OTHER / default -->
+                    <div v-else>
+                      <input v-model="editLog.description" placeholder="Description" class="form-control form-control-sm" />
+                    </div>
+                  </td>
+                  <td>
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                      <input v-model="editLog.start_datetime" type="date" class="form-control form-control-sm" />
+                      <input v-model="editLog.end_datetime" type="date" class="form-control form-control-sm" />
+                    </div>
+                  </td>
+                  <td>
+                    <input v-model.number="editLog.estimated_amount" type="number" placeholder="Amount" min="0" step="0.01" class="form-control form-control-sm" />
+                  </td>
+                  <td>
+                    <select v-model="editLog.status" class="form-select form-select-sm">
+                      <option value="">-- Status --</option>
+                      <option v-for="status in logisticsStatuses" :key="status.id || status.key" :value="status.key || status.name || status.id">
+                        {{ status.key || status.name || status.id }}
+                      </option>
+                    </select>
+                  </td>
+                  <td style="text-align: center;">
+                    <button @click="confirmAddLogistics(eIdx)" class="btn btn-success btn-sm me-1" title="Add">
+                      <i class="fa fa-check"></i>
+                    </button>
+                    <button @click="cancelEditingLogistics(eIdx)" class="btn btn-danger btn-sm" title="Cancel">
+                      <i class="fa fa-times"></i>
+                    </button>
+                  </td>
+                </tr>
+
+                <!-- ─── Existing Logistics Rows ─── -->
+                <tr v-for="(logistics, idx) in logisticsTimeline" :key="idx">
+                  <td style="text-align: center; color: #94a3b8;">{{ (idx as number) + 1 }}</td>
+                  <td>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                      <i :class="getLogisticsIcon(logistics.type)" style="color: #2563eb;"></i>
+                      <span class="badge" :class="{
+                        'bg-primary': logistics.type === 'HOTEL',
+                        'bg-info': logistics.type === 'CHARTER',
+                        'bg-warning text-dark': logistics.type === 'TRANSFER' || logistics.type === 'AIRPORT',
+                        'bg-secondary': !['HOTEL', 'CHARTER', 'TRANSFER', 'AIRPORT'].includes(logistics.type)
+                      }">{{ logistics.type || 'OTHER' }}</span>
+                    </div>
+                  </td>
+                  <td>
+                    <strong style="font-size: 13px;">{{ logistics.title || getLogisticsTypeLabel(logistics.type) }}</strong>
+                    <div v-if="logistics.details" style="font-size: 11px; color: #64748b; margin-top: 2px;">{{ logistics.details }}</div>
+                    <div v-if="logistics.hotel_name" style="font-size: 11px; color: #64748b; margin-top: 2px;">{{ logistics.hotel_name }}</div>
+                    <div v-if="logistics.rooms" style="font-size: 11px; color: #64748b;">{{ logistics.rooms }} room(s), {{ logistics.nights }} night(s)</div>
+                    <div v-if="logistics.from_airport" style="font-size: 11px; color: #64748b;">{{ logistics.from_airport }} → {{ logistics.to_airport }} ({{ logistics.seats }} seats)</div>
+                    <div v-if="logistics.from_location" style="font-size: 11px; color: #64748b;">{{ logistics.from_location }} → {{ logistics.to_location }}</div>
+                  </td>
+                  <td>
+                    <div v-if="logistics.start_date || logistics.end_date" style="font-size: 12px;">
+                      <div v-if="logistics.start_date">{{ formatDate(logistics.start_date) }}</div>
+                      <div v-if="logistics.end_date" style="color: #64748b;">→ {{ formatDate(logistics.end_date) }}</div>
+                    </div>
+                    <span v-else style="color: #94a3b8; font-size: 12px;">—</span>
+                  </td>
+                  <td style="text-align: right;">
+                    <strong style="font-size: 13px;">{{ formatCurrency(logistics.estimated_amount || 0) }}</strong>
+                  </td>
+                  <td style="text-align: center;">
+                    <span :class="getLogisticsStatusBadge(logistics.status)" class="badge mb-1">{{ logistics.status }}</span>
+                    <div style="margin-top: 4px;">
+                      <button v-if="logistics.status === 'PLANNED'" class="btn btn-outline-info btn-sm"
+                        @click="updateLogisticsStatus(idx as number, 'BOOKED')" style="font-size: 10px; padding: 2px 8px;">
+                        <i class="fa fa-arrow-right me-1"></i>Book
+                      </button>
+                      <button v-else-if="logistics.status === 'BOOKED'" class="btn btn-outline-success btn-sm"
+                        @click="updateLogisticsStatus(idx as number, 'COMPLETED')" style="font-size: 10px; padding: 2px 8px;">
+                        <i class="fa fa-check me-1"></i>Complete
+                      </button>
+                      <span v-else-if="logistics.status === 'COMPLETED'" style="color: #10b981; font-size: 11px;">
+                        <i class="fa fa-check-circle"></i>
+                      </span>
+                    </div>
+                  </td>
+                  <td style="text-align: center;">
+                    <button @click="removeLogisticsItem(idx as number)" class="btn btn-outline-danger btn-sm" title="Remove"
+                      style="font-size: 10px; padding: 2px 8px;">
+                      <i class="fa fa-trash"></i>
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+
+              <!-- Footer totals (shown only when there are items) -->
+              <tfoot v-if="logisticsTimeline.length > 0" style="background: #f0fdf4; border-top: 2px solid #e2e8f0;">
+                <tr>
+                  <td colspan="4" style="text-align: right; font-weight: 600; font-size: 13px; color: #334155;">
+                    Total ({{ logisticsTimeline.length }} items) &mdash;
+                    <span class="text-success">{{ logisticsSummary.booked }} booked</span>,
+                    <span class="text-warning">{{ logisticsSummary.pending }} pending</span>
+                  </td>
+                  <td style="text-align: right;">
+                    <strong style="font-size: 15px; color: #16a34a;">{{ logisticsSummary.totalCost }}</strong>
+                  </td>
+                  <td colspan="2"></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          <!-- Empty state: only show when no items AND no editing rows -->
+          <div v-if="logisticsTimeline.length === 0 && editingLogistics.length === 0" class="alert alert-info mt-3">
+            <i class="fa fa-inbox me-2"></i> No logistics records for this order.
+            Click <strong>Add Logistics</strong> above to add one.
           </div>
         </div>
       </div>
@@ -530,6 +642,44 @@ const downloadingPdf = ref(false)
 const loading = computed(() => orderStore.loading)
 const error = computed(() => orderStore.error)
 const order = computed(() => orderStore.currentOrder)
+const serverTotals = computed(() => orderStore.currentOrderTotals)
+
+// Logistics form state
+const editingLogistics = ref<any[]>([])
+const savingLogistics = ref(false)
+
+// Logistics types / statuses from store
+const logisticsTypes = computed(() => {
+  const types = orderStore.logisticsTypes || []
+  const labelToEnum: any = {
+    'Airport Transfer': 'AIRPORT', 'AIRPORT': 'AIRPORT',
+    'Charter Flight': 'CHARTER', 'CHARTER': 'CHARTER',
+    'Hotel Accommodation': 'HOTEL', 'HOTEL': 'HOTEL',
+    'Ground Transfer': 'TRANSFER', 'TRANSFER': 'TRANSFER',
+    'Other': 'OTHER', 'OTHER': 'OTHER',
+  }
+  const mapped = types.map((type: any) => {
+    const label = type.name || type.label || type.key || ''
+    const enumValue = labelToEnum[label] || label
+    return { id: type.id, key: enumValue, name: enumValue }
+  })
+  return mapped.length > 0 ? mapped : []
+})
+
+const logisticsStatuses = computed(() => {
+  const statuses = orderStore.logisticsStatuses || []
+  const labelToEnum: any = {
+    'Planned': 'PLANNED', 'PLANNED': 'PLANNED',
+    'Booked': 'BOOKED', 'BOOKED': 'BOOKED',
+    'Costed': 'COSTED', 'COSTED': 'COSTED',
+  }
+  const mapped = statuses.map((status: any) => {
+    const label = status.name || status.label || status.key || ''
+    const enumValue = labelToEnum[label] || label
+    return { id: status.id, key: enumValue, name: enumValue }
+  })
+  return mapped.length > 0 ? mapped : []
+})
 
 // Enquiry data for package/hunting details
 const enquiryData = ref<any>(null)
@@ -557,10 +707,18 @@ const extractHuntingType = (e: any): string | null => {
 
 const extractHuntingArea = (e: any): string | null => {
   if (!e) return null
-  return e.package_details?.area_name
+  return e.areas?.[0]?.location?.name
+    || e.areas?.[0]?.name
+    || e.package_details?.area_name
+    || e.price_structure_detail?.hunting_area?.name
+    || e.price_structure_detail?.area_name
+    || e.price_structure_detail?.location
     || e.pricings?.[0]?.price_structure_detail?.hunting_area?.name
+    || e.pricings?.[0]?.price_structure_detail?.area_name
+    || e.pricings?.[0]?.price_structure_detail?.location
     || e.hunting_area_name
     || e.hunting_area
+    || e.hunting_areas?.[0]?.name
     || null
 }
 
@@ -602,11 +760,22 @@ const orderHuntingArea = computed(() => {
   if (fromEnquiry) return fromEnquiry
   const o = order.value as any
   if (!o) return '-'
+  // Check directly on the order object
+  if (o.hunting_area_name) return o.hunting_area_name
+  if (o.hunting_area) return typeof o.hunting_area === 'object' ? o.hunting_area.name : o.hunting_area
+  // Check preferences
+  if (o.preferences?.hunting_area_name) return o.preferences.hunting_area_name
+  if (o.preferences?.hunting_area) return typeof o.preferences.hunting_area === 'object' ? o.preferences.hunting_area.name : o.preferences.hunting_area
+  // Check nested sales_details → salesEnquiry
   const sd = o.sales_details || o.sales_order_detail
   const sdObj = Array.isArray(sd) ? sd[0] : sd
   const nested = sdObj?.sales_enquiry || sdObj?.salesEnquiry || sdObj?.enquiry
   const fromNested = extractHuntingArea(nested)
   if (fromNested) return fromNested
+  // Check pricing within sales_details
+  const pricing = sdObj?.pricing || sdObj?.sales_enquiry_pricing
+  const fromPricing = extractHuntingArea(pricing)
+  if (fromPricing) return fromPricing
   return '-'
 })
 
@@ -645,13 +814,39 @@ const getStatusBadge = (status: string) => {
   return statusMap[status] || 'bg-secondary'
 }
 
-// Financial Summary
+// Financial Summary — uses pre-computed totals from the show endpoint (excludes trophy fees)
 const orderFinancial = computed(() => {
-  if (!order.value?.items) {
-    return { subtotal: 0, expenseIncluded: 0, vat: 0, grandTotal: 0 }
+  const t = serverTotals.value
+  if (t) {
+    // Backend provides totals that already exclude trophy fees
+    return {
+      subtotal: Number(t.items_total) || 0,
+      logisticsTotal: Number(t.logistics_total) || 0,
+      expenseIncluded: Number(t.expense_included) || 0,
+      vat: Number(t.vat_amount) || 0,
+      grandTotal: Number(t.grand_total) || 0,
+    }
   }
 
-  const subtotal = order.value.items.reduce((sum: number, item: any) => {
+  // Fallback: compute client-side if server totals are not available
+  if (!order.value?.items) {
+    return { subtotal: 0, logisticsTotal: 0, expenseIncluded: 0, vat: 0, grandTotal: 0 }
+  }
+
+  const orderItems = order.value.items.filter((item: any) => {
+    const fieldsToCheck = [
+      item.item_type, item.category, item.type,
+      item.item?.item_type, item.item?.category, item.item?.type,
+      item.item_category?.name, item.item_category?.code,
+      item.item?.item_category?.name, item.item?.item_category?.code,
+    ].map((f: any) => (f || '').toString().toUpperCase())
+    const isTrophy = fieldsToCheck.some(f => f === 'TROPHY' || f.includes('TROPHY'))
+    const description = (item.description || item.name || item.item?.name || '').toUpperCase()
+    const isTrophyByDesc = description.includes('TROPHY FEE') || description.includes('(TROPHY')
+    return !(isTrophy || isTrophyByDesc)
+  })
+
+  const subtotal = orderItems.reduce((sum: number, item: any) => {
     return sum + ((item.quantity || 0) * (item.rate || 0))
   }, 0)
 
@@ -661,7 +856,7 @@ const orderFinancial = computed(() => {
 
   const vat = subtotal * ((order.value.vat || 0) / 100)
   const expenseIncluded = Number(order.value.expense_included) || 0
-  const grandTotal = subtotal + logisticsTotal + vat + expenseIncluded
+  const grandTotal = subtotal + vat + expenseIncluded
 
   return { subtotal, logisticsTotal, expenseIncluded, vat, grandTotal }
 })
@@ -926,12 +1121,156 @@ const updateLogisticsStatus = async (idx: number, newStatus: string) => {
 
   if (confirmed.isConfirmed) {
     try {
-      // TODO: Call API to update logistics status
-      logistics.status = newStatus
+      // Update status via direct API call
+      await orderStore.updateOrderLogistics(order.value?.id, logistics.id, { status: newStatus })
+      // Refresh to get server data
+      await orderStore.getOrder(order.value?.id)
       init({ message: `Logistics status updated to ${newStatus}`, color: 'success' })
     } catch (err: any) {
-      init({ message: err?.message || 'Error updating status', color: 'danger' })
+      init({ message: err?.response?.data?.message || err?.message || 'Error updating status', color: 'danger' })
     }
+  }
+}
+
+// ─── Logistics CRUD (direct endpoints) ───
+
+const addNewLogistic = () => {
+  editingLogistics.value.push({
+    logistics_type: '',
+    description: '',
+    hotel_name: '',
+    room_type: '',
+    rooms: '',
+    nights: '',
+    from_airport: '',
+    to_airport: '',
+    seats: '',
+    from_location: '',
+    to_location: '',
+    start_datetime: '',
+    end_datetime: '',
+    estimated_amount: '',
+    status: 'PLANNED',
+    notes: '',
+  })
+}
+
+const normalizeLogisticsPayload = (log: any) => ({
+  logistics_type: log.logistics_type,
+  hotel_name: log.hotel_name || null,
+  room_type: log.room_type || null,
+  start_datetime: log.start_datetime ? (String(log.start_datetime).length === 10 ? log.start_datetime + ' 00:00:00' : log.start_datetime) : null,
+  end_datetime: log.end_datetime ? (String(log.end_datetime).length === 10 ? log.end_datetime + ' 00:00:00' : log.end_datetime) : null,
+  nights: Number(log.nights) >= 1 ? Number(log.nights) : 1,
+  rooms: Number(log.rooms) >= 1 ? Number(log.rooms) : 1,
+  from_location: log.from_location || null,
+  to_location: log.to_location || null,
+  estimated_amount: Number(log.estimated_amount) || 0,
+  status: log.status || 'PLANNED',
+  notes: log.description || log.notes || null,
+})
+
+const confirmAddLogistics = async (idx: number) => {
+  const item = editingLogistics.value[idx]
+  let isValid = false
+
+  if (item.logistics_type === 'HOTEL') {
+    item.rooms = Number(item.rooms) >= 1 ? Number(item.rooms) : 1
+    item.nights = Number(item.nights) >= 1 ? Number(item.nights) : 1
+    isValid = !!(item.hotel_name && item.rooms && item.nights)
+  } else if (item.logistics_type === 'CHARTER') {
+    isValid = !!(item.from_location && item.to_location)
+  } else if (item.logistics_type === 'TRANSFER' || item.logistics_type === 'AIRPORT') {
+    isValid = !!(item.from_location && item.to_location)
+  } else if (item.logistics_type === 'OTHER') {
+    isValid = !!item.description
+  } else {
+    init({ message: 'Please select logistics type', color: 'warning' })
+    return
+  }
+
+  if (!isValid) {
+    init({ message: 'Please fill all required fields for this logistics item', color: 'warning' })
+    return
+  }
+
+  // Push to order logistics array locally
+  const o = order.value as any
+  if (!o.logistics) o.logistics = []
+  o.logistics.push({ ...item })
+  editingLogistics.value.splice(idx, 1)
+  init({ message: 'Logistics added locally – click Save to persist', color: 'info' })
+}
+
+const cancelEditingLogistics = (idx: number) => {
+  editingLogistics.value.splice(idx, 1)
+}
+
+const removeLogisticsItem = async (idx: number) => {
+  const confirmed = await Swal.fire({
+    title: 'Remove Logistics?',
+    text: 'This logistics item will be removed from the order.',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'Yes, remove it',
+    confirmButtonColor: '#dc3545'
+  })
+  if (!confirmed.isConfirmed) return
+  const o = order.value as any
+  if (!o?.logistics) return
+  const logItem = o.logistics[idx]
+
+  try {
+    if (logItem?.id) {
+      // Delete from server directly
+      await orderStore.deleteOrderLogistics(o.id, logItem.id)
+    }
+    // Refresh order
+    await orderStore.getOrder(o.id)
+    init({ message: 'Logistics item removed', color: 'success' })
+  } catch (err: any) {
+    console.error('[OrderDetails] Delete logistics error:', err?.response?.data || err)
+    init({ message: err?.response?.data?.message || 'Error removing logistics', color: 'danger' })
+  }
+}
+
+const saveLogisticsToServer = async () => {
+  const o = order.value as any
+  if (!o?.id) return
+  savingLogistics.value = true
+  try {
+    const allLogistics = o.logistics || []
+    // Find new entries (those without an id — not yet persisted)
+    const newEntries = allLogistics.filter((log: any) => !log.id)
+    // Find existing entries with potential updates
+    const existingEntries = allLogistics.filter((log: any) => !!log.id)
+
+    console.log('[OrderDetails] New logistics to create:', newEntries.length)
+    console.log('[OrderDetails] Existing logistics to update:', existingEntries.length)
+
+    // Create new logistics via POST /orders/{id}/logistics
+    for (const log of newEntries) {
+      const payload = normalizeLogisticsPayload(log)
+      console.log('[OrderDetails] Creating logistics:', payload)
+      await orderStore.createOrderLogistics(o.id, payload)
+    }
+
+    // Update existing logistics via PUT /orders/{id}/logistics/{logId}
+    for (const log of existingEntries) {
+      const payload = normalizeLogisticsPayload(log)
+      await orderStore.updateOrderLogistics(o.id, log.id, payload)
+    }
+
+    // Refresh order data to get server-normalised results
+    await orderStore.getOrder(o.id)
+    console.log('[OrderDetails] Refreshed logistics count:', (orderStore.currentOrder as any)?.logistics?.length)
+    init({ message: 'Logistics saved successfully', color: 'success' })
+  } catch (err: any) {
+    console.error('[OrderDetails] Save logistics error:', err?.response?.data || err)
+    const msg = err?.response?.data?.message || err?.message || 'Error saving logistics'
+    init({ message: msg, color: 'danger' })
+  } finally {
+    savingLogistics.value = false
   }
 }
 
@@ -1019,14 +1358,108 @@ const previewOrderPdf = async () => {
   }
 }
 
+// Sales Confirmation PDF Preview
+const previewSalesConfirmationPdf = async (pages: string = 'both') => {
+  const orderId = route.params.id
+  if (!orderId) return
+
+  downloadingPdf.value = true
+  try {
+    let url = `${import.meta.env.VITE_APP_BASE_URL}orders/${orderId}/sales-confirmation-pdf?format=stream`
+    if (pages === '1') {
+      url += '&pages=1'
+    }
+
+    const response = await fetch(url)
+
+    if (!response.ok) {
+      throw new Error(`Server returned ${response.status}: ${response.statusText}`)
+    }
+
+    const contentType = response.headers.get('content-type') || ''
+    let blob: Blob
+
+    if (contentType.includes('application/pdf')) {
+      blob = await response.blob()
+    } else if (contentType.includes('application/json')) {
+      const data = await response.json()
+      if (data?.success && data?.pdf) {
+        const byteCharacters = atob(data.pdf)
+        const byteNumbers = new Array(byteCharacters.length)
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i)
+        }
+        const byteArray = new Uint8Array(byteNumbers)
+        blob = new Blob([byteArray], { type: 'application/pdf' })
+      } else {
+        throw new Error(data?.message || 'Failed to generate Sales Confirmation PDF')
+      }
+    } else {
+      // Fallback: try as blob and verify PDF magic bytes
+      blob = await response.blob()
+      const firstBytes = await blob.slice(0, 4).arrayBuffer()
+      const uint8Array = new Uint8Array(firstBytes)
+      if (!(uint8Array[0] === 0x25 && uint8Array[1] === 0x50 && uint8Array[2] === 0x44 && uint8Array[3] === 0x46)) {
+        const text = await blob.text()
+        const data = JSON.parse(text)
+        if (data?.success && data?.pdf) {
+          const byteCharacters = atob(data.pdf)
+          const byteNumbers = new Array(byteCharacters.length)
+          for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i)
+          }
+          const byteArray = new Uint8Array(byteNumbers)
+          blob = new Blob([byteArray], { type: 'application/pdf' })
+        } else {
+          throw new Error(data?.message || 'Failed to generate Sales Confirmation PDF')
+        }
+      }
+    }
+
+    const pdfUrl = URL.createObjectURL(blob)
+    window.open(pdfUrl, '_blank')
+  } catch (err) {
+    console.error('Error previewing Sales Confirmation PDF:', err)
+    Swal.fire('Error', 'Failed to load Sales Confirmation PDF preview', 'error')
+  } finally {
+    downloadingPdf.value = false
+  }
+}
+
 // Lifecycle
 onMounted(async () => {
+  // Fetch logistics types and statuses in parallel
+  orderStore.fetchLogisticsTypes()
+  orderStore.fetchLogisticsStatuses()
+
   if (route.params.id) {
     try {
       await orderStore.getOrder(Number(route.params.id))
       const o = orderStore.currentOrder as any
       if (o) {
         console.log('[OrderDetails] All keys:', Object.keys(o))
+        // DEBUG: Log item structure to understand TROPHY filtering
+        if (o.items && o.items.length > 0) {
+          console.log('[OrderDetails] ITEMS COUNT:', o.items.length)
+          console.log('[OrderDetails] FIRST ITEM ALL KEYS:', Object.keys(o.items[0]))
+          o.items.forEach((item: any, idx: number) => {
+            console.log(`[OrderDetails] ITEM[${idx}]:`, {
+              item_type: item.item_type,
+              type: item.type,
+              category: item.category,
+              item_category_id: item.item_category_id,
+              description: item.description,
+              name: item.name,
+              rate: item.rate,
+              quantity: item.quantity,
+              line_total: item.line_total,
+              nested_item: item.item ? { item_type: item.item.item_type, type: item.item.type, category: item.item.category, name: item.item.name } : 'NO NESTED ITEM',
+              item_category: item.item_category ? item.item_category : 'NO item_category',
+            })
+          })
+        } else {
+          console.log('[OrderDetails] NO ITEMS on order!')
+        }
         console.log('[OrderDetails] sales_details:', o.sales_details)
         console.log('[OrderDetails] sales_order_detail:', o.sales_order_detail)
         console.log('[OrderDetails] preferences:', JSON.stringify(o.preferences))

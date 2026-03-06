@@ -7,7 +7,7 @@
       </div>
     </div>
 
-    <div class="card mx-4 mb-4">
+    <div class="card mx-4 mb-4 p-3">
       <StandardDataTable :columns="columns" :data="users" :loading="loading" :disable-search="false"
         :disable-pagination="false" :show-date-filters="false" :action-buttons="pageActions"
         :custom-filters="customFilters" @update:filters="handleFiltersUpdate">

@@ -146,10 +146,16 @@ export const useAppSidebarMenuStore = defineStore("appSidebarMenu", () => {
       ]
     },
     {
+      url: '/inspections',
+      icon: 'fa fa-clipboard-check',
+      text: 'Inspections',
+      permission: 'CAN_VIEW_INSPECTIONS',
+    },
+    {
       url: '/sales/requisitions',
       icon: 'fa fa-file-alt',
       text: 'Requisitions',
-      permission: 'CAN_VIEW_SALES',
+      permission: 'CAN_VIEW_REQUISITIONS',
     },
     {
       url: '/accounting',
@@ -182,15 +188,15 @@ export const useAppSidebarMenuStore = defineStore("appSidebarMenu", () => {
       text: 'HRM',
       permission: 'CAN_VIEW_HR',
     },
-    {
-      url: '/administration',
-      icon: 'fa fa-folder-open',
-      text: 'Administration',
-      permission: 'CAN_VIEW_ADMINISTRATION',
-      children: [
-        { url: '/location-master', icon: 'fa fa-map-marker-alt', text: 'Location Master' },
-      ]
-    },
+    // {
+    //   url: '/administration',
+    //   icon: 'fa fa-folder-open',
+    //   text: 'Administration',
+    //   permission: 'CAN_VIEW_ADMINISTRATION',
+    //   children: [
+    //     { url: '/location-master', icon: 'fa fa-map-marker-alt', text: 'Location Master' },
+    //   ]
+    // },
     {
       url: '/reports',
       icon: 'fa fa-file-alt',
@@ -253,7 +259,7 @@ export const useAppSidebarMenuStore = defineStore("appSidebarMenu", () => {
         { url: '/module-settings/area-settings', text: 'Hunting Areas', permission: 'CAN_VIEW_AREA_SETTINGS' },
         { url: '/module-settings/hunting-types', text: 'Hunting Types', permission: 'CAN_VIEW_HUNTING_TYPES' },
         { url: '/module-settings/seasons', text: 'Seasons', permission: 'CAN_VIEW_SETTINGS' },
-        // { url: '/module-settings/installment-setups', text: 'Installment Setups', permission: 'CAN_VIEW_MODULE_SETTINGS' },
+        { url: '/module-settings/installment-setups', text: 'Installment Setups', permission: 'CAN_VIEW_MODULE_SETTINGS' },
         { url: '/module-settings/sales-package', text: 'Sales Package', permission: 'CAN_VIEW_SALES_PACKAGE' },
         
       ],
@@ -308,6 +314,7 @@ export const useAppSidebarMenuStore = defineStore("appSidebarMenu", () => {
             { url: '/module-settings/vehicle-models', text: 'Vehicle Models', permission: 'CAN_VIEW_MODULE_SETTINGS' },
           ],
         },
+         { url: '/location-master', icon: 'fa fa-map-marker-alt', text: 'Location Master' },
         {
           text: 'CRM Settings',
           is_header: false,
@@ -331,44 +338,54 @@ export const useAppSidebarMenuStore = defineStore("appSidebarMenu", () => {
             { url: '/module-settings/revenue-recognition', text: 'Revenue Recognition Rules', permission: 'CAN_VIEW_MODULE_SETTINGS' },
           ],
         },
+        {
+          text: 'Workshop Settings',
+          permission: 'CAN_VIEW_MODULE_SETTINGS',
+          children: [
+            { url: '/inspections/templates', text: 'Inspection Settings', permission: 'CAN_VIEW_MODULE_SETTINGS' },
+            { url: '/module-settings/inspection-settings', text: 'Maintenance Settings', permission: 'CAN_VIEW_MODULE_SETTINGS' },
+          ],
+        },
+        // { url: '/module-settings/users', text: 'User & Access Management', permission: 'CAN_VIEW_MODULE_SETTINGS' },
       ],
     },
-    // {
-    //   url: '/settings/operations',
-    //   icon: 'fa fa-tasks',
-    //   text: 'Operations Setup',
-    //   permission: 'CAN_VIEW_SETTINGS',
-    //   children: [
-    //     { url: '/module-settings/requisition-types', text: 'Requisition Types', permission: 'CAN_VIEW_MODULE_SETTINGS' },
-    //     { url: '/module-settings/approval-chain', text: 'Approval Chain', permission: 'CAN_VIEW_APPROVAL_CHAIN' },
-    //     { url: '/module-settings/contract-types', text: 'Contract Types', permission: 'CAN_VIEW_MODULE_SETTINGS' },
-    //     { url: '/module-settings/approval-levels', text: 'Approval Levels', permission: 'CAN_VIEW_MODULE_SETTINGS' },
-    //     { url: '/module-settings/escalation-rules', text: 'Escalation Rules', permission: 'CAN_VIEW_MODULE_SETTINGS' },
-    //     { url: '/module-settings/delegation-rules', text: 'Delegation Rules', permission: 'CAN_VIEW_MODULE_SETTINGS' },
-    //   ],
-    // },
-    // {
-    //   url: '/settings/system-config',
-    //   icon: 'fa fa-wrench',
-    //   text: 'System Configuration',
-    //   permission: 'CAN_VIEW_SETTINGS',
-    //   children: [
-    //     { url: '/module-settings', text: 'Module Settings', permission: 'CAN_VIEW_MODULE_SETTINGS' },
-    //     { url: '/module-settings/numbering-series', text: 'Numbering Series', permission: 'CAN_VIEW_MODULE_SETTINGS' },
-    //     { url: '/module-settings/date-time-formats', text: 'Date & Time Formats', permission: 'CAN_VIEW_MODULE_SETTINGS' },
-    //     { url: '/module-settings/localization', text: 'Localization', permission: 'CAN_VIEW_MODULE_SETTINGS' },
-    //     { url: '/module-settings/notifications', text: 'Notification Settings', permission: 'CAN_VIEW_MODULE_SETTINGS' },
-    //     { url: '/module-settings/audit-logs', text: 'Audit Logs', permission: 'CAN_VIEW_MODULE_SETTINGS' },
-    //     { url: '/module-settings/user-access', text: 'User & Access Management', permission: 'CAN_VIEW_SETTINGS' },
-    //   ],
-    // },
-    // {
-    //   url: '/preferences',
-    //   icon: 'fa fa-sliders-h',
-    //   text: 'Preferences',
-    //   permission: 'CAN_VIEW_PREFERENCES',
-    // },
-    // // ...existing code...
+    {
+      url: '/settings/operations',
+      icon: 'fa fa-tasks',
+      text: 'Operations Setup',
+      permission: 'CAN_VIEW_SETTINGS',
+      children: [
+        { url: '/module-settings/requisition-types', text: 'Requisition Types', permission: 'CAN_VIEW_MODULE_SETTINGS' },
+        { url: '/module-settings/approval-chain', text: 'Approval Chain', permission: 'CAN_VIEW_APPROVAL_CHAIN' },
+        { url: '/module-settings/contract-types', text: 'Contract Types', permission: 'CAN_VIEW_MODULE_SETTINGS' },
+        { url: '/module-settings/cost-centers', text: 'Cost Centers', permission: 'CAN_VIEW_MODULE_SETTINGS' },
+        { url: '/module-settings/approval-levels', text: 'Approval Levels', permission: 'CAN_VIEW_MODULE_SETTINGS' },
+        { url: '/module-settings/escalation-rules', text: 'Escalation Rules', permission: 'CAN_VIEW_MODULE_SETTINGS' },
+        { url: '/module-settings/delegation-rules', text: 'Delegation Rules', permission: 'CAN_VIEW_MODULE_SETTINGS' },
+      ],
+    },
+    {
+      url: '/settings/system-config',
+      icon: 'fa fa-wrench',
+      text: 'System Configuration',
+      permission: 'CAN_VIEW_SETTINGS',
+      children: [
+        { url: '/module-settings', text: 'Module Settings', permission: 'CAN_VIEW_MODULE_SETTINGS' },
+        { url: '/module-settings/numbering-series', text: 'Numbering Series', permission: 'CAN_VIEW_MODULE_SETTINGS' },
+        { url: '/module-settings/date-time-formats', text: 'Date & Time Formats', permission: 'CAN_VIEW_MODULE_SETTINGS' },
+        { url: '/module-settings/localization', text: 'Localization', permission: 'CAN_VIEW_MODULE_SETTINGS' },
+        { url: '/module-settings/notifications', text: 'Notification Settings', permission: 'CAN_VIEW_MODULE_SETTINGS' },
+        { url: '/module-settings/audit-logs', text: 'Audit Logs', permission: 'CAN_VIEW_MODULE_SETTINGS' },
+        { url: '/module-settings/users', text: 'User & Access Management', permission: 'CAN_VIEW_MODULE_SETTINGS' },
+      ],
+    },
+    {
+      url: '/preferences',
+      icon: 'fa fa-sliders-h',
+      text: 'Preferences',
+      permission: 'CAN_VIEW_PREFERENCES',
+    },
+    // ...existing code...
 
 
 

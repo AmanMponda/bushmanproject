@@ -1,6 +1,8 @@
 /// <reference types="vite/client" />
 /// <reference types="vue/ref-macros" />
 
+declare module 'bootstrap'
+
 declare module 'pinia' {
   export function defineStore<Id extends string, S, G, A>(
     id: Id,

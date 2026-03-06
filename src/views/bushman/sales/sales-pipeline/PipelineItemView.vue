@@ -63,13 +63,34 @@
                 <button class="btn btn-outline-warning text-nowrap btn-sm px-3 rounded-pill" @click="handleEdit">
                   <i class="fa fa-pen me-1"></i> Edit
                 </button>
-                <button
-                  v-if="proposal && proposal.id"
-                  class="btn btn-outline-primary text-nowrap btn-sm px-3 rounded-pill"
-                  @click="handleDownloadPdf"
-                >
-                  <i class="fa fa-download me-1"></i> Download PDF
-                </button>
+                <div v-if="proposal && proposal.id" class="btn-group">
+                  <button
+                    class="btn btn-outline-primary text-nowrap btn-sm px-3 rounded-pill"
+                    @click="handleDownloadPdf('both')"
+                  >
+                    <i class="fa fa-download me-1"></i> Download PDF
+                  </button>
+                  <button
+                    type="button"
+                    class="btn btn-outline-primary btn-sm rounded-pill dropdown-toggle dropdown-toggle-split"
+                    data-bs-toggle="dropdown"
+                    aria-expanded="false"
+                  >
+                    <span class="visually-hidden">Toggle Dropdown</span>
+                  </button>
+                  <ul class="dropdown-menu dropdown-menu-end">
+                    <li>
+                      <a class="dropdown-item" href="#" @click.prevent="handleDownloadPdf('both')">
+                        <i class="fa fa-file-pdf me-2"></i> Both Pages
+                      </a>
+                    </li>
+                    <li>
+                      <a class="dropdown-item" href="#" @click.prevent="handleDownloadPdf('1')">
+                        <i class="fa fa-file me-2"></i> First Page Only
+                      </a>
+                    </li>
+                  </ul>
+                </div>
               </div>
             </div>
 
@@ -373,7 +394,7 @@ const getStatusBadgeClass = (status: string): string => {
   return 'bg-secondary'
 }
 
-const handleDownloadPdf = async () => {
+const handleDownloadPdf = async (pages: string = 'both') => {
   if (!proposal.value?.id) {
     toast?.init({
       message: 'No proposal selected',
@@ -388,9 +409,17 @@ const handleDownloadPdf = async () => {
       color: 'info',
     })
 
-    const response = await fetch(
-      `${import.meta.env.VITE_APP_BASE_URL}sales-confirmation/proposals/${proposal.value.id}/pdf`,
-    )
+    // Build URL with format=stream and optional pages parameter
+    let url = `${import.meta.env.VITE_APP_BASE_URL}orders/${proposal.value.id}/sales-confirmation-pdf?format=stream`
+    if (pages === '1') {
+      url += '&pages=1'
+    }
+
+    const response = await fetch(url)
+
+    if (!response.ok) {
+      throw new Error(`Server returned ${response.status}: ${response.statusText}`)
+    }
 
     // Check content type to handle both direct PDF and JSON responses
     const contentType = response.headers.get('content-type') || ''
@@ -416,32 +445,13 @@ const handleDownloadPdf = async () => {
       }
     } else {
       // Try as blob first (in case content-type header is missing)
-      try {
-        blob = await response.blob()
-        // Verify it's a PDF by checking the first bytes
-        const firstBytes = await blob.slice(0, 4).arrayBuffer()
-        const uint8Array = new Uint8Array(firstBytes)
-        if (uint8Array[0] === 0x25 && uint8Array[1] === 0x50 && uint8Array[2] === 0x44 && uint8Array[3] === 0x46) {
-          // It's a PDF (starts with %PDF)
-        } else {
-          // Try parsing as JSON
-          const text = await blob.text()
-          const data = JSON.parse(text)
-          if (data.success && data.pdf) {
-            const byteCharacters = atob(data.pdf)
-            const byteNumbers = new Array(byteCharacters.length)
-            for (let i = 0; i < byteCharacters.length; i++) {
-              byteNumbers[i] = byteCharacters.charCodeAt(i)
-            }
-            const byteArray = new Uint8Array(byteNumbers)
-            blob = new Blob([byteArray], { type: 'application/pdf' })
-          } else {
-            throw new Error(data.message || 'Failed to generate PDF')
-          }
-        }
-      } catch (blobError) {
-        // If blob parsing fails, try as JSON
-        const text = await response.text()
+      blob = await response.blob()
+      // Verify it's a PDF by checking the first bytes
+      const firstBytes = await blob.slice(0, 4).arrayBuffer()
+      const uint8Array = new Uint8Array(firstBytes)
+      if (!(uint8Array[0] === 0x25 && uint8Array[1] === 0x50 && uint8Array[2] === 0x44 && uint8Array[3] === 0x46)) {
+        // Not a PDF — try parsing as JSON
+        const text = await blob.text()
         const data = JSON.parse(text)
         if (data.success && data.pdf) {
           const byteCharacters = atob(data.pdf)
@@ -457,18 +467,12 @@ const handleDownloadPdf = async () => {
       }
     }
 
-    // Download the blob
-    const url = window.URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `Sales_Confirmation_${proposal.value.client?.full_name || 'Proposal'}.pdf`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    window.URL.revokeObjectURL(url)
+    // Open in browser tab for preview
+    const blobUrl = window.URL.createObjectURL(blob)
+    window.open(blobUrl, '_blank')
 
     toast?.init({
-      message: 'PDF downloaded successfully',
+      message: 'PDF opened in new tab',
       color: 'success',
     })
   } catch (err: any) {

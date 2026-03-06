@@ -1,7 +1,17 @@
 /**
  * Installment Service
- * Manages payment plan installment templates and calculations
+ *
+ * DEPRECATED: Payment plan templates are now fetched from the backend
+ * via the `installment-setups/templates` API endpoint.
+ *
+ * See: order-store.ts → fetchPaymentPlanTemplates()
+ * Admin UI: ManageInstallmentSetups.vue (Module Settings → Installment Setups)
+ *
+ * This file only contains shared TypeScript interfaces and utility helpers.
+ * All hardcoded template constants have been removed.
  */
+
+// ─── Shared Interfaces ───
 
 export interface InstallmentStage {
   sequenceNo: number
@@ -12,6 +22,7 @@ export interface InstallmentStage {
   dueDays: number
   dueDaysType: 'AFTER_INVOICE' | 'AFTER_DELIVERY' | 'AFTER_CONFIRMATION'
   isDeposit: boolean
+  isTrophyDeposit?: boolean
   description: string
 }
 
@@ -20,181 +31,6 @@ export interface PaymentPlanTemplate {
   name: string
   description: string
   stages: InstallmentStage[]
-}
-
-/**
- * Standard 4-Stage Payment Plan Template
- * Used for trophy hunt bookings with structured payment phases
- */
-export const FOUR_STAGE_PAYMENT_PLAN: PaymentPlanTemplate = {
-  id: 'four_stage',
-  name: '4-Stage Payment Plan',
-  description: 'Standard 4-stage payment plan for trophy hunt bookings',
-  stages: [
-    {
-      sequenceNo: 1,
-      name: 'Total Deposit',
-      narration: 'Initial deposit upon booking confirmation',
-      amountDue: 0, // To be set as percentage or fixed amount
-      amountDueType: 'PERCENTAGE',
-      dueDays: 0,
-      dueDaysType: 'AFTER_CONFIRMATION',
-      isDeposit: true,
-      description: 'Due immediately upon booking confirmation. This secures your booking slot.',
-    },
-    {
-      sequenceNo: 2,
-      name: '2nd Deposit',
-      narration: 'Second deposit payment',
-      amountDue: 0, // To be set as percentage or fixed amount
-      amountDueType: 'PERCENTAGE',
-      dueDays: 365, // One year prior to trip
-      dueDaysType: 'AFTER_CONFIRMATION',
-      isDeposit: true,
-      description: 'Due one year prior to departure. This confirms your commitment and helps with planning.',
-    },
-    {
-      sequenceNo: 3,
-      name: 'Final Payment',
-      narration: 'Final payment due before departure',
-      amountDue: 0, // To be set as percentage or fixed amount
-      amountDueType: 'PERCENTAGE',
-      dueDays: 90,
-      dueDaysType: 'AFTER_DELIVERY',
-      isDeposit: false,
-      description: 'Due 90 days prior to your trip departure. This is the main payment for the hunt.',
-    },
-    {
-      sequenceNo: 4,
-      name: 'Trophy Deposit',
-      narration: 'Trophy mounting and shipping deposit',
-      amountDue: 0, // To be set as percentage or fixed amount
-      amountDueType: 'PERCENTAGE',
-      dueDays: 45,
-      dueDaysType: 'AFTER_CONFIRMATION',
-      isDeposit: true,
-      description: 'Due 45 days prior to departure. Covers trophy mounting, shipping, and insurance costs.',
-    },
-  ],
-}
-
-/**
- * Alternative 3-Stage Payment Plan
- * Simpler payment structure
- */
-export const THREE_STAGE_PAYMENT_PLAN: PaymentPlanTemplate = {
-  id: 'three_stage',
-  name: '3-Stage Payment Plan',
-  description: 'Simplified 3-stage payment plan',
-  stages: [
-    {
-      sequenceNo: 1,
-      name: 'Deposit',
-      narration: 'Initial deposit',
-      amountDue: 30,
-      amountDueType: 'PERCENTAGE',
-      dueDays: 0,
-      dueDaysType: 'AFTER_CONFIRMATION',
-      isDeposit: true,
-      description: 'Due upon booking.',
-    },
-    {
-      sequenceNo: 2,
-      name: 'Second Payment',
-      narration: 'Second payment',
-      amountDue: 30,
-      amountDueType: 'PERCENTAGE',
-      dueDays: 180,
-      dueDaysType: 'AFTER_CONFIRMATION',
-      isDeposit: false,
-      description: 'Due 6 months before departure.',
-    },
-    {
-      sequenceNo: 3,
-      name: 'Final Payment',
-      narration: 'Final payment',
-      amountDue: 40,
-      amountDueType: 'PERCENTAGE',
-      dueDays: 30,
-      dueDaysType: 'AFTER_DELIVERY',
-      isDeposit: false,
-      description: 'Due 30 days before departure.',
-    },
-  ],
-}
-
-/**
- * 50-50 Payment Plan (Deposit + Final)
- * Simple two-stage payment
- */
-export const TWO_STAGE_PAYMENT_PLAN: PaymentPlanTemplate = {
-  id: 'two_stage',
-  name: '50-50 Payment Plan',
-  description: 'Simple split payment: 50% deposit and 50% final payment',
-  stages: [
-    {
-      sequenceNo: 1,
-      name: 'Deposit',
-      narration: 'Initial 50% deposit',
-      amountDue: 50,
-      amountDueType: 'PERCENTAGE',
-      dueDays: 0,
-      dueDaysType: 'AFTER_CONFIRMATION',
-      isDeposit: true,
-      description: 'Due upon booking.',
-    },
-    {
-      sequenceNo: 2,
-      name: 'Final Payment',
-      narration: 'Final 50% payment',
-      amountDue: 50,
-      amountDueType: 'PERCENTAGE',
-      dueDays: 30,
-      dueDaysType: 'AFTER_DELIVERY',
-      isDeposit: false,
-      description: 'Due 30 days before departure.',
-    },
-  ],
-}
-
-/**
- * Get all available payment plan templates
- */
-export function getPaymentPlanTemplates(): PaymentPlanTemplate[] {
-  return [FOUR_STAGE_PAYMENT_PLAN, THREE_STAGE_PAYMENT_PLAN, TWO_STAGE_PAYMENT_PLAN]
-}
-
-/**
- * Get a specific payment plan template by ID
- */
-export function getPaymentPlanTemplate(templateId: string): PaymentPlanTemplate | null {
-  const templates = getPaymentPlanTemplates()
-  return templates.find((t) => t.id === templateId) || null
-}
-
-/**
- * Apply a payment plan template to generate installments
- * @param template - The payment plan template to apply
- * @param totalAmount - Total order amount (for percentage calculations)
- * @returns Array of installment stages configured for the order
- */
-export function applyPaymentPlanTemplate(
-  template: PaymentPlanTemplate,
-  totalAmount: number = 0
-): InstallmentStage[] {
-  return template.stages.map((stage) => {
-    let finalAmount = stage.amountDue
-
-    // Calculate fixed amount if using percentage
-    if (stage.amountDueType === 'PERCENTAGE' && totalAmount > 0) {
-      finalAmount = (stage.amountDue / 100) * totalAmount
-    }
-
-    return {
-      ...stage,
-      amountDue: finalAmount,
-    }
-  })
 }
 
 /**

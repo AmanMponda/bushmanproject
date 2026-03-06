@@ -230,45 +230,47 @@ const getCustomerName = (order: any) => {
 }
 
 const calculateTotalAmount = (order: any): number => {
-  // First, use grand_total if set (includes items + logistics + charges - discount)
+  // Always compute from items when available to ensure trophy fees and logistics are excluded
+  if (order.items && Array.isArray(order.items) && order.items.length > 0) {
+    const itemsSubtotal = order.items
+      .filter((item: any) => {
+        // Exclude TROPHY items — they are informational only
+        const fieldsToCheck = [
+          item.item_type, item.type, item.category,
+          item.item?.item_type, item.item?.type, item.item?.category,
+        ].map((f: any) => (f || '').toString().toUpperCase())
+        const isTrophy = fieldsToCheck.some(f => f === 'TROPHY' || f.includes('TROPHY'))
+        const desc = (item.description || item.name || item.item?.name || '').toUpperCase()
+        const isTrophyByDesc = desc.includes('TROPHY FEE') || desc.includes('(TROPHY')
+        return !(isTrophy || isTrophyByDesc)
+      })
+      .reduce((sum: number, item: any) => {
+        const qty = Number(item.quantity) || 0
+        const rate = Number(item.rate) || Number(item.unit_price) || Number(item.price) || 0
+        const lineTotal = Number(item.line_total) || Number(item.total) || Number(item.amount) || (qty * rate)
+        return sum + lineTotal
+      }, 0)
+
+    // VAT on items only
+    const vatPct = Number(order.vat) || 0
+    const vatAmount = Math.round((vatPct / 100) * itemsSubtotal * 100) / 100
+
+    // Expense included
+    const expenseIncluded = Number(order.expense_included) || 0
+
+    // Logistics are NOT included in grand total — they are tracked separately
+    return itemsSubtotal + vatAmount + expenseIncluded
+  }
+
+  // Fallback: use backend-stored totals when items are not loaded
   if (order.grand_total && Number(order.grand_total) > 0) {
     return Number(order.grand_total)
   }
-
-  // Second, use the total_amount if already calculated by backend
   if (order.total_amount && Number(order.total_amount) > 0) {
     return Number(order.total_amount)
   }
 
-  // Calculate from items, logistics, charges, discount
-  let itemsSubtotal = 0
-  if (order.items && Array.isArray(order.items) && order.items.length > 0) {
-    itemsSubtotal = order.items.reduce((sum: number, item: any) => {
-      const qty = Number(item.quantity) || 0
-      const rate = Number(item.rate) || Number(item.unit_price) || Number(item.price) || 0
-      const lineTotal = Number(item.line_total) || Number(item.total) || Number(item.amount) || (qty * rate)
-      return sum + lineTotal
-    }, 0)
-  }
-
-  // Add logistics
-  let logisticsTotal = 0
-  if (order.logistics && Array.isArray(order.logistics)) {
-    logisticsTotal = order.logistics.reduce((sum: number, l: any) => {
-      return sum + (Number(l.estimated_amount) || Number(l.amount) || 0)
-    }, 0)
-  }
-
-  // VAT on items only
-  const vatPct = Number(order.vat) || 0
-  const vatAmount = Math.round((vatPct / 100) * itemsSubtotal * 100) / 100
-
-  // Expense included
-  const expenseIncluded = Number(order.expense_included) || 0
-
-  const grandTotal = itemsSubtotal + logisticsTotal + vatAmount + expenseIncluded
-
-  return grandTotal > 0 ? grandTotal : 0
+  return 0
 }
 
 const handleFiltersUpdate = (newFilters: any) => {

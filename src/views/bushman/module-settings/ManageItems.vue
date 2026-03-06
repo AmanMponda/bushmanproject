@@ -221,6 +221,14 @@
                     <option value="TROPHY_FEE">Trophy Fee</option>
                     <option value="SPECIES">Species</option>
                     <option value="PACKAGE">Package</option>
+                    <option value="SPARE_PART">Spare Part</option>
+                    <option value="LUBRICANT">Lubricant</option>
+                    <option value="TOOL">Tool</option>
+                    <option value="JOB_SERVICE">Job / Service</option>
+                    <option value="ACCOMMODATION">Accommodation</option>
+                    <option value="TRANSPORT">Transport</option>
+                    <option value="FEE">Fee</option>
+                    <option value="OTHER">Other</option>
                   </select>
                 </div>
                 <div class="col-md-6">
