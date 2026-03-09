@@ -146,10 +146,13 @@ export const useAppSidebarMenuStore = defineStore("appSidebarMenu", () => {
       ]
     },
     {
-      url: '/inspections',
-      icon: 'fa fa-clipboard-check',
-      text: 'Inspections',
+      url: '/workshops',
+      icon: 'fa fa-wrench',
+      text: 'Workshops',
       permission: 'CAN_VIEW_INSPECTIONS',
+      children: [
+        { url: '/inspections', icon: 'fa fa-clipboard-check', text: 'Inspections', permission: 'CAN_VIEW_INSPECTIONS' },
+      ]
     },
     {
       url: '/sales/requisitions',

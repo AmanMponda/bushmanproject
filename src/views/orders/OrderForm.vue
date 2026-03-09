@@ -3649,8 +3649,7 @@ const loadDropdownData = async () => {
   loading.value = true
   try {
     await Promise.all([
-      orderStore.fetchOrderTypes(),
-      orderStore.fetchOrderStatuses(),
+      // Order types and statuses are constants defined in the store — no API calls needed
       orderStore.fetchCurrencies(),
       orderStore.fetchEnquiries(),
       orderStore.fetchQuotations(),

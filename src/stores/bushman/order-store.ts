@@ -42,8 +42,22 @@ export const useOrderStore = defineStore('order', {
     orders: [] as any[],
     currentOrder: null as any,
     currentOrderTotals: null as any,
-    orderTypes: [] as any[],
-    orderStatuses: [] as any[],
+    orderTypes: [
+      { id: 'SALES', name: 'SALES', label: 'Sales Order' },
+      { id: 'PURCHASE', name: 'PURCHASE', label: 'Purchase Order' },
+      { id: 'TRANSFER', name: 'TRANSFER', label: 'Transfer Order' },
+    ],
+    orderStatuses: [
+      { id: 'DRAFT', name: 'DRAFT', label: 'Draft' },
+      { id: 'SUBMITTED', name: 'SUBMITTED', label: 'Submitted' },
+      { id: 'APPROVED', name: 'APPROVED', label: 'Approved' },
+      { id: 'AWAITING_DEPOSIT', name: 'AWAITING_DEPOSIT', label: 'Awaiting Deposit' },
+      { id: 'CONFIRMED', name: 'CONFIRMED', label: 'Confirmed' },
+      { id: 'PARTIALLY_FULFILLED', name: 'PARTIALLY_FULFILLED', label: 'Partially Fulfilled' },
+      { id: 'FULFILLED', name: 'FULFILLED', label: 'Fulfilled' },
+      { id: 'CANCELLED', name: 'CANCELLED', label: 'Cancelled' },
+      { id: 'CLOSED', name: 'CLOSED', label: 'Closed' },
+    ],
     enquiries: [] as any[],
     quotations: [] as any[],
     currencies: [] as any[],
@@ -406,47 +420,9 @@ export const useOrderStore = defineStore('order', {
       }
     },
 
-    // ==================== ORDER TYPES ====================
+    // Order types and statuses are defined as constants in state initializer
+    // No API calls needed — these are fixed enum values
 
-    async fetchOrderTypes(): Promise<any> {
-      try {
-        const config = {
-          method: 'get',
-          url: `${API_BASE}/order-types`,
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        }
-
-        const response: any = await axios.request(config)
-        this.orderTypes = response.data.data || response.data || []
-        return response
-      } catch (err: any) {
-        // Fail silently and return empty array
-        this.orderTypes = []
-      }
-    },
-
-    // ==================== ORDER STATUSES ====================
-
-    async fetchOrderStatuses(): Promise<any> {
-      try {
-        const config = {
-          method: 'get',
-          url: `${API_BASE}/order-statuses`,
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        }
-
-        const response: any = await axios.request(config)
-        this.orderStatuses = response.data.data || response.data || []
-        return response
-      } catch (err: any) {
-        // Fail silently and return empty array
-        this.orderStatuses = []
-      }
-    },
 
     // ==================== LOGISTICS TYPES ====================
 

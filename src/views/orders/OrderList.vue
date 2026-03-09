@@ -342,10 +342,7 @@ onMounted(async () => {
   orderStore.orders = []
   orderStore.loading = true
 
-  await Promise.all([
-    orderStore.fetchOrderTypes(),
-    orderStore.fetchOrderStatuses()
-  ])
+  // Order types and statuses are constants defined in the store — no API calls needed
   await orderStore.listOrders()
 })
 </script>
