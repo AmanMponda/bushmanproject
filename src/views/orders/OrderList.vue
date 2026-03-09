@@ -235,14 +235,21 @@ const calculateTotalAmount = (order: any): number => {
     const itemsSubtotal = order.items
       .filter((item: any) => {
         // Exclude TROPHY items — they are informational only
-        const fieldsToCheck = [
+        const typeFields = [
           item.item_type, item.type, item.category,
           item.item?.item_type, item.item?.type, item.item?.category,
-        ].map((f: any) => (f || '').toString().toUpperCase())
-        const isTrophy = fieldsToCheck.some(f => f === 'TROPHY' || f.includes('TROPHY'))
+        ].filter(Boolean).map((f: any) => f.toString().toUpperCase())
+        if (typeFields.some(f => f === 'TROPHY' || f.includes('TROPHY'))) return false
         const desc = (item.description || item.name || item.item?.name || '').toUpperCase()
-        const isTrophyByDesc = desc.includes('TROPHY FEE') || desc.includes('(TROPHY')
-        return !(isTrophy || isTrophyByDesc)
+        if (desc.includes('TROPHY FEE') || desc.includes('(TROPHY')) return false
+        // If type fields exist and are not trophy, include
+        if (typeFields.length > 0) return true
+        // No type info — identify non-trophy by known service patterns
+        const isKnownService =
+          desc.includes('DAY') || desc.includes('OBSERVER') || desc.includes('COMPANION') ||
+          desc.includes('HUNTER') || desc.includes('PACKAGE') || desc.includes('PER PERSON') ||
+          desc.includes('CHARTER') || desc.includes('TRANSFER') || desc.includes('ACCOMMODATION')
+        return isKnownService
       })
       .reduce((sum: number, item: any) => {
         const qty = Number(item.quantity) || 0

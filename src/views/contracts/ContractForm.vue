@@ -308,6 +308,42 @@ const getOrderPartyName = (order: any) => {
 const selectedOrder = ref<any>(null)
 const orderDataLoaded = ref(false)
 
+// Helper: detect trophy fee items (informational only — excluded from totals)
+// Trophy items are individual species/animal names; non-trophy items are packages, observers, companions etc.
+const isTrophyItem = (item: any): boolean => {
+  // 1. Check explicit type/category fields first
+  const typeFields = [
+    item.item_type, item.type, item.category,
+    item.item?.item_type, item.item?.type, item.item?.category,
+    item.item_category?.name, item.item_category?.code,
+    item.item?.item_category?.name, item.item?.item_category?.code,
+  ].filter(Boolean).map((f: any) => f.toString().toUpperCase())
+
+  if (typeFields.some(f => f === 'TROPHY' || f.includes('TROPHY'))) return true
+
+  // Check description for explicit "TROPHY FEE" text
+  const desc = (item.description || item.name || item.item_name || item.item?.name || '').toUpperCase()
+  if (desc.includes('TROPHY FEE') || desc.includes('(TROPHY')) return true
+
+  // 2. If type fields exist and are NOT trophy, it's a non-trophy item
+  if (typeFields.length > 0) return false
+
+  // 3. No type info available — identify non-trophy items by known service patterns
+  //    Everything else (individual species/animal names) is treated as trophy
+  const isKnownServiceItem =
+    desc.includes('DAY') ||        // Safari packages: "14 Days...", "21 days"
+    desc.includes('OBSERVER') ||   // Observer fees
+    desc.includes('COMPANION') ||  // Companion hunters
+    desc.includes('HUNTER') ||     // Companion hunters alt
+    desc.includes('PACKAGE') ||    // Package items
+    desc.includes('PER PERSON') || // Per-person fees
+    desc.includes('CHARTER') ||    // Charter flights
+    desc.includes('TRANSFER') ||   // Airport transfers
+    desc.includes('ACCOMMODATION') // Accommodation
+
+  return !isKnownServiceItem
+}
+
 // Methods
 const formatDate = (date: string | null | undefined) => {
   if (!date) return 'N/A'
@@ -358,15 +394,17 @@ const onOrderSelect = async () => {
     form.status = 'DRAFT'
     form.startDate = order.order_date ? order.order_date.split('T')[0] : new Date().toISOString().split('T')[0]
     form.endDate = order.expected_date ? order.expected_date.split('T')[0] : ''
-    // Calculate real total from order items + logistics
+    // Calculate real total from order items + logistics (excluding trophy fees)
     const orderItems = order.items || order.order_items || []
     const orderLogistics = order.logistics || []
-    const calcTotal = orderItems.reduce((s: number, it: any) => {
-      const qty = Number(it.quantity || it.qty || 0)
-      const rate = Number(it.rate || it.unit_price || it.price || 0)
-      const disc = Number(it.discount || 0)
-      return s + (Number(it.amount || it.total || it.line_total || 0) || (qty * rate - disc))
-    }, 0)
+    const calcTotal = orderItems
+      .filter((it: any) => !isTrophyItem(it))
+      .reduce((s: number, it: any) => {
+        const qty = Number(it.quantity || it.qty || 0)
+        const rate = Number(it.rate || it.unit_price || it.price || 0)
+        const disc = Number(it.discount || 0)
+        return s + (Number(it.amount || it.total || it.line_total || 0) || (qty * rate - disc))
+      }, 0)
     const calcLogistics = orderLogistics.reduce((s: number, l: any) => s + Number(l.estimated_amount || l.amount || 0), 0)
     const calcVat = Number(order.vat_amount || 0) || (order.vat ? (calcTotal * Number(order.vat) / 100) : 0)
     const grandTotal = Number(order.total || order.grand_total || 0) || (calcTotal + calcLogistics + calcVat + Number(order.expense_included || 0))
@@ -658,8 +696,9 @@ const downloadPreviewPdf = async () => {
       cursorY = (pdf as any).lastAutoTable.finalY + 16
     }
 
-    // ── Order Items ──
-    const items = order.items || order.order_items || []
+    // ── Order Items (excluding trophy fees) ──
+    const allItems = order.items || order.order_items || []
+    const items = allItems.filter((it: any) => !isTrophyItem(it))
     if (items.length > 0) {
       checkPageBreak()
       pdf.setFontSize(12)
@@ -811,9 +850,10 @@ const downloadPreviewPdf = async () => {
       cursorY = (pdf as any).lastAutoTable.finalY + 16
     }
 
-    // ── Financial Summary ──
+    // ── Financial Summary (trophy fees excluded) ──
     checkPageBreak()
-    const calcItemsTotal = items.reduce((s: number, it: any) => {
+    const nonTrophyItems = (order.items || order.order_items || []).filter((it: any) => !isTrophyItem(it))
+    const calcItemsTotal = nonTrophyItems.reduce((s: number, it: any) => {
       const qty = Number(it.quantity || it.qty || 0)
       const rate = Number(it.rate || it.unit_price || it.price || 0)
       const disc = Number(it.discount || 0)
