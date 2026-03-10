@@ -2,6 +2,7 @@
 import { computed, onMounted, onBeforeUnmount, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { requisitionService } from '@/stores/bushman/requisitionService'
+import { entityService } from '@/services/entityService'
 import Swal from 'sweetalert2'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
@@ -299,6 +300,26 @@ const fetchRequisition = async () => {
       console.warn('No items found in requisition data')
     }
 
+    // ── Fetch entity contacts & identities for bill payable fields ──
+    const src = requisition.value?.sources?.[0]
+    const entityId = src?.source_id || src?.entity_id || src?.entity?.id
+    if (entityId) {
+      try {
+        const [contactsRes, identitiesRes] = await Promise.all([
+          entityService.listContacts(entityId).catch(() => ({ data: [] })),
+          entityService.listIdentities(entityId).catch(() => ({ data: [] })),
+        ])
+        const contacts = contactsRes?.data || contactsRes || []
+        const identities = identitiesRes?.data || identitiesRes || []
+        // Merge into the source's entity object so the PDF renderer can read them
+        if (!src.entity) src.entity = {}
+        src.entity.contacts = Array.isArray(contacts) ? contacts : []
+        src.entity.identities = Array.isArray(identities) ? identities : []
+      } catch (e) {
+        console.warn('Could not fetch entity contacts/identities for PDF:', e)
+      }
+    }
+
     await buildPdf()
   } catch (error: any) {
     console.error('Error fetching requisition:', error)
@@ -366,7 +387,16 @@ const buildPdf = async () => {
     const modeOfPayment = source?.mode_of_payment || ''
     const currencyCode = source?.currency?.code || source?.currency?.name || totalCurrencySymbol.value || ''
     const sourceDescription = source?.description || ''
-    const remarks = requisition.value.remarks || sourceDescription || ''
+    // Auto-generate description from item names if user didn't provide one
+    let remarks = requisition.value.remarks || sourceDescription || ''
+    if (!remarks) {
+      const itemNames = detailRows.value
+        .map((row: any) => row.name)
+        .filter((n: string) => n && n !== 'Item' && n !== 'Account')
+      if (itemNames.length > 0) {
+        remarks = `BEING PAYMENT FOR ${itemNames.join(', ')}`
+      }
+    }
 
     // ── BILL PAYABLE (left) + Info box (right) ──
     const billBoxX = margin
@@ -387,13 +417,34 @@ const buildPdf = async () => {
 
     // Bill payable fields
     const billFieldsY = y + 18
+    // Extract bill payable from entity relationships (contacts + identities)
+    const entity = source?.entity
+    const entityContacts = Array.isArray(entity?.contacts) ? entity.contacts : []
+    const entityIdentities = Array.isArray(entity?.identities) ? entity.identities : []
+
+    const entityPhone = entityContacts.find((c: any) =>
+      c.contact_type_id === 2 || c.contact_type_id === 4 ||
+      (c.contact_type?.name || '').toLowerCase() === 'phone' ||
+      (c.contact_type?.name || '').toLowerCase() === 'phone_number'
+    )?.contact || ''
+    const entityAddress = entityContacts.find((c: any) =>
+      c.contact_type_id === 3 ||
+      (c.contact_type?.name || '').toLowerCase() === 'address'
+    )?.contact || ''
+    const entityTin = entityIdentities.find((i: any) =>
+      (i.identity_type?.name || '').toLowerCase() === 'tin'
+    )?.identity_number || ''
+    const entityVrn = entityIdentities.find((i: any) =>
+      (i.identity_type?.name || '').toLowerCase() === 'vrn'
+    )?.identity_number || ''
+
     const billFields: [string, string][] = [
       ['Name', sourcePayee],
-      ['Address', source?.entity?.address || ''],
-      ['City', source?.entity?.city || ''],
-      ['Phone', source?.entity?.phone || ''],
-      ['TIN', source?.entity?.tin || ''],
-      ['VRN', source?.entity?.vrn || ''],
+      ['Address', source?.payee_address || entity?.address || entityAddress || ''],
+      ['City', source?.payee_city || entity?.city || ''],
+      ['Phone', source?.payee_phone || entity?.phone || entityPhone || ''],
+      ['TIN', source?.payee_tin || entity?.tin || entityTin || ''],
+      ['VRN', source?.payee_vrn || entity?.vrn || entityVrn || ''],
     ]
     const bfRowH = 14
     const bfLabelW = 55
@@ -492,7 +543,7 @@ const buildPdf = async () => {
     y = Math.max(billFieldsY + billFields.length * bfRowH, infoStartY + infoTotalH) + 10
 
     // ── COST CENTER bar ──
-    const costCenter = requisition.value.branch?.name || ''
+    const costCenter = 'BUSHMAN SAFARI - MOROGORO'
     pdf.setDrawColor(0)
     pdf.rect(margin, y, pageWidth - margin * 2, 16, 'S')
     pdf.setFont('helvetica', 'bold')

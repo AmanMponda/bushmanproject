@@ -712,6 +712,9 @@ const handleProceed = async () => {
       const token = localStorage.getItem('token')
       const authHeaders = token ? { Authorization: `Bearer ${token}` } : {}
 
+      const userDataStr = localStorage.getItem('user')
+      const currentUserId = userDataStr ? JSON.parse(userDataStr)?.id : null
+
       const response = await axios.post(
         apiBaseUrl + 'entities',
         {
@@ -721,7 +724,8 @@ const handleProceed = async () => {
           status: 'ACTIVE',
           country_id: entityPayload.country_id,
           nationality_id: entityPayload.nationality_id,
-          contacts: entityPayload.contacts
+          contacts: entityPayload.contacts,
+          user_id: currentUserId
         },
         {
           headers: { 'Content-Type': 'application/json', ...authHeaders }

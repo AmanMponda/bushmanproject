@@ -1390,11 +1390,15 @@ const fetchMetadata = async () => {
 
 const fetchEntityDetails = async (id: number) => {
   try {
-    const response = await entityService.get(id)
-    const entity = response.data
+    const [entityRes, identitiesRes] = await Promise.all([
+      entityService.get(id),
+      entityService.listIdentities(id)
+    ])
+    const entity = entityRes.data || entityRes
     viewEntity.value = entity
     viewContacts.value = entity.contacts || []
-    viewIdentities.value = entity.identities || []
+    const idData = identitiesRes?.data || []
+    viewIdentities.value = Array.isArray(idData) ? idData : []
     viewCategories.value = entity.categories || []
   } catch (error: any) {
     handleErrors(error?.response?.data || error)
@@ -1517,6 +1521,9 @@ const saveEntity = async () => {
 
   saving.value = true
   try {
+    const userData = localStorage.getItem('user')
+    const currentUserId = userData ? JSON.parse(userData)?.id : null
+
     const payload: any = {
       code: entityForm.code || undefined,
       full_name: entityForm.full_name,
@@ -1529,7 +1536,8 @@ const saveEntity = async () => {
       base_currency_id: entityForm.base_currency_id?.id || undefined,
       is_group: entityForm.is_group,
       parent_entity_id: entityForm.parent_entity_id?.id || undefined,
-      notes: entityForm.notes || undefined
+      notes: entityForm.notes || undefined,
+      user_id: currentUserId
     }
 
     // Add type-specific profile

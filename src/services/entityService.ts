@@ -172,9 +172,31 @@ export const entityService = {
     })
   },
 
+  /**
+   * List all contacts for an entity
+   */
+  async listContacts(entityId: number): Promise<{ data: any[] }> {
+    const response = await axios.get(
+      `${apiBaseUrl}entities/${entityId}/contacts`,
+      { headers: getAuthHeaders() }
+    )
+    return response.data
+  },
+
   // ============================================
   // Identity Management
   // ============================================
+
+  /**
+   * List all identities for an entity
+   */
+  async listIdentities(entityId: number): Promise<{ data: any[] }> {
+    const response = await axios.get(
+      `${apiBaseUrl}entities/${entityId}/identities`,
+      { headers: getAuthHeaders() }
+    )
+    return response.data
+  },
 
   /**
    * Add an identity to an entity
@@ -193,9 +215,11 @@ export const entityService = {
       }
     }
   ): Promise<{ data: any }> {
+    const userData = localStorage.getItem('user')
+    const currentUserId = userData ? JSON.parse(userData)?.id : null
     const response = await axios.post(
       `${apiBaseUrl}entities/${entityId}/identities`,
-      identity,
+      { ...identity, user_id: currentUserId },
       { headers: getAuthHeaders() }
     )
     return response.data

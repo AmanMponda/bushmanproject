@@ -21,7 +21,7 @@ type RequisitionStatus =
   | 'CLOSED'
 
 type FundDirection = 'WITHDRAW' | 'EXPENSE'
-type SourceType = 'CASH' | 'STORE' | 'PARTIES' | 'VENDOR' | 'SERVICE_PROVIDER'
+type SourceType = 'CASH' | 'STORE' | 'VENDOR' | 'SERVICE_PROVIDER'
 type ModeOfPayment = 'CASH' | 'TT' | 'CREDIT'
 type TaxMethod = 'EXCLUSIVE' | 'INCLUSIVE' | 'EXEMPT'
 type DiscountMethod = 'PERCENT' | 'LS'
@@ -162,6 +162,11 @@ type SourceLine = {
   sourceId: number | null
   accountId: number | null
   payee: string
+  payeeAddress: string
+  payeeCity: string
+  payeePhone: string
+  payeeTin: string
+  payeeVrn: string
   modeOfPayment: ModeOfPayment | null
   currencyId: number | null
   exchangeRate: number
@@ -294,6 +299,11 @@ const form = reactive({
     sourceId: null,
     accountId: null,
     payee: '',
+    payeeAddress: '',
+    payeeCity: '',
+    payeePhone: '',
+    payeeTin: '',
+    payeeVrn: '',
     modeOfPayment: null,
     currencyId: null,
     exchangeRate: 1,
@@ -566,6 +576,11 @@ const resetForm = () => {
     sourceId: null,
     accountId: null,
     payee: '',
+    payeeAddress: '',
+    payeeCity: '',
+    payeePhone: '',
+    payeeTin: '',
+    payeeVrn: '',
     modeOfPayment: null,
     currencyId: form.currencyId,
     exchangeRate: 1,
@@ -836,10 +851,38 @@ const loadMetadata = async () => {
     }))
 
     const ents = metadata.entities || []
-    entities.value = (Array.isArray(ents) ? ents : []).map((entity: any) => ({
-      id: entity.id,
-      name: entity.full_name || entity.name || entity.nick_name || `Entity ${entity.id}`,
-    }))
+    entities.value = (Array.isArray(ents) ? ents : []).map((entity: any) => {
+      // Extract contact details from nested contacts array (contact_type_id: 2/4=phone, 3=address)
+      const contacts = Array.isArray(entity.contacts) ? entity.contacts : []
+      const phoneContact = contacts.find((c: any) =>
+        c.contact_type_id === 2 || c.contact_type_id === 4 ||
+        (c.contact_type?.name || '').toLowerCase() === 'phone' ||
+        (c.contact_type?.name || '').toLowerCase() === 'phone_number'
+      )?.contact || ''
+      const addressContact = contacts.find((c: any) =>
+        c.contact_type_id === 3 ||
+        (c.contact_type?.name || '').toLowerCase() === 'address'
+      )?.contact || ''
+
+      // Extract identities from nested identities array (identity_type.name: TIN, VRN)
+      const identities = Array.isArray(entity.identities) ? entity.identities : []
+      const tinIdentity = identities.find((i: any) =>
+        (i.identity_type?.name || '').toLowerCase() === 'tin'
+      )?.identity_number || ''
+      const vrnIdentity = identities.find((i: any) =>
+        (i.identity_type?.name || '').toLowerCase() === 'vrn'
+      )?.identity_number || ''
+
+      return {
+        id: entity.id,
+        name: entity.full_name || entity.name || entity.nick_name || `Entity ${entity.id}`,
+        address: entity.address || entity.physical_address || entity.postal_address || addressContact || '',
+        city: entity.city || entity.town || '',
+        phone: entity.phone || entity.phone_number || entity.mobile || entity.telephone || phoneContact || '',
+        tin: entity.tin || entity.tax_identification_number || tinIdentity || '',
+        vrn: entity.vrn || entity.vat_registration_number || vrnIdentity || '',
+      }
+    })
     
     // Map dimension types and values if available
     const dimTypes = metadata.dimension_types || metadata.accounting_dimension_types || []
@@ -965,6 +1008,11 @@ const openEditForm = (req: any) => {
       sourceId: existingSource.source_id || existingSource.sourceId || null,
       accountId: existingSource.account_id || existingSource.accountId || existingSource.source_id || null,
       payee: existingSource.payee || '',
+      payeeAddress: existingSource.payee_address || existingSource.address || existingSource.entity?.address || '',
+      payeeCity: existingSource.payee_city || existingSource.city || existingSource.entity?.city || '',
+      payeePhone: existingSource.payee_phone || existingSource.phone || existingSource.entity?.phone || '',
+      payeeTin: existingSource.payee_tin || existingSource.tin || existingSource.entity?.tin || '',
+      payeeVrn: existingSource.payee_vrn || existingSource.vrn || existingSource.entity?.vrn || '',
       modeOfPayment: existingSource.mode_of_payment || existingSource.modeOfPayment || null,
       currencyId: form.currencyId,
       // Requisition currency is authoritative; always set exchangeRate to 1 unless provided
@@ -978,6 +1026,11 @@ const openEditForm = (req: any) => {
       sourceId: null,
       accountId: null,
       payee: '',
+      payeeAddress: '',
+      payeeCity: '',
+      payeePhone: '',
+      payeeTin: '',
+      payeeVrn: '',
       modeOfPayment: null,
       currencyId: form.currencyId,
       exchangeRate: 1,
@@ -1123,7 +1176,7 @@ const validateForm = async () => {
     })
     return false
   }
-  const inferredSourceType = form.source?.sourceType || (form.source?.payee ? 'VENDOR' : null)
+  const inferredSourceType = form.source?.sourceType || null
   if (!inferredSourceType) {
     await Swal.fire({
       icon: 'warning',
@@ -1152,20 +1205,11 @@ const validateForm = async () => {
       })
       return false
     }
-    if (inferredSourceType === 'PARTIES' && !form.source.sourceId) {
+    if ((inferredSourceType === 'VENDOR' || inferredSourceType === 'SERVICE_PROVIDER') && !form.source.sourceId) {
       await Swal.fire({
         icon: 'warning',
         title: 'Validation Error',
-        text: 'Select an entity for PARTIES source type.',
-        confirmButtonColor: '#2563eb'
-      })
-      return false
-    }
-    if ((inferredSourceType === 'VENDOR' || inferredSourceType === 'SERVICE_PROVIDER') && !form.source.payee) {
-      await Swal.fire({
-        icon: 'warning',
-        title: 'Validation Error',
-        text: 'Enter a payee for VENDOR or SERVICE PROVIDER source type.',
+        text: 'Select an entity for VENDOR or SERVICE PROVIDER source type.',
         confirmButtonColor: '#2563eb'
       })
       return false
@@ -1483,9 +1527,14 @@ const saveForm = async (asDraft = false) => {
         const sourceType = s.sourceType || (s.payee ? 'VENDOR' : null)
         return {
           source_type: sourceType,
-          source_id: sourceType === 'STORE' || sourceType === 'PARTIES' ? s.sourceId : null,
+          source_id: sourceType === 'STORE' || sourceType === 'VENDOR' || sourceType === 'SERVICE_PROVIDER' ? s.sourceId : null,
           account_id: sourceType === 'CASH' ? s.accountId : null,
           payee: s.payee || null,
+          payee_address: s.payeeAddress || null,
+          payee_city: s.payeeCity || null,
+          payee_phone: s.payeePhone || null,
+          payee_tin: s.payeeTin || null,
+          payee_vrn: s.payeeVrn || null,
           mode_of_payment: s.modeOfPayment,
           currency_id: s.currencyId || form.currencyId,
           exchange_rate: s.exchangeRate,

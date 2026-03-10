@@ -1063,10 +1063,13 @@ const saveIdentities = async () => {
   if (!viewSupplier.value?.id) return
   saving.value = true
   try {
+    const userData = localStorage.getItem('user')
+    const currentUserId = userData ? JSON.parse(userData)?.id : null
+
     const createPromises = viewIdentities.value
       .filter((i: any) => !i.id && i.identity_number)
       .map((identity: any) =>
-        axios.post(`${apiBaseUrl}company-entities/${viewSupplier.value.id}/identities`, identity, {
+        axios.post(`${apiBaseUrl}company-entities/${viewSupplier.value.id}/identities`, { ...identity, user_id: currentUserId }, {
           headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }
         })
       )

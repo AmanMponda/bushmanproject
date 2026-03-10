@@ -185,6 +185,7 @@ export interface CreateEntityRequest {
   is_group?: boolean
   parent_entity_id?: number | null
   notes?: string
+  user_id?: number | null
 
   company_profile?: Partial<CompanyProfile>
   individual_profile?: Partial<IndividualProfile>

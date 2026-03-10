@@ -72,8 +72,10 @@ const sourceSelection = computed<any>({
     let valueString: string | null = null
     if (source.sourceType === 'CASH' && source.accountId) {
       valueString = `CASH:${source.accountId}`
-    } else if ((source.sourceType === 'STORE' || source.sourceType === 'PARTIES') && source.sourceId) {
-      valueString = `${source.sourceType}:${source.sourceId}`
+    } else if (source.sourceType === 'STORE' && source.sourceId) {
+      valueString = `STORE:${source.sourceId}`
+    } else if ((source.sourceType === 'VENDOR' || source.sourceType === 'SERVICE_PROVIDER') && source.sourceId) {
+      valueString = `ENTITY:${source.sourceId}`
     }
 
     if (!valueString) return null
@@ -114,12 +116,22 @@ const sourceSelection = computed<any>({
       if (location && !source.payee) {
         source.payee = location.name
       }
-    } else if (type === 'PARTIES') {
+    } else if (type === 'ENTITY') {
       source.accountId = null
       source.sourceId = parsedId
+      // Default source type to VENDOR for entity selections
+      if (!source.sourceType || !['VENDOR', 'SERVICE_PROVIDER'].includes(source.sourceType)) {
+        source.sourceType = 'VENDOR'
+      }
       const entity = (entities.value || []).find((e: any) => e.id === parsedId)
-      if (entity && !source.payee) {
+      if (entity) {
         source.payee = entity.name
+        // Auto-populate bill payable details from entity
+        source.payeeAddress = (entity as any).address || ''
+        source.payeeCity = (entity as any).city || ''
+        source.payeePhone = (entity as any).phone || ''
+        source.payeeTin = (entity as any).tin || ''
+        source.payeeVrn = (entity as any).vrn || ''
       }
     }
   },
@@ -169,7 +181,7 @@ const countValidItems = (items: any[]) => {
 const getSourceType = () => {
   const source = form.value?.source
   if (!source) return null
-  return source.sourceType || (source.payee ? 'VENDOR' : null)
+  return source.sourceType || null
 }
 
 const isSourceValid = computed(() => {
@@ -178,7 +190,7 @@ const isSourceValid = computed(() => {
   if (!source || !sourceType) return false
   if (sourceType === 'CASH') return !!source.accountId
   if (sourceType === 'STORE' || sourceType === 'PARTIES') return !!source.sourceId
-  if (sourceType === 'VENDOR' || sourceType === 'SERVICE_PROVIDER') return !!source.payee
+  if (sourceType === 'VENDOR' || sourceType === 'SERVICE_PROVIDER') return !!source.sourceId
   return true
 })
 
@@ -460,16 +472,16 @@ const sourceOptions = computed(() => {
     })
   }
 
-  // Party entities with group label
+  // Payee entities - single group (instead of duplicating 3x)
   if (entities.value && entities.value.length > 0) {
-    options.push({ label: 'PARTIES', value: null, $isDisabled: true, isHeader: true })
+    options.push({ label: 'PAYEES', value: null, $isDisabled: true, isHeader: true })
     entities.value.forEach((entity: any) => {
       options.push({
         label: entity.name,
-        value: `PARTIES:${entity.id}`,
+        value: `ENTITY:${entity.id}`,
         accountName: entity.name,
         code: null,
-        searchText: `${entity.name} party`
+        searchText: `${entity.name} payee party vendor service provider`
       })
     })
   }
@@ -489,6 +501,28 @@ const paymentModeOptions = [
   { label: 'Telegraph Transfer', value: 'TT' },
   { label: 'Credit', value: 'CREDIT' }
 ]
+
+// --- Entity source type options (shown when a payee entity is selected) ---
+const entitySourceTypeOptions = [
+  { label: 'Vendor', value: 'VENDOR' },
+  { label: 'Service Provider', value: 'SERVICE_PROVIDER' }
+]
+
+const isEntitySource = computed(() => {
+  const st = form.value?.source?.sourceType
+  return st === 'VENDOR' || st === 'SERVICE_PROVIDER'
+})
+
+const entitySourceTypeSelection = computed({
+  get() {
+    const st = form.value?.source?.sourceType
+    return entitySourceTypeOptions.find(o => o.value === st) || entitySourceTypeOptions[0] // default VENDOR
+  },
+  set(opt: any) {
+    if (!form.value?.source) return
+    form.value.source.sourceType = opt?.value || 'VENDOR'
+  }
+})
 
 // Computed wrapper for modeOfPayment (EXPENSE direct payment)
 const modeOfPaymentSelection = computed({
@@ -851,9 +885,23 @@ const removeCostCenter = (item: any, key: string) => {
 }
 
 // Shared cost centers at requisition level (each cost center contains items)
+const getDefaultCostCenterId = () => {
+  const options = costCenterOptions.value || []
+  // Try to find "BUSHMAN SAFARI - MOROGORO" (case-insensitive partial match)
+  const bushman = options.find((o: any) =>
+    !o.isHeader && o.value && typeof o.label === 'string' &&
+    o.label.toUpperCase().includes('BUSHMAN SAFARI')
+  )
+  if (bushman) return bushman.value
+  // Fallback: first selectable (non-header) option
+  const first = options.find((o: any) => !o.isHeader && o.value)
+  return first?.value ?? null
+}
+
 const addRequisitionCostCenter = () => {
   if (!form.value.costCenters) form.value.costCenters = []
-  form.value.costCenters.unshift({ _key: makeKey(), costCenterId: null, items: [], _expanded: true })
+  const defaultId = getDefaultCostCenterId()
+  form.value.costCenters.unshift({ _key: makeKey(), costCenterId: defaultId, items: [], _expanded: true })
 }
 
 const removeRequisitionCostCenter = (key: string) => {
@@ -914,6 +962,41 @@ const allCostCentersGrandTotal = computed(() => {
   const centers = form.value?.costCenters || []
   return centers.reduce((sum: number, cc: any) => sum + getCostCenterGrandTotal(cc), 0)
 })
+
+// Auto-generate description from selected items: "BEING PAYMENT FOR item1, item2, ..."
+const buildDescriptionFromItems = () => {
+  const costCenters = form.value?.costCenters || []
+  const names: string[] = []
+  for (const cc of costCenters) {
+    for (const item of cc.items || []) {
+      if (item.itemId) {
+        const found = (itemsOptions.value || []).find((i: any) => i.id === item.itemId)
+        if (found?.name) names.push(found.name)
+      } else if (item.accountId) {
+        const opt = (itemAccountOptions.value || []).find(
+          (o: any) => o.value === `ACCOUNT:${item.accountId}`
+        )
+        if (opt?.name) names.push(opt.name)
+      }
+    }
+  }
+  if (names.length > 0) {
+    form.value.source.description = `BEING PAYMENT FOR ${names.join(', ')}`
+  }
+}
+
+// Watch cost center items for changes and auto-update description
+watch(
+  () => {
+    const costCenters = form.value?.costCenters || []
+    return costCenters.map((cc: any) =>
+      (cc.items || []).map((item: any) => `${item.itemId || ''}-${item.accountId || ''}`).join(',')
+    ).join('|')
+  },
+  () => {
+    buildDescriptionFromItems()
+  }
+)
 
 const getItemAccountSelection = (line: any) => {
   let val: string | null = null
@@ -1345,11 +1428,22 @@ const onItemAccountSelect = (line: any, value: any, multiselectRef?: any) => {
                     </div>
                   </label>
 
-                  <label class="form-field col-md-6">
+                  <label v-if="isEntitySource" class="form-field col-md-3">
+                    <span class="form-label">Source Type</span>
+                    <div class="form-input-wrapper has-v-select">
+                      <span class="form-input-icon"><i class="fa fa-tag"></i></span>
+                      <v-select v-model="entitySourceTypeSelection" class="v-select-field"
+                        :options="entitySourceTypeOptions" label="label" :reduce="(option: any) => option"
+                        :clearable="false" :append-to-body="true" placeholder="Select type...">
+                      </v-select>
+                    </div>
+                  </label>
+
+                  <label :class="isEntitySource ? 'form-field col-md-3' : 'form-field col-md-6'">
                     <span class="form-label">Payee</span>
                     <div class="form-input-wrapper">
                       <span class="form-input-icon"><i class="fa fa-user"></i></span>
-                      <input v-model="form.source.payee" type="text" class="form-control" placeholder="Payee name" />
+                      <input v-model="form.source.payee" type="text" class="form-control" placeholder="—" readonly disabled />
                     </div>
                   </label>
                 </div>

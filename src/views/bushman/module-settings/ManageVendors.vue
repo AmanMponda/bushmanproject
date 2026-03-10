@@ -817,6 +817,9 @@ async function updateVendor() {
 }
 
 function buildPayload() {
+  const userData = localStorage.getItem('user')
+  const currentUserId = userData ? JSON.parse(userData)?.id : null
+
   const payload: any = {
     entity_type: form.entity_type,
     name: form.name,
@@ -827,6 +830,7 @@ function buildPayload() {
     status: 'ACTIVE',
     is_group: 0,
     parent_entity_id: null,
+    user_id: currentUserId,
     
     // Entity category assignment
     entity_categories: [

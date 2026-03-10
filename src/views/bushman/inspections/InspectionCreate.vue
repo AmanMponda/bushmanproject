@@ -91,6 +91,7 @@
             </div>
 
             <!-- Handler -->
+             <!-- for the handlers -->
             <div v-if="form.accountingDimension" class="col-md-4">
               <label class="form-label">Handler <span class="text-danger">*</span></label>
               <Multiselect

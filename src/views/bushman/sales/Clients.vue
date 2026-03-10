@@ -702,9 +702,13 @@ const closeEditModal = () => {
 const saveClient = async () => {
   saving.value = true
   try {
+    const userData = localStorage.getItem('user')
+    const currentUserId = userData ? JSON.parse(userData)?.id : null
+
     const payload = {
       ...clientForm.value,
-      category_id: clientCategoryId.value
+      category_id: clientCategoryId.value,
+      user_id: currentUserId
     }
 
     if (editingClient.value) {
@@ -812,10 +816,13 @@ const saveIdentities = async () => {
   if (!viewClient.value?.id) return
   saving.value = true
   try {
+    const userData = localStorage.getItem('user')
+    const currentUserId = userData ? JSON.parse(userData)?.id : null
+
     const createPromises = viewIdentities.value
       .filter((i: any) => !i.id && i.identity_number)
       .map((identity: any) =>
-        axios.post(`${apiBaseUrl}entities/${viewClient.value.id}/identities`, identity, {
+        axios.post(`${apiBaseUrl}entities/${viewClient.value.id}/identities`, { ...identity, user_id: currentUserId }, {
           headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }
         })
       )

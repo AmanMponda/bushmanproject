@@ -413,6 +413,9 @@ async function onSubmit() {
 
   try {
     // Prepare payload according to V1 MVP specs
+    const userData = localStorage.getItem('user')
+    const currentUserId = userData ? JSON.parse(userData)?.id : null
+
     const payload: any = {
       // Basic entity info
       type: form.entity_type,
@@ -425,6 +428,7 @@ async function onSubmit() {
       status: form.status,
       is_group: form.is_group,
       parent_entity_id: form.parent_entity_id,
+      user_id: currentUserId,
       
       // Category assignment
       categories: [
